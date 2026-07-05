@@ -58,7 +58,7 @@ That signature covers **all** Lorelum repositories. You only sign once, ever.
 
 **Why we require a CLA.** Lorelum is open-core: the core engine is open source (Apache 2.0), but we also ship closed-source SaaS and enterprise tiers. The CLA grants us the right to sublicense your contribution into both open and closed releases. You **keep your copyright** — this is the standard license-style model used by Apache, Google, and HashiCorp.
 
-- Read the full text: [`.cla/cla.md`](./.cla/cla.md)
+- Read the full text: [CLA (Gist)](https://gist.github.com/TatsukiMeng/407a0f07f61da9b71557d7fd0754a0ec)
 - We use [cla-assistant.io](https://cla-assistant.io/) — a free, open-source GitHub App.
 
 A PR cannot be merged until the CLA check passes. This protects the entire Lorelum codebase from IP contamination (a single unsigned contribution would break the licensing foundation).
