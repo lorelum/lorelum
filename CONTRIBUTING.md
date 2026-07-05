@@ -105,25 +105,99 @@ Before opening a new issue, please search existing ones to avoid duplicates.
 
 ## Commit conventions
 
-We use [Conventional Commits](https://www.conventionalcommits.org/):
+We use [Conventional Commits](https://www.conventionalcommits.org/). Every commit and every PR title follows the same format:
 
 ```
 <type>(<scope>): <subject>
 
 [optional body]
+
+[optional footer(s)]
 ```
 
-**Types:** `feat`, `fix`, `spec`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`.
+### Type (required)
 
-Examples:
+| Type | Use for |
+|---|---|
+| `feat` | A new feature |
+| `fix` | A bug fix |
+| `perf` | A change that improves performance |
+| `refactor` | A code change that neither fixes a bug nor adds a feature |
+| `docs` | Documentation only |
+| `test` | Adding or correcting tests |
+| `build` | Changes to the build system or dependencies |
+| `ci` | Changes to CI configuration |
+| `chore` | Routine maintenance, tooling, repo config |
+
+### Scope (optional but encouraged)
+
+A short noun identifying the area of the change — e.g. `cli`, `engine`, `format`, `mcp`, `docs`, `readme`. Omit the parentheses if it doesn't fit.
+
+### Subject (required)
+
+- Imperative, present tense: "add", not "added" or "adds".
+- Lowercase first letter, no trailing period.
+- ≤ 72 characters.
+- Specific, not generic: `add decide command with decision-graph evaluator`, not `update cli`.
+
+### Body (optional)
+
+- One blank line after the subject.
+- Explain **what and why**, not how (the diff shows the how).
+- Wrap at ~72 characters.
+- Use `-` bullets for lists.
+
+### Footer (optional)
+
+- One blank line before the footer.
+- Used for: breaking changes (`BREAKING CHANGE: <description>`), issue closing (`Closes #123`), co-authors (`Co-authored-by: name <email>`).
+
+### Examples
+
+**Simple (most commits):**
 ```
-feat(cli): add `lore decide` with decision-graph evaluator
-fix(engine): handle empty practice list in retrieval
-spec(format): define anti-pattern frontmatter schema
 docs(readme): add 5-minute tour section
 ```
 
-Scope is optional but encouraged for clarity.
+**With body:**
+```
+fix(engine): handle empty practice list in retrieval
+
+Returning an empty array when no Practices match caused the CLI to
+print a confusing "no results" message. Now it suggests related packs
+and the `lore learn` workflow.
+```
+
+**Breaking change:**
+```
+feat(format)!: rename `applies_when` to `trigger`
+
+BREAKING CHANGE: the Practice frontmatter field `applies_when` is now
+`trigger`. Existing packs must update their frontmatter.
+```
+
+**Closing an issue:**
+```
+feat(cli): add `lore decide` with decision-graph evaluator
+
+Closes #42
+```
+
+## PR titles
+
+Because we **squash-merge**, the PR title becomes the commit message on `main`. So PR titles **must follow the same Conventional Commits format** as commits.
+
+✅ Good:
+- `feat(cli): add lore decide command`
+- `fix(engine): handle empty practice list in retrieval`
+- `docs: refresh README 5-minute tour`
+
+❌ Avoid:
+- `update` (no type, no detail)
+- `fixed the bug` (no type, lowercase scope missing)
+- `Feat: added a new CLI command!!!` (uppercase, trailing punctuation, vague)
+
+If a PR spans multiple types, pick the **most significant** change as the type (usually `feat` or `fix`). Split the PR if the types are equally significant.
 
 ## Testing & CI
 
