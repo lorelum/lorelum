@@ -10,6 +10,7 @@ Thanks for your interest in contributing to Lorelum! This doc explains how we wo
 
 - [Code of Conduct](#code-of-conduct)
 - [Development environment](#development-environment)
+- [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
 - [How we work: issue-driven, design-first](#how-we-work-issue-driven-design-first)
 - [Reporting bugs & proposing features](#reporting-bugs--proposing-features)
 - [Development workflow](#development-workflow)
@@ -44,6 +45,23 @@ cd lorelum
 ```
 
 Once the build system is in place, this section will document the exact build, test, and lint commands.
+
+## Contributor License Agreement (CLA)
+
+Before we can merge your first pull request, you need to sign our CLA. It's quick and one-time:
+
+1. Open a PR as usual.
+2. The **CLA assistant** bot will comment on your PR with a link.
+3. Click it, confirm via GitHub OAuth, and you're done — **a few seconds**.
+
+That signature covers **all** Lorelum repositories. You only sign once, ever.
+
+**Why we require a CLA.** Lorelum is open-core: the core engine is open source (Apache 2.0), but we also ship closed-source SaaS and enterprise tiers. The CLA grants us the right to sublicense your contribution into both open and closed releases. You **keep your copyright** — this is the standard license-style model used by Apache, Google, and HashiCorp.
+
+- Read the full text: [`.cla/cla.md`](./.cla/cla.md)
+- We use [cla-assistant.io](https://cla-assistant.io/) — a free, open-source GitHub App.
+
+A PR cannot be merged until the CLA check passes. This protects the entire Lorelum codebase from IP contamination (a single unsigned contribution would break the licensing foundation).
 
 ## How we work: issue-driven, design-first
 
@@ -231,7 +249,7 @@ Lorelum's value is in its knowledge packs. Contributing a Practice is a first-cl
 
 ## Becoming a maintainer
 
-Regular, high-quality contributors may be invited to become maintainers. Maintainers get triage rights, review responsibilities, and (later) a CLA on file. If you're interested, just tell us in Discussions — we're a small project and growing the team is the goal.
+Regular, high-quality contributors may be invited to become maintainers. Maintainers get triage rights, review responsibilities, and a say in project direction. If you're interested, just tell us in Discussions — we're a small project and growing the team is the goal.
 
 ---
 
