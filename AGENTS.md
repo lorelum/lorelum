@@ -4,75 +4,38 @@
 
 ## Project
 
-Lorelum is an engineering-knowledge infrastructure for AI coding agents. It retrieves team "Practices" (discrete engineering guidelines) and injects them into AI context on demand. This repo holds the core engine, CLI (`lore`), local MCP server, and format spec — written in **TypeScript on Node.js**, managed with **pnpm workspaces**.
+Lorelum is an engineering-knowledge infrastructure for AI coding agents. It retrieves team "Practices" (discrete engineering guidelines) and injects them into AI context on demand. This repo will hold the core engine, CLI (`lore`), local MCP server, and format spec.
+
+> ⚠️ **The codebase doesn't exist yet.** The language, toolchain, and project layout are undecided. The commands and conventions below will be filled in once the scaffolding lands. Treat this file as a statement of *how we want to work*, not a description of a build system that exists today.
 
 The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). This repo does not contain knowledge-pack content.
 
 ## Layout
 
-```
-/
-├── src/
-│   ├── cli/            # `lore` CLI entry (commander-based)
-│   ├── engine/         # retrieval engine (embed + metadata + graph)
-│   ├── format/         # Practice / pack.yaml / decisions.yaml parsing
-│   └── mcp/            # local MCP server
-├── tests/              # unit + integration tests (Vitest)
-├── docs/               # user-facing docs site source
-├── AGENTS.md           # ← you are here
-├── CONTRIBUTING.md     # human workflow (don't duplicate here)
-└── README.md
-```
+> The source tree isn't established yet — Lorelum is in the scaffolding phase. This section will be filled in once the codebase takes shape. For now, the repo contains project docs and governance files only (`README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `LICENSE`, `.github/`).
 
-**Key directories to understand before changing things:**
-- `src/format/` — the Practice/pack schema is the product's contract. Changes here are high-impact; see CONTRIBUTING.md for the spec-change process.
-- `src/engine/` — retrieval logic. Performance-sensitive; benchmark before changing.
+**When the codebase lands**, the product contract to be aware of:
+- **Practice / pack format** — the public schema that packs and users depend on. Changes are high-impact; see CONTRIBUTING.md.
+- **Retrieval engine** — performance-sensitive; benchmark before changing.
 
 ## Commands
 
-All commands run from repo root via pnpm.
-
-```bash
-pnpm install          # install deps (first time only)
-pnpm build            # build all packages
-pnpm test             # run all tests
-pnpm test -- <path>   # run a single test file
-pnpm test:watch       # watch mode
-pnpm lint             # ESLint
-pnpm format           # Prettier (write)
-pnpm typecheck        # tsc --noEmit across the workspace
-```
-
-**Before opening a PR, all of these must pass:**
-
-```bash
-pnpm lint && pnpm typecheck && pnpm test
-```
+> ⏳ **Toolchain undecided.** Build, test, and lint commands will be documented here once the language and package manager are chosen. Until then, refer to any `package.json` / manifest that appears in the repo root, and keep CI green on whatever it runs.
 
 ## Code style
 
-- **TypeScript strict mode.** No `any` without a `// reason:` comment justifying it.
-- **Functional, composable.** Prefer pure functions and small modules. Avoid class hierarchies unless modeling stateful resources.
-- **Error handling:** throw typed errors (`PracticeNotFoundError`, `ParseError`), never bare `Error` or strings. Let CLI/MCP layers translate to user-facing messages.
-- **Naming:** `camelCase` for variables/functions, `PascalCase` for types/interfaces, `kebab-case` for files.
-- **Imports:** use `type` imports for types (`import type { Practice } from ...`).
+> Toolchain-specific style rules will be added once the language is fixed. The principles below are language-agnostic and apply from day one.
 
-**Example do/don't:**
-
-```ts
-// ❌ don't
-function get(id: any): any { ... }
-
-// ✅ do
-import type { Practice } from '../format/types.js'
-function getPractice(id: string): Promise<Practice> { ... }
-```
+- **Small, composable modules.** Prefer pure functions. Avoid deep class hierarchies unless modeling genuine state.
+- **Typed errors over bare strings.** Throw specific error types; let the CLI/MCP boundary translate them into user-facing messages. Never throw a bare string.
+- **No silent failures.** A function that can fail should signal it explicitly (typed error, Result, or similar) — not return `null` and hope.
+- **Naming:** consistent with the chosen language's prevailing conventions. Whatever they are, apply them uniformly.
 
 ## Testing
 
-- New code ships with tests. No exceptions for `engine/` or `format/`.
-- Colocate tests with source: `engine/retrieval.ts` → `engine/retrieval.test.ts`.
-- Use Vitest. Mock filesystem and network — never hit the real registry in unit tests.
+- New code ships with tests. No exceptions for the format/parser and retrieval layers.
+- Test framework and file layout will be documented here once the toolchain is chosen. Until then, colocate tests with source in whatever convention the language community uses.
+- **Mock filesystem and network** — never hit the real registry in unit tests.
 - When fixing a bug, add a regression test that fails before the fix and passes after.
 
 ## Git workflow
@@ -91,7 +54,7 @@ function getPractice(id: string): Promise<Practice> { ... }
 - `.github/workflows/` release/publish steps.
 
 **Do not run:**
-- `npm publish` / `pnpm publish` — releases are CI-only.
+- Any package-publish command (e.g. `npm publish`, `pnpm publish`, or the chosen toolchain's equivalent) — releases are CI-only.
 - Anything that posts to the public registry without approval.
 
 **Be careful with:**

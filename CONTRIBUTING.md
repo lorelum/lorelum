@@ -27,10 +27,11 @@ Everyone participating in Lorelum is expected to follow our [Code of Conduct](./
 
 ## Development environment
 
-**Prerequisites**
+> ⏳ **Toolchain undecided.** Lorelum's language and package manager aren't locked in yet, so the prerequisites below will be updated once the scaffolding lands. For now, all you need is Git and a text editor to contribute to docs and governance files.
 
-- [Node.js](https://nodejs.org/) ≥ 20 (use [fnm](https://github.com/Schniz/fnm) or [nvm](https://github.com/nvm-sh/nvm) to manage versions)
-- [pnpm](https://pnpm.io/) ≥ 9 — we use pnpm workspaces
+**Prerequisites (once code lands)**
+
+- The language runtime and package manager — to be confirmed. Watch this section.
 - Git ≥ 2.30
 
 **Setup**
@@ -38,18 +39,10 @@ Everyone participating in Lorelum is expected to follow our [Code of Conduct](./
 ```bash
 git clone https://github.com/lorelum/lorelum.git
 cd lorelum
-pnpm install
+# install step will appear here once the toolchain is chosen
 ```
 
-Verify everything works:
-
-```bash
-pnpm build
-pnpm test
-pnpm lint
-```
-
-That's it — you're ready to code.
+Once the build system is in place, this section will document the exact build, test, and lint commands.
 
 ## How we work: issue-driven, design-first
 
@@ -96,7 +89,7 @@ Before opening a new issue, please search existing ones to avoid duplicates.
    git checkout -b feat/cli-decide-command
    ```
 4. **Implement.** Follow [AGENTS.md](./AGENTS.md) for repo conventions. Keep PRs focused — one issue per PR.
-5. **Test locally.** `pnpm test` must pass. Add tests for new behavior.
+5. **Test locally.** Whatever the test command turns out to be, it must pass. Add tests for new behavior.
 6. **Open a PR.** Fill in the [PR template](./.github/PULL_REQUEST_TEMPLATE.md). Link the issue (`Closes #123`).
 7. **Review.** A maintainer will review. Address feedback with new commits (don't force-push mid-review unless asked).
 8. **Merge.** Squash-merge into `main`.
@@ -134,13 +127,14 @@ Scope is optional but encouraged for clarity.
 
 ## Testing & CI
 
-- **Unit tests:** colocated with source (`*.test.ts`). Use Vitest.
-- **Run tests:** `pnpm test` (or `pnpm test -- path/to/file` for a single file).
-- **Coverage:** aim to keep or improve coverage on touched code. New behavior needs tests.
-- **Lint:** `pnpm lint` must pass (ESLint + Prettier).
-- **Typecheck:** `pnpm typecheck` must pass (no `any` leaks without justification).
+> ⏳ Test runner and lint tooling will be confirmed with the language choice. The expectations below apply regardless of stack.
 
-CI runs on every PR: `build`, `lint`, `typecheck`, `test`. A PR cannot merge until all are green.
+- **Unit tests ship with new code.** Colocate tests with source in whatever convention the language community uses.
+- **Coverage:** aim to keep or improve coverage on touched code. New behavior needs tests.
+- **Lint and typecheck:** whatever the chosen toolchain provides, it must pass. No silencing the type checker or linter without justification in the PR.
+- **Mock filesystem and network in unit tests** — never hit the real registry.
+
+CI will run build, lint, and test on every PR once the toolchain is set up. A PR cannot merge until all gates are green.
 
 ## AI-assisted contributions
 
@@ -150,7 +144,7 @@ We actively welcome contributions made with AI coding assistants. A few rules to
 2. **You are responsible for the diff.** "The AI wrote it" is never a defense for bugs, broken tests, or license issues. Review every line.
 3. **Disclose AI assistance.** In the PR description, check the "AI-assisted" box and briefly note which parts were AI-generated. This helps reviewers focus.
 4. **No large AI-generated dump PRs.** Keep PRs focused and reviewable. If an agent produces a 1000-line diff, break it into smaller PRs.
-5. **Tests still apply.** AI-generated code must pass the same lint, typecheck, and test gates.
+5. **Tests still apply.** AI-generated code must pass the same lint, type-check, and test gates as hand-written code.
 
 ## Knowledge-pack contributions
 

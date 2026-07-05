@@ -23,7 +23,7 @@ Closes #
 - [ ] Linked the issue this closes (`Closes #xxx`)
 - [ ] If this changes product behavior (Practice format, retrieval, CLI surface), the design was discussed in the issue / Discussions first
 - [ ] Added/updated tests for the change
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` all pass locally
+- [ ] Lint, type-check, and tests all pass locally
 - [ ] Updated relevant documentation
 - [ ] No secrets, credentials, or private info in the diff
 
