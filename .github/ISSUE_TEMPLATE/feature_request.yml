@@ -1,0 +1,74 @@
+name: ✨ Feature request
+description: Propose a new feature or improvement
+title: "[feat] "
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature! Tell us the problem first, then the solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can't you do today, or what's painful? Who does this affect?
+      placeholder: "As a developer using Lorelum with Cursor, I can't ... because ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposed solution
+      description: What should Lorelum do? Be concrete — describe the behavior or command you'd like.
+      placeholder: "I want `lore ...` to ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other ways could this be solved? Why is yours better?
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: When is this "done"? Bullet the testable outcomes.
+      placeholder: |
+        - [ ] `lore ...` does X
+        - [ ] docs updated
+        - [ ] tests cover Y
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - CLI (`lore`)
+        - Retrieval engine
+        - MCP server
+        - Practice / pack format
+        - Decision graph (`decisions.yaml`)
+        - Registry
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and Discussions and this is not a duplicate.
+          required: true
+        - label: I understand this is a proposal — maintainers will decide if/when it's picked up, and a spec may be required.
+          required: true
