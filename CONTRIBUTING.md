@@ -10,10 +10,11 @@ Thanks for your interest in contributing to Lorelum! This doc explains how we wo
 
 - [Code of Conduct](#code-of-conduct)
 - [Development environment](#development-environment)
-- [How we work: spec-driven + issue-driven](#how-we-work-spec-driven--issue-driven)
+- [How we work: issue-driven, design-first](#how-we-work-issue-driven-design-first)
 - [Reporting bugs & proposing features](#reporting-bugs--proposing-features)
 - [Development workflow](#development-workflow)
 - [Commit conventions](#commit-conventions)
+- [PR titles](#pr-titles)
 - [Testing & CI](#testing--ci)
 - [AI-assisted contributions](#ai-assisted-contributions)
 - [Knowledge-pack contributions](#knowledge-pack-contributions)

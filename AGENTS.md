@@ -49,7 +49,7 @@ The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). Thi
 ## Boundaries
 
 **Do not modify these without explicit maintainer approval:**
-- `LICENSE`, `LICENSE-AGPL`, `LICENSE-CC-BY` — license files. Changes are legal events, not code edits.
+- `LICENSE` and any future `LICENSE-*` files — license files. Changes are legal events, not code edits.
 - `package.json` top-level `license` field.
 - `.github/workflows/` release/publish steps.
 

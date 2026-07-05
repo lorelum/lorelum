@@ -50,8 +50,8 @@ body:
     id: env
     attributes:
       label: Environment
-      description: OS + Node version + AI tool (if relevant).
-      placeholder: "macOS 14 / Node 20.10 / Cursor 0.40"
+      description: OS + runtime version + AI tool (if relevant).
+      placeholder: "macOS 14 / <runtime + version> / Cursor 0.40"
     validations:
       required: true
 

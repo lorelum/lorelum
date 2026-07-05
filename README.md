@@ -2,7 +2,7 @@
   <h1 align="center">Lorelum</h1>
   <p align="center">Engineering knowledge infrastructure for AI coding agents.</p>
   <p align="center">
-    <a href="https://github.com/lorelum/lorelum/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+    <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
     <a href="https://github.com/lorelum/lorelum"><img alt="Status" src="https://img.shields.io/badge/status-early%20development-orange"></a>
     <a href="./CONTRIBUTING.md"><img alt="Contributing" src="https://img.shields.io/badge/contributions-welcome-brightgreen"></a>
   </p>
@@ -93,6 +93,9 @@ lore decide "React SPA, medium client state, RBAC routes, component tests"
 
 # Check if your code violates any practice
 lore check src/features/auth/LoginPage.tsx
+
+# Turn a successful fix into a reusable Practice for your team
+lore learn "single-flight refresh token in the HTTP client"
 ```
 
 Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MCP-compatible agent (Cursor, Claude Code, Codex, Windsurf, ...) can call.
