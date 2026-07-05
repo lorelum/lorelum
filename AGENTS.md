@@ -18,10 +18,6 @@ The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). Thi
 │   ├── format/         # Practice / pack.yaml / decisions.yaml parsing
 │   └── mcp/            # local MCP server
 ├── tests/              # unit + integration tests (Vitest)
-├── openspec/
-│   ├── specs/          # canonical product specs (read these to understand the product)
-│   ├── changes/        # spec-change proposals (ADR-style)
-│   └── AGENTS.md       # spec-workflow instructions — read when doing spec work
 ├── docs/               # user-facing docs site source
 ├── AGENTS.md           # ← you are here
 ├── CONTRIBUTING.md     # human workflow (don't duplicate here)
@@ -29,9 +25,8 @@ The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). Thi
 ```
 
 **Key directories to understand before changing things:**
-- `src/format/` — the Practice/pack schema is the product's contract. Changes here are high-impact and need a spec (`openspec/changes/`).
+- `src/format/` — the Practice/pack schema is the product's contract. Changes here are high-impact; see CONTRIBUTING.md for the spec-change process.
 - `src/engine/` — retrieval logic. Performance-sensitive; benchmark before changing.
-- `openspec/specs/` — **do not edit directly**; changes go through `openspec/changes/` proposals.
 
 ## Commands
 
@@ -86,12 +81,11 @@ function getPractice(id: string): Promise<Practice> { ... }
 - **One issue per PR.** Keep PRs focused and reviewable. If a change spans multiple issues, split it.
 - **Conventional Commits** (`feat(cli): ...`, `fix(engine): ...`, `spec(format): ...`, `docs: ...`).
 - **Every PR links to an issue** (`Closes #123`).
-- **Spec changes need a spec proposal** in `openspec/changes/` — see `openspec/AGENTS.md`.
+- **Behavioral changes need design discussion first** — open an issue or Discussion before implementing changes to the Practice format, retrieval model, or CLI surface.
 
 ## Boundaries
 
 **Do not modify these without explicit maintainer approval:**
-- `openspec/specs/` — canonical specs. Propose changes via `openspec/changes/` only.
 - `LICENSE`, `LICENSE-AGPL`, `LICENSE-CC-BY` — license files. Changes are legal events, not code edits.
 - `package.json` top-level `license` field.
 - `.github/workflows/` release/publish steps.
@@ -106,10 +100,8 @@ function getPractice(id: string): Promise<Practice> { ... }
 
 ## Where to look
 
-- **Product understanding:** `openspec/specs/` (especially `core-concepts` and `knowledge-pack`).
-- **Human workflow:** `CONTRIBUTING.md`.
-- **Spec changes & decisions:** `openspec/changes/` (history of *why*).
-- **Planning a feature?** Read `openspec/AGENTS.md` and propose a spec before implementing.
+- **Product understanding:** `README.md` (overview) and `CONTRIBUTING.md` (workflow).
+- **Planning a feature?** Open a Discussion or issue before implementing — product-surface changes (Practice format, retrieval model, CLI) need alignment first.
 
 ## When in doubt
 

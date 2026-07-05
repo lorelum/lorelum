@@ -5,14 +5,12 @@
 ## Linked issue
 
 Closes #
-<!-- Also link any spec proposal: Spec: openspec/changes/xxx -->
 
 ## Type of change
 
 - [ ] 🐛 Bug fix (non-breaking)
 - [ ] ✨ New feature (non-breaking)
 - [ ] 💥 Breaking change (fix or feature that would cause existing behavior to change)
-- [ ] 📐 Spec change (touched `openspec/`)
 - [ ] 📚 Docs only
 - [ ] 🔧 Refactor / chore
 
@@ -23,10 +21,10 @@ Closes #
 ## Checklist
 
 - [ ] Linked the issue this closes (`Closes #xxx`)
-- [ ] If this changes product behavior, there is a spec in `openspec/changes/` (or I've explained why one isn't needed)
+- [ ] If this changes product behavior (Practice format, retrieval, CLI surface), the design was discussed in the issue / Discussions first
 - [ ] Added/updated tests for the change
 - [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` all pass locally
-- [ ] Updated relevant documentation / `openspec/specs/`
+- [ ] Updated relevant documentation
 - [ ] No secrets, credentials, or private info in the diff
 
 ## AI assistance

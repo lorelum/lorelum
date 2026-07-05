@@ -51,9 +51,9 @@ pnpm lint
 
 That's it — you're ready to code.
 
-## How we work: spec-driven + issue-driven
+## How we work: issue-driven, design-first
 
-Lorelum uses **spec-driven development**. Specs are source — not documentation afterthoughts. The canonical specs live in [`openspec/`](./openspec/).
+Lorelum uses **issue-driven development** with a **design-first** rule for anything that touches the product surface. Every change starts with an issue; changes to the Practice format, retrieval model, or CLI commands need design alignment *before* code.
 
 **The flow at a glance:**
 
@@ -63,21 +63,21 @@ idea / bug
    ▼
 Issue (structured: background, goal, acceptance criteria)
    │
-   ▼  needs design? ──▶ spec proposal in openspec/changes/
-   │                         (reviewed & merged as a PR)
+   ▼  touches product surface? ──▶ discuss design in the issue / a Discussion
+   │                                  (align before coding)
    ▼
-implementation (branch per issue/spec)
+implementation (one branch per issue)
    │
    ▼
-PR (linked to issue + spec, CI green, human review)
+PR (linked to issue, CI green, human review)
    │
    ▼
 merge → close issue
 ```
 
-**When is a spec needed?** New features, behavioral changes, or anything touching the Practice format, retrieval engine, or CLI surface. Pure bug fixes and refactors usually don't need a spec — but if you're unsure, propose one.
+**What counts as "product surface"?** The Practice/pack format, the retrieval model, the CLI command surface, and the MCP tool interface. Changes to these need design discussion first — not because we love process, but because they become public contracts that packs and users depend on.
 
-See [`openspec/AGENTS.md`](./openspec/AGENTS.md) for the detailed spec workflow.
+Pure bug fixes, refactors, perf improvements, and docs don't need upfront design — just an issue and a PR.
 
 ## Reporting bugs & proposing features
 
@@ -157,7 +157,7 @@ We actively welcome contributions made with AI coding assistants. A few rules to
 Lorelum's value is in its knowledge packs. Contributing a Practice is a first-class contribution:
 
 - Packs live in a separate repo: [`lorelum/lorelum-packs`](https://github.com/lorelum/lorelum-packs) (CC-BY-4.0).
-- See the Practice format spec in [`openspec/specs/`](./openspec/specs/).
+- See the Practice format guide in that repo's README.
 - Pack contributions go through their own review process focused on content quality, not code.
 
 ## Becoming a maintainer

@@ -142,11 +142,11 @@ We're building in the open, in milestones:
 - **P5** — Endpoint kernel (AGPL, self-hostable), team packs, decision graph evaluator.
 - **P6** — Enterprise governance (SSO, audit, sensitive-info scanning).
 
-See [`openspec/`](./openspec/) for the living specification, and [Discussions](https://github.com/lorelum/lorelum/discussions) for what's being worked on right now.
+See [Discussions](https://github.com/lorelum/lorelum/discussions) for what's being worked on right now.
 
 ## Project status
 
-🟡 **Early development.** No stable release, no published CLI yet. The [spec is open](./openspec/) and the design is being finalized. This is the right moment to shape the direction — join [Discussions](https://github.com/lorelum/lorelum/discussions).
+🟡 **Early development.** No stable release, no published CLI yet. The design is being finalized. This is the right moment to shape the direction — join [Discussions](https://github.com/lorelum/lorelum/discussions).
 
 ## Contributing
 
