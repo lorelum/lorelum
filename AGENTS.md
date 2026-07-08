@@ -6,25 +6,37 @@
 
 Lorelum is an engineering-knowledge infrastructure for AI coding agents. It retrieves team "Practices" (discrete engineering guidelines) and injects them into AI context on demand. This repo will hold the core engine, CLI (`lore`), local MCP server, and format spec.
 
-> ⚠️ **The codebase doesn't exist yet.** The language, toolchain, and project layout are undecided. The commands and conventions below will be filled in once the scaffolding lands. Treat this file as a statement of *how we want to work*, not a description of a build system that exists today.
+The codebase is **Bun + TypeScript**, organized as a Bun workspace monorepo (`packages/*`). The exact commands are in [Commands](#commands) below; conventions in [Code style](#code-style) and [Testing](#testing).
 
 The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). This repo does not contain knowledge-pack content.
 
 ## Layout
 
-> The source tree isn't established yet — Lorelum is in the scaffolding phase. This section will be filled in once the codebase takes shape. For now, the repo contains project docs and governance files only (`README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `LICENSE`, `.github/`).
+The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, `packages/format`, `packages/mcp`, `packages/shared`). Repo-root `package.json` declares `workspaces: ["packages/*"]`.
 
-**When the codebase lands**, the product contract to be aware of:
+**The product contract to be aware of:**
 - **Practice / pack format** — the public schema that packs and users depend on. Changes are high-impact; see CONTRIBUTING.md.
 - **Retrieval engine** — performance-sensitive; benchmark before changing.
 
 ## Commands
 
-> ⏳ **Toolchain undecided.** Build, test, and lint commands will be documented here once the language and package manager are chosen. Until then, refer to any `package.json` / manifest that appears in the repo root, and keep CI green on whatever it runs.
+- **Runtime:** Bun ≥ 1.1 (TypeScript support is built in — no separate `tsc`/Node install needed)
+- **Install deps:** `bun install`
+- **Run a workspace script:** `bun run <script>` (or just `bun <script>`)
+- **Test:** `bun test` (uses `bun:test`)
+- **Lint:** `bun run lint` (oxlint)
+- **Format:** `bun run fmt` (oxfmt)
+- **Typecheck:** `bun run typecheck` (`tsc --noEmit`)
+- **Build single binary:** `bun build --compile`
+
+Precise scripts live in each `packages/*/package.json`; the above is what the root delegates to. Keep CI green on whatever it runs.
 
 ## Code style
 
-> Toolchain-specific style rules will be added once the language is fixed. The principles below are language-agnostic and apply from day one.
+TypeScript is the language; Bun runs it. These rules apply from day one.
+
+- **Strict mode.** `tsconfig.json` has `strict: true`. No `any` without justification; if unavoidable, mark `// @ts-expect-error: <reason>` (reason required).
+- **Naming.** TypeScript community norms: `PascalCase` for types/interfaces/classes, `camelCase` for functions/variables. Apply uniformly.
 
 - **Small, composable modules.** Prefer pure functions. Avoid deep class hierarchies unless modeling genuine state.
 - **Typed errors over bare strings.** Throw specific error types; let the CLI/MCP boundary translate them into user-facing messages. Never throw a bare string.
@@ -34,7 +46,7 @@ The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). Thi
 ## Testing
 
 - New code ships with tests. No exceptions for the format/parser and retrieval layers.
-- Test framework and file layout will be documented here once the toolchain is chosen. Until then, colocate tests with source in whatever convention the language community uses.
+- Test framework is `bun:test`. Test files are `*.test.ts`, colocated next to the source they cover. The format/parser and retrieval layers must have tests for every new behavior.
 - **Mock filesystem and network** — never hit the real registry in unit tests.
 - When fixing a bug, add a regression test that fails before the fix and passes after.
 
@@ -54,7 +66,7 @@ The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). Thi
 - `.github/workflows/` release/publish steps.
 
 **Do not run:**
-- Any package-publish command (e.g. `npm publish`, `pnpm publish`, or the chosen toolchain's equivalent) — releases are CI-only.
+- Any package-publish command (e.g. `bun publish`, `npm publish`) — releases are CI-only.
 - Anything that posts to the public registry without approval.
 
 **Be careful with:**

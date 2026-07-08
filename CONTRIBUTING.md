@@ -29,11 +29,9 @@ Everyone participating in Lorelum is expected to follow our [Code of Conduct](./
 
 ## Development environment
 
-> ⏳ **Toolchain undecided.** Lorelum's language and package manager aren't locked in yet, so the prerequisites below will be updated once the scaffolding lands. For now, all you need is Git and a text editor to contribute to docs and governance files.
+**Prerequisites**
 
-**Prerequisites (once code lands)**
-
-- The language runtime and package manager — to be confirmed. Watch this section.
+- **Bun ≥ 1.1** — the runtime and package manager. TypeScript support is built in, so you don't need a separate Node.js or `tsc` install. Install at [bun.sh](https://bun.sh).
 - Git ≥ 2.30
 
 **Setup**
@@ -41,10 +39,20 @@ Everyone participating in Lorelum is expected to follow our [Code of Conduct](./
 ```bash
 git clone https://github.com/lorelum/lorelum.git
 cd lorelum
-# install step will appear here once the toolchain is chosen
+bun install
 ```
 
-Once the build system is in place, this section will document the exact build, test, and lint commands.
+**Common commands**
+
+| Task | Command |
+|---|---|
+| Run tests | `bun test` |
+| Lint | `bun run lint` (oxlint) |
+| Format | `bun run fmt` (oxfmt) |
+| Typecheck | `bun run typecheck` (`tsc --noEmit`) |
+| Run any package script | `bun run <script>` |
+
+Precise scripts live in each `packages/*/package.json`.
 
 ## Contributor License Agreement (CLA)
 
@@ -220,14 +228,14 @@ If a PR spans multiple types, pick the **most significant** change as the type (
 
 ## Testing & CI
 
-> ⏳ Test runner and lint tooling will be confirmed with the language choice. The expectations below apply regardless of stack.
+Tests run on `bun:test`, linting on `oxlint`, formatting on `oxfmt`, typecheck via `tsc --noEmit`.
 
-- **Unit tests ship with new code.** Colocate tests with source in whatever convention the language community uses.
+- **Unit tests ship with new code.** Colocate tests as `*.test.ts` next to the source they cover.
 - **Coverage:** aim to keep or improve coverage on touched code. New behavior needs tests.
-- **Lint and typecheck:** whatever the chosen toolchain provides, it must pass. No silencing the type checker or linter without justification in the PR.
+- **Lint and typecheck:** `oxlint` and `tsc --noEmit` must pass. No silencing the type checker or linter without justification in the PR.
 - **Mock filesystem and network in unit tests** — never hit the real registry.
 
-CI will run build, lint, and test on every PR once the toolchain is set up. A PR cannot merge until all gates are green.
+CI runs build, lint, typecheck, and test on every PR. A PR cannot merge until all gates are green.
 
 ## AI-assisted contributions
 
