@@ -33,21 +33,19 @@ out/
 .cache/
 
 # ────────────────────────────────────────────────────────────
-# Toolchain-specific rules live below.
-# The language / package manager is undecided — uncomment or
-# extend the block that matches the chosen stack when it lands.
+# Bun / TypeScript (toolchain locked)
 # ────────────────────────────────────────────────────────────
 
-# --- Node / TypeScript (uncomment if applicable) ---
-# node_modules/
-# .pnp
-# .pnp.js
-# *.tsbuildinfo
-# coverage/
-# .nyc_output/
-# .eslintcache
+# Dependencies
+node_modules/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Note: bun.lockb IS committed (lockfile). Do not ignore it.
+
+# Turborepo cache (uncomment if we adopt turborepo later)
 # .turbo/
-# pnpm-debug.log*
-# npm-debug.log*
-# yarn-debug.log*
-# yarn-error.log*
