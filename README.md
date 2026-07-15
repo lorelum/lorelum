@@ -18,27 +18,35 @@
 
 ## The problem
 
-You've felt this:
+You wrote an `AGENTS.md` (or `CLAUDE.md`, `.cursorrules`). Then this happens:
 
-- Your team wrote a `.cursorrules` / `AGENTS.md` / Skills file. It worked for the first 10 minutes of a session. By message 20, the agent has forgotten the rules from message 1.
-- Every developer's AI assistant outputs **different** architecture, naming, error handling, API layering — even though "the standard" is written down somewhere.
-- Onboarding new AI tools feels like starting from scratch every time: rewrite the conventions, re-explain the stack, re-state the anti-patterns.
+- **Your rules silently stop being followed.** Frontier models comply with only ~68% of a 500-rule ruleset — *every rule you add makes every other rule less likely to be followed.*<sup>[\[1\]](#fn-1)</sup> You don't get a warning; the agent just drifts.
+- **Compaction eats your rules.** A long session triggers context compaction → your early `AGENTS.md` is gone from the window. The community workaround is to re-paste `@AGENTS.md` and dump *all* the rules back in.
+- **You only find out when it's already wrong.** There is no signal that the agent has drifted — until you review the code yourself and spot the violation.
 
-You're not alone. This is the **knowledge layer gap** in AI coding.
+This is the **knowledge layer gap**: your rules exist, but they don't reliably reach the agent *at the moment it needs them*.
 
 ## Why it happens
 
+This is how your `AGENTS.md` actually reaches the agent today:
+
 ```
-                       ┌─────────────────────────────────┐
-                       │  full ruleset dumped at start   │
-                       │  (10k tokens of conventions)    │
-                       └──────────────┬──────────────────┘
-                                      ▼
-   message 1 ── message 5 ── message 10 ── message 20 ── message 30
-   [rules recalled]   [partial]        [attention decay]   [forgotten]
+  ┌────────────────────────────────────────────────────────────┐
+  │  AGENTS.md — dumped into context once, at session start    │
+  └────────────────────────────────────────────────────────────┘
+        │
+        ├─▶ Few rules followed      ~68% compliance at 500 rules
+        │                            (the more you write, the less
+        │                             each one matters)
+        │
+        ├─▶ Compaction discards     long sessions summarize the
+        │   your rules               context window — rules fall out
+        │
+        └─▶ Drift is invisible      no signal, until you review the
+                                     code and find the violation
 ```
 
-The conventional approach ("paste all the rules into context") fights two **physical limits**: attention decay across long sessions, and context-window capacity. Even a 1M-token window doesn't recall early instructions reliably after long sessions. Throwing more context at the problem doesn't fix it.
+The conventional approach ("paste all the rules into context") fights physical limits: attention decay across long sessions, context-window capacity, and the fact that *more rules lower per-rule compliance*.<sup>[\[2\]](#fn-2)</sup> Even a 1M-token window doesn't recall early instructions reliably after compaction. **More rules ≠ more control.** Throwing more context at the problem doesn't fix it.
 
 ## How Lorelum solves it
 
@@ -53,7 +61,7 @@ Lorelum turns team engineering experience into **discrete, retrievable, trigger-
    └─────────────┘            └────────────────────┘             └──────────────┘
 ```
 
-**Need-to-know, not all-at-once.** When the agent starts implementing auth, Lorelum hands it the auth Practice — not the routing, testing, and deployment Practices too.
+**Lorelum doesn't replace your `AGENTS.md` — it keeps it alive.** Every time the agent needs a piece of it, Lorelum re-injects that exact slice. When the agent starts implementing auth, Lorelum hands it the auth Practice — not the routing, testing, and deployment Practices too.
 
 ### What a Practice looks like
 
@@ -76,6 +84,61 @@ applies_when: building an API layer in a React SPA
 ```
 
 A **Knowledge Pack** bundles many Practices + a decision graph (`decisions.yaml`) + templates + anti-patterns, scoped to a stack or team standard.
+
+## An end-to-end example
+
+Same task, same agent — once without Lorelum, once with.
+
+### The setup
+
+A long session. Your `AGENTS.md` says *"layer the API; never call axios from a component."* But that was 40 messages ago, and the context was just compacted. The agent is now asked to build a login page.
+
+### Without Lorelum — the agent drifts
+
+```tsx
+// LoginPage.tsx — what the agent wrote
+function LoginPage() {
+  const [email, setEmail] = useState("");
+  async function handleLogin() {
+    const res = await axios.post("/api/login", { email });  // ❌ axios in component
+    localStorage.setItem("token", res.data.token);           // ❌ token in localStorage
+  }
+}
+```
+
+It called `axios` inside the component and stuffed the token into `localStorage`. Your rules said not to. The agent never knew it broke them.
+
+### With Lorelum — triggered, not dumped
+
+When the agent touches `src/features/auth/`, Lorelum retrieves the one Practice that applies — `react.api.layered-design` — and injects only that slice:
+
+```markdown
+## Anti-patterns to avoid
+- api.direct-axios-in-component   (call axios inside components)
+- api.local-storage-in-api-class  (persist tokens inside API class)
+- api.dto-used-as-ui-model        (reuse DTOs as UI state)
+```
+
+The agent rewrites its own output — *fresh, from the relevant slice, not the whole ruleset*:
+
+```tsx
+// LoginPage.tsx — corrected by the agent after injection
+function LoginPage() {
+  const { login } = useAuthApi();   // ✅ through the layered API client
+  async function handleLogin() {
+    await login({ email });          // ✅ token handled inside the API layer
+  }
+}
+```
+
+### The loop closes
+
+```bash
+lore check src/features/auth/LoginPage.tsx   # confirms no violation
+lore learn "single-flight refresh token in the HTTP client"
+```
+
+That fix is now a Practice your whole team retrieves next time — without anyone re-pasting an `AGENTS.md`.
 
 ## 5-minute tour
 
@@ -102,10 +165,11 @@ Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MC
 
 ## How it's different
 
-| | `.cursorrules` / `AGENTS.md` | Skills / Slash commands | **Lorelum** |
+| | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum** |
 |---|---|---|---|
 | **Delivery** | Static, all-at-once | Manual trigger | **Retrieved on demand** |
 | **Decays over session** | Yes | No (one-shot) | No (fresh each query) |
+| **Re-injection after compaction** | Manual: re-paste all rules | Manual | ✅ Automatic, task-scoped |
 | **Scales to 100s of rules** | ❌ | Tedious | ✅ built for it |
 | **Captures team decisions** | No | No | ✅ `decisions.yaml` |
 | **Tool-agnostic** | Tool-specific | Tool-specific | ✅ MCP / CLI / Skill |
@@ -174,6 +238,13 @@ Lorelum is **open-core**:
 The boundary: **if it lets a developer run the full workflow offline on a personal laptop, it's open source.** The paid tiers buy managed ops, collaboration, and compliance — never gated features.
 
 See [LICENSE](./LICENSE) for the Apache 2.0 terms applicable to this repository.
+
+## Notes
+
+<ol>
+<li id="fn-1">~68% compliance from <em>IFScale</em> (<a href="https://arxiv.org/abs/2507.11538">Jaroslawicz et al., 2025</a>, NeurIPS 2025): even the best frontier model followed only ~68% of 500 simultaneous keyword-inclusion instructions, with accuracy degrading as instruction density grew. The <a href="https://paddo.dev/blog/your-agents-md-is-a-liability/">"Your AGENTS.md is a Liability"</a> post discusses what this means for large rules files specifically.</li>
+<li id="fn-2">Position-dependent recall from <em>Lost in the Middle</em> (<a href="https://arxiv.org/abs/2307.03172">Liu et al., TACL 2024</a>): models recall information at the start and end of a long context better than in the middle — a U-shaped curve that holds even within the stated context window.</li>
+</ol>
 
 ## Acknowledgements
 
