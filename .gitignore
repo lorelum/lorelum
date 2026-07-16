@@ -45,7 +45,7 @@ node_modules/
 # Test coverage
 coverage/
 
-# Note: bun.lockb IS committed (lockfile). Do not ignore it.
+# Note: bun.lock IS committed (text lockfile, Bun >= 1.2). Do not ignore it.
 
 # Turborepo cache (uncomment if we adopt turborepo later)
 # .turbo/

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@lorelum/shared": ["./packages/shared/src/index.ts"],
+      "@lorelum/format": ["./packages/format/src/index.ts"],
+      "@lorelum/engine": ["./packages/engine/src/index.ts"],
+      "@lorelum/mcp": ["./packages/mcp/src/index.ts"],
+      "@lorelum/cli": ["./packages/cli/src/index.ts"]
+    }
+  }
+}
