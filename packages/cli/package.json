@@ -1,0 +1,23 @@
+{
+  "name": "@lorelum/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "lore": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lorelum/shared": "workspace:*",
+    "@lorelum/format": "workspace:*",
+    "@lorelum/engine": "workspace:*",
+    "@lorelum/mcp": "workspace:*"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "lorelum",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.8",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "bun test",
+    "lint": "oxlint .",
+    "fmt": "oxfmt --write .",
+    "fmt:check": "oxfmt --check .",
+    "typecheck": "bun run --filter '*' typecheck",
+    "build:cli": "bun build --compile packages/cli/src/index.ts --outfile dist/lore"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.8",
+    "oxfmt": "0.59.0",
+    "oxlint": "1.74.0",
+    "typescript": "5.7.2"
+  }
+}
