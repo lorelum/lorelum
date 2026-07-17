@@ -43,6 +43,16 @@ TypeScript is the language; Bun runs it. These rules apply from day one.
 - **No silent failures.** A function that can fail should signal it explicitly (typed error, Result, or similar) — not return `null` and hope.
 - **Naming:** consistent with the chosen language's prevailing conventions. Whatever they are, apply them uniformly.
 
+### File organization
+
+Keep the tree navigable and each file independently understandable. These are principles, not a line-count budget — judge by whether a file can be understood on its own.
+
+- **One responsibility per file.** A file owns one schema entity, one piece of closely-related logic, or one group of constants. If you are editing a file and the change is unrelated to its existing contents, that work probably belongs in a sibling file.
+- **Group by function into subdirectories.** Don't accumulate files at the `src/` root. A package like `format` separates `schema/`, `validate/`, `frontmatter/`, `fixtures/` so each concern has a home. Cross-cutting helpers live in a `common.ts` within the relevant directory.
+- **`index.ts` is a barrel, nothing more.** It re-exports the directory's public API. Business logic does not live in `index.ts` — put it in a named file and re-export it.
+- **File name matches what it exports.** `practice.ts` exports the Practice schema and `Practice` type; `cycle.ts` exports cycle detection. A reader should predict the file's contents from its name.
+- **Co-locate tests.** `*.test.ts` sits next to the source it covers, mirroring the same split — `schema/practice.test.ts` tests `schema/practice.ts`.
+
 ## Testing
 
 - New code ships with tests. No exceptions for the format/parser and retrieval layers.

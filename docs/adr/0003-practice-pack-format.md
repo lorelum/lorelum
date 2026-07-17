@@ -18,7 +18,7 @@ Three layers (full table lives in the internal "定稿：格式规范 v1" doc; s
 
 - **pack.yaml**: `name`, `version` (semver) required; `description`, `author`, `license`, `applies_to`, `depends_on` optional. `depends_on` is reserved-but-ignored (see point 5).
 - **Practice frontmatter**: `id` (dotted, e.g. `react.api.layered-design`), `title`, `stage`, `tech_stack[]`, `applies_when` required; `severity` optional.
-- **Decision Node** (`decisions.yaml`): `id`, `question`, `branches[]` with `when` / `recommend[]` / `reason`.
+- **Decision Node** (`decisions.yaml`): `id`, `question`, `branches[]` with `when` / `recommend[]` / `reason`. Each branch optionally carries `next` (a Decision Node id) to chain to the next decision — `recommend` strictly references Practice ids, `next` strictly references Decision ids. Cycle detection (point 3) runs over the `next` edges.
 - **Anti-patterns** are first-class: `{ id, name, description, severity }`, with a reserved `check` field whose format is **not defined in v1** (see point 6).
 
 `profile` (embedding model config) is deliberately **not** in pack.yaml — pack owns content, profile owns index config, different lifecycles.
@@ -39,7 +39,7 @@ Consequence for dangling references: references consumed at runtime (Decision No
 
 ### 3 & 5. Circular dependencies + pack-to-pack dependencies (decided together, as they are coupled)
 
-- **Decision Node ↔ Decision Node cycles = error.** Detected by DFS topological sort on the explicit `recommend` references. A decision graph you can never finish walking makes `lore decide` recurse forever.
+- **Decision Node ↔ Decision Node cycles = error.** Detected by DFS topological sort on the `branches[].next` edges (each `next` references another Decision id). A decision graph you can never finish walking makes `lore decide` recurse forever.
 - **Pack-to-pack dependencies: not supported in v1.** `depends_on` is retained as a field but ignored; a non-empty value emits a warning ("v1 ignores pack-to-pack deps"). Rationale: YAGNI (one pack exists today), it would force a mini-npm (resolution, semver ranges, id-conflict handling, cycle detection) that inflates the storage engine's complexity, and the reuse need will be clearer at P3+ when more packs exist.
 
 ### 4. error/warning/info boundary
@@ -70,6 +70,7 @@ So `lore check` (v1) is positioned as **retrieve the relevant anti-patterns and 
 - **`lore check` is not an auto-linter in v1.** It surfaces relevant anti-patterns for the AI to judge. Teams expecting "run check, get a fail/pass verdict" will be surprised until the check engine lands later.
 - **The error/warning reframe is non-obvious.** Contributors familiar with tsc/eslint will initially reach for the conventional semantics. This ADR (and the doc it points to) must be the place they read to correct that.
 - **`check` reserved field.** If a future machine-check engine defines `check`'s shape, old packs that never set it are unaffected; packs that *did* set an experimental value would need migration — unlikely, since v1 says the format is undefined.
+- **v1 gap — Practice→Practice body references are not yet validated.** §2.3 classifies "Practice→Practice body reference = error", but the *syntax* of in-body references is not yet defined (no `[[practice:<id>]]` or equivalent). v1 `lore validate` therefore checks only structural references — Decision→Practice (`recommend`), Decision→Decision (`next`), anti-pattern→Practice (structural ownership). In-body reference validation lands once the reference syntax is settled. Packs today carry no in-body references, so this is an accepted gap, not a regression.
 
 **Follow-ups:**
 
