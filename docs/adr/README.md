@@ -23,7 +23,8 @@ docs/adr/
 ├── README.md                                  # this file (convention + index)
 ├── 0001-record-architecture-decisions.md      # meta-ADR: we use ADRs
 ├── 0002-bun-typescript-toolchain.md           # the first real decision
-├── 0003-...                                   # subsequent decisions
+├── 0003-practice-pack-format.md               # Practice/pack format & validation semantics
+├── 0004-...                                   # subsequent decisions
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 
