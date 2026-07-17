@@ -29,6 +29,7 @@ For the adjacent tooling (chosen at the same time and documented here for comple
 | Lint | `oxlint` |
 | Format | `oxfmt` (beta; see consequences) |
 | Schema validation | `zod` (export JSON Schema for pack authors) |
+| Markdown/frontmatter parsing | `gray-matter` (the de-facto standard; see consequences for the js-yaml pin) |
 | Embedding | thin OpenAI-compatible client (covers Voyage/Jina/Ollama via `baseURL`) |
 | Local vector store (P2) | `bun:sqlite` + in-memory brute-force cosine search |
 | MCP | `@modelcontextprotocol/sdk` |
@@ -64,6 +65,7 @@ TypeScript is the common language of the AI tooling ecosystem Lorelum integrates
 - **`oxfmt` is still in beta** (as of mid-2026). It passes 100% of Prettier's JS/TS conformance tests, but stable is not 1.0 yet. Mitigation: **pin the version in CI**; treat formatter upgrades as PR-reviewed changes, not automatic.
 - **Embedding providers lock the index dimension.** Different providers use different vector dimensions (OpenAI 1536, Voyage 1024, Jina 768). Switching the default provider invalidates stored embeddings and forces a full re-embed. Mitigation: P2 standardizes on one default (`text-embedding-3-small`); multi-provider support is a later concern.
 - **Native Node addons** (e.g. `better-sqlite3`) are a Bun compatibility risk. We deliberately avoid them in P2 by using Bun's built-in `bun:sqlite`. If a future phase needs a native vector extension, re-validate Bun compatibility before committing.
+- **`gray-matter` is in maintenance freeze** (no release since 2021; deps.dev activity score 0/10) and pins `js-yaml@^3`, which carries CVE-2025-64718 (prototype pollution, fixed in 3.14.2). Mitigation: pin `js-yaml` via `overrides` in the root `package.json` so it resolves to the patched 3.x; and wrap frontmatter parsing in a single thin function so a future swap to `front-matter` (the closest drop-in, same API shape) stays a one-file change. Accepted because gray-matter remains the de-facto standard (Gatsby/Astro/VitePress/Netlify), ships first-party types, and the parsing surface is mature enough that maintenance freeze does not mean broken.
 
 **Follow-ups:**
 
