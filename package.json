@@ -17,5 +17,8 @@
     "oxfmt": "0.59.0",
     "oxlint": "1.74.0",
     "typescript": "5.7.2"
+  },
+  "overrides": {
+    "js-yaml": "3.14.2"
   }
 }

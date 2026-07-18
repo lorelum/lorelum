@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@lorelum/shared": "workspace:*",
+    "gray-matter": "4.0.3",
     "zod": "4.4.3"
   }
 }
