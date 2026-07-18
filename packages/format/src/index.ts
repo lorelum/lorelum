@@ -1,8 +1,11 @@
 /**
  * @lorelum/format — Practice & Knowledge Pack schema (the public contract).
  *
- * P0 scaffold: only a presence marker. The Practice/pack zod schema and
- * parser land with the format-spec task.
+ * zod schemas for pack.yaml, Practice frontmatter, Decision Nodes, and
+ * anti-patterns. Validation (reference integrity, cycle detection,
+ * severity-graded reports) lands in a follow-up.
  */
 
 export const PACKAGE_NAME = "@lorelum/format";
+
+export * from "./schema";

@@ -6,6 +6,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.zcode/
 *.swp
 *.swo
 
