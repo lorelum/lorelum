@@ -14,7 +14,11 @@ export const PACK_NAME_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const SEMVER_REGEX =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/;
 
-export const SeverityEnum = z.enum(["info", "warn", "critical"]);
+export const SeverityEnum = z
+  .enum(["info", "warn", "critical"])
+  .describe("Severity for lore check ordering; spec default is warn.");
 
 /** Pack author: free-form string or `{ name }`. Registry concern; local mode ignores. */
-export const AuthorSchema = z.union([z.string(), z.object({ name: z.string() })]);
+export const AuthorSchema = z
+  .union([z.string(), z.object({ name: z.string() })])
+  .describe("Registry ownership; local mode does not depend on it.");
