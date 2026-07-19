@@ -1,11 +1,12 @@
 /**
- * @lorelum/format — Practice & Knowledge Pack schema (the public contract).
+ * @lorelum/format — Practice & Knowledge Pack schema + validation.
  *
  * zod schemas for pack.yaml, Practice frontmatter, Decision Nodes, and
- * anti-patterns. Validation (reference integrity, cycle detection,
- * severity-graded reports) lands in a follow-up.
+ * anti-patterns; validatePack / validatePractice for the authoring CI tool
+ * (format checks, reference integrity, cycle detection, graded reporting).
  */
 
 export const PACKAGE_NAME = "@lorelum/format";
 
 export * from "./schema";
+export * from "./validate";
