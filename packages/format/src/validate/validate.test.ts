@@ -1,56 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { PackInput } from "./validate";
+import { reactPack } from "../fixtures";
 import { validatePack, validatePractice } from "./validate";
-
-/** A happy-path pack: 3 practices + 1 decision with a valid next edge. */
-function validPack(): PackInput {
-  return {
-    pack: { name: "react-fullstack", version: "0.1.0" },
-    practices: [
-      {
-        id: "react.api.layered-design",
-        title: "Layered API Design",
-        stage: "api-layer",
-        tech_stack: ["react", "typescript"],
-        applies_when: "building an API layer in a React SPA",
-        severity: "warn",
-        body: "Concrete guidance.",
-      },
-      {
-        id: "react.state.redux",
-        title: "Redux for heavy state",
-        stage: "state",
-        tech_stack: ["react"],
-        applies_when: "managing heavy client-side state at scale",
-        severity: "warn",
-        body: "Use redux when state is large.",
-      },
-      {
-        id: "react.auth.guard",
-        title: "Route guard for auth",
-        stage: "auth",
-        tech_stack: ["react"],
-        applies_when: "protecting routes that require authentication",
-        severity: "warn",
-        body: "Wrap protected routes.",
-      },
-    ],
-    decisions: [
-      {
-        id: "state.client-vs-server",
-        question: "How much client state?",
-        branches: [
-          {
-            when: "heavy client state",
-            recommend: ["react.state.redux"],
-            reason: "Redux scales",
-          },
-        ],
-      },
-    ],
-  };
-}
 
 function findCode(
   report: { errors: { code: string }[]; warnings: { code: string }[]; infos: { code: string }[] },
@@ -62,7 +13,7 @@ function findCode(
 
 describe("validatePack — happy path", () => {
   test("valid pack returns valid:true with empty buckets", () => {
-    const r = validatePack(validPack());
+    const r = validatePack(reactPack());
     expect(r.valid).toBe(true);
     expect(r.errors).toEqual([]);
     expect(r.warnings).toEqual([]);
@@ -72,7 +23,7 @@ describe("validatePack — happy path", () => {
 
 describe("validatePack — format errors", () => {
   test("pack missing name", () => {
-    const input = validPack();
+    const input = reactPack();
     // @ts-expect-error: intentionally removing a required field
     delete input.pack.name;
     const r = validatePack(input);
@@ -81,21 +32,21 @@ describe("validatePack — format errors", () => {
   });
 
   test("practice with non-dotted id", () => {
-    const input = validPack();
+    const input = reactPack();
     input.practices[0]!.id = "notdotted";
     const r = validatePack(input);
     expect(findCode(r, "errors", "format")).toBe(true);
   });
 
   test("pack with non-semver version", () => {
-    const input = validPack();
+    const input = reactPack();
     input.pack.version = "1.2";
     const r = validatePack(input);
     expect(findCode(r, "errors", "format")).toBe(true);
   });
 
   test("decision branch missing recommend", () => {
-    const input = validPack();
+    const input = reactPack();
     // @ts-expect-error: intentionally removing a required field
     delete input.decisions[0]!.branches[0]!.recommend;
     const r = validatePack(input);
@@ -103,7 +54,7 @@ describe("validatePack — format errors", () => {
   });
 
   test("format errors short-circuit semantic checks (no duplicate-id noise)", () => {
-    const input = validPack();
+    const input = reactPack();
     input.pack.version = "not-semver"; // format error
     // also add a duplicate id that would normally be flagged:
     input.practices[1]!.id = input.practices[0]!.id;
@@ -115,28 +66,28 @@ describe("validatePack — format errors", () => {
 
 describe("validatePack — reference integrity errors", () => {
   test("duplicate practice id", () => {
-    const input = validPack();
+    const input = reactPack();
     input.practices[1]!.id = input.practices[0]!.id;
     const r = validatePack(input);
     expect(findCode(r, "errors", "duplicate-id")).toBe(true);
   });
 
   test("branch.recommend dangles (points to no practice)", () => {
-    const input = validPack();
+    const input = reactPack();
     input.decisions[0]!.branches[0]!.recommend = ["does.not.exist"];
     const r = validatePack(input);
     expect(findCode(r, "errors", "dangling-ref")).toBe(true);
   });
 
   test("branch.next dangles (points to no decision)", () => {
-    const input = validPack();
+    const input = reactPack();
     input.decisions[0]!.branches[0]!.next = "no.such.decision";
     const r = validatePack(input);
     expect(findCode(r, "errors", "dangling-ref")).toBe(true);
   });
 
   test("decision cycle via next edges", () => {
-    const input = validPack();
+    const input = reactPack();
     // Three decisions in a cycle: choice-a → choice-b → choice-c → choice-a.
     input.decisions = [
       {
@@ -168,28 +119,28 @@ describe("validatePack — reference integrity errors", () => {
 
 describe("validatePack — warnings", () => {
   test("non-empty depends_on → depends-on-ignored", () => {
-    const input = validPack();
+    const input = reactPack();
     input.pack.depends_on = ["core"];
     const r = validatePack(input);
     expect(findCode(r, "warnings", "depends-on-ignored")).toBe(true);
   });
 
   test("practice without severity → missing-severity", () => {
-    const input = validPack();
+    const input = reactPack();
     delete input.practices[0]!.severity;
     const r = validatePack(input);
     expect(findCode(r, "warnings", "missing-severity")).toBe(true);
   });
 
   test("applies_when shorter than 10 chars → applies-when-too-short", () => {
-    const input = validPack();
+    const input = reactPack();
     input.practices[0]!.applies_when = "short";
     const r = validatePack(input);
     expect(findCode(r, "warnings", "applies-when-too-short")).toBe(true);
   });
 
   test("empty body → empty-guidance", () => {
-    const input = validPack();
+    const input = reactPack();
     input.practices[0]!.body = "   ";
     const r = validatePack(input);
     expect(findCode(r, "warnings", "empty-guidance")).toBe(true);
@@ -198,14 +149,14 @@ describe("validatePack — warnings", () => {
 
 describe("validatePack — infos", () => {
   test("two practices with identical titles → similar-practice", () => {
-    const input = validPack();
+    const input = reactPack();
     input.practices[1]!.title = input.practices[0]!.title;
     const r = validatePack(input);
     expect(findCode(r, "infos", "similar-practice")).toBe(true);
   });
 
   test("fewer than 3 practices → small-pack", () => {
-    const input = validPack();
+    const input = reactPack();
     input.practices = input.practices.slice(0, 1)!;
     const r = validatePack(input);
     expect(findCode(r, "infos", "small-pack")).toBe(true);
@@ -214,7 +165,7 @@ describe("validatePack — infos", () => {
 
 describe("validatePractice", () => {
   test("valid practice returns empty list", () => {
-    const issues = validatePractice(validPack().practices[0]);
+    const issues = validatePractice(reactPack().practices[0]);
     expect(issues).toEqual([]);
   });
 
