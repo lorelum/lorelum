@@ -31,6 +31,7 @@ Closes #
 
 - [ ] Parts of this PR were generated or assisted by an AI tool
 - [ ] I have reviewed every line of the AI-generated code and take full responsibility for it
+
 <!-- If unchecked, both reviewer and author save time. -->
 
 ## Notes for reviewers

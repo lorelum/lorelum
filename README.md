@@ -20,11 +20,11 @@
 
 You wrote an `AGENTS.md` (or `CLAUDE.md`, `.cursorrules`). Then this happens:
 
-- **Your rules silently stop being followed.** Frontier models comply with only ~68% of a 500-rule ruleset — *every rule you add makes every other rule less likely to be followed.*<sup>[\[1\]](#fn-1)</sup> You don't get a warning; the agent just drifts.
-- **Compaction eats your rules.** A long session triggers context compaction → your early `AGENTS.md` is gone from the window. The community workaround is to re-paste `@AGENTS.md` and dump *all* the rules back in.
+- **Your rules silently stop being followed.** Frontier models comply with only ~68% of a 500-rule ruleset — _every rule you add makes every other rule less likely to be followed._<sup>[\[1\]](#fn-1)</sup> You don't get a warning; the agent just drifts.
+- **Compaction eats your rules.** A long session triggers context compaction → your early `AGENTS.md` is gone from the window. The community workaround is to re-paste `@AGENTS.md` and dump _all_ the rules back in.
 - **You only find out when it's already wrong.** There is no signal that the agent has drifted — until you review the code yourself and spot the violation.
 
-This is the **knowledge layer gap**: your rules exist, but they don't reliably reach the agent *at the moment it needs them*.
+This is the **knowledge layer gap**: your rules exist, but they don't reliably reach the agent _at the moment it needs them_.
 
 ## Why it happens
 
@@ -46,11 +46,11 @@ This is how your `AGENTS.md` actually reaches the agent today:
                                      code and find the violation
 ```
 
-The conventional approach ("paste all the rules into context") fights physical limits: attention decay across long sessions, context-window capacity, and the fact that *more rules lower per-rule compliance*.<sup>[\[2\]](#fn-2)</sup> Even a 1M-token window doesn't recall early instructions reliably after compaction. **More rules ≠ more control.** Throwing more context at the problem doesn't fix it.
+The conventional approach ("paste all the rules into context") fights physical limits: attention decay across long sessions, context-window capacity, and the fact that _more rules lower per-rule compliance_.<sup>[\[2\]](#fn-2)</sup> Even a 1M-token window doesn't recall early instructions reliably after compaction. **More rules ≠ more control.** Throwing more context at the problem doesn't fix it.
 
 ## How Lorelum solves it
 
-Lorelum turns team engineering experience into **discrete, retrievable, trigger-conditioned units called *Practices*** — and injects them into AI context **at the moment of need**, not all at once.
+Lorelum turns team engineering experience into **discrete, retrievable, trigger-conditioned units called _Practices_** — and injects them into AI context **at the moment of need**, not all at once.
 
 ```
    ┌─────────────┐   query    ┌────────────────────┐   precise   ┌──────────────┐
@@ -78,9 +78,10 @@ applies_when: building an API layer in a React SPA
 [Concrete guidance: http client, base API, modules, DTO boundary.]
 
 ## Anti-patterns to avoid
-- api.direct-axios-in-component   (call axios inside components)
-- api.local-storage-in-api-class  (persist tokens inside API class)
-- api.dto-used-as-ui-model        (reuse DTOs as UI state)
+
+- api.direct-axios-in-component (call axios inside components)
+- api.local-storage-in-api-class (persist tokens inside API class)
+- api.dto-used-as-ui-model (reuse DTOs as UI state)
 ```
 
 A **Knowledge Pack** bundles many Practices + a decision graph (`decisions.yaml`) + templates + anti-patterns, scoped to a stack or team standard.
@@ -91,7 +92,7 @@ Same task, same agent — once without Lorelum, once with.
 
 ### The setup
 
-A long session. Your `AGENTS.md` says *"layer the API; never call axios from a component."* But that was 40 messages ago, and the context was just compacted. The agent is now asked to build a login page.
+A long session. Your `AGENTS.md` says _"layer the API; never call axios from a component."_ But that was 40 messages ago, and the context was just compacted. The agent is now asked to build a login page.
 
 ### Without Lorelum — the agent drifts
 
@@ -100,8 +101,8 @@ A long session. Your `AGENTS.md` says *"layer the API; never call axios from a c
 function LoginPage() {
   const [email, setEmail] = useState("");
   async function handleLogin() {
-    const res = await axios.post("/api/login", { email });  // ❌ axios in component
-    localStorage.setItem("token", res.data.token);           // ❌ token in localStorage
+    const res = await axios.post("/api/login", { email }); // ❌ axios in component
+    localStorage.setItem("token", res.data.token); // ❌ token in localStorage
   }
 }
 ```
@@ -114,19 +115,20 @@ When the agent touches `src/features/auth/`, Lorelum retrieves the one Practice 
 
 ```markdown
 ## Anti-patterns to avoid
-- api.direct-axios-in-component   (call axios inside components)
-- api.local-storage-in-api-class  (persist tokens inside API class)
-- api.dto-used-as-ui-model        (reuse DTOs as UI state)
+
+- api.direct-axios-in-component (call axios inside components)
+- api.local-storage-in-api-class (persist tokens inside API class)
+- api.dto-used-as-ui-model (reuse DTOs as UI state)
 ```
 
-The agent rewrites its own output — *fresh, from the relevant slice, not the whole ruleset*:
+The agent rewrites its own output — _fresh, from the relevant slice, not the whole ruleset_:
 
 ```tsx
 // LoginPage.tsx — corrected by the agent after injection
 function LoginPage() {
-  const { login } = useAuthApi();   // ✅ through the layered API client
+  const { login } = useAuthApi(); // ✅ through the layered API client
   async function handleLogin() {
-    await login({ email });          // ✅ token handled inside the API layer
+    await login({ email }); // ✅ token handled inside the API layer
   }
 }
 ```
@@ -142,7 +144,7 @@ That fix is now a Practice your whole team retrieves next time — without anyon
 
 ## 5-minute tour
 
-*(CLI is pre-alpha — commands below show the intended UX.)*
+_(CLI is pre-alpha — commands below show the intended UX.)_
 
 ```bash
 # Install a community pack (local mode, works offline)
@@ -161,23 +163,23 @@ lore check src/features/auth/LoginPage.tsx
 lore learn "single-flight refresh token in the HTTP client"
 ```
 
-Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MCP-compatible agent (Cursor, Claude Code, Codex, Windsurf, ...) can call.
+From P3 onward, Lorelum is planned to expose an MCP server for MCP-compatible agents such as Cursor, Claude Code, Codex, and Windsurf.
 
 ## How it's different
 
-| | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum** |
-|---|---|---|---|
-| **Delivery** | Static, all-at-once | Manual trigger | **Retrieved on demand** |
-| **Decays over session** | Yes | No (one-shot) | No (fresh each query) |
-| **Re-injection after compaction** | Manual: re-paste all rules | Manual | ✅ Automatic, task-scoped |
-| **Scales to 100s of rules** | ❌ | Tedious | ✅ built for it |
-| **Captures team decisions** | No | No | ✅ `decisions.yaml` |
-| **Tool-agnostic** | Tool-specific | Tool-specific | ✅ MCP / CLI / Skill |
-| **Anti-pattern checks** | No | No | ✅ `lore check` |
+|                                   | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                |
+| --------------------------------- | ---------------------------- | ----------------------- | -------------------------- |
+| **Delivery**                      | Static, all-at-once          | Manual trigger          | **Retrieved on demand**    |
+| **Decays over session**           | Yes                          | No (one-shot)           | No (fresh each query)      |
+| **Re-injection after compaction** | Manual: re-paste all rules   | Manual                  | ✅ Automatic, task-scoped  |
+| **Scales to 100s of rules**       | ❌                           | Tedious                 | ✅ built for it            |
+| **Captures team decisions**       | No                           | No                      | ✅ `decisions.yaml`        |
+| **Tool-agnostic**                 | Tool-specific                | Tool-specific           | Planned: MCP / CLI / Skill |
+| **Anti-pattern checks**           | No                           | No                      | Planned: `lore check`      |
 
 Lorelum isn't a better `.cursorrules`. It's the **retrieval + decision layer** that sits behind whatever AI tool you use.
 
-## Architecture (in brief)
+## Target Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -196,7 +198,8 @@ local packs        endpoint (team / SaaS / self-hosted)
 (offline)          (real-time, multi-user)
 ```
 
-Two modes share the same commands:
+The planned product has two modes:
+
 - **Local mode (default):** `lore install` a public pack, query offline. Zero ops. Like npm.
 - **Endpoint mode:** point the CLI at a team/SaaS/self-hosted endpoint for real-time, multi-user knowledge.
 
@@ -228,12 +231,12 @@ We welcome contributors. Lorelum is **open-core** (see [license architecture](#l
 
 Lorelum is **open-core**:
 
-| Component | License |
-|---|---|
-| Core engine (CLI, local retrieval, MCP, format spec) | **Apache 2.0** |
-| Community knowledge packs | **CC-BY-4.0** |
-| Endpoint server kernel (self-hostable) | **AGPL-3.0** *(separate repo, later)* |
-| SaaS platform & enterprise governance | **Proprietary** *(separate repos, later)* |
+| Component                                            | License                                   |
+| ---------------------------------------------------- | ----------------------------------------- |
+| Core engine (CLI, local retrieval, MCP, format spec) | **Apache 2.0**                            |
+| Community knowledge packs                            | **CC-BY-4.0**                             |
+| Endpoint server kernel (self-hostable)               | **AGPL-3.0** _(separate repo, later)_     |
+| SaaS platform & enterprise governance                | **Proprietary** _(separate repos, later)_ |
 
 The boundary: **if it lets a developer run the full workflow offline on a personal laptop, it's open source.** The paid tiers buy managed ops, collaboration, and compliance — never gated features.
 

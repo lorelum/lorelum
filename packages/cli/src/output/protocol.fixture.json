@@ -1,0 +1,21 @@
+[
+  {
+    "protocolVersion": 1,
+    "toolVersion": "0.0.0",
+    "command": "describe",
+    "ok": true,
+    "data": {
+      "name": "lore"
+    }
+  },
+  {
+    "protocolVersion": 1,
+    "toolVersion": "0.0.0",
+    "command": "unknown",
+    "ok": false,
+    "error": {
+      "code": "usage.invalid",
+      "message": "The command invocation is invalid."
+    }
+  }
+]

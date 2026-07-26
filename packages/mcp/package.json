@@ -10,10 +10,5 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@lorelum/shared": "workspace:*",
-    "@lorelum/engine": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.29.0"
   }
 }

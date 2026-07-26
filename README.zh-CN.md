@@ -20,7 +20,7 @@
 
 你写了 `AGENTS.md`（或 `CLAUDE.md`、`.cursorrules`）。然后这些事就发生了：
 
-- **规则被静默忽略。** 前沿模型对 500 条规则的合规率只有约 68%——*你每多写一条规则，其它规则被遵守的概率都在下降。*<sup>[\[1\]](#fn-1)</sup> 没有任何提示，Agent 就这么悄悄偏离了。
+- **规则被静默忽略。** 前沿模型对 500 条规则的合规率只有约 68%——_你每多写一条规则，其它规则被遵守的概率都在下降。_<sup>[\[1\]](#fn-1)</sup> 没有任何提示，Agent 就这么悄悄偏离了。
 - **压缩（compaction）吞掉了规则。** 长会话触发上下文压缩 → 你会话开头写的 `AGENTS.md` 已经不在窗口里了。社区公认的唯一解法是重新 `@AGENTS.md`，把**全部**规则再灌一遍。
 - **等发现时已经晚了。** Agent 是否已经偏离，你得不到任何信号——直到自己 review 代码时才发现违规。
 
@@ -77,9 +77,10 @@ applies_when: 在 React SPA 中构建 API 层
 [具体指引：http client、base API、modules、DTO 边界。]
 
 ## 要避免的反模式
-- api.direct-axios-in-component   （在组件里直接调 axios）
-- api.local-storage-in-api-class  （在 API 类里持久化 token）
-- api.dto-used-as-ui-model        （DTO 直接当 UI 模型用）
+
+- api.direct-axios-in-component （在组件里直接调 axios）
+- api.local-storage-in-api-class （在 API 类里持久化 token）
+- api.dto-used-as-ui-model （DTO 直接当 UI 模型用）
 ```
 
 一个 **Knowledge Pack（知识包）** 把多条 Practice + 决策图谱（`decisions.yaml`）+ 模板 + 反模式打包，绑定到某个技术栈或团队标准。
@@ -99,8 +100,8 @@ applies_when: 在 React SPA 中构建 API 层
 function LoginPage() {
   const [email, setEmail] = useState("");
   async function handleLogin() {
-    const res = await axios.post("/api/login", { email });  // ❌ 组件里直接调 axios
-    localStorage.setItem("token", res.data.token);           // ❌ token 存进 localStorage
+    const res = await axios.post("/api/login", { email }); // ❌ 组件里直接调 axios
+    localStorage.setItem("token", res.data.token); // ❌ token 存进 localStorage
   }
 }
 ```
@@ -113,19 +114,20 @@ function LoginPage() {
 
 ```markdown
 ## 要避免的反模式
-- api.direct-axios-in-component   （在组件里直接调 axios）
-- api.local-storage-in-api-class  （在 API 类里持久化 token）
-- api.dto-used-as-ui-model        （DTO 直接当 UI 模型用）
+
+- api.direct-axios-in-component （在组件里直接调 axios）
+- api.local-storage-in-api-class （在 API 类里持久化 token）
+- api.dto-used-as-ui-model （DTO 直接当 UI 模型用）
 ```
 
-Agent 随即重写了自己的输出——*常新的、来自相关切片的，而非整套规则*：
+Agent 随即重写了自己的输出——_常新的、来自相关切片的，而非整套规则_：
 
 ```tsx
 // LoginPage.tsx —— 注入后 Agent 自我修正
 function LoginPage() {
-  const { login } = useAuthApi();   // ✅ 走分层 API client
+  const { login } = useAuthApi(); // ✅ 走分层 API client
   async function handleLogin() {
-    await login({ email });          // ✅ token 在 API 层内部处理
+    await login({ email }); // ✅ token 在 API 层内部处理
   }
 }
 ```
@@ -141,7 +143,7 @@ lore learn "HTTP client 里的 single-flight refresh token"
 
 ## 5 分钟了解
 
-*（CLI 处于 pre-alpha，以下命令展示的是设计中的交互形态。）*
+_（CLI 处于 pre-alpha，以下命令展示的是设计中的交互形态。）_
 
 ```bash
 # 安装一个社区知识包（本地模式，离线可用）
@@ -160,23 +162,23 @@ lore check src/features/auth/LoginPage.tsx
 lore learn "HTTP client 里的 single-flight refresh token"
 ```
 
-或者通过 MCP 接入你的 AI 工具——Lorelum 提供 MCP Server，任何兼容 MCP 的工具（Cursor、Claude Code、Codex、Windsurf……）都能调用。
+从 P3 开始，Lorelum 计划提供 MCP Server，供 Cursor、Claude Code、Codex、Windsurf 等兼容 MCP 的工具调用。
 
 ## 和现有方案有什么不同
 
-| | `AGENTS.md` / `.cursorrules` | Skills / 斜杠命令 | **Lorelum** |
-|---|---|---|---|
-| **供给方式** | 静态、全量灌入 | 手动触发 | **按需检索** |
-| **长会话衰减** | 会 | 不会（一次性） | 不会（每次查询都新鲜） |
-| **压缩后重注入** | 手动：重新粘贴全部规则 | 手动 | ✅ 自动、按任务切片 |
-| **支持上百条规则** | ❌ | 繁琐 | ✅ 为此而生 |
-| **承载团队决策** | 否 | 否 | ✅ `decisions.yaml` |
-| **工具中立** | 绑定单一工具 | 绑定单一工具 | ✅ MCP / CLI / Skill |
-| **反模式检查** | 否 | 否 | ✅ `lore check` |
+|                    | `AGENTS.md` / `.cursorrules` | Skills / 斜杠命令 | **Lorelum**               |
+| ------------------ | ---------------------------- | ----------------- | ------------------------- |
+| **供给方式**       | 静态、全量灌入               | 手动触发          | **按需检索**              |
+| **长会话衰减**     | 会                           | 不会（一次性）    | 不会（每次查询都新鲜）    |
+| **压缩后重注入**   | 手动：重新粘贴全部规则       | 手动              | ✅ 自动、按任务切片       |
+| **支持上百条规则** | ❌                           | 繁琐              | ✅ 为此而生               |
+| **承载团队决策**   | 否                           | 否                | ✅ `decisions.yaml`       |
+| **工具中立**       | 绑定单一工具                 | 绑定单一工具      | 规划中：MCP / CLI / Skill |
+| **反模式检查**     | 否                           | 否                | 规划中：`lore check`      |
 
 Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后的**检索与决策层**。
 
-## 架构（简述）
+## 目标架构
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -195,7 +197,8 @@ Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后�
 （离线可用）        （实时、多用户）
 ```
 
-两种模式共用同一套命令：
+规划中的产品包含两种模式：
+
 - **本地模式（默认）：** `lore install` 一个公开包，离线查询，零运维。像 npm 一样简单。
 - **端点模式：** 把 CLI 指向团队 / SaaS / 自托管端点，享受实时同步与多人协作。
 
@@ -227,12 +230,12 @@ Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后�
 
 Lorelum 采用 **open-core** 模式：
 
-| 组件 | License |
-|---|---|
-| 核心引擎（CLI、本地检索、MCP、格式规范） | **Apache 2.0** |
-| 社区知识包内容 | **CC-BY-4.0** |
-| 端点服务内核（可自托管） | **AGPL-3.0** *（独立仓库，后期）* |
-| SaaS 平台与企业治理 | **专有** *（独立仓库，后期）* |
+| 组件                                     | License                           |
+| ---------------------------------------- | --------------------------------- |
+| 核心引擎（CLI、本地检索、MCP、格式规范） | **Apache 2.0**                    |
+| 社区知识包内容                           | **CC-BY-4.0**                     |
+| 端点服务内核（可自托管）                 | **AGPL-3.0** _（独立仓库，后期）_ |
+| SaaS 平台与企业治理                      | **专有** _（独立仓库，后期）_     |
 
 边界一句话：**能让开发者离线跑通完整流程的部分，永远开源。** 付费买的是托管运维、团队协作、企业合规，不是被阉割的功能。
 

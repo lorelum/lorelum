@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+
+permissions:
+  contents: read
 
 # Cancel superseded runs on the same ref.
 concurrency:
@@ -19,16 +21,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       # Bun version pinned per ADR 0002 (packageManager field in package.json).
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.8
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Audit dependencies
+        run: bun audit
 
       - name: Typecheck
         run: bun run typecheck
@@ -39,8 +44,95 @@ jobs:
       - name: Test
         run: bun test
 
-      # oxfmt is still alpha (ADR 0002). Run as a non-blocking signal for now;
-      # promote to blocking once it stabilizes.
       - name: Format check
         run: bun run fmt:check
-        continue-on-error: true
+
+  binary-fixtures:
+    name: binary · ${{ matrix.platform }} · ${{ matrix.architecture }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux
+            architecture: x64
+          - runner: macos-14
+            platform: darwin
+            architecture: arm64
+          - runner: windows-2022
+            platform: win32
+            architecture: x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.8
+
+      - name: Prepare diagnostics
+        shell: bash
+        run: mkdir -p diagnostics
+
+      - name: Build artifact metadata
+        id: artifact
+        shell: bash
+        run: echo "name=$(bun scripts/compile-cli.ts --print-artifact-name)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify runner identity
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+          echo "runner_os=$RUNNER_OS"
+          echo "bun_platform=$(bun -e 'console.log(process.platform)')"
+          echo "bun_arch=$(bun -e 'console.log(process.arch)')"
+          echo "bun_version=$(bun --version)"
+          test "$(bun -e 'console.log(process.platform)')" = "${{ matrix.platform }}"
+          test "$(bun -e 'console.log(process.arch)')" = "${{ matrix.architecture }}"
+          test "$(bun --version)" = "1.3.8"
+          } 2>&1 | tee diagnostics/runner-identity.log
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -o pipefail
+          bun install --frozen-lockfile 2>&1 | tee diagnostics/install.log
+
+      - name: Verify source
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            bun run typecheck
+            bun run lint
+            bun test
+          } 2>&1 | tee diagnostics/source.log
+
+      - name: Compile native binary
+        id: compile
+        shell: bash
+        run: |
+          set -o pipefail
+          bun scripts/compile-cli.ts 2>&1 | tee diagnostics/compile.log
+          echo "path=$(bun scripts/compile-cli.ts --print-path)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify compiled protocol fixtures
+        shell: bash
+        run: |
+          set -o pipefail
+          bun run verify:compiled-cli "${{ steps.compile.outputs.path }}" "${{ matrix.platform }}" "${{ matrix.architecture }}" 2>&1 | tee diagnostics/compiled-fixtures.log
+
+      - name: Upload verification artifact
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: |
+            dist/
+            diagnostics/
+          retention-days: 7

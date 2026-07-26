@@ -23,16 +23,16 @@ The constraints that shaped the choice:
 
 For the adjacent tooling (chosen at the same time and documented here for completeness):
 
-| Concern | Choice |
-|---|---|
-| Tests | `bun:test` |
-| Lint | `oxlint` |
-| Format | `oxfmt` (beta; see consequences) |
-| Schema validation | `zod` (export JSON Schema for pack authors) |
+| Concern                      | Choice                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| Tests                        | `bun:test`                                                                  |
+| Lint                         | `oxlint`                                                                    |
+| Format                       | `oxfmt` (beta; see consequences)                                            |
+| Schema validation            | `zod` (export JSON Schema for pack authors)                                 |
 | Markdown/frontmatter parsing | `gray-matter` (the de-facto standard; see consequences for the js-yaml pin) |
-| Embedding | thin OpenAI-compatible client (covers Voyage/Jina/Ollama via `baseURL`) |
-| Local vector store (P2) | `bun:sqlite` + in-memory brute-force cosine search |
-| MCP | `@modelcontextprotocol/sdk` |
+| Embedding                    | thin OpenAI-compatible client (covers Voyage/Jina/Ollama via `baseURL`)     |
+| Local vector store (P2)      | `bun:sqlite` + in-memory brute-force cosine search                          |
+| MCP                          | `@modelcontextprotocol/sdk`                                                 |
 
 ### Why Bun over Node + pnpm
 

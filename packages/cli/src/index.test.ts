@@ -1,9 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 
-import { PACKAGE_NAME } from "./index";
+import { PACKAGE_NAME } from "./index.js";
 
-describe("@lorelum/cli", () => {
-  test("exposes its package name", () => {
-    expect(PACKAGE_NAME).toBe("@lorelum/cli");
-  });
+test("exports the CLI package name", () => {
+  expect(PACKAGE_NAME).toBe("@lorelum/cli");
 });

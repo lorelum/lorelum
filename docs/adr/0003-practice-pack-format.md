@@ -6,7 +6,7 @@
 
 ## Context
 
-The Practice/pack format is Lorelum's public contract — once packs are authored and published against it, changes are breaking. Two upstream research docs (seed Practice content, embedding implementation) had already *assumed* the shape of a Practice (frontmatter fields, stable anti-pattern ids, canonical-text fields) without that shape ever being formally defined. The format is the common upstream of the retrieval engine (`CanonicalTextBuilder`, index `records`), the CLI (`lore query/get/decide/check`), and the seed Practice content being authored in parallel.
+The Practice/pack format is Lorelum's public contract — once packs are authored and published against it, changes are breaking. Two upstream research docs (seed Practice content, embedding implementation) had already _assumed_ the shape of a Practice (frontmatter fields, stable anti-pattern ids, canonical-text fields) without that shape ever being formally defined. The format is the common upstream of the retrieval engine (`CanonicalTextBuilder`, index `records`), the CLI (`lore query/get/decide/check`), and the seed Practice content being authored in parallel.
 
 So the task was not "design a yaml schema from scratch" but **converge the already-assumed structure into an explicit, reasoned contract**, and decide `lore validate`'s validation semantics. Six points had no settled answer and needed product decisions, not just technical research.
 
@@ -69,8 +69,8 @@ So `lore check` (v1) is positioned as **retrieve the relevant anti-patterns and 
 - **No pack-to-pack reuse in v1.** Content may be duplicated across packs. Accepted: one pack exists; duplication cost is near-zero until P3.
 - **`lore check` is not an auto-linter in v1.** It surfaces relevant anti-patterns for the AI to judge. Teams expecting "run check, get a fail/pass verdict" will be surprised until the check engine lands later.
 - **The error/warning reframe is non-obvious.** Contributors familiar with tsc/eslint will initially reach for the conventional semantics. This ADR (and the doc it points to) must be the place they read to correct that.
-- **`check` reserved field.** If a future machine-check engine defines `check`'s shape, old packs that never set it are unaffected; packs that *did* set an experimental value would need migration — unlikely, since v1 says the format is undefined.
-- **v1 gap — Practice→Practice body references are not yet validated.** §2.3 classifies "Practice→Practice body reference = error", but the *syntax* of in-body references is not yet defined (no `[[practice:<id>]]` or equivalent). v1 `lore validate` therefore checks only structural references — Decision→Practice (`recommend`), Decision→Decision (`next`), anti-pattern→Practice (structural ownership). In-body reference validation lands once the reference syntax is settled. Packs today carry no in-body references, so this is an accepted gap, not a regression.
+- **`check` reserved field.** If a future machine-check engine defines `check`'s shape, old packs that never set it are unaffected; packs that _did_ set an experimental value would need migration — unlikely, since v1 says the format is undefined.
+- **v1 gap — Practice→Practice body references are not yet validated.** §2.3 classifies "Practice→Practice body reference = error", but the _syntax_ of in-body references is not yet defined (no `[[practice:<id>]]` or equivalent). v1 `lore validate` therefore checks only structural references — Decision→Practice (`recommend`), Decision→Decision (`next`), anti-pattern→Practice (structural ownership). In-body reference validation lands once the reference syntax is settled. Packs today carry no in-body references, so this is an accepted gap, not a regression.
 
 **Follow-ups:**
 

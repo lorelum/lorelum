@@ -12,7 +12,7 @@ Today, decisions are made in team discussion and live in people's heads or scatt
 1. **"Why is it like this?"** — a newcomer (human or AI agent) hits a non-obvious design choice and has no record of the alternatives considered or the constraints that drove it.
 2. **Re-litigation** — without a durable record, settled questions get reopened every few months when someone re-discovers the trade-off.
 
-We need a lightweight, in-repo mechanism to capture *why* a decision was made at the time, not just *what* was decided.
+We need a lightweight, in-repo mechanism to capture _why_ a decision was made at the time, not just _what_ was decided.
 
 ## Decision
 
@@ -26,7 +26,7 @@ ADRs go through the normal PR workflow. They are **immutable history** — to ch
 
 **Positive:**
 
-- Every hard-to-reverse decision has a durable rationale attached. Future contributors (and AI agents reading [`AGENTS.md`](../../AGENTS.md)) can trace *why* instead of guessing.
+- Every hard-to-reverse decision has a durable rationale attached. Future contributors (and AI agents reading [`AGENTS.md`](../../AGENTS.md)) can trace _why_ instead of guessing.
 - Settled decisions stay settled — reopening a question means writing a new ADR that references the old one, which forces the challenger to engage with the original reasoning.
 - The `Accepted`/`Superseded` lifecycle gives a clear picture of which decisions are still in force.
 

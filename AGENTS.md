@@ -15,6 +15,7 @@ The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). Thi
 The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, `packages/format`, `packages/mcp`, `packages/shared`). Repo-root `package.json` declares `workspaces: ["packages/*"]`.
 
 **The product contract to be aware of:**
+
 - **Practice / pack format** — the public schema that packs and users depend on. Changes are high-impact; see CONTRIBUTING.md.
 - **Retrieval engine** — performance-sensitive; benchmark before changing.
 
@@ -71,15 +72,18 @@ Keep the tree navigable and each file independently understandable. These are pr
 ## Boundaries
 
 **Do not modify these without explicit maintainer approval:**
+
 - `LICENSE` and any future `LICENSE-*` files — license files. Changes are legal events, not code edits.
 - `package.json` top-level `license` field.
 - `.github/workflows/` release/publish steps.
 
 **Do not run:**
+
 - Any package-publish command (e.g. `bun publish`, `npm publish`) — releases are CI-only.
 - Anything that posts to the public registry without approval.
 
 **Be careful with:**
+
 - Bumping dependencies — check for transitive license/AGPL conflicts. We are Apache-2.0 core; don't pull in GPL/AGPL deps into Apache-licensed code without a maintainer's sign-off.
 - Editing the Practice/pack schema — it's the public contract. Spec required.
 

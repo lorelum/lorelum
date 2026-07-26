@@ -16,21 +16,41 @@ import { detectCycles } from "./cycle";
 import { buildReport, issue, type ValidationIssue, type ValidationReport } from "./report";
 
 /** The three sources validate needs: pack.yaml metadata + scanned practices + decisions.yaml. */
-export interface PackInput {
+export interface UnvalidatedPackInput {
+  pack: unknown;
+  practices: unknown;
+  decisions: unknown;
+}
+
+/** A PackInput whose three sources have passed their format schemas. */
+export interface PackInput extends UnvalidatedPackInput {
   pack: Pack;
   practices: Practice[];
   decisions: DecisionNode[];
 }
 
+const PracticeListSchema = PracticeSchema.array();
+const DecisionListSchema = DecisionNodeSchema.array();
+
 /** Turn a zod path array (["branches",0,"recommend"]) into a readable dot path. */
 function toDotPath(path: PropertyKey[]): string {
   if (path.length === 0) return "(root)";
-  let out = String(path[0]);
-  for (let i = 1; i < path.length; i++) {
-    const seg = path[i];
-    if (seg !== undefined) out += typeof seg === "number" ? `[${seg}]` : `.${String(seg)}`;
+  let out = "";
+  for (const segment of path) {
+    if (typeof segment === "number") {
+      out += `[${segment}]`;
+    } else {
+      out += out === "" ? String(segment) : `.${String(segment)}`;
+    }
   }
   return out;
+}
+
+function withBasePath(basePath: string, path: PropertyKey[]): string {
+  const nestedPath = toDotPath(path);
+  if (nestedPath === "(root)") return basePath || nestedPath;
+  if (basePath === "") return nestedPath;
+  return `${basePath}${nestedPath.startsWith("[") ? "" : "."}${nestedPath}`;
 }
 
 /** Convert every zod issue from a failed safeParse into a "format" error issue. */
@@ -39,12 +59,7 @@ function zodIssuesToFormatErrors(
   basePath: string,
 ): ValidationIssue[] {
   return result.error.issues.map((zi) =>
-    issue(
-      "error",
-      "format",
-      basePath ? `${basePath}.${toDotPath(zi.path)}` : toDotPath(zi.path),
-      zi.message,
-    ),
+    issue("error", "format", withBasePath(basePath, zi.path), zi.message),
   );
 }
 
@@ -52,33 +67,35 @@ function zodIssuesToFormatErrors(
  * Validate a full pack. Returns a report bucketed by error/warning/info.
  * Pure: no filesystem, no network, no side effects.
  */
-export function validatePack(input: PackInput): ValidationReport {
+export function validatePack(input: UnvalidatedPackInput): ValidationReport {
   const issues: ValidationIssue[] = [];
 
   // Stage 1 — format check.
   const packParsed = PackSchema.safeParse(input.pack);
+  const practicesParsed = PracticeListSchema.safeParse(input.practices);
+  const decisionsParsed = DecisionListSchema.safeParse(input.decisions);
   if (!packParsed.success) {
     issues.push(...zodIssuesToFormatErrors(packParsed, "pack"));
   }
-  input.practices.forEach((p, i) => {
-    const r = PracticeSchema.safeParse(p);
-    if (!r.success) issues.push(...zodIssuesToFormatErrors(r, `practices[${i}]`));
-  });
-  input.decisions.forEach((d, i) => {
-    const r = DecisionNodeSchema.safeParse(d);
-    if (!r.success) issues.push(...zodIssuesToFormatErrors(r, `decisions[${i}]`));
-  });
+  if (!practicesParsed.success) {
+    issues.push(...zodIssuesToFormatErrors(practicesParsed, "practices"));
+  }
+  if (!decisionsParsed.success) {
+    issues.push(...zodIssuesToFormatErrors(decisionsParsed, "decisions"));
+  }
 
   // If anything failed format, stop here — semantic checks would only noise.
-  const hasFormatErrors = issues.some((i) => i.level === "error");
-  if (hasFormatErrors) {
+  if (!packParsed.success || !practicesParsed.success || !decisionsParsed.success) {
     return buildReport(issues);
   }
+  const pack = packParsed.data;
+  const practices = practicesParsed.data;
+  const decisions = decisionsParsed.data;
 
   // Stage 2 — reference integrity.
   const practiceIds = new Set<string>();
   const decisionIds = new Set<string>();
-  input.practices.forEach((p, i) => {
+  practices.forEach((p, i) => {
     if (practiceIds.has(p.id)) {
       issues.push(
         issue("error", "duplicate-id", `practices[${i}].id`, `duplicate practice id "${p.id}"`),
@@ -87,7 +104,8 @@ export function validatePack(input: PackInput): ValidationReport {
       practiceIds.add(p.id);
     }
   });
-  input.decisions.forEach((d, i) => {
+
+  decisions.forEach((d, i) => {
     if (decisionIds.has(d.id)) {
       issues.push(
         issue("error", "duplicate-id", `decisions[${i}].id`, `duplicate decision id "${d.id}"`),
@@ -95,6 +113,10 @@ export function validatePack(input: PackInput): ValidationReport {
     } else {
       decisionIds.add(d.id);
     }
+  });
+
+  // Collect all ids before checking edges so valid forward references are order-independent.
+  decisions.forEach((d, i) => {
     d.branches.forEach((b, bi) => {
       b.recommend.forEach((rid) => {
         if (!practiceIds.has(rid)) {
@@ -125,7 +147,7 @@ export function validatePack(input: PackInput): ValidationReport {
 
   // Stage 3 — cycle detection over the `next` edges.
   const edges = new Map<string, string[]>();
-  for (const d of input.decisions) {
+  for (const d of decisions) {
     const nexts = d.branches.map((b) => b.next).filter((n): n is string => n !== undefined);
     if (nexts.length > 0) edges.set(d.id, nexts);
   }
@@ -134,7 +156,7 @@ export function validatePack(input: PackInput): ValidationReport {
   }
 
   // Stage 4 — warnings (quality risks).
-  if (input.pack.depends_on !== undefined && input.pack.depends_on.length > 0) {
+  if (pack.depends_on !== undefined && pack.depends_on.length > 0) {
     issues.push(
       issue(
         "warning",
@@ -144,7 +166,7 @@ export function validatePack(input: PackInput): ValidationReport {
       ),
     );
   }
-  input.practices.forEach((p, i) => {
+  practices.forEach((p, i) => {
     if (p.severity === undefined) {
       issues.push(
         issue(
@@ -179,7 +201,7 @@ export function validatePack(input: PackInput): ValidationReport {
 
   // Stage 5 — infos (advisory).
   const titles = new Map<string, number>();
-  input.practices.forEach((p, i) => {
+  practices.forEach((p, i) => {
     const prev = titles.get(p.title);
     if (prev !== undefined) {
       issues.push(
@@ -194,13 +216,13 @@ export function validatePack(input: PackInput): ValidationReport {
       titles.set(p.title, i);
     }
   });
-  if (input.practices.length < 3) {
+  if (practices.length < 3) {
     issues.push(
       issue(
         "info",
         "small-pack",
         "practices",
-        `pack has ${input.practices.length} practice(s); fewer than 3`,
+        `pack has ${practices.length} practice(s); fewer than 3`,
       ),
     );
   }
