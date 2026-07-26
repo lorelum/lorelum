@@ -1,4 +1,4 @@
-# ADR 0004: Local Practice store
+# ADR 0007: Local Practice store
 
 - **Date:** 2026-07-26
 - **Status:** Proposed
