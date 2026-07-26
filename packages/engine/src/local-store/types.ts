@@ -49,6 +49,11 @@ export interface LocalStoreState {
 
 export interface LocalStoreOpenOptions {
   readonly root?: StorageRoot;
+  /**
+   * Decodes the immutable snapshot representation. LocalStore verifies that
+   * the decoded snapshot matches the validated input before publishing it.
+   */
+  readonly snapshotCodec: SnapshotCodec;
 }
 
 export interface InstallResult {

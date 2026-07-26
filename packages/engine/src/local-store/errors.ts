@@ -49,3 +49,11 @@ export class PracticeConflictError extends LocalStoreError {
 export class StoreInvariantError extends LocalStoreError {
   override readonly name: string = "StoreInvariantError";
 }
+
+export class StoreBusyError extends LocalStoreError {
+  override readonly name: string = "StoreBusyError";
+
+  constructor(readonly lockPath: string) {
+    super(`LocalStore is busy with another mutation at "${lockPath}"`);
+  }
+}

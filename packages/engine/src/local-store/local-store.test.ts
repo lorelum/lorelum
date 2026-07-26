@@ -1,10 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import type { PackInput, Practice } from "@lorelum/format";
+import {
+  PackSchema,
+  PracticeSchema,
+  parseFrontmatter,
+  type PackInput,
+  type Practice,
+} from "@lorelum/format";
 
 import {
   InvalidPreparedPackError,
@@ -15,6 +21,7 @@ import {
   defaultStorageRoot,
   storageRoot,
   type PreparedPack,
+  type SnapshotCodec,
 } from "./index";
 
 function practice(id: string, overrides: Partial<Practice> = {}): Practice {
@@ -35,11 +42,11 @@ function preparedPack(name: string, version: string, practices: readonly Practic
   const files = [
     {
       relativePath: "pack.yaml",
-      bytes: new TextEncoder().encode(`name: ${name}\nversion: ${version}\n`),
+      bytes: new TextEncoder().encode(JSON.stringify(input.pack)),
     },
     ...practices.map((item) => ({
       relativePath: `practices/${item.id}.md`,
-      bytes: new TextEncoder().encode(`# ${item.title}\n${item.body ?? ""}\n`),
+      bytes: practiceMarkdown(item),
     })),
   ];
   return {
@@ -49,11 +56,55 @@ function preparedPack(name: string, version: string, practices: readonly Practic
   };
 }
 
+function practiceMarkdown(item: Practice): Uint8Array {
+  const { body, ...frontmatter } = item;
+  return new TextEncoder().encode(`---\n${JSON.stringify(frontmatter)}\n---\n${body ?? ""}`);
+}
+
+function testSnapshotCodec(): SnapshotCodec {
+  return {
+    async decode(artifactDirectory) {
+      const pack = PackSchema.parse(
+        JSON.parse(await readFile(join(artifactDirectory, "pack.yaml"), "utf8")) as unknown,
+      );
+      const practiceDirectory = join(artifactDirectory, "practices");
+      const entries = await readdir(practiceDirectory, { withFileTypes: true });
+      const decodedPractices = await Promise.all(
+        entries
+          .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+          .map(async (entry) => {
+            const relativePath = `practices/${entry.name}`;
+            const markdown = await readFile(join(practiceDirectory, entry.name), "utf8");
+            const parsed = parseFrontmatter(markdown);
+            const decodedPractice = PracticeSchema.parse({ ...parsed.data, body: parsed.content });
+            return { decodedPractice, relativePath };
+          }),
+      );
+      const practices = decodedPractices.map(({ decodedPractice }) => decodedPractice);
+      const practiceSourcePaths = new Map(
+        decodedPractices.map(({ decodedPractice, relativePath }) => [
+          decodedPractice.id,
+          relativePath,
+        ]),
+      );
+
+      return {
+        input: { pack, practices, decisions: [] },
+        files: [],
+        practiceSourcePaths,
+      };
+    },
+  };
+}
+
 async function withStore(
   operation: (store: LocalStore, rootPath: string) => Promise<void>,
 ): Promise<void> {
   const rootPath = await mkdtemp(join(tmpdir(), "lorelum-local-store-"));
-  const store = await LocalStore.open({ root: storageRoot(rootPath) });
+  const store = await LocalStore.open({
+    root: storageRoot(rootPath),
+    snapshotCodec: testSnapshotCodec(),
+  });
   try {
     await operation(store, rootPath);
   } finally {
@@ -94,7 +145,10 @@ describe("LocalStore lifecycle", () => {
       await stat(join(rootPath, "packs", entry.storageKey, entry.artifactDigest, "pack.yaml"));
 
       store.close();
-      const restarted = await LocalStore.open({ root: storageRoot(rootPath) });
+      const restarted = await LocalStore.open({
+        root: storageRoot(rootPath),
+        snapshotCodec: testSnapshotCodec(),
+      });
       try {
         expect(restarted.state()).toEqual({ installedPacksGeneration: 1, effectiveRevision: 1 });
         expect(restarted.effectivePractices()).toHaveLength(1);
@@ -288,5 +342,69 @@ describe("LocalStore lifecycle", () => {
 
       await expect(store.install(invalid)).rejects.toBeInstanceOf(InvalidPreparedPackError);
     });
+  });
+
+  test("rejects a snapshot whose decoded Pack or Practice differs from validated input", async () => {
+    await withStore(async (store) => {
+      const expected = preparedPack("react-base", "1.0.0", [practice("react.api.layered-design")]);
+      const mismatched: PreparedPack = {
+        ...expected,
+        files: [
+          {
+            relativePath: "pack.yaml",
+            bytes: new TextEncoder().encode(
+              JSON.stringify({ name: "different-pack", version: "9.9.9" }),
+            ),
+          },
+          {
+            relativePath: "practices/react.api.layered-design.md",
+            bytes: practiceMarkdown(
+              practice("react.api.layered-design", { body: "Different guidance." }),
+            ),
+          },
+        ],
+      };
+
+      await expect(store.install(mismatched)).rejects.toBeInstanceOf(InvalidPreparedPackError);
+      expect(store.installedPacks()).toEqual([]);
+      expect(store.effectivePractices()).toEqual([]);
+    });
+  });
+
+  test("serializes concurrent mutations from multiple LocalStore instances", async () => {
+    const rootPath = await mkdtemp(join(tmpdir(), "lorelum-local-store-"));
+    const root = storageRoot(rootPath);
+    const first = await LocalStore.open({ root, snapshotCodec: testSnapshotCodec() });
+    const second = await LocalStore.open({ root, snapshotCodec: testSnapshotCodec() });
+
+    try {
+      const base = preparedPack("react-base", "1.0.0", [practice("react.api.base")]);
+      const baseUpgrade = preparedPack("react-base", "1.1.0", [
+        practice("react.api.base", { body: "Updated base guidance." }),
+      ]);
+      const team = preparedPack("react-team", "1.0.0", [practice("react.api.team")]);
+
+      await first.install(base);
+      await Promise.all([first.upgrade(baseUpgrade), second.install(team)]);
+      await Promise.all([first.uninstall("react-base"), second.uninstall("react-team")]);
+
+      const manifest = JSON.parse(
+        await readFile(join(rootPath, "installed-packs.json"), "utf8"),
+      ) as { schemaVersion: number; generation: number; packs: { name: string }[] };
+      expect(manifest).toEqual({ generation: 5, packs: [], schemaVersion: 1 });
+
+      const restarted = await LocalStore.open({ root, snapshotCodec: testSnapshotCodec() });
+      try {
+        expect(restarted.installedPacks()).toEqual([]);
+        expect(restarted.effectivePractices()).toEqual([]);
+        expect(restarted.state()).toEqual({ installedPacksGeneration: 5, effectiveRevision: 5 });
+      } finally {
+        restarted.close();
+      }
+    } finally {
+      first.close();
+      second.close();
+      await rm(rootPath, { recursive: true, force: true });
+    }
   });
 });

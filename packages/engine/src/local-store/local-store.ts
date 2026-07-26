@@ -32,6 +32,7 @@ import {
   type InstalledPacksManifest,
   writeManifest,
 } from "./manifest";
+import { withMutationLock } from "./mutation-lock";
 import { LocalStoreRepository } from "./repositories";
 import type {
   EffectivePractice,
@@ -40,6 +41,7 @@ import type {
   LocalStoreOpenOptions,
   LocalStoreState,
   PreparedPack,
+  SnapshotCodec,
   StorageRoot,
   UninstallResult,
 } from "./types";
@@ -74,11 +76,12 @@ export class LocalStore {
     readonly root: StorageRoot,
     private readonly database: StoreDatabase,
     private manifest: InstalledPacksManifest,
+    private readonly snapshotCodec: SnapshotCodec,
   ) {
     this.repository = new LocalStoreRepository(database.connection);
   }
 
-  static async open(options: LocalStoreOpenOptions = {}): Promise<LocalStore> {
+  static async open(options: LocalStoreOpenOptions): Promise<LocalStore> {
     const root = options.root ?? defaultStorageRoot();
     await mkdir(root.path, { recursive: true });
     const manifest = await loadManifest(root);
@@ -93,7 +96,7 @@ export class LocalStore {
       );
     }
 
-    return new LocalStore(root, database, manifest);
+    return new LocalStore(root, database, manifest, options.snapshotCodec);
   }
 
   close(): void {
@@ -118,8 +121,32 @@ export class LocalStore {
 
   async install(prepared: PreparedPack): Promise<InstallResult> {
     const candidate = this.prepareCandidate(prepared);
-    const existing = this.manifest.packs.find((pack) => pack.name === prepared.input.pack.name);
-    if (existing !== undefined) {
+    return withMutationLock(this.root, async () => {
+      await this.reloadManifest();
+      const existing = this.manifest.packs.find((pack) => pack.name === prepared.input.pack.name);
+      if (existing !== undefined) {
+        if (existing.artifactDigest === candidate.artifactDigest) {
+          return {
+            kind: "unchanged",
+            pack: existing,
+            effectiveRevision: this.repository.state().effectiveRevision,
+            validation: candidate.validation,
+          };
+        }
+        throw new PackUpgradeRequiredError(existing.name);
+      }
+      return this.applyCandidate("installed", candidate, undefined);
+    });
+  }
+
+  async upgrade(prepared: PreparedPack): Promise<InstallResult> {
+    const candidate = this.prepareCandidate(prepared);
+    return withMutationLock(this.root, async () => {
+      await this.reloadManifest();
+      const existing = this.manifest.packs.find((pack) => pack.name === prepared.input.pack.name);
+      if (existing === undefined) {
+        throw new PackNotInstalledError(prepared.input.pack.name);
+      }
       if (existing.artifactDigest === candidate.artifactDigest) {
         return {
           kind: "unchanged",
@@ -128,57 +155,42 @@ export class LocalStore {
           validation: candidate.validation,
         };
       }
-      throw new PackUpgradeRequiredError(existing.name);
-    }
-    return this.applyCandidate("installed", candidate, undefined);
-  }
-
-  async upgrade(prepared: PreparedPack): Promise<InstallResult> {
-    const candidate = this.prepareCandidate(prepared);
-    const existing = this.manifest.packs.find((pack) => pack.name === prepared.input.pack.name);
-    if (existing === undefined) {
-      throw new PackNotInstalledError(prepared.input.pack.name);
-    }
-    if (existing.artifactDigest === candidate.artifactDigest) {
-      return {
-        kind: "unchanged",
-        pack: existing,
-        effectiveRevision: this.repository.state().effectiveRevision,
-        validation: candidate.validation,
-      };
-    }
-    return this.applyCandidate("upgraded", candidate, existing);
+      return this.applyCandidate("upgraded", candidate, existing);
+    });
   }
 
   async uninstall(packName: string): Promise<UninstallResult> {
-    const existing = this.manifest.packs.find((pack) => pack.name === packName);
-    if (existing === undefined) throw new PackNotInstalledError(packName);
+    return withMutationLock(this.root, async () => {
+      await this.reloadManifest();
+      const existing = this.manifest.packs.find((pack) => pack.name === packName);
+      if (existing === undefined) throw new PackNotInstalledError(packName);
 
-    const oldSources = this.repository.sourcesForPack(packName);
-    const affectedPracticeIds = new Set(oldSources.map((source) => source.practice_id));
-    const nextManifest = this.nextManifest(
-      this.manifest.packs.filter((pack) => pack.name !== packName),
-    );
+      const oldSources = this.repository.sourcesForPack(packName);
+      const affectedPracticeIds = new Set(oldSources.map((source) => source.practice_id));
+      const nextManifest = this.nextManifest(
+        this.manifest.packs.filter((pack) => pack.name !== packName),
+      );
 
-    await writeManifest(this.root, nextManifest);
-    const nextRevision = this.database.transaction(() => {
-      const currentState = this.repository.state();
-      this.repository.deletePack(packName);
-      const effectiveChanged = this.reconcileEffectivePractices(affectedPracticeIds, new Map());
-      const state = {
-        installedPacksGeneration: nextManifest.generation,
-        effectiveRevision: currentState.effectiveRevision + (effectiveChanged ? 1 : 0),
-      };
-      if (effectiveChanged) {
-        this.rewriteChangedEffectiveRevisions(affectedPracticeIds, state.effectiveRevision);
-      }
-      this.repository.setState(state);
-      return state.effectiveRevision;
+      await writeManifest(this.root, nextManifest);
+      const nextRevision = this.database.transaction(() => {
+        const currentState = this.repository.state();
+        this.repository.deletePack(packName);
+        const effectiveChanged = this.reconcileEffectivePractices(affectedPracticeIds, new Map());
+        const state = {
+          installedPacksGeneration: nextManifest.generation,
+          effectiveRevision: currentState.effectiveRevision + (effectiveChanged ? 1 : 0),
+        };
+        if (effectiveChanged) {
+          this.rewriteChangedEffectiveRevisions(affectedPracticeIds, state.effectiveRevision);
+        }
+        this.repository.setState(state);
+        return state.effectiveRevision;
+      });
+
+      this.manifest = nextManifest;
+      await removeArtifact(this.root, existing.storageKey, existing.artifactDigest);
+      return { packName, effectiveRevision: nextRevision };
     });
-
-    this.manifest = nextManifest;
-    await removeArtifact(this.root, existing.storageKey, existing.artifactDigest);
-    return { packName, effectiveRevision: nextRevision };
   }
 
   private prepareCandidate(prepared: PreparedPack): PackCandidate {
@@ -247,6 +259,7 @@ export class LocalStore {
     };
 
     try {
+      await this.assertSnapshotMatchesCandidate(candidate, staged.directory);
       await promoteArtifact(this.root, staged, pack.storageKey, pack.artifactDigest);
       const nextManifest = this.nextManifest([
         ...this.manifest.packs.filter((entry) => entry.name !== pack.name),
@@ -301,6 +314,66 @@ export class LocalStore {
     } catch (error: unknown) {
       await discardStagedArtifact(this.root, staged);
       throw error;
+    }
+  }
+
+  private async reloadManifest(): Promise<void> {
+    const manifest = await loadManifest(this.root);
+    const state = this.repository.state();
+    if (state.installedPacksGeneration !== manifest.generation) {
+      throw new StoreInvariantError(
+        `SQLite generation ${state.installedPacksGeneration} does not match manifest generation ${manifest.generation}`,
+      );
+    }
+    this.manifest = manifest;
+  }
+
+  private async assertSnapshotMatchesCandidate(
+    candidate: PackCandidate,
+    artifactDirectory: string,
+  ): Promise<void> {
+    const decoded = await this.snapshotCodec.decode(artifactDirectory);
+    const validation = validatePack(decoded.input);
+    if (!validation.valid) {
+      throw new InvalidPreparedPackError("Snapshot codec decoded an invalid Pack");
+    }
+    if (
+      decoded.input.pack.name !== candidate.prepared.input.pack.name ||
+      decoded.input.pack.version !== candidate.prepared.input.pack.version
+    ) {
+      throw new InvalidPreparedPackError(
+        "Snapshot pack metadata does not match the validated Pack",
+      );
+    }
+    if (!sameDecisions(decoded.input.decisions, candidate.prepared.input.decisions)) {
+      throw new InvalidPreparedPackError("Snapshot decisions do not match the validated Pack");
+    }
+
+    const decodedPractices = new Map(
+      decoded.input.practices.map((practice) => [practice.id, practice]),
+    );
+    if (decodedPractices.size !== candidate.practices.length) {
+      throw new InvalidPreparedPackError("Snapshot Practices do not match the validated Pack");
+    }
+    for (const candidatePractice of candidate.practices) {
+      const decodedPractice = decodedPractices.get(candidatePractice.practice.id);
+      if (
+        decodedPractice === undefined ||
+        canonicalContent(decodedPractice) !== candidatePractice.canonicalContent
+      ) {
+        throw new InvalidPreparedPackError(
+          `Snapshot Practice "${candidatePractice.practice.id}" does not match the validated Pack`,
+        );
+      }
+      const decodedSourcePath = decoded.practiceSourcePaths.get(candidatePractice.practice.id);
+      if (
+        decodedSourcePath === undefined ||
+        normalizeSnapshotPath(decodedSourcePath) !== candidatePractice.sourcePath
+      ) {
+        throw new InvalidPreparedPackError(
+          `Snapshot source path for Practice "${candidatePractice.practice.id}" does not match`,
+        );
+      }
     }
   }
 
@@ -387,4 +460,19 @@ export class LocalStore {
       packs: [...packs].sort((left, right) => left.name.localeCompare(right.name)),
     };
   }
+}
+
+function sameDecisions(left: unknown, right: unknown): boolean {
+  return canonicalJson(left) === canonicalJson(right);
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+    .join(",")}}`;
 }
