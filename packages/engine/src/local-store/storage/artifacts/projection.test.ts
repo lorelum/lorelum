@@ -6,7 +6,7 @@ import { createProjection, parseProjection, serializeProjection } from "./projec
 test("projection records canonical source data in source-path order", () => {
   const { candidate } = createPackCandidate(
     {
-      pack: { name: "platform", version: "1.0.0" },
+      pack: { name: "platform", version: "1.0.0", applies_to: ["typescript"] },
       practices: [
         {
           id: "platform.second",
@@ -36,7 +36,9 @@ test("projection records canonical source data in source-path order", () => {
     "practices/a.md",
     "practices/z.md",
   ]);
-  expect(parseProjection(serializeProjection(projection), "snapshot")).toEqual(projection);
+  const parsed = parseProjection(serializeProjection(projection), "snapshot");
+  expect(parsed).toEqual(projection);
+  expect(Object.isFrozen(parsed.pack.applies_to)).toBe(true);
 });
 
 test("projection rejects untrusted JSON shapes", () => {

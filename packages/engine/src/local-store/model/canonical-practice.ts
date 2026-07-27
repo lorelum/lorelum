@@ -1,15 +1,10 @@
 import type { Practice } from "@lorelum/format";
 
+import { deepFreeze } from "./freeze";
 import type { CanonicalPractice, PracticeSnapshot } from "./types";
 
 function normalizeLineEndings(value: string): string {
   return value.replace(/\r\n?/g, "\n");
-}
-
-function deepFreeze(value: unknown): void {
-  if (typeof value !== "object" || value === null || Object.isFrozen(value)) return;
-  for (const child of Object.values(value)) deepFreeze(child);
-  Object.freeze(value);
 }
 
 type ReadonlyPractice = {
@@ -28,8 +23,7 @@ type ReadonlyPractice = {
 function snapshotPractice(practice: ReadonlyPractice): PracticeSnapshot {
   const canonical = canonicalPracticeObject(practice);
   const snapshot = structuredClone(canonical) as Practice;
-  deepFreeze(snapshot);
-  return snapshot as PracticeSnapshot;
+  return deepFreeze(snapshot) as PracticeSnapshot;
 }
 
 function canonicalPracticeObject(practice: ReadonlyPractice): object {

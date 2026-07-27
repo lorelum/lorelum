@@ -16,17 +16,22 @@ function posixRelative(rootPath: string, path: string): string {
 
 async function collectFiles(rootPath: string, directory = rootPath): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
-  const nestedFiles = await Promise.all(
-    entries.map(async (entry) => {
-      const path = join(directory, entry.name);
-      if (entry.isSymbolicLink()) {
-        throw new ArtifactIntegrityError(path, "symbolic links are not allowed in a snapshot");
-      }
-      if (entry.isDirectory()) return collectFiles(rootPath, path);
-      return entry.isFile() ? [path] : [];
-    }),
-  );
-  const files = nestedFiles.flat();
+  const files: string[] = [];
+  async function visit(index: number): Promise<void> {
+    const entry = entries[index];
+    if (entry === undefined) return;
+    const path = join(directory, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new ArtifactIntegrityError(path, "symbolic links are not allowed in a snapshot");
+    }
+    if (entry.isDirectory()) {
+      files.push(...(await collectFiles(rootPath, path)));
+    } else if (entry.isFile()) {
+      files.push(path);
+    }
+    await visit(index + 1);
+  }
+  await visit(0);
   return files.sort((left, right) => {
     const leftRelative = posixRelative(rootPath, left);
     const rightRelative = posixRelative(rootPath, right);
@@ -38,15 +43,16 @@ async function collectFiles(rootPath: string, directory = rootPath): Promise<str
 export async function calculateArtifactDigest(snapshotPath: string): Promise<string> {
   const hash = createHash("sha256");
   const paths = await collectFiles(snapshotPath);
-  const contents = await Promise.all(paths.map((path) => readFile(path)));
-  for (const [index, path] of paths.entries()) {
-    const content = contents[index];
-    if (content === undefined) throw new ArtifactIntegrityError(path, "file content was not read");
+  async function hashFile(index: number): Promise<void> {
+    const path = paths[index];
+    if (path === undefined) return;
     hash.update(posixRelative(snapshotPath, path), "utf8");
     hash.update(Buffer.from([0]));
-    hash.update(content);
+    hash.update(await readFile(path));
     hash.update(Buffer.from([10]));
+    await hashFile(index + 1);
   }
+  await hashFile(0);
   return hash.digest("hex");
 }
 
@@ -84,7 +90,6 @@ export async function promoteArtifact(
   storageKey: string,
   artifactDigest: string,
   stagedSnapshotPath: string,
-  replaceExisting = false,
 ): Promise<string> {
   const stagedDigest = await calculateArtifactDigest(stagedSnapshotPath);
   if (stagedDigest !== artifactDigest) {
@@ -101,9 +106,7 @@ export async function promoteArtifact(
     if (!existing.isDirectory())
       throw new ArtifactIntegrityError(target, "target is not a directory");
     if ((await calculateArtifactDigest(target)) === artifactDigest) return target;
-    if (!replaceExisting)
-      throw new ArtifactIntegrityError(target, "existing artifact digest differs");
-    await rm(target, { recursive: true, force: false });
+    throw new ArtifactIntegrityError(target, "existing artifact digest differs");
   } catch (error) {
     if (
       !(typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT")

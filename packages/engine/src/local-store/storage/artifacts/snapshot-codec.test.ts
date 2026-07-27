@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -43,5 +43,23 @@ test("SnapshotCodec delegates duplicate Practice ids to the format validation ga
       "---\nid: platform.api\ntitle: Duplicate\nstage: api\ntech_stack: [typescript]\napplies_when: always\n---\nDuplicate.\n",
     );
     await expect(decodeSnapshot(path)).rejects.toBeInstanceOf(PackValidationError);
+  });
+});
+
+test("SnapshotCodec rejects a symbolic pack manifest before parsing it", async () => {
+  await withSnapshot(async (path) => {
+    const manifestPath = join(path, "pack.yaml");
+    const outsidePath = join(path, "outside-pack.yaml");
+    await writeFile(outsidePath, "name: platform\nversion: 1.0.0\n");
+    await rm(manifestPath);
+    try {
+      await symlink(outsidePath, manifestPath);
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "EPERM")
+        return;
+      throw error;
+    }
+
+    await expect(decodeSnapshot(path)).rejects.toThrow("symbolic links are not allowed");
   });
 });

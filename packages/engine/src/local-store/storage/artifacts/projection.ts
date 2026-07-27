@@ -2,6 +2,7 @@ import { PackSchema, PracticeSchema } from "@lorelum/format";
 
 import {
   canonicalizePractice,
+  deepFreeze,
   isPracticeSourcePath,
   type PackSnapshot,
   type PracticeSource,
@@ -122,7 +123,7 @@ export function parseProjection(text: string, artifactPath: string): SnapshotPro
   });
   return Object.freeze({
     projectionVersion: PROJECTION_VERSION,
-    pack: Object.freeze(structuredClone(pack.data)) as PackSnapshot,
+    pack: deepFreeze(structuredClone(pack.data)) as PackSnapshot,
     practices: Object.freeze(practices),
   });
 }

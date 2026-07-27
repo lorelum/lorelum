@@ -2,6 +2,7 @@ import { validatePack, type PackInput, type ValidationIssue } from "@lorelum/for
 
 import { canonicalizePractice } from "./canonical-practice";
 import { InvalidSourcePathError, PackValidationError } from "./errors";
+import { deepFreeze } from "./freeze";
 import type { PackCandidate, PackSnapshot, PracticeSource } from "./types";
 
 function isWindowsReservedPathSegment(segment: string): boolean {
@@ -40,11 +41,7 @@ export function isPracticeSourcePath(path: string): boolean {
 
 function snapshotPack(input: PackInput["pack"]): PackSnapshot {
   const snapshot = structuredClone(input);
-  if (snapshot.applies_to !== undefined) Object.freeze(snapshot.applies_to);
-  if (snapshot.depends_on !== undefined) Object.freeze(snapshot.depends_on);
-  if (typeof snapshot.author === "object" && snapshot.author !== null)
-    Object.freeze(snapshot.author);
-  return Object.freeze(snapshot) as PackSnapshot;
+  return deepFreeze(snapshot) as PackSnapshot;
 }
 
 /** Construct a storage-ready candidate only after the format authoring gate passes. */

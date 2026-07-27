@@ -1,4 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 import { parseFrontmatter, parseYaml, type PackInput, type ValidationIssue } from "@lorelum/format";
@@ -12,33 +13,82 @@ function relativePath(rootPath: string, filePath: string): string {
 }
 
 async function discoverPractices(directory: string): Promise<string[]> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(directory, { withFileTypes: true });
   } catch (error) {
     throw new SnapshotFormatError(directory, "cannot read practices directory", error);
   }
-  const discovered = await Promise.all(
-    entries.map(async (entry) => {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) return discoverPractices(path);
-      return entry.isFile() && entry.name.endsWith(".md") ? [path] : [];
-    }),
-  );
-  const paths = discovered.flat();
+  const paths: string[] = [];
+  async function visit(index: number): Promise<void> {
+    const entry = entries[index];
+    if (entry === undefined) return;
+    const path = join(directory, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new SnapshotFormatError(directory, "symbolic links are not allowed in a snapshot");
+    }
+    if (entry.isDirectory()) {
+      paths.push(...(await discoverPractices(path)));
+    } else if (entry.isFile() && entry.name.endsWith(".md")) {
+      paths.push(path);
+    }
+    await visit(index + 1);
+  }
+  await visit(0);
   return paths.sort();
+}
+
+async function readSnapshotFile(snapshotPath: string, path: string): Promise<string> {
+  try {
+    const metadata = await lstat(path);
+    if (metadata.isSymbolicLink()) {
+      throw new SnapshotFormatError(snapshotPath, "symbolic links are not allowed in a snapshot");
+    }
+    if (!metadata.isFile()) {
+      throw new SnapshotFormatError(snapshotPath, "snapshot path is not a regular file");
+    }
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (error instanceof SnapshotFormatError) throw error;
+    throw new SnapshotFormatError(
+      snapshotPath,
+      "cannot read " + relativePath(snapshotPath, path),
+      error,
+    );
+  }
+}
+
+async function decodePracticeFiles(
+  snapshotPath: string,
+  practicePaths: readonly string[],
+): Promise<unknown[]> {
+  const practices: unknown[] = [];
+  async function visit(index: number): Promise<void> {
+    const path = practicePaths[index];
+    if (path === undefined) return;
+    practices.push(await decodePracticeFile(snapshotPath, path));
+    await visit(index + 1);
+  }
+  await visit(0);
+  return practices;
 }
 
 async function decodeDecisions(snapshotPath: string): Promise<unknown[]> {
   const path = join(snapshotPath, "decisions.yaml");
   let raw: string;
   try {
-    raw = await readFile(path, "utf8");
+    raw = await readSnapshotFile(snapshotPath, path);
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      error instanceof SnapshotFormatError &&
+      typeof error.rootCause === "object" &&
+      error.rootCause !== null &&
+      "code" in error.rootCause &&
+      error.rootCause.code === "ENOENT"
+    ) {
       return [];
     }
-    throw new SnapshotFormatError(snapshotPath, "cannot read decisions.yaml", error);
+    throw error;
   }
   let value: unknown;
   try {
@@ -60,8 +110,9 @@ export interface DecodedSnapshot {
 async function decodePracticeFile(snapshotPath: string, path: string): Promise<unknown> {
   let frontmatter;
   try {
-    frontmatter = parseFrontmatter(await readFile(path, "utf8"));
+    frontmatter = parseFrontmatter(await readSnapshotFile(snapshotPath, path));
   } catch (error) {
+    if (error instanceof SnapshotFormatError) throw error;
     throw new SnapshotFormatError(
       snapshotPath,
       "cannot parse " + relativePath(snapshotPath, path),
@@ -73,12 +124,7 @@ async function decodePracticeFile(snapshotPath: string, path: string): Promise<u
 
 /** Reads Pack files and applies the format validation gate before storage sees a candidate. */
 export async function decodeSnapshot(snapshotPath: string): Promise<DecodedSnapshot> {
-  let rawPack: string;
-  try {
-    rawPack = await readFile(join(snapshotPath, "pack.yaml"), "utf8");
-  } catch (error) {
-    throw new SnapshotFormatError(snapshotPath, "cannot read pack.yaml", error);
-  }
+  const rawPack = await readSnapshotFile(snapshotPath, join(snapshotPath, "pack.yaml"));
   let parsedYaml: unknown;
   try {
     parsedYaml = parseYaml(rawPack);
@@ -86,9 +132,7 @@ export async function decodeSnapshot(snapshotPath: string): Promise<DecodedSnaps
     throw new SnapshotFormatError(snapshotPath, "pack.yaml cannot be parsed as YAML", error);
   }
   const practicePaths = await discoverPractices(join(snapshotPath, "practices"));
-  const practices = await Promise.all(
-    practicePaths.map((practicePath) => decodePracticeFile(snapshotPath, practicePath)),
-  );
+  const practices = await decodePracticeFiles(snapshotPath, practicePaths);
   const sourcePaths: Record<string, string> = Object.create(null) as Record<string, string>;
   for (const [index, practice] of practices.entries()) {
     const practicePath = practicePaths[index];

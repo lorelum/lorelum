@@ -43,6 +43,24 @@ test("promotion verifies an existing artifact before treating it as idempotent",
   });
 });
 
+test("promotion rejects a digest-mismatched target for lifecycle to handle safely", async () => {
+  await withDirectory(async (root) => {
+    const firstStaging = join(root, "first-staging");
+    await mkdir(firstStaging);
+    await writeFile(join(firstStaging, "pack.yaml"), "name: platform\n");
+    const digest = await calculateArtifactDigest(firstStaging);
+    const target = await promoteArtifact(root, "p-platform", digest, firstStaging);
+
+    await writeFile(join(target, "pack.yaml"), "tampered\n");
+    const secondStaging = join(root, "second-staging");
+    await mkdir(secondStaging);
+    await writeFile(join(secondStaging, "pack.yaml"), "name: platform\n");
+    await expect(promoteArtifact(root, "p-platform", digest, secondStaging)).rejects.toThrow(
+      "existing artifact digest differs",
+    );
+  });
+});
+
 test("artifact digest rejects symbolic links instead of following them", async () => {
   await withDirectory(async (path) => {
     await writeFile(join(path, "outside.txt"), "outside");
