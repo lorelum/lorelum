@@ -14,6 +14,10 @@
   "dependencies": {
     "@lorelum/shared": "workspace:*",
     "gray-matter": "4.0.3",
+    "js-yaml": "3.14.2",
     "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "4.0.9"
   }
 }

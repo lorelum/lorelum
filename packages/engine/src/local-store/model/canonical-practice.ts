@@ -25,8 +25,9 @@ type ReadonlyPractice = {
     | undefined;
 };
 
-function snapshotPractice(practice: Practice): PracticeSnapshot {
-  const snapshot: Practice = structuredClone(practice);
+function snapshotPractice(practice: ReadonlyPractice): PracticeSnapshot {
+  const canonical = canonicalPracticeObject(practice);
+  const snapshot = structuredClone(canonical) as Practice;
   deepFreeze(snapshot);
   return snapshot as PracticeSnapshot;
 }
@@ -54,7 +55,8 @@ function canonicalPracticeObject(practice: ReadonlyPractice): object {
  * The object literal fixes key order; author-provided array order is retained.
  */
 export function canonicalizePractice(practice: ReadonlyPractice): CanonicalPractice {
-  const canonicalContent = JSON.stringify(canonicalPracticeObject(practice));
+  const canonicalObject = canonicalPracticeObject(practice);
+  const canonicalContent = JSON.stringify(canonicalObject);
   const contentDigest = new Bun.CryptoHasher("sha256").update(canonicalContent).digest("hex");
-  return { practice: snapshotPractice(practice as Practice), canonicalContent, contentDigest };
+  return Object.freeze({ practice: snapshotPractice(practice), canonicalContent, contentDigest });
 }

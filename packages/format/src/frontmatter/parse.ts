@@ -1,4 +1,5 @@
 import matter from "gray-matter";
+import yaml from "js-yaml";
 
 /**
  * Result of parsing a markdown file with YAML frontmatter. Mirrors the two
@@ -24,4 +25,9 @@ export interface ParsedFrontmatter {
 export function parseFrontmatter(markdown: string): ParsedFrontmatter {
   const result = matter(markdown);
   return { data: result.data, content: result.content };
+}
+
+/** Parse a standalone YAML document used by Pack metadata. */
+export function parseYaml(text: string): unknown {
+  return yaml.load(text);
 }

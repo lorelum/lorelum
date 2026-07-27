@@ -17,7 +17,8 @@ function isWindowsReservedPathSegment(segment: string): boolean {
   );
 }
 
-function isNormalizedPracticePath(path: string): boolean {
+/** Verify a Pack-root-relative Practice source path without resolving it on disk. */
+export function isPracticeSourcePath(path: string): boolean {
   return (
     /^practices\/(?:[^/]+\/)*[^/]+\.md$/.test(path) &&
     !path.includes("\\") &&
@@ -67,7 +68,7 @@ export function createPackCandidate(
     const sourcePath = Object.hasOwn(sourcePathsByPracticeId, practice.id)
       ? sourcePathsByPracticeId[practice.id]
       : undefined;
-    if (sourcePath === undefined || !isNormalizedPracticePath(sourcePath)) {
+    if (sourcePath === undefined || !isPracticeSourcePath(sourcePath)) {
       throw new InvalidSourcePathError(practice.id, sourcePath ?? "(missing)");
     }
 

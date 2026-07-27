@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { PracticeSchema } from "../schema";
-import { parseFrontmatter } from "./parse";
+import { parseFrontmatter, parseYaml } from "./parse";
 
 describe("parseFrontmatter", () => {
   test("parses frontmatter and body", () => {
@@ -59,5 +59,12 @@ Guidance body.`;
     const { data } = parseFrontmatter(md);
     const r = PracticeSchema.safeParse(data);
     expect(r.success).toBe(true);
+  });
+});
+
+test("parseYaml parses a standalone YAML document", () => {
+  expect(parseYaml("name: platform\nitems:\n  - one\n")).toEqual({
+    name: "platform",
+    items: ["one"],
   });
 });

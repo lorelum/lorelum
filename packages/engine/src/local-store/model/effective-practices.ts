@@ -1,4 +1,5 @@
 import { InvalidPracticeSourceError, PracticeConflictError } from "./errors";
+import { isPracticeSourcePath } from "./candidate";
 import { canonicalizePractice } from "./canonical-practice";
 import type {
   EffectivePractice,
@@ -27,6 +28,12 @@ function assertValidSource(source: PracticeSource, expectedPackName?: string): v
     throw new InvalidPracticeSourceError(
       source.practiceId,
       "practice id differs from canonical snapshot",
+    );
+  }
+  if (!isPracticeSourcePath(source.sourcePath)) {
+    throw new InvalidPracticeSourceError(
+      source.practiceId,
+      "source path is not a normalized Practice path",
     );
   }
   const canonical = canonicalizePractice(source.canonicalPractice.practice);

@@ -125,4 +125,12 @@ describe("Effective Practice reconciliation", () => {
       InvalidPracticeSourceError,
     );
   });
+
+  test("rejects existing sources with an unsafe path before reconciliation", () => {
+    const valid = candidate("react-core");
+    const source = valid.sources[0]!;
+    expect(() =>
+      reconcileEffectivePractices([{ ...source, sourcePath: "practices/../escape.md" }], valid),
+    ).toThrow(InvalidPracticeSourceError);
+  });
 });

@@ -37,4 +37,23 @@ describe("canonicalizePractice", () => {
     });
     expect(withCheck.contentDigest).toBe(withoutCheck.contentDigest);
   });
+
+  test("returns the normalized canonical snapshot used by storage and retrieval", () => {
+    const result = canonicalizePractice({
+      ...layeredDesignPractice,
+      severity: undefined,
+      body: "line one\r\nline two",
+      anti_patterns: layeredDesignPractice.anti_patterns?.map((antiPattern) => ({
+        ...antiPattern,
+        severity: undefined,
+        check: "reserved",
+      })),
+    });
+
+    expect(result.practice.body).toBe("line one\nline two");
+    expect(result.practice.severity).toBe("warn");
+    expect(result.practice.anti_patterns?.[0]?.severity).toBe("warn");
+    expect(result.practice.anti_patterns?.[0]).not.toHaveProperty("check");
+    expect(Object.isFrozen(result)).toBe(true);
+  });
 });
