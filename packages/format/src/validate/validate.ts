@@ -95,6 +95,8 @@ export function validatePack(input: PackInput): ValidationReport {
     } else {
       decisionIds.add(d.id);
     }
+  });
+  input.decisions.forEach((d, i) => {
     d.branches.forEach((b, bi) => {
       b.recommend.forEach((rid) => {
         if (!practiceIds.has(rid)) {

@@ -86,6 +86,32 @@ describe("validatePack — reference integrity errors", () => {
     expect(findCode(r, "errors", "dangling-ref")).toBe(true);
   });
 
+  test("branch.next may reference a Decision declared later in the file", () => {
+    const input = reactPack();
+    input.decisions = [
+      {
+        id: "state.first-choice",
+        question: "first",
+        branches: [
+          {
+            when: "always",
+            recommend: ["react.state.redux"],
+            reason: "continue",
+            next: "state.later-choice",
+          },
+        ],
+      },
+      {
+        id: "state.later-choice",
+        question: "later",
+        branches: [{ when: "always", recommend: ["react.auth.guard"], reason: "done" }],
+      },
+    ];
+    const report = validatePack(input);
+    expect(report.valid).toBe(true);
+    expect(findCode(report, "errors", "dangling-ref")).toBe(false);
+  });
+
   test("decision cycle via next edges", () => {
     const input = reactPack();
     // Three decisions in a cycle: choice-a → choice-b → choice-c → choice-a.
