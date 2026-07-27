@@ -26,6 +26,7 @@ docs/adr/
 ├── 0003-practice-pack-format.md               # Practice/pack format & validation semantics
 ├── 0004-agent-first-cli-protocol.md            # candidate CLI protocol contract
 ├── 0005-...                                   # subsequent decisions
+├── 0007-engine-local-store.md                 # @lorelum/engine LocalStore storage & lifecycle contract
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 
