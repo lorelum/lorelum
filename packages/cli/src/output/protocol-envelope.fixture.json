@@ -1,0 +1,19 @@
+[
+  {
+    "protocolVersion": 1,
+    "toolVersion": "0.0.0",
+    "command": "fixture.success",
+    "ok": true,
+    "data": {}
+  },
+  {
+    "protocolVersion": 1,
+    "toolVersion": "0.0.0",
+    "command": "fixture.failure",
+    "ok": false,
+    "error": {
+      "code": "usage.invalid",
+      "message": "The command invocation is invalid."
+    }
+  }
+]

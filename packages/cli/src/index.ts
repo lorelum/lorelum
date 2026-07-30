@@ -1,13 +1,23 @@
-#!/usr/bin/env bun
-/**
- * lore — the Lorelum CLI entry point.
- *
- * P0 scaffold: a stub that confirms the binary runs. Subcommands
- * (install/query/decide/check/learn) land with their owning tasks.
- */
-
 export const PACKAGE_NAME = "@lorelum/cli";
 
-if (import.meta.main) {
-  console.log("lore — Lorelum CLI (scaffold)");
-}
+export { createProgram, type CliRuntime, type ProgramLifecycle } from "./create-program.js";
+export { run, type RunOptions } from "./main.js";
+export {
+  commandRegistry,
+  describeCommand,
+  type CommandDefinition,
+  type CommandInvocation,
+  type CommandOption,
+  type CommandResult,
+  type PositionalArgument,
+} from "./registry.js";
+export {
+  protocolResponseSchema,
+  protocolVersion,
+  toolVersion,
+  type JsonSchema,
+  type JsonValue,
+  type OutputWriter,
+  type ProtocolFailure,
+  type ProtocolSuccess,
+} from "./output/protocol.js";

@@ -1,10 +1,10 @@
 # Architecture Decision Records
 
-This directory holds Lorelum's Architecture Decision Records (ADRs) — short documents that capture **why** an architecturally significant choice was made, not just *what* was decided.
+This directory holds Lorelum's Architecture Decision Records (ADRs) — short documents that capture **why** an architecturally significant choice was made, not just _what_ was decided.
 
 ## Why ADRs
 
-Code tells you *how* the system works today. ADRs tell you *why* it works that way — the context, the alternatives considered, and the trade-offs accepted. When someone (human or AI agent) asks "why is X like this?", the answer lives here.
+Code tells you _how_ the system works today. ADRs tell you _why_ it works that way — the context, the alternatives considered, and the trade-offs accepted. When someone (human or AI agent) asks "why is X like this?", the answer lives here.
 
 ## When to write an ADR
 
@@ -24,7 +24,8 @@ docs/adr/
 ├── 0001-record-architecture-decisions.md      # meta-ADR: we use ADRs
 ├── 0002-bun-typescript-toolchain.md           # the first real decision
 ├── 0003-practice-pack-format.md               # Practice/pack format & validation semantics
-├── 0004-...                                   # subsequent decisions
+├── 0004-agent-first-cli-protocol.md            # candidate CLI protocol contract
+├── 0005-...                                   # subsequent decisions
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 
@@ -36,12 +37,12 @@ docs/adr/
 
 Every ADR has a **Status** field at the top:
 
-| Status | Meaning |
-|---|---|
-| `Proposed` | Open for discussion (usually via a PR). Not yet the source of truth. |
-| `Accepted` | The decision is active and in effect. |
-| `Deprecated` | No longer relevant; nothing replaces it directly. |
-| `Superseded by NNNN` | Replaced by a later ADR. The old one stays for history. |
+| Status               | Meaning                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `Proposed`           | Open for discussion (usually via a PR). Not yet the source of truth. |
+| `Accepted`           | The decision is active and in effect.                                |
+| `Deprecated`         | No longer relevant; nothing replaces it directly.                    |
+| `Superseded by NNNN` | Replaced by a later ADR. The old one stays for history.              |
 
 ADRs are **immutable history**. To change a decision, write a new ADR that supersedes the old one — don't edit an Accepted ADR to flip its conclusion. The reasoning at the time matters as much as the outcome.
 
