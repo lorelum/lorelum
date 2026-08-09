@@ -13,7 +13,7 @@ import yaml from "js-yaml";
 // document parses fine and only explodes on the first full traversal by a
 // consumer. These guardrails reject both bomb shapes before that happens.
 const MAX_YAML_INPUT_BYTES = 512 * 1024;
-const MAX_ALIAS_VISITS = 16;
+const MAX_ALIAS_REUSES = 16;
 const MAX_STRUCTURE_NODES = 100_000;
 const MAX_STRUCTURE_DEPTH = 64;
 
@@ -25,9 +25,10 @@ function assertInputSize(text: string): void {
 
 /**
  * Reject documents whose shared subtrees would expand exponentially on
- * traversal. Each parsed object may be re-reached via YAML aliases only a
- * bounded number of times; normal Pack files never share subtrees, so this
- * only ever trips on alias bombs.
+ * traversal. A parsed object may be re-reached via YAML aliases at most
+ * `MAX_ALIAS_REUSES` times (its first definition visit does not count);
+ * normal Pack files never share subtrees, so this only ever trips on alias
+ * bombs.
  */
 function assertAliasBudget(value: unknown): void {
   const visits = new Map<object, number>();
@@ -37,11 +38,17 @@ function assertAliasBudget(value: unknown): void {
     if (depth > MAX_STRUCTURE_DEPTH) {
       throw new RangeError("YAML document exceeds the nesting depth budget");
     }
-    const count = (visits.get(node) ?? 0) + 1;
-    if (count > MAX_ALIAS_VISITS) {
-      throw new RangeError("YAML document exceeds the alias reference budget");
+    const previous = visits.get(node);
+    if (previous !== undefined) {
+      // previous counts total visits including the first; reuse budget is
+      // exhausted when the next visit would be the (MAX_ALIAS_REUSES + 1)th.
+      if (previous > MAX_ALIAS_REUSES) {
+        throw new RangeError("YAML document exceeds the alias reference budget");
+      }
+      visits.set(node, previous + 1);
+    } else {
+      visits.set(node, 1);
     }
-    visits.set(node, count);
     nodes += 1;
     if (nodes > MAX_STRUCTURE_NODES) {
       throw new RangeError("YAML document exceeds the structure node budget");

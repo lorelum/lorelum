@@ -91,6 +91,13 @@ describe("parseYaml safety", () => {
     expect(parseYaml(doc)).toEqual({ base: [1], refs: [[1], [1]] });
   });
 
+  test("alias budget boundary: exactly MAX_ALIAS_VISITS re-references pass, one more fails", () => {
+    const refs = (count: number) =>
+      `base: &base [1]\nrefs: [${Array.from({ length: count }, () => "*base").join(", ")}]`;
+    expect(parseYaml(refs(16))).toBeDefined();
+    expect(() => parseYaml(refs(17))).toThrow(RangeError);
+  });
+
   test("rejects custom JS types from DEFAULT_SCHEMA", () => {
     expect(() => parseYaml("fn: !!js/function 'return 1'")).toThrow();
     expect(() => parseYaml("undef: !!js/undefined")).toThrow();
