@@ -18,7 +18,9 @@ const MAX_STRUCTURE_NODES = 100_000;
 const MAX_STRUCTURE_DEPTH = 64;
 
 function assertInputSize(text: string): void {
-  if (Buffer.byteLength(text, "utf8") > MAX_YAML_INPUT_BYTES) {
+  // TextEncoder is a Web-standard global (available in Bun and Node), so the
+  // format package does not depend on Node-specific globals.
+  if (new TextEncoder().encode(text).length > MAX_YAML_INPUT_BYTES) {
     throw new RangeError(`YAML input exceeds ${MAX_YAML_INPUT_BYTES} bytes`);
   }
 }
@@ -88,9 +90,19 @@ export interface ParsedFrontmatter {
  */
 export function parseFrontmatter(markdown: string): ParsedFrontmatter {
   const result = matter(markdown, {
-    // gray-matter's engine interface types the result as `object`; the
-    // guarded parser returns `unknown` because the input is untrusted.
-    engines: { yaml: { parse: (input: string) => parseYaml(input) as object } },
+    // Override gray-matter's YAML engine with the guarded parser and a
+    // matching serializer. js-yaml 4.x removed safeLoad/safeDump, so the
+    // default engine would throw on either path; ours keeps parse and
+    // stringify consistent and both on the same engine.
+    engines: {
+      yaml: {
+        // gray-matter's engine interface types the parse result as `object`;
+        // the guarded parser returns `unknown` because the input is untrusted.
+        parse: (input: string) => parseYaml(input) as object,
+        // Output path: data is trusted (already validated), so no guardrails.
+        stringify: (data: object) => yaml.dump(data),
+      },
+    },
   });
   return { data: result.data, content: result.content };
 }

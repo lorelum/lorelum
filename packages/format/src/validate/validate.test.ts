@@ -224,4 +224,16 @@ describe("parsePackInput", () => {
       expect(parsed.report.errors.some((i) => i.code === "format")).toBe(true);
     }
   });
+
+  test("non-array practices or decisions yield format errors, not TypeErrors", () => {
+    const parsed = parsePackInput({
+      pack: { name: "p", version: "1.0.0" },
+      practices: null as unknown as unknown[],
+      decisions: {} as unknown as unknown[],
+    });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.report.errors.map((i) => i.path)).toEqual(["practices", "decisions"]);
+    }
+  });
 });

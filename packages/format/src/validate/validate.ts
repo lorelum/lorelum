@@ -40,6 +40,11 @@ function toDotPath(path: PropertyKey[]): string {
   return out;
 }
 
+/** Array.isArray, but narrowing to unknown[] instead of any[]. */
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
 /** Convert every zod issue from a failed safeParse into a "format" error issue. */
 function zodIssuesToFormatErrors(
   result: { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } },
@@ -71,6 +76,18 @@ export function parsePackInput(
   if (!packParsed.success) {
     issues.push(...zodIssuesToFormatErrors(packParsed, "pack"));
   }
+  // Untrusted input: shape-check the collections before touching elements,
+  // so a non-array yields a format error instead of a TypeError.
+  if (!isUnknownArray(input.practices)) {
+    issues.push(issue("error", "format", "practices", "practices must be an array"));
+  }
+  if (!isUnknownArray(input.decisions)) {
+    issues.push(issue("error", "format", "decisions", "decisions must be an array"));
+  }
+  if (!packParsed.success || !isUnknownArray(input.practices) || !isUnknownArray(input.decisions)) {
+    return { ok: false, report: buildReport(issues) };
+  }
+
   const practiceResults = input.practices.map((p, i) => {
     const r = PracticeSchema.safeParse(p);
     if (!r.success) issues.push(...zodIssuesToFormatErrors(r, `practices[${i}]`));
@@ -83,13 +100,9 @@ export function parsePackInput(
   });
 
   // Direct narrowing: each parse result is checked individually, so after
-  // this guard `packParsed` is known to be the success branch. Array elements
-  // are re-narrowed inside the flatMap below.
-  if (
-    !packParsed.success ||
-    practiceResults.some((r) => !r.success) ||
-    decisionResults.some((r) => !r.success)
-  ) {
+  // this guard the element arrays are known to be fully parsed. Elements are
+  // re-narrowed inside the flatMap below.
+  if (practiceResults.some((r) => !r.success) || decisionResults.some((r) => !r.success)) {
     return { ok: false, report: buildReport(issues) };
   }
   return {

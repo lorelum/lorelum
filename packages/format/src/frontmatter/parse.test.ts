@@ -103,6 +103,20 @@ describe("parseYaml safety", () => {
     expect(() => parseYaml("undef: !!js/undefined")).toThrow();
   });
 
+  test("alias bombs in frontmatter are rejected through parseFrontmatter", () => {
+    const bomb = [
+      "a: &a [1]",
+      "b: &b [*a, *a]",
+      "c: &c [*b, *b]",
+      "d: &d [*c, *c]",
+      "e: &e [*d, *d]",
+      "f: &f [*e, *e]",
+      "g: &g [*f, *f]",
+      "h: &h [*g, *g]",
+    ].join("\n");
+    expect(() => parseFrontmatter(`---\n${bomb}\n---\nbody`)).toThrow(RangeError);
+  });
+
   test("rejects oversized documents", () => {
     const oversized = "key: " + "x".repeat(512 * 1024);
     expect(() => parseYaml(oversized)).toThrow(RangeError);
