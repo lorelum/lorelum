@@ -1,7 +1,7 @@
 /**
  * validatePack / validatePractice — the validation entry points.
  *
- * Pipeline: format check (zod safeParse) → reference integrity → cycle
+ * Pipeline: parsePackInput (zod safeParse) → reference integrity → cycle
  * detection → warning/info rules → buildReport. Each stage pushes issues
  * into a single flat list; buildReport buckets them by level at the end.
  *
@@ -15,7 +15,14 @@ import { DecisionNodeSchema, PackSchema, PracticeSchema } from "../schema";
 import { detectCycles } from "./cycle";
 import { buildReport, issue, type ValidationIssue, type ValidationReport } from "./report";
 
-/** The three sources validate needs: pack.yaml metadata + scanned practices + decisions.yaml. */
+/** The three sources before the zod format gate: pack.yaml metadata + scanned practices + decisions.yaml. */
+export interface UnvalidatedPackInput {
+  pack: unknown;
+  practices: unknown[];
+  decisions: unknown[];
+}
+
+/** The three sources after the format gate passes. */
 export interface PackInput {
   pack: Pack;
   practices: Practice[];
@@ -49,10 +56,14 @@ function zodIssuesToFormatErrors(
 }
 
 /**
- * Validate a full pack. Returns a report bucketed by error/warning/info.
- * Pure: no filesystem, no network, no side effects.
+ * Run the zod format gate over untrusted input. Returns the typed PackInput
+ * on success, or the full report (format errors bucketed) on failure — never
+ * throws. Consumers that need typed data (e.g. the engine's candidate
+ * builder) use this instead of re-parsing after validatePack.
  */
-export function validatePack(input: PackInput): ValidationReport {
+export function parsePackInput(
+  input: UnvalidatedPackInput,
+): { ok: true; value: PackInput } | { ok: false; report: ValidationReport } {
   const issues: ValidationIssue[] = [];
 
   // Stage 1 — format check.
@@ -60,25 +71,52 @@ export function validatePack(input: PackInput): ValidationReport {
   if (!packParsed.success) {
     issues.push(...zodIssuesToFormatErrors(packParsed, "pack"));
   }
-  input.practices.forEach((p, i) => {
+  const practiceResults = input.practices.map((p, i) => {
     const r = PracticeSchema.safeParse(p);
     if (!r.success) issues.push(...zodIssuesToFormatErrors(r, `practices[${i}]`));
+    return r;
   });
-  input.decisions.forEach((d, i) => {
+  const decisionResults = input.decisions.map((d, i) => {
     const r = DecisionNodeSchema.safeParse(d);
     if (!r.success) issues.push(...zodIssuesToFormatErrors(r, `decisions[${i}]`));
+    return r;
   });
 
-  // If anything failed format, stop here — semantic checks would only noise.
-  const hasFormatErrors = issues.some((i) => i.level === "error");
-  if (hasFormatErrors) {
-    return buildReport(issues);
+  // Direct narrowing: each parse result is checked individually, so after
+  // this guard `packParsed` is known to be the success branch. Array elements
+  // are re-narrowed inside the flatMap below.
+  if (
+    !packParsed.success ||
+    practiceResults.some((r) => !r.success) ||
+    decisionResults.some((r) => !r.success)
+  ) {
+    return { ok: false, report: buildReport(issues) };
   }
+  return {
+    ok: true,
+    value: {
+      pack: packParsed.data,
+      // flatMap keeps order and types; the guard above guarantees every parse
+      // succeeded, so no element is dropped.
+      practices: practiceResults.flatMap((r) => (r.success ? [r.data] : [])),
+      decisions: decisionResults.flatMap((r) => (r.success ? [r.data] : [])),
+    },
+  };
+}
+
+/**
+ * Run the semantic stages (reference integrity, cycle detection, warnings,
+ * infos) over an already format-validated pack. Pure: no filesystem, no
+ * network, no side effects.
+ */
+export function validateParsedPack(input: PackInput): ValidationReport {
+  const { pack, practices, decisions } = input;
+  const issues: ValidationIssue[] = [];
 
   // Stage 2 — reference integrity.
   const practiceIds = new Set<string>();
   const decisionIds = new Set<string>();
-  input.practices.forEach((p, i) => {
+  practices.forEach((p, i) => {
     if (practiceIds.has(p.id)) {
       issues.push(
         issue("error", "duplicate-id", `practices[${i}].id`, `duplicate practice id "${p.id}"`),
@@ -87,7 +125,7 @@ export function validatePack(input: PackInput): ValidationReport {
       practiceIds.add(p.id);
     }
   });
-  input.decisions.forEach((d, i) => {
+  decisions.forEach((d, i) => {
     if (decisionIds.has(d.id)) {
       issues.push(
         issue("error", "duplicate-id", `decisions[${i}].id`, `duplicate decision id "${d.id}"`),
@@ -96,7 +134,7 @@ export function validatePack(input: PackInput): ValidationReport {
       decisionIds.add(d.id);
     }
   });
-  input.decisions.forEach((d, i) => {
+  decisions.forEach((d, i) => {
     d.branches.forEach((b, bi) => {
       b.recommend.forEach((rid) => {
         if (!practiceIds.has(rid)) {
@@ -127,7 +165,7 @@ export function validatePack(input: PackInput): ValidationReport {
 
   // Stage 3 — cycle detection over the `next` edges.
   const edges = new Map<string, string[]>();
-  for (const d of input.decisions) {
+  for (const d of decisions) {
     const nexts = d.branches.map((b) => b.next).filter((n): n is string => n !== undefined);
     if (nexts.length > 0) edges.set(d.id, nexts);
   }
@@ -136,7 +174,7 @@ export function validatePack(input: PackInput): ValidationReport {
   }
 
   // Stage 4 — warnings (quality risks).
-  if (input.pack.depends_on !== undefined && input.pack.depends_on.length > 0) {
+  if (pack.depends_on !== undefined && pack.depends_on.length > 0) {
     issues.push(
       issue(
         "warning",
@@ -146,7 +184,7 @@ export function validatePack(input: PackInput): ValidationReport {
       ),
     );
   }
-  input.practices.forEach((p, i) => {
+  practices.forEach((p, i) => {
     if (p.severity === undefined) {
       issues.push(
         issue(
@@ -181,7 +219,7 @@ export function validatePack(input: PackInput): ValidationReport {
 
   // Stage 5 — infos (advisory).
   const titles = new Map<string, number>();
-  input.practices.forEach((p, i) => {
+  practices.forEach((p, i) => {
     const prev = titles.get(p.title);
     if (prev !== undefined) {
       issues.push(
@@ -196,18 +234,28 @@ export function validatePack(input: PackInput): ValidationReport {
       titles.set(p.title, i);
     }
   });
-  if (input.practices.length < 3) {
+  if (practices.length < 3) {
     issues.push(
       issue(
         "info",
         "small-pack",
         "practices",
-        `pack has ${input.practices.length} practice(s); fewer than 3`,
+        `pack has ${practices.length} practice(s); fewer than 3`,
       ),
     );
   }
 
   return buildReport(issues);
+}
+
+/**
+ * Validate a full pack. Returns a report bucketed by error/warning/info.
+ * Pure: no filesystem, no network, no side effects.
+ */
+export function validatePack(input: UnvalidatedPackInput): ValidationReport {
+  const parsed = parsePackInput(input);
+  if (!parsed.ok) return parsed.report;
+  return validateParsedPack(parsed.value);
 }
 
 /**

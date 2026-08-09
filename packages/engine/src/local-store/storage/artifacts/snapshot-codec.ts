@@ -2,7 +2,7 @@ import type { Dirent } from "node:fs";
 import { lstat, readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
-import { parseFrontmatter, parseYaml, type PackInput, type ValidationIssue } from "@lorelum/format";
+import { parseFrontmatter, parseYaml, type ValidationIssue } from "@lorelum/format";
 
 import { createPackCandidate, type PackCandidate } from "../../model";
 
@@ -148,11 +148,12 @@ export async function decodeSnapshot(snapshotPath: string): Promise<DecodedSnaps
       sourcePaths[practice.id] = relativePath(snapshotPath, practicePath);
     }
   }
-  // Candidate construction validates all external YAML and frontmatter values.
+  // Candidate construction validates all external YAML and frontmatter
+  // values (parsePackInput gates on format before anything is trusted).
   const input = {
     pack: parsedYaml,
     practices,
     decisions: await decodeDecisions(snapshotPath),
-  } as PackInput;
+  };
   return Object.freeze(createPackCandidate(input, sourcePaths));
 }

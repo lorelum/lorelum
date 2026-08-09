@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { reactPack } from "../fixtures";
-import { validatePack, validatePractice } from "./validate";
+import { parsePackInput, validatePack, validatePractice } from "./validate";
 
 function findCode(
   report: { errors: { code: string }[]; warnings: { code: string }[]; infos: { code: string }[] },
@@ -199,5 +199,29 @@ describe("validatePractice", () => {
     const issues = validatePractice({ id: "bad", title: "x" });
     expect(issues.length).toBeGreaterThan(0);
     expect(issues.every((i) => i.code === "format")).toBe(true);
+  });
+});
+
+describe("parsePackInput", () => {
+  test("valid input yields typed data", () => {
+    const parsed = parsePackInput(reactPack());
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.pack.name).toBe("react-fullstack");
+      expect(parsed.value.practices.length).toBe(reactPack().practices.length);
+    }
+  });
+
+  test("untyped input with a format error yields the report, not data", () => {
+    const parsed = parsePackInput({
+      pack: { version: "1.0.0" }, // missing required name
+      practices: [],
+      decisions: [],
+    });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.report.valid).toBe(false);
+      expect(parsed.report.errors.some((i) => i.code === "format")).toBe(true);
+    }
   });
 });

@@ -1,4 +1,10 @@
-import { validatePack, type PackInput, type ValidationIssue } from "@lorelum/format";
+import {
+  parsePackInput,
+  validateParsedPack,
+  type Pack,
+  type UnvalidatedPackInput,
+  type ValidationIssue,
+} from "@lorelum/format";
 
 import { canonicalizePractice } from "./canonical-practice";
 import { InvalidSourcePathError, PackValidationError } from "./errors";
@@ -39,19 +45,24 @@ export function isPracticeSourcePath(path: string): boolean {
   );
 }
 
-function snapshotPack(input: PackInput["pack"]): PackSnapshot {
-  const snapshot = structuredClone(input);
+function snapshotPack(pack: Pack): PackSnapshot {
+  const snapshot = structuredClone(pack);
   return deepFreeze(snapshot) as PackSnapshot;
 }
 
 /** Construct a storage-ready candidate only after the format authoring gate passes. */
 export function createPackCandidate(
-  input: PackInput,
+  input: UnvalidatedPackInput,
   sourcePathsByPracticeId: Readonly<Record<string, string>>,
 ): { candidate: PackCandidate; diagnostics: readonly ValidationIssue[] } {
-  const report = validatePack(input);
+  const parsed = parsePackInput(input);
+  if (!parsed.ok) throw new PackValidationError(parsed.report);
+  const { pack, practices } = parsed.value;
+  // Full report: format gate already passed, so the semantic stages decide
+  // validity (reference integrity, cycles) and provide diagnostics.
+  const report = validateParsedPack(parsed.value);
   if (!report.valid) throw new PackValidationError(report);
-  const practiceIds = new Set(input.practices.map((practice) => practice.id));
+  const practiceIds = new Set(practices.map((practice) => practice.id));
   for (const sourcePracticeId of Object.keys(sourcePathsByPracticeId)) {
     if (!practiceIds.has(sourcePracticeId)) {
       throw new InvalidSourcePathError(
@@ -61,7 +72,7 @@ export function createPackCandidate(
     }
   }
 
-  const sources: PracticeSource[] = input.practices.map((practice) => {
+  const sources: PracticeSource[] = practices.map((practice) => {
     const sourcePath = Object.hasOwn(sourcePathsByPracticeId, practice.id)
       ? sourcePathsByPracticeId[practice.id]
       : undefined;
@@ -71,7 +82,7 @@ export function createPackCandidate(
 
     const canonicalPractice = canonicalizePractice(practice);
     return Object.freeze({
-      packName: input.pack.name,
+      packName: pack.name,
       practiceId: practice.id,
       contentDigest: canonicalPractice.contentDigest,
       sourcePath,
@@ -87,7 +98,7 @@ export function createPackCandidate(
   }
 
   return {
-    candidate: Object.freeze({ pack: snapshotPack(input.pack), sources: Object.freeze(sources) }),
+    candidate: Object.freeze({ pack: snapshotPack(pack), sources: Object.freeze(sources) }),
     diagnostics: [...report.warnings, ...report.infos],
   };
 }
