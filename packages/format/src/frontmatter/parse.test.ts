@@ -68,3 +68,36 @@ test("parseYaml parses a standalone YAML document", () => {
     items: ["one"],
   });
 });
+
+describe("parseYaml safety", () => {
+  test("rejects nested alias bombs (exponential expansion via shared subtrees)", () => {
+    // Each level doubles the alias references; js-yaml resolves aliases
+    // lazily, so this parses fine and explodes on first traversal. The alias
+    // budget check must reject it before any consumer expands it.
+    const bomb: string[] = ["n0: &n0 [1]"];
+    for (let i = 1; i < 30; i++) {
+      bomb.push(`n${i}: &n${i} [*n${i - 1}, *n${i - 1}]`);
+    }
+    expect(() => parseYaml(bomb.join("\n"))).toThrow();
+  });
+
+  test("rejects flat alias bombs (one subtree referenced many times)", () => {
+    const flat = `base: &base [1, 2, 3]\nitems: [${Array.from({ length: 100 }, () => "*base").join(", ")}]`;
+    expect(() => parseYaml(flat)).toThrow();
+  });
+
+  test("accepts legitimate bounded alias use", () => {
+    const doc = "base: &base [1]\nrefs: [*base, *base]";
+    expect(parseYaml(doc)).toEqual({ base: [1], refs: [[1], [1]] });
+  });
+
+  test("rejects custom JS types from DEFAULT_SCHEMA", () => {
+    expect(() => parseYaml("fn: !!js/function 'return 1'")).toThrow();
+    expect(() => parseYaml("undef: !!js/undefined")).toThrow();
+  });
+
+  test("rejects oversized documents", () => {
+    const oversized = "key: " + "x".repeat(512 * 1024);
+    expect(() => parseYaml(oversized)).toThrow(RangeError);
+  });
+});
