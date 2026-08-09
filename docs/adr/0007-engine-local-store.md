@@ -1,8 +1,8 @@
 # ADR 0007: Engine LocalStore storage & lifecycle contract
 
 - **Date:** 2026-07-27
-- **Status:** Accepted
-- **Related:** ADR 0002 (`bun:sqlite` is the local store), ADR 0003 (Practice/Pack fields and validation the store consumes). Internal docs (Lorelum wiki, "技术规范" section): "定稿：本地 Practice 索引与存储 v1" and "实施计划（重写版）：@lorelum/engine LocalStore".
+- **Status:** Proposed
+- **Related:** ADR 0002 (`bun:sqlite` is the local store), ADR 0003 (Practice/Pack fields and validation the store consumes). Internal docs (Lorelum wiki, "技术规范" section): "定稿：本地 Practice 索引与存储 v1" and "实施计划（重写版）：@lorelum/engine LocalStore". The wiki docs are background and provenance only — this ADR is the authoritative contract (see Decision).
 
 ## Context
 
@@ -19,7 +19,7 @@ Finally, the doc and the "实施计划（重写版）" doc referenced "ADR 0007"
 
 ## Decision
 
-The "定稿：本地 Practice 索引与存储 v1" doc is the normative specification. This ADR ratifies it as the frozen contract and pins the four open points below. Where this ADR and the doc disagree, **this ADR's §1–§4 govern**, and the doc is updated to match (see the change list in the References/follow-up).
+**This ADR is the authoritative, self-contained contract.** The wiki docs (internal to the Lorelum wiki, not visible to outside contributors) specify the intent and are referenced for provenance; they are background only, not normative — contributors review this ADR alone. Where this ADR and the wiki docs disagree, **this ADR governs**, and the docs are updated to match (see the change list in the References/follow-up).
 
 ### 0. Scope (ratified from the doc)
 
@@ -237,4 +237,4 @@ Result objects (`InstallResult`/`UninstallResult`/`ReindexResult`) carry: the co
 
 - ADR 0002 — `bun:sqlite` is the local store medium; native Node addons (`better-sqlite3`) are deliberately avoided.
 - ADR 0003 — Practice/Pack fields consumed by LocalStore; `PACK_NAME_REGEX` whose Windows-reserved names are made safe by the `p-` storage-key prefix; `severity` default `warn` injected by the canonicalizer.
-- Internal docs (Lorelum wiki, "技术规范" section): "定稿：本地 Practice 索引与存储 v1" (normative spec — disk layout, SQLite contract, merge/conflict rules, cold open/recovery/reindex), "定稿：本地向量索引存储方案v1" (downstream vector-layer contract this ADR's seam feeds), "实施计划（重写版）：@lorelum/engine LocalStore" (three-layer implementation plan this ADR unblocks).
+- Internal docs (Lorelum wiki, "技术规范" section — background only, not normative): "定稿：本地 Practice 索引与存储 v1" (provenance for disk layout, SQLite contract, merge/conflict rules, cold open/recovery/reindex), "定稿：本地向量索引存储方案v1" (downstream vector-layer contract this ADR's seam feeds), "实施计划（重写版）：@lorelum/engine LocalStore" (three-layer implementation plan this ADR unblocks).

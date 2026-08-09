@@ -25,7 +25,7 @@ docs/adr/
 ├── 0002-bun-typescript-toolchain.md           # the first real decision
 ├── 0003-practice-pack-format.md               # Practice/pack format & validation semantics
 ├── 0004-agent-first-cli-protocol.md            # candidate CLI protocol contract
-├── 0005-...                                   # subsequent decisions
+├── 0005-0006                                   # reserved for in-flight planning numbers; 0007 is numbered to match planning docs, not the strict next-free sequence
 ├── 0007-engine-local-store.md                 # @lorelum/engine LocalStore storage & lifecycle contract
 └── 0000-template.md                           # copy this to start a new ADR
 ```

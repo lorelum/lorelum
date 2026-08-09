@@ -9,13 +9,17 @@ export class LocalStoreStorageError extends Error {
   }
 }
 
-/** An immutable snapshot is missing, altered, or cannot be promoted safely. */
+/**
+ * An immutable snapshot is missing, altered, or cannot be promoted safely.
+ * The path stays a structured field — the message stays generic so CLI/MCP
+ * boundaries decide what to surface (paths may contain sensitive names).
+ */
 export class ArtifactIntegrityError extends LocalStoreStorageError {
   constructor(
     readonly artifactPath: string,
     message: string,
   ) {
-    super('Artifact at "' + artifactPath + '" is invalid: ' + message);
+    super("Artifact is invalid: " + message);
     this.name = "ArtifactIntegrityError";
   }
 }
@@ -27,7 +31,7 @@ export class SnapshotFormatError extends LocalStoreStorageError {
     message: string,
     cause?: unknown,
   ) {
-    super('Pack snapshot at "' + snapshotPath + '" is invalid: ' + message, cause);
+    super("Pack snapshot is invalid: " + message, cause);
     this.name = "SnapshotFormatError";
   }
 }
@@ -39,7 +43,7 @@ export class ManifestError extends LocalStoreStorageError {
     message: string,
     cause?: unknown,
   ) {
-    super('Installed-pack manifest at "' + manifestPath + '" is invalid: ' + message, cause);
+    super("Installed-pack manifest is invalid: " + message, cause);
     this.name = "ManifestError";
   }
 }

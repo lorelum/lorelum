@@ -20,6 +20,17 @@ function compareSources(left: PracticeSource, right: PracticeSource): number {
   );
 }
 
+/**
+ * Fully re-canonicalize a source before trusting it. This is deliberate
+ * defense-in-depth: at this stage sources may come from an untrusted caller
+ * (snapshot decode, cold open, recovery), so the stored digest and canonical
+ * content are re-derived and compared rather than assumed consistent.
+ * `createPackCandidate` already validated sources at build time; this second
+ * pass guards the merge boundary itself. The cost is O(canonicalization) per
+ * source — negligible at P1/P2 scale; if a future lifecycle layer can prove
+ * sources were validated at a trusted boundary, this can be relaxed to the
+ * cheap id/digest/path checks below.
+ */
 function assertValidSource(source: PracticeSource, expectedPackName?: string): void {
   if (expectedPackName !== undefined && source.packName !== expectedPackName) {
     throw new InvalidPracticeSourceError(source.practiceId, "pack name differs from its candidate");
