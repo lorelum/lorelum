@@ -27,3 +27,22 @@ export const DecisionNodeSchema = z.object({
 });
 
 export type DecisionNode = z.infer<typeof DecisionNodeSchema>;
+
+/** Thrown when a decisions document is not a valid list of Decision Nodes. */
+export class DecisionDocumentError extends Error {
+  constructor() {
+    super("The decisions document is not a list of decision nodes.");
+    this.name = "DecisionDocumentError";
+  }
+}
+
+/**
+ * Parse a runtime decisions document so the format layer does not depend on
+ * CLI error codes. An empty YAML document (null) and an absent document
+ * (undefined) both normalize to an empty decision list.
+ */
+export function parseDecisionDocument(input: unknown): DecisionNode[] {
+  const result = DecisionNodeSchema.array().safeParse(input ?? []);
+  if (!result.success) throw new DecisionDocumentError();
+  return result.data;
+}

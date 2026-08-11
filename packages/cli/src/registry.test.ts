@@ -206,7 +206,11 @@ test("describes registered commands from a single registry", () => {
     commands: [
       {
         name: "describe",
-        positionals: [{ name: "command", values: ["describe"] }],
+        positionals: [{ name: "command", values: ["describe", "decide"] }],
+      },
+      {
+        name: "decide",
+        positionals: [{ name: "pack-path", required: true }],
       },
     ],
   });
@@ -238,7 +242,7 @@ test("derives parser options and describe metadata from registered commands", as
     ],
   });
   expect(describeCommand("describe", definitions)).toMatchObject({
-    positionals: [{ name: "command", values: ["describe", "future"] }],
+    positionals: [{ name: "command", values: ["describe", "decide", "future"] }],
   });
 
   const stdout = new MemoryWriter();

@@ -27,6 +27,7 @@ docs/adr/
 ├── 0004-agent-first-cli-protocol.md            # candidate CLI protocol contract
 ├── 0005-0006                                   # reserved for in-flight planning numbers; 0007 is numbered to match planning docs, not the strict next-free sequence
 ├── 0007-engine-local-store.md                 # @lorelum/engine LocalStore storage & lifecycle contract
+├── 0008-decide-evaluation-contract.md        # lore decide evaluation contract (engine/format/CLI)
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 

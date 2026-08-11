@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { clientVsServerYaml } from "../src/decide/fixtures.js";
 
 const entrypoint = join(import.meta.dir, "../src/main.ts");
 const bunExecutable = Bun.which("bun");
@@ -54,6 +56,22 @@ try {
   });
   assert.equal(invalid.stdout.includes("private-token"), false);
   assert.equal(invalid.stderr, "");
+
+  const packDirectory = join(directory, "pack");
+  await mkdir(packDirectory, { recursive: true });
+  await writeFile(join(packDirectory, "decisions.yaml"), clientVsServerYaml);
+  const decide = await runProcess([
+    executable,
+    "decide",
+    packDirectory,
+    "--decision",
+    "state.client-vs-server",
+    "--context",
+    '{"state":{"client":"heavy"}}',
+  ]);
+  assert.equal(decide.exitCode, 0);
+  assert.deepEqual(selectProtocolFields(decide.stdout), { command: "decide", ok: true });
+  assert.equal(decide.stderr, "");
 } finally {
   await rm(directory, { force: true, recursive: true });
 }

@@ -29,7 +29,7 @@ test("returns machine-readable root capability discovery", async () => {
     ok: true,
     data: {
       name: "lore",
-      commands: [{ name: "describe" }],
+      commands: [{ name: "describe" }, { name: "decide" }],
     },
   });
   expect(stderr.value).toBe("");

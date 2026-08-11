@@ -1,13 +1,34 @@
+import { DecisionEvaluationError, decisionErrorCodes } from "@lorelum/engine";
+import { DecisionDocumentError } from "@lorelum/format";
+
+/**
+ * CLI error model (ADR 0004): every command failure is one JSON envelope with
+ * a stable dotted `code`. Command code throws `CliError` directly; domain
+ * errors from engine/format are mapped here once. `toVisibleCliError` masks
+ * any code outside the selected command's declared `errorCodes` allowlist as
+ * `runtime.unexpected`, so command authors opt in to what agents may rely on.
+ * Decide codes are sourced from `@lorelum/engine` to keep the strings in one
+ * place.
+ */
 export const cliErrorCodes = Object.freeze({
   runtimeUnexpected: "runtime.unexpected",
   usageInvalid: "usage.invalid",
+  packPathInvalid: "pack.path_invalid",
+  packUnreadable: "pack.unreadable",
+  packParseError: "pack.parse_error",
+  decideUnknownDecision: decisionErrorCodes.unknownDecision,
+  decideInvalidCondition: decisionErrorCodes.invalidCondition,
+  decideDuplicateDecision: decisionErrorCodes.duplicateDecision,
+  decideCycle: decisionErrorCodes.cycle,
 });
 
+/** Error codes every command must declare; used as the framework masking baseline. */
 export const frameworkErrorCodes = Object.freeze([
   cliErrorCodes.usageInvalid,
   cliErrorCodes.runtimeUnexpected,
 ]);
 
+/** Typed CLI failure carrying a stable dotted protocol code and exit code 2. */
 export class CliError extends Error {
   readonly exitCode = 2 as const;
 
@@ -20,6 +41,7 @@ export class CliError extends Error {
   }
 }
 
+/** Standard usage error for an invalid command invocation. */
 export function invalidInvocationError(): CliError {
   return new CliError(cliErrorCodes.usageInvalid, "The command invocation is invalid.");
 }
@@ -30,9 +52,18 @@ export function toVisibleCliError(error: unknown, visibleErrorCodes: readonly st
   return visibleErrorCodes.includes(cliError.code) ? cliError : unexpectedRuntimeError();
 }
 
+/** Translate any thrown value into a CliError; domain errors are mapped here once. */
 function toCliError(error: unknown): CliError {
   if (error instanceof CliError) {
     return error;
+  }
+
+  if (error instanceof DecisionEvaluationError) {
+    return new CliError(error.code, error.message);
+  }
+
+  if (error instanceof DecisionDocumentError) {
+    return new CliError(cliErrorCodes.packParseError, error.message);
   }
 
   if (isCommanderError(error)) {
@@ -42,10 +73,12 @@ function toCliError(error: unknown): CliError {
   return unexpectedRuntimeError();
 }
 
+/** Fallback error masking anything the selected command did not declare. */
 function unexpectedRuntimeError(): CliError {
   return new CliError(cliErrorCodes.runtimeUnexpected, "The command could not be completed.");
 }
 
+/** Commander parse failures are invocation errors, not domain failures. */
 function isCommanderError(error: unknown): error is { code: string } {
   return (
     typeof error === "object" &&

@@ -4,6 +4,7 @@ import {
   type JsonSchema,
   type JsonValue,
 } from "./output/protocol.js";
+import { decideCommand } from "./decide/command.js";
 import { frameworkErrorCodes, invalidInvocationError } from "./runtime/errors.js";
 import { logLevels } from "./runtime/logger.js";
 
@@ -202,6 +203,7 @@ const builtInCommandDefinitions = [
       data: requireCommandDescription(invocation.describeCommand, invocation.positionals[0]),
     }),
   },
+  decideCommand,
 ] satisfies readonly CommandDefinition[];
 
 /** Root parser metadata is separate because it is not an invokable child command. */

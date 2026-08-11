@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { DecisionNodeSchema } from "./decision";
+import { DecisionDocumentError, DecisionNodeSchema, parseDecisionDocument } from "./decision";
 
 const clientVsServer = {
   id: "state.client-vs-server",
@@ -41,5 +41,13 @@ describe("DecisionNodeSchema", () => {
       DecisionNodeSchema.safeParse({ ...clientVsServer, branches: [branchWithoutRecommend] })
         .success,
     ).toBe(false);
+  });
+
+  test("parseDecisionDocument normalizes an empty YAML document", () => {
+    expect(parseDecisionDocument(null)).toEqual([]);
+  });
+
+  test("parseDecisionDocument rejects a non-list document", () => {
+    expect(() => parseDecisionDocument({ id: "state.entry" })).toThrow(DecisionDocumentError);
   });
 });
