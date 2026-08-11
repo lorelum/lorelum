@@ -32,6 +32,18 @@ export const decisionRecommendationSchema: JsonSchema = {
   },
 };
 
+/** Recommendations list shared by both result branches (always empty under no_match). */
+const decisionRecommendationsSchema: JsonSchema = {
+  type: "array",
+  items: decisionRecommendationSchema,
+};
+
+/** Ordered trace list shared by both result branches. */
+const decisionTraceListSchema: JsonSchema = {
+  type: "array",
+  items: decisionTraceSchema,
+};
+
 /** Result envelope: matched or no_match (no_match adds noMatchReason). */
 export const decisionResultSchema: JsonSchema = {
   oneOf: [
@@ -42,8 +54,8 @@ export const decisionResultSchema: JsonSchema = {
       properties: {
         status: { const: "matched" },
         entryDecision: stringSchema,
-        recommendations: { type: "array", items: decisionRecommendationSchema },
-        trace: { type: "array", items: decisionTraceSchema },
+        recommendations: decisionRecommendationsSchema,
+        trace: decisionTraceListSchema,
       },
     },
     {
@@ -53,8 +65,8 @@ export const decisionResultSchema: JsonSchema = {
       properties: {
         status: { const: "no_match" },
         entryDecision: stringSchema,
-        recommendations: { type: "array" },
-        trace: { type: "array", items: decisionTraceSchema },
+        recommendations: decisionRecommendationsSchema,
+        trace: decisionTraceListSchema,
         noMatchReason: stringSchema,
       },
     },

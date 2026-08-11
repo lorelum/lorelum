@@ -1,11 +1,11 @@
-import { DecisionEvaluationError, decisionErrorCodes } from "@lorelum/engine";
-import { DecisionDocumentError } from "@lorelum/format";
+import { decisionErrorCodes } from "@lorelum/engine";
 
 /**
  * CLI error model (ADR 0004): every command failure is one JSON envelope with
- * a stable dotted `code`. Command code throws `CliError` directly; domain
- * errors from engine/format are mapped here once. `toVisibleCliError` masks
- * any code outside the selected command's declared `errorCodes` allowlist as
+ * a stable dotted `code`. Commands throw `CliError` directly; domain errors
+ * from engine/format are mapped to `CliError` by the owning command, so the
+ * framework stays free of domain error classes. `toVisibleCliError` masks any
+ * code outside the selected command's declared `errorCodes` allowlist as
  * `runtime.unexpected`, so command authors opt in to what agents may rely on.
  * Decide codes are sourced from `@lorelum/engine` to keep the strings in one
  * place.
@@ -52,18 +52,10 @@ export function toVisibleCliError(error: unknown, visibleErrorCodes: readonly st
   return visibleErrorCodes.includes(cliError.code) ? cliError : unexpectedRuntimeError();
 }
 
-/** Translate any thrown value into a CliError; domain errors are mapped here once. */
+/** Translate any thrown value into a CliError; domain errors arrive already mapped by their command. */
 function toCliError(error: unknown): CliError {
   if (error instanceof CliError) {
     return error;
-  }
-
-  if (error instanceof DecisionEvaluationError) {
-    return new CliError(error.code, error.message);
-  }
-
-  if (error instanceof DecisionDocumentError) {
-    return new CliError(cliErrorCodes.packParseError, error.message);
   }
 
   if (isCommanderError(error)) {

@@ -39,6 +39,11 @@ jobs:
       - name: Test
         run: bun test
 
+      # Process-level integration tests compile the real CLI binary and spawn
+      # it, so they are gated separately from the unit suite (ADR 0004).
+      - name: Integration test
+        run: bun run test:integration
+
       # oxfmt is still alpha (ADR 0002). Run as a non-blocking signal for now;
       # promote to blocking once it stabilizes.
       - name: Format check

@@ -69,8 +69,9 @@ export function parseCondition(source: string): Expression {
 
 /** Evaluate an already-parsed v1 condition; missing fields resolve to false. */
 export function evaluateParsedCondition(expression: Expression, context: DecisionContext): boolean {
-  const result = evaluateExpression(expression, context);
-  return result === missing ? false : result;
+  // Single missing→false boundary; `toBoolean` is also how && / || resolve
+  // missing operands, so the two paths cannot drift (ADR 0008 §3).
+  return toBoolean(evaluateExpression(expression, context));
 }
 
 /** Parse and evaluate a v1 condition; parsing never executes pack-provided code. */

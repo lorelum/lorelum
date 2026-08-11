@@ -33,11 +33,18 @@ Supported: dotted field paths (`state.client`) whose segments match `[A-Za-z_][A
 
 ### 3. Null safety and no-match
 
-Missing context fields and type-incompatible comparisons evaluate to `false` — never an error. When no branch in the entry node (or after a `next` chain) matches, the command returns `status: "no_match"` with `noMatchReason` and exit 0. An empty decisions document is an empty decision list → `no_match` ("pack has no decisions"); the entry id is not validated when the list is empty.
+Missing context fields and type-incompatible comparisons never raise an error. A missing value propagates through the expression as unknown and resolves to `false` at the condition boundary, with these concrete rules:
+
+- A bare missing path (`feature.enabled`) and its negation (`!feature.enabled`) both evaluate to `false`.
+- `&&` / `||` treat a missing operand as `false`, so a determined other side wins: `missing || true` → `true`, `missing || false` → `false`, `missing && true` → `false`.
+- `==` and `!=` involving a missing operand evaluate to `false`, so `missing == missing` and `missing != "x"` are both `false`.
+
+When no branch in the entry node (or after a `next` chain) matches, the command returns `status: "no_match"` with `noMatchReason` and exit 0. An empty decisions document is an empty decision list → `no_match` ("pack has no decisions"); the entry id is not validated when the list is empty.
 
 ### 4. Determinism and cycles
 
 - Branches are evaluated in declaration order; the first matching branch wins.
+- All when conditions in a node are parsed before any is evaluated; a syntax error in any branch is `decide.invalid_condition` even when an earlier branch would have matched.
 - A matched branch may chain via `next` to another Decision Node id.
 - Recommendations deduplicate by practice id on first occurrence; reasons from each matched branch append in match order.
 - A runtime cycle along a `next` path is rejected as `decide.cycle` (exit 2). Duplicate decision ids are rejected up front as `decide.duplicate_decision`.

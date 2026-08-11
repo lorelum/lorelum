@@ -2,10 +2,15 @@
  * `lore decide` command: owns argument parsing and pack loading only;
  * evaluation is the pure engine call (ADR 0008 §1).
  */
-import { decisionResultSchema, evaluateDecisions } from "@lorelum/engine";
+import { DecisionEvaluationError, decisionResultSchema, evaluateDecisions } from "@lorelum/engine";
 
 import type { CommandDefinition, CommandOption } from "../registry.js";
-import { cliErrorCodes, frameworkErrorCodes, invalidInvocationError } from "../runtime/errors.js";
+import {
+  CliError,
+  cliErrorCodes,
+  frameworkErrorCodes,
+  invalidInvocationError,
+} from "../runtime/errors.js";
 import { readDecisionsDocument } from "./load.js";
 
 /** Required options for one decide invocation: entry decision id and structured context JSON. */
@@ -57,7 +62,17 @@ export const decideCommand: CommandDefinition = {
     // contract against a framework regression.
     if (packPath === undefined) throw invalidInvocationError();
     const decisions = await readDecisionsDocument(packPath);
-    return { data: evaluateDecisions({ context, decisions, entryDecision }) };
+    try {
+      return { data: evaluateDecisions({ context, decisions, entryDecision }) };
+    } catch (error) {
+      // The decide command owns its domain errors: engine evaluation failures
+      // become CliError here, keeping the framework mapper free of engine
+      // error classes (ADR 0004).
+      if (error instanceof DecisionEvaluationError) {
+        throw new CliError(error.code, error.message);
+      }
+      throw error;
+    }
   },
 };
 

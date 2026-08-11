@@ -30,6 +30,18 @@ test("treats missing paths and incompatible comparisons as false", () => {
   expect(evaluateCondition("state.client == 1", context)).toBe(false);
 });
 
+// Anchors the ADR 0008 §3 missing-value rules: a determined logical side wins,
+// and comparisons involving a missing operand are false.
+test("resolves missing operands from the determined side of logical operations", () => {
+  expect(evaluateCondition("missing.x || true", {})).toBe(true);
+  expect(evaluateCondition("true || missing.x", {})).toBe(true);
+  expect(evaluateCondition("missing.x || false", {})).toBe(false);
+  expect(evaluateCondition("missing.x && true", {})).toBe(false);
+  expect(evaluateCondition("missing.x && false", {})).toBe(false);
+  expect(evaluateCondition("missing.x != 'x'", {})).toBe(false);
+  expect(evaluateCondition("missing.x == missing.y", {})).toBe(false);
+});
+
 test("rejects syntax outside the v1 condition language", () => {
   expect(() => evaluateCondition('state.client = "heavy"', {})).toThrow(ConditionSyntaxError);
   expect(() => evaluateCondition("state.client()", {})).toThrow(ConditionSyntaxError);
