@@ -5,6 +5,7 @@
  */
 export { evaluateDecisions } from "./evaluate.js";
 export { ConditionSyntaxError, evaluateCondition } from "./when.js";
+export * from "./schema.js";
 export {
   DecisionEvaluationError,
   decisionErrorCodes,

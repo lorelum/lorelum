@@ -1,20 +1,13 @@
 import packageManifest from "../../package.json";
 
+import type { JsonSchema } from "@lorelum/shared";
+
 /** Version of the process-envelope contract. */
 export const protocolVersion = 1;
 /** Version of the CLI implementation emitting the envelope. */
 export const toolVersion = packageManifest.version;
 
-export type JsonSchema = {
-  oneOf?: readonly JsonSchema[];
-  type?: "array" | "boolean" | "integer" | "object" | "string";
-  const?: unknown;
-  enum?: readonly unknown[];
-  additionalProperties?: boolean;
-  required?: readonly string[];
-  properties?: Readonly<Record<string, JsonSchema>>;
-  items?: JsonSchema;
-};
+export type { JsonSchema };
 
 export type JsonValue =
   | null

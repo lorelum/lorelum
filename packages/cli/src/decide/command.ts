@@ -2,9 +2,8 @@
  * `lore decide` command: owns argument parsing and pack loading only;
  * evaluation is the pure engine call (ADR 0008 §1).
  */
-import { evaluateDecisions } from "@lorelum/engine";
+import { decisionResultSchema, evaluateDecisions } from "@lorelum/engine";
 
-import type { JsonSchema } from "../output/protocol.js";
 import type { CommandDefinition, CommandOption } from "../registry.js";
 import { cliErrorCodes, frameworkErrorCodes, invalidInvocationError } from "../runtime/errors.js";
 import { readDecisionsDocument } from "./load.js";
@@ -24,58 +23,6 @@ const decideOptions: readonly CommandOption[] = [
     optionRequired: true,
   },
 ];
-
-/** Trace entry schema, mirroring the engine DecisionTraceEntry shape. */
-const decisionTraceSchema: JsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["decisionId", "question", "matchedWhen", "nextDecision"],
-  properties: {
-    decisionId: { type: "string" },
-    question: { type: "string" },
-    matchedWhen: { oneOf: [{ type: "string" }, { const: null }] },
-    nextDecision: { oneOf: [{ type: "string" }, { const: null }] },
-  },
-};
-/** Recommendation schema, mirroring the engine DecisionRecommendation shape. */
-const decisionRecommendationSchema: JsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["practiceId", "reasons"],
-  properties: {
-    practiceId: { type: "string" },
-    reasons: { type: "array", items: { type: "string" } },
-  },
-};
-// Mirrors the engine DecideResult contract (ADR 0008 §6): no_match adds
-// noMatchReason; trace entries expose the matched when and next edge.
-const decisionResultSchema: JsonSchema = {
-  oneOf: [
-    {
-      type: "object",
-      additionalProperties: false,
-      required: ["status", "entryDecision", "recommendations", "trace"],
-      properties: {
-        status: { const: "matched" },
-        entryDecision: { type: "string" },
-        recommendations: { type: "array", items: decisionRecommendationSchema },
-        trace: { type: "array", items: decisionTraceSchema },
-      },
-    },
-    {
-      type: "object",
-      additionalProperties: false,
-      required: ["status", "entryDecision", "recommendations", "trace", "noMatchReason"],
-      properties: {
-        status: { const: "no_match" },
-        entryDecision: { type: "string" },
-        recommendations: { type: "array" },
-        trace: { type: "array", items: decisionTraceSchema },
-        noMatchReason: { type: "string" },
-      },
-    },
-  ],
-};
 
 /**
  * Evaluate a local pack's decisions.yaml along one deterministic path. The

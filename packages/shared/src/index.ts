@@ -6,3 +6,15 @@
  */
 
 export const PACKAGE_NAME = "@lorelum/shared";
+
+/** JSON Schema subset used for protocol result metadata (single source). */
+export type JsonSchema = {
+  oneOf?: readonly JsonSchema[];
+  type?: "array" | "boolean" | "integer" | "object" | "string";
+  const?: unknown;
+  enum?: readonly unknown[];
+  additionalProperties?: boolean;
+  required?: readonly string[];
+  properties?: Readonly<Record<string, JsonSchema>>;
+  items?: JsonSchema;
+};
