@@ -99,7 +99,7 @@ applies_when: building an API layer in a React SPA
 - api.dto-used-as-ui-model (reuse DTOs as UI state)
 ```
 
-A **Knowledge Pack** bundles many Practices + a decision graph (`decisions.yaml`) + templates + anti-patterns, scoped to a stack or team standard.
+A **Knowledge Pack** bundles many Practices + templates + anti-patterns, scoped to a stack or team standard.
 
 ## An end-to-end example
 
@@ -280,9 +280,6 @@ lore query "settings page with permission guard, form, and tests"
 # The same natural-language query can include a critical work moment
 lore query "the focused tests passed; I am about to claim the whole settings feature is complete"
 
-# Get a decision recommendation based on project context
-lore decide "React SPA, medium client state, RBAC routes, component tests"
-
 # Check if your code violates any practice
 lore check src/features/auth/LoginPage.tsx
 
@@ -300,11 +297,10 @@ Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MC
 | **Decays over session**       | Yes                          | No (one-shot)           | No (fresh each query)                                                                                                     |
 | **Support around compaction** | Manual: re-paste all rules   | Manual                  | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
 | **Scales to 100s of rules**   | ❌                           | Tedious                 | ✅ built for it                                                                                                           |
-| **Captures team decisions**   | No                           | No                      | ✅ `decisions.yaml`                                                                                                       |
 | **Tool-agnostic**             | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                                                      |
 | **Anti-pattern checks**       | No                           | No                      | ✅ `lore check`                                                                                                           |
 
-Lorelum isn't a better `.cursorrules`. It's the **retrieval + decision layer** that sits behind whatever AI tool you use.
+Lorelum isn't a better `.cursorrules`. It's the **Practice retrieval layer** that sits behind whatever AI tool you use.
 
 ## Architecture (in brief)
 
@@ -322,7 +318,7 @@ Lorelum isn't a better `.cursorrules`. It's the **retrieval + decision layer** t
                              ▼
 ┌──────────────────────────────────────────────────────────┐
 │                  Lorelum engine                          │
-│   retrieve + rank (embed + metadata + graph) · decisions │
+│         retrieve + rank (embed + metadata + graph)       │
 └────────────┬─────────────────────────────────────────────┘
              │
    ┌─────────┴─────────┐
@@ -342,9 +338,9 @@ Two modes share the same commands:
 
 We're building in the open, in milestones:
 
-- **P0–P2** — Core engine: Practice format, retrieval (embed + metadata), `lore query` / `get` / `decide` / `check`. Local mode only.
+- **P0–P2** — Core engine: Practice format, retrieval (embed + metadata), `lore query` / `get` / `check`. Local mode only.
 - **P3–P4** — First public pack (`react-fullstack`), MCP server, `lore install` / `search`, public registry MVP.
-- **P5** — Endpoint kernel (AGPL, self-hostable), team packs, decision graph evaluator.
+- **P5** — Endpoint kernel (AGPL, self-hostable), team packs.
 - **P6** — Enterprise governance (SSO, audit, sensitive-info scanning).
 
 See [Discussions](https://github.com/lorelum/lorelum/discussions) for what's being worked on right now.

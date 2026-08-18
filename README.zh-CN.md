@@ -98,7 +98,7 @@ applies_when: 在 React SPA 中构建 API 层
 - api.dto-used-as-ui-model （DTO 直接当 UI 模型用）
 ```
 
-一个 **Knowledge Pack（知识包）** 把多条 Practice + 决策图谱（`decisions.yaml`）+ 模板 + 反模式打包，绑定到某个技术栈或团队标准。
+一个 **Knowledge Pack（知识包）** 把多条 Practice + 模板 + 反模式打包，绑定到某个技术栈或团队标准。
 
 ## 端到端示例
 
@@ -279,9 +279,6 @@ lore query "带权限控制、表单、测试的设置页"
 # 同一个自然语言 query 也可以说明当前的关键时刻
 lore query "定向测试已经通过，我准备宣布整个设置页能力已完成"
 
-# 根据项目上下文，给出技术决策建议
-lore decide "React SPA，中等复杂度客户端状态，RBAC 路由，组件测试"
-
 # 检查代码是否违反了某条 Practice
 lore check src/features/auth/LoginPage.tsx
 
@@ -299,11 +296,10 @@ lore learn "HTTP client 里的 single-flight refresh token"
 | **长会话衰减**     | 会                           | 不会（一次性）    | 不会（每次查询都新鲜）                                                                                |
 | **压缩前后支持**   | 手动：重新粘贴全部规则       | 手动              | Research：受支持的集成可在压缩前提供内容选择指引、压缩后触发恢复；其他工具通过 Skill / CLI / MCP 调用 |
 | **支持上百条规则** | ❌                           | 繁琐              | ✅ 为此而生                                                                                           |
-| **承载团队决策**   | 否                           | 否                | ✅ `decisions.yaml`                                                                                   |
 | **工具中立**       | 绑定单一工具                 | 绑定单一工具      | ✅ MCP / CLI / Skill                                                                                  |
 | **反模式检查**     | 否                           | 否                | ✅ `lore check`                                                                                       |
 
-Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后的**检索与决策层**。
+Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后的 **Practice 检索层**。
 
 ## 架构（简述）
 
@@ -321,7 +317,7 @@ Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后�
                              ▼
 ┌──────────────────────────────────────────────────────────┐
 │                    Lorelum 引擎                          │
-│ 检索与排序（语义 + 元数据 + 图谱）· decisions             │
+│        检索与排序（语义 + 元数据 + 图谱）                  │
 └────────────┬─────────────────────────────────────────────┘
              │
    ┌─────────┴─────────┐
@@ -341,9 +337,9 @@ Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后�
 
 我们以里程碑方式公开推进：
 
-- **P0–P2** — 核心引擎：Practice 格式、检索（语义 + 元数据）、`lore query` / `get` / `decide` / `check`。仅本地模式。
+- **P0–P2** — 核心引擎：Practice 格式、检索（语义 + 元数据）、`lore query` / `get` / `check`。仅本地模式。
 - **P3–P4** — 第一个公开包（`react-fullstack`）、MCP Server、`lore install` / `search`、公开 Registry MVP。
-- **P5** — 端点服务内核（AGPL，可自托管）、团队知识包、决策图谱执行器。
+- **P5** — 端点服务内核（AGPL，可自托管）、团队知识包。
 - **P6** — 企业治理（SSO、审计、敏感信息扫描）。
 
 当前进展见 [Discussions](https://github.com/lorelum/lorelum/discussions)。
