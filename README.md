@@ -21,7 +21,7 @@
 You wrote an `AGENTS.md` (or `CLAUDE.md`, `.cursorrules`). Then this happens:
 
 - **Your rules silently stop being followed.** Frontier models comply with only ~68% of a 500-rule ruleset — _every rule you add makes every other rule less likely to be followed._<sup>[\[1\]](#fn-1)</sup> You don't get a warning; the agent just drifts.
-- **Compaction eats more than rules.** A long session triggers context compaction → your early `AGENTS.md` falls out of the window. More dangerously, the summary may preserve the current implementation while losing the original requirements, acceptance criteria, assumptions, and evidence boundaries that tell the agent whether that implementation is actually right.
+- **Compaction can both forget and distort.** A long session triggers context compaction → your early `AGENTS.md`, original requirements, acceptance criteria, and evidence boundaries can fall out of the window. At the same time, rejected approaches, disproved assumptions, legacy code, temporary workarounds, incidental issues, and raw logs can be promoted into the summary as if they were current facts. The resulting context is shorter, but it may also be less accurate.
 - **You only find out when it's already wrong.** There is no signal that the agent has drifted — until you review the code yourself and spot the violation.
 
 This is the **knowledge layer gap**: your rules exist, but they don't reliably reach the agent _at the moment it needs them_.
@@ -39,8 +39,11 @@ This is how your `AGENTS.md` actually reaches the agent today:
         │                            (the more you write, the less
         │                             each one matters)
         │
-        ├─▶ Compaction discards     long sessions summarize the
-        │   your rules               context window — rules fall out
+        ├─▶ Compaction discards     durable requirements, rules, and
+        │   critical context         evidence can fall out
+        │
+        ├─▶ Exploration noise       rejected ideas or stale code can
+        │   becomes "current"       be promoted into the summary
         │
         └─▶ Drift is invisible      no signal, until you review the
                                      code and find the violation
@@ -57,7 +60,12 @@ Retrieval can use two kinds of clues:
 - **What the agent is doing:** building an auth flow, changing a database schema, writing component tests.
 - **What moment the agent is in:** starting to understand a complex requirement, recovering after compaction, deciding whether to change a failing test, or preparing to claim completion.
 
-The caller describes the task and moment; Lorelum retrieves and ranks the relevant Practices. A Skill can guide the agent to trigger retrieval at semantic moments, while a Plugin/Hook can reliably trigger it for observable host events such as compaction. Lorelum Core does not manage the task or infer these events by itself.
+The caller describes the task and moment; Lorelum retrieves and ranks the relevant Practices. A Skill can guide the agent to trigger retrieval at semantic moments, while a Plugin/Hook can observe lifecycle events exposed by a supported host. Around compaction, the two moments need different guidance:
+
+- **Before compaction:** retrieve context-hygiene Practices that help distinguish durable facts from exploration noise.
+- **After compaction:** retrieve recovery Practices that tell the agent how to re-ground itself, verify facts, and restore the boundary between evidence and assumption.
+
+Lorelum Core does not manage the task, inspect the full transcript, or infer lifecycle events by itself. Whether pre-compaction guidance can become part of the host's real compaction instruction depends on the host integration and is still a Research question.
 
 ```
    ┌─────────────┐   query    ┌────────────────────┐   precise   ┌──────────────┐
@@ -149,9 +157,9 @@ lore learn "single-flight refresh token in the HTTP client"
 
 That fix is now a Practice your whole team retrieves next time — without anyone re-pasting an `AGENTS.md`.
 
-## Another end-to-end example: a passing test is not the whole feature
+## Another end-to-end example: reduce contamination before compaction, re-ground after
 
-> **Research direction:** We are exploring this flow in [Issue #28](https://github.com/lorelum/lorelum/issues/28). The example shows the intended experience and responsibility boundary, not a capability already shipped in every AI tool.
+> **Research direction:** [Issue #32](https://github.com/lorelum/lorelum/issues/32) explores content selection and contamination control before compaction; [Issue #28](https://github.com/lorelum/lorelum/issues/28) explores recovery and Practice injection at critical moments after it. This example shows the intended experience and responsibility boundary, not a capability already shipped in every AI tool.
 
 ### The setup
 
@@ -162,7 +170,26 @@ An agent is implementing a common account-settings feature. The acceptance crite
 - the change persists and still appears after a reload; and
 - the complete flow works for both allowed and denied users.
 
-After a long session, context is compacted. The summary preserves the most recent work: the form was refactored, its focused component tests pass, and the next step is to report the result. It does not preserve the full acceptance scope or which parts of it have actually been verified.
+Before compaction, the working context contains several very different kinds of information:
+
+- the authoritative spec, current goal, and acceptance criteria;
+- the current form implementation and its focused component-test results;
+- a rejected shortcut that saved settings only in the client and skipped server authorization;
+- a disproved assumption that the existing endpoint already persisted the time zone;
+- a legacy `LegacySettingsPanel` that bypasses the current API path; and
+- long test logs, browser output, and temporary debugging notes.
+
+They should not all survive compaction in the same way:
+
+| Content                                               | How compaction should treat it                                       |
+| ----------------------------------------------------- | -------------------------------------------------------------------- |
+| Current goal, authoritative spec, acceptance criteria | Must be preserved                                                    |
+| Accepted decisions                                    | Preserve the decision and only the rationale needed to understand it |
+| Rejected approaches and disproved assumptions         | Preserve the conclusion, not the full exploration trail              |
+| Long logs and tool output                             | Preserve only key errors and evidence                                |
+| Incidental issues and unrelated tasks                 | Must not continue to influence the main task                         |
+
+After a long session, context is compacted. A poor summary can preserve the recent form refactor and green focused tests while losing the full acceptance scope. Worse, it can retain fragments of the rejected client-only shortcut, the disproved persistence assumption, or the legacy panel without preserving the fact that they are no longer authoritative.
 
 ### Without task-and-moment retrieval — local evidence becomes a global claim
 
@@ -174,9 +201,11 @@ The agent sees green focused tests and reports:
 
 But the evidence only covers the form component. It says nothing about API authorization, persistence after reload, the denied-user path, or the complete user flow. The tests are valid; the **claim is broader than the evidence**.
 
-### With Lorelum — recover first, then query the moment
+### With Lorelum — reduce contamination, then recover the facts
 
-In the intended flow, a supported Plugin/Hook observes the compaction event and asks Lorelum only for recovery Practices. The injected guidance reminds the agent that the summary is not the source of truth and that it must re-read the durable spec, acceptance criteria, plan, and evidence before continuing.
+In the intended flow, a supported Plugin/Hook first observes that compaction is about to start and queries Lorelum for context-hygiene Practices. If the host allows external guidance to influence compaction, those Practices can tell its compactor what to preserve, what to summarize as a rejected conclusion, and what noise to omit. Lorelum does not read or rewrite the transcript itself, and integrations that cannot pass this guidance to the compactor simply continue with normal compaction.
+
+After compaction, the integration queries Lorelum for recovery Practices. The injected guidance reminds the agent that the summary is not the source of truth and that it must re-read the durable spec, acceptance criteria, plan, and evidence before continuing.
 
 The agent re-establishes the task and discovers that only the UI slice has been tested. Before reporting completion, it makes a normal natural-language query:
 
@@ -206,27 +235,34 @@ Lorelum did not store the spec, inspect the repository, run the tests, or decide
 
 The same pattern applies beyond compaction. A Skill can prompt the query when the agent is about to change a failing test, act on an unconfirmed assumption, hand work to another agent, or claim that a partial implementation is complete.
 
-### The two-stage recovery path
+### The complete path around compaction
 
-Immediately guessing task-specific Practices from a possibly incomplete compaction summary can reinforce the wrong implementation. The safer path is:
+Immediately guessing task-specific Practices from a possibly incomplete or contaminated summary can reinforce the wrong implementation. The intended path is:
 
 ```
-host reports compaction
+host signals that compaction is about to start
         │
         ▼
-Plugin / Hook queries Lorelum for recovery Practices only
+Plugin / Hook queries pre-compaction guidance
+        │
+        ▼
+if supported, the host compactor uses the guidance;
+otherwise, normal compaction continues safely
+        │
+        ▼
+host creates the compacted summary
+        │
+        ▼
+post-compaction Hook queries recovery Practices
         │
         ▼
 agent re-reads the durable spec, acceptance criteria, assumptions, and evidence
         │
         ▼
 agent runs a normal lore query with the re-established task and moment
-        │
-        ▼
-Lorelum returns the relevant domain + execution Practices
 ```
 
-The Plugin/Hook knows that compaction happened; it does not decide whether the work is correct or complete. Lorelum retrieves the recovery discipline; it does not store the spec or manage task state. The agent first re-establishes the facts, then asks for task-specific guidance.
+The Plugin/Hook knows which lifecycle event the host exposed; it does not decide whether the work is correct or complete. Lorelum retrieves guidance for that task and moment; it does not store the spec, manage task state, read the full transcript, or implement the compactor. If a host cannot accept pre-compaction guidance, that stage degrades safely without blocking compaction, and the post-compaction recovery path can still be used. The agent first re-establishes the facts, then asks for task-specific guidance.
 
 This is one example of a broader direction: supporting critical moments across the full Agentic Coding lifecycle — requirement understanding, planning, implementation, testing, verification, delivery, recovery, and correction — rather than building a special-case compaction feature.
 
@@ -258,15 +294,15 @@ Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MC
 
 ## How it's different
 
-|                                   | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                                                                                 |
-| --------------------------------- | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
-| **Delivery**                      | Static, all-at-once          | Manual trigger          | **Retrieved on demand**                                                                     |
-| **Decays over session**           | Yes                          | No (one-shot)           | No (fresh each query)                                                                       |
-| **Re-injection after compaction** | Manual: re-paste all rules   | Manual                  | Planned: supported Plugin/Hook triggers recovery automatically; otherwise Skill / CLI / MCP |
-| **Scales to 100s of rules**       | ❌                           | Tedious                 | ✅ built for it                                                                             |
-| **Captures team decisions**       | No                           | No                      | ✅ `decisions.yaml`                                                                         |
-| **Tool-agnostic**                 | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                        |
-| **Anti-pattern checks**           | No                           | No                      | ✅ `lore check`                                                                             |
+|                               | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                                                                                                               |
+| ----------------------------- | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Delivery**                  | Static, all-at-once          | Manual trigger          | **Retrieved on demand**                                                                                                   |
+| **Decays over session**       | Yes                          | No (one-shot)           | No (fresh each query)                                                                                                     |
+| **Support around compaction** | Manual: re-paste all rules   | Manual                  | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
+| **Scales to 100s of rules**   | ❌                           | Tedious                 | ✅ built for it                                                                                                           |
+| **Captures team decisions**   | No                           | No                      | ✅ `decisions.yaml`                                                                                                       |
+| **Tool-agnostic**             | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                                                      |
+| **Anti-pattern checks**       | No                           | No                      | ✅ `lore check`                                                                                                           |
 
 Lorelum isn't a better `.cursorrules`. It's the **retrieval + decision layer** that sits behind whatever AI tool you use.
 
@@ -295,7 +331,7 @@ local packs        endpoint (team / SaaS / self-hosted)
 (offline)          (real-time, multi-user)
 ```
 
-The integration layer owns **when to call** and **how to inject**. Lorelum Core owns **what to retrieve** and **how to rank it**. This keeps host-specific lifecycle handling out of the retrieval engine.
+The integration layer owns **when to call** and **how to inject**. Lifecycle signals come from a Skill, Plugin, or Hook; Lorelum Core only retrieves the Practices relevant to the described task and moment. It does not control the host's compactor. Whether text returned at `PreCompact` can become a real compaction instruction is an integration capability that still needs to be validated. This keeps host-specific lifecycle handling out of the retrieval engine.
 
 Two modes share the same commands:
 
