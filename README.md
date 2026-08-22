@@ -18,23 +18,27 @@
 
 ## The problem
 
-You wrote an `AGENTS.md` (or `CLAUDE.md`, `.cursorrules`). Then this happens:
+You may maintain an `AGENTS.md` (or `CLAUDE.md`, `.cursorrules`) full of team rules. Or you may be a vibe coder relying on the agent to make engineering choices you do not yet know how to review. Either way, this happens:
 
+- **Working code looks correct even when the engineering is not.** An agent can build a login page that renders and passes a quick browser check while calling `axios` directly from the component and persisting a token in `localStorage`. If you do not already know the architecture or security boundary, you may not know which rule was missing or that anything is wrong at all.
 - **Your rules silently stop being followed.** Frontier models comply with only ~68% of a 500-rule ruleset — _every rule you add makes every other rule less likely to be followed._<sup>[\[1\]](#fn-1)</sup> You don't get a warning; the agent just drifts.
 - **A small task becomes a large engineering project.** While planning a narrow change, the agent adds unrequested product behavior, abstractions, fallbacks, tests, documentation, and guardrails because visible completeness is easy to reward and review. Each action resembles a best practice; together they optimize the appearance of thoroughness instead of the user's actual goal.
 - **Compaction can both forget and distort.** A long session triggers context compaction → your early `AGENTS.md`, original requirements, acceptance criteria, and evidence boundaries can fall out of the window. At the same time, rejected approaches, disproved assumptions, legacy code, temporary workarounds, incidental issues, and raw logs can be promoted into the summary as if they were current facts. The resulting context is shorter, but it may also be less accurate.
 - **You only find out when it's already wrong.** There is no signal that the agent has drifted — until you review the code yourself and spot the violation.
 
-This is the **knowledge-and-judgment gap**: your guidance exists, but the right slice — including its applicability boundary — does not reliably reach the agent _when it plans or acts_.
+This is the **knowledge-and-judgment gap**: the right engineering guidance — whether your team already wrote it or you need it from a Knowledge Pack — does not reliably reach the agent with the right applicability boundary _when it plans or acts_.
 
 ## Why it happens
 
-This is how your `AGENTS.md` actually reaches the agent today:
+Today, the agent either relies on generic coding habits or receives your `AGENTS.md` once at session start:
 
 ```
   ┌────────────────────────────────────────────────────────────┐
-  │  AGENTS.md — dumped into context once, at session start    │
+  │  Generic habits + optional AGENTS.md at session start      │
   └────────────────────────────────────────────────────────────┘
+        │
+        ├─▶ "Works" looks correct    bad engineering can survive
+        │                              a quick UI or browser check
         │
         ├─▶ Few rules followed      ~68% compliance at 500 rules
         │                            (the more you write, the less
@@ -53,11 +57,13 @@ This is how your `AGENTS.md` actually reaches the agent today:
                                      code and find the violation
 ```
 
-The conventional approach ("paste all the rules into context") fights physical limits: attention decay across long sessions, context-window capacity, and the fact that _more rules lower per-rule compliance_.<sup>[\[2\]](#fn-2)</sup> Even a 1M-token window doesn't recall early instructions reliably after compaction. It also cannot tell the agent which familiar best practice is unnecessary for a narrow change. **More rules ≠ more control.** Throwing more context at the problem doesn't fix it.
+The conventional approach ("paste all the rules into context") fights physical limits: attention decay across long sessions, context-window capacity, and the fact that _more rules lower per-rule compliance_.<sup>[\[2\]](#fn-2)</sup> Even a 1M-token window doesn't recall early instructions reliably after compaction. It also cannot tell the agent which familiar best practice is unnecessary for a narrow change — and if you do not have an in-house expert rulebook, there may be nothing useful to paste in the first place. **More rules ≠ more control.** Throwing more context at the problem doesn't fix it.
 
 ## How Lorelum solves it
 
-Lorelum turns team engineering experience into **discrete, retrievable, trigger-conditioned units called _Practices_** — and injects them into AI context **at the moment of need**, not all at once.
+Lorelum turns reusable engineering experience into **discrete, retrievable, trigger-conditioned units called _Practices_** — and injects them into AI context **at the moment of need**, not all at once.
+
+Teams can package their own standards. Vibe coders and small teams can start with community Knowledge Packs instead of first having to discover every architectural, security, and testing anti-pattern themselves.
 
 Retrieval can use two kinds of clues:
 
@@ -82,7 +88,7 @@ Lorelum Core does not manage the task, inspect the full transcript, or infer lif
    └─────────────┘            └────────────────────┘             └──────────────┘
 ```
 
-**Lorelum doesn't replace your `AGENTS.md` — it keeps it alive.** Every time the agent needs a piece of it, Lorelum re-injects that exact slice. When the agent starts implementing auth, Lorelum hands it the auth Practice — not the routing, testing, and deployment Practices too. When it is about to plan a change, Lorelum can surface scope and validation discipline before unnecessary work enters the plan. When it is about to make another high-risk judgment, Lorelum can surface the execution discipline needed for that moment without becoming a workflow engine.
+**Lorelum doesn't require every user to already know every rule.** It keeps existing team guidance alive and makes Knowledge Pack guidance available on demand. When the agent starts implementing auth, Lorelum hands it the auth Practice — not the routing, testing, and deployment Practices too. When it is about to plan a change, Lorelum can surface scope and validation discipline before unnecessary work enters the plan. When it is about to make another high-risk judgment, Lorelum can surface the execution discipline needed for that moment without becoming a workflow engine.
 
 ### What a Practice looks like
 
@@ -107,14 +113,30 @@ applies_when: building an API layer in a React SPA
 
 A **Knowledge Pack** bundles many Practices + templates + anti-patterns, scoped to a stack or team standard.
 
-In a React auth task, for example, retrieving `react.api.layered-design` is enough to keep the component on the intended boundary:
+### For vibe coding: working code is not enough
+
+A vibe coder asks the agent to build a React login page. The first result renders and may even pass a quick interaction check:
+
+```tsx
+function LoginPage() {
+  const [email, setEmail] = useState("");
+  async function handleLogin() {
+    const res = await axios.post("/api/login", { email }); // HTTP inside the component
+    localStorage.setItem("token", res.data.token); // token persisted by UI code
+  }
+}
+```
+
+The page appears to work, but the component now owns HTTP behavior and token persistence. A user without the relevant React architecture or security experience may have no reason to question it.
+
+Retrieving `react.api.layered-design` gives the agent the missing professional boundary at the moment it writes the feature:
 
 ```tsx
 const { login } = useAuthApi(); // through the layered API client
 await login({ email }); // token handled inside the API layer
 ```
 
-The agent does not need the routing, deployment, and unrelated testing Practices at the same time.
+The vibe coder did not have to discover and write every rule first, and the agent did not need the routing, deployment, and unrelated testing Practices at the same time.
 
 ## An end-to-end example: keep a small task small
 
@@ -297,7 +319,7 @@ This is one example of a broader direction: supporting critical moments across t
 _(CLI is pre-alpha — commands below show the intended UX.)_
 
 ```bash
-# Install a community pack (local mode, works offline)
+# Start with a community pack — even if you do not know every rule yet
 lore install react-fullstack
 
 # Ask: "what practices apply to my current task?"
@@ -320,15 +342,16 @@ Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MC
 
 ## How it's different
 
-|                                       | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                                                                                                               |
-| ------------------------------------- | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Delivery**                          | Static, all-at-once          | Manual trigger          | **Retrieved on demand**                                                                                                   |
-| **Decays over session**               | Yes                          | No (one-shot)           | No (fresh each query)                                                                                                     |
-| **Support around compaction**         | Manual: re-paste all rules   | Manual                  | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
-| **Calibrates work to scope and risk** | No                           | Depends on the workflow | Research: retrieves planning Practices and anti-patterns for the current task and moment                                  |
-| **Scales to 100s of rules**           | ❌                           | Tedious                 | ✅ built for it                                                                                                           |
-| **Tool-agnostic**                     | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                                                      |
-| **Anti-pattern checks**               | No                           | No                      | ✅ `lore check`                                                                                                           |
+|                                           | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                                                                                                               |
+| ----------------------------------------- | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Delivery**                              | Static, all-at-once          | Manual trigger          | **Retrieved on demand**                                                                                                   |
+| **Decays over session**                   | Yes                          | No (one-shot)           | No (fresh each query)                                                                                                     |
+| **Support around compaction**             | Manual: re-paste all rules   | Manual                  | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
+| **Requires you to know every rule first** | Yes                          | Often                   | No: start with community Packs, then add team Practices                                                                   |
+| **Calibrates work to scope and risk**     | No                           | Depends on the workflow | Research: retrieves planning Practices and anti-patterns for the current task and moment                                  |
+| **Scales to 100s of rules**               | ❌                           | Tedious                 | ✅ built for it                                                                                                           |
+| **Tool-agnostic**                         | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                                                      |
+| **Anti-pattern checks**                   | No                           | No                      | ✅ `lore check`                                                                                                           |
 
 Lorelum isn't a better `.cursorrules`. It's the **Practice retrieval layer** that sits behind whatever AI tool you use.
 
