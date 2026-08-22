@@ -21,10 +21,11 @@
 You wrote an `AGENTS.md` (or `CLAUDE.md`, `.cursorrules`). Then this happens:
 
 - **Your rules silently stop being followed.** Frontier models comply with only ~68% of a 500-rule ruleset — _every rule you add makes every other rule less likely to be followed._<sup>[\[1\]](#fn-1)</sup> You don't get a warning; the agent just drifts.
+- **A small task becomes a large engineering project.** While planning a narrow change, the agent adds unrequested product behavior, abstractions, fallbacks, tests, documentation, and guardrails because visible completeness is easy to reward and review. Each action resembles a best practice; together they optimize the appearance of thoroughness instead of the user's actual goal.
 - **Compaction can both forget and distort.** A long session triggers context compaction → your early `AGENTS.md`, original requirements, acceptance criteria, and evidence boundaries can fall out of the window. At the same time, rejected approaches, disproved assumptions, legacy code, temporary workarounds, incidental issues, and raw logs can be promoted into the summary as if they were current facts. The resulting context is shorter, but it may also be less accurate.
 - **You only find out when it's already wrong.** There is no signal that the agent has drifted — until you review the code yourself and spot the violation.
 
-This is the **knowledge layer gap**: your rules exist, but they don't reliably reach the agent _at the moment it needs them_.
+This is the **knowledge-and-judgment gap**: your guidance exists, but the right slice — including its applicability boundary — does not reliably reach the agent _when it plans or acts_.
 
 ## Why it happens
 
@@ -39,6 +40,9 @@ This is how your `AGENTS.md` actually reaches the agent today:
         │                            (the more you write, the less
         │                             each one matters)
         │
+        ├─▶ Proxy beats user goal   more tasks, tests, and guardrails
+        │                            look complete even when unnecessary
+        │
         ├─▶ Compaction discards     durable requirements, rules, and
         │   critical context         evidence can fall out
         │
@@ -49,7 +53,7 @@ This is how your `AGENTS.md` actually reaches the agent today:
                                      code and find the violation
 ```
 
-The conventional approach ("paste all the rules into context") fights physical limits: attention decay across long sessions, context-window capacity, and the fact that _more rules lower per-rule compliance_.<sup>[\[2\]](#fn-2)</sup> Even a 1M-token window doesn't recall early instructions reliably after compaction. **More rules ≠ more control.** Throwing more context at the problem doesn't fix it.
+The conventional approach ("paste all the rules into context") fights physical limits: attention decay across long sessions, context-window capacity, and the fact that _more rules lower per-rule compliance_.<sup>[\[2\]](#fn-2)</sup> Even a 1M-token window doesn't recall early instructions reliably after compaction. It also cannot tell the agent which familiar best practice is unnecessary for a narrow change. **More rules ≠ more control.** Throwing more context at the problem doesn't fix it.
 
 ## How Lorelum solves it
 
@@ -57,10 +61,12 @@ Lorelum turns team engineering experience into **discrete, retrievable, trigger-
 
 Retrieval can use two kinds of clues:
 
-- **What the agent is doing:** building an auth flow, changing a database schema, writing component tests.
-- **What moment the agent is in:** starting to understand a complex requirement, recovering after compaction, deciding whether to change a failing test, or preparing to claim completion.
+- **What the agent is doing:** planning a narrow UI change, building an auth flow, changing a database schema, writing component tests.
+- **What moment the agent is in:** defining scope and a validation plan, considering work beyond the requirement, recovering after compaction, deciding whether to change a failing test, or preparing to claim completion.
 
-The caller describes the task and moment; Lorelum retrieves and ranks the relevant Practices. A Skill can guide the agent to trigger retrieval at semantic moments, while a Plugin/Hook can observe lifecycle events exposed by a supported host. Around compaction, the two moments need different guidance:
+The caller describes the task and moment; Lorelum retrieves and ranks the relevant Practices. The task description can include its goal, scope, and risk: removing one line of copy and changing an authorization boundary should not trigger the same amount of engineering machinery. A Practice can describe not only what to do, but when it applies and which anti-patterns to avoid.
+
+A Skill can guide the agent to trigger retrieval before it forms a plan or makes another semantic judgment. For a small task, this may be a brief scope check rather than a new planning document or workflow ceremony. A Plugin/Hook can observe lifecycle events exposed by a supported host. Around compaction, the two moments need different guidance:
 
 - **Before compaction:** retrieve context-hygiene Practices that help distinguish durable facts from exploration noise.
 - **After compaction:** retrieve recovery Practices that tell the agent how to re-ground itself, verify facts, and restore the boundary between evidence and assumption.
@@ -76,7 +82,7 @@ Lorelum Core does not manage the task, inspect the full transcript, or infer lif
    └─────────────┘            └────────────────────┘             └──────────────┘
 ```
 
-**Lorelum doesn't replace your `AGENTS.md` — it keeps it alive.** Every time the agent needs a piece of it, Lorelum re-injects that exact slice. When the agent starts implementing auth, Lorelum hands it the auth Practice — not the routing, testing, and deployment Practices too. When the agent is about to make a high-risk judgment, Lorelum can also surface the execution discipline needed for that moment without becoming a workflow engine.
+**Lorelum doesn't replace your `AGENTS.md` — it keeps it alive.** Every time the agent needs a piece of it, Lorelum re-injects that exact slice. When the agent starts implementing auth, Lorelum hands it the auth Practice — not the routing, testing, and deployment Practices too. When it is about to plan a change, Lorelum can surface scope and validation discipline before unnecessary work enters the plan. When it is about to make another high-risk judgment, Lorelum can surface the execution discipline needed for that moment without becoming a workflow engine.
 
 ### What a Practice looks like
 
@@ -101,63 +107,83 @@ applies_when: building an API layer in a React SPA
 
 A **Knowledge Pack** bundles many Practices + templates + anti-patterns, scoped to a stack or team standard.
 
-## An end-to-end example
+In a React auth task, for example, retrieving `react.api.layered-design` is enough to keep the component on the intended boundary:
 
-Same task, same agent — once without Lorelum, once with.
+```tsx
+const { login } = useAuthApi(); // through the layered API client
+await login({ email }); // token handled inside the API layer
+```
+
+The agent does not need the routing, deployment, and unrelated testing Practices at the same time.
+
+## An end-to-end example: keep a small task small
+
+> **Research direction:** [Issue #35](https://github.com/lorelum/lorelum/issues/35) explores Reward Hacking and behavioral overfitting in Agent Coding. This example shows the intended experience and responsibility boundary, not a capability already proven across every AI tool.
 
 ### The setup
 
-A long session. Your `AGENTS.md` says _"layer the API; never call axios from a component."_ But that was 40 messages ago, and the context was just compacted. The agent is now asked to build a login page.
+The agent is asked to implement a settings card from an existing design. The requested result contains a title, display-name and time-zone fields, and a save action. The design does not introduce new product copy, interactions, reusable abstractions, or engineering guardrails.
 
-### Without Lorelum — the agent drifts
+### Without Lorelum — scope expands in the plan
 
-```tsx
-// LoginPage.tsx — what the agent wrote
-function LoginPage() {
-  const [email, setEmail] = useState("");
-  async function handleLogin() {
-    const res = await axios.post("/api/login", { email }); // ❌ axios in component
-    localStorage.setItem("token", res.data.token); // ❌ token in localStorage
-  }
-}
+The agent tries to make the delivery look complete and produces this plan:
+
+```text
+1. Implement the settings card and form
+2. Add descriptive copy and helper text for clarity
+3. Add extra success and empty states
+4. Extract a reusable SettingsSection for future use
+5. Add snapshots and component tests for the new content
+6. Update documentation and add regression protection
 ```
 
-It called `axios` inside the component and stuffed the token into `localStorage`. Your rules said not to. The agent never knew it broke them.
+Every item sounds defensible in isolation. Together, they turn a bounded UI task into product design, abstraction work, and permanent maintenance machinery. If nobody catches it, the tests can pass and the agent can report completion — of the plan it expanded, not the task the user asked for.
 
-### With Lorelum — triggered, not dumped
+### With Lorelum — align the plan before writing code
 
-When the agent touches `src/features/auth/`, Lorelum retrieves the one Practice that applies — `react.api.layered-design` — and injects only that slice:
-
-```markdown
-## Anti-patterns to avoid
-
-- api.direct-axios-in-component (call axios inside components)
-- api.local-storage-in-api-class (persist tokens inside API class)
-- api.dto-used-as-ui-model (reuse DTOs as UI state)
-```
-
-The agent rewrites its own output — _fresh, from the relevant slice, not the whole ruleset_:
-
-```tsx
-// LoginPage.tsx — corrected by the agent after injection
-function LoginPage() {
-  const { login } = useAuthApi(); // ✅ through the layered API client
-  async function handleLogin() {
-    await login({ email }); // ✅ token handled inside the API layer
-  }
-}
-```
-
-### The loop closes
+Before committing to a plan, the agent makes a normal natural-language query:
 
 ```bash
-lore check src/features/auth/LoginPage.tsx   # confirms no violation
-lore learn "single-flight refresh token in the HTTP client"
+lore query "I am implementing a settings card from an existing design. I am about to define the scope, implementation plan, and validation."
 ```
 
-That fix is now a Practice your whole team retrieves next time — without anyone re-pasting an `AGENTS.md`.
+Lorelum can return a small set of Practices for this moment, for example:
 
-## Another end-to-end example: reduce contamination before compaction, re-ground after
+```text
+planning.ground-plan-in-user-goal
+planning.separate-required-optional-and-out-of-scope
+planning.scale-work-to-risk
+planning.plan-evidence-for-requirements
+```
+
+The agent then produces a proportional plan:
+
+```text
+Goal: match the existing settings-card design
+
+In scope:
+- title
+- display-name and time-zone fields
+- save behavior
+
+Out of scope:
+- new product copy or interactions
+- a reusable abstraction without a current reuse case
+- permanent guardrails without an evidenced risk
+
+Validation:
+- the fields render correctly
+- saving works
+- existing relevant tests still pass
+```
+
+### The result
+
+The agent implements the requested card, reuses the existing layout and relevant tests, and stops. Planning did not become another ceremony: for a narrow change, the same reasoning could be a brief scope check rather than a checked-in plan, spec, or ADR.
+
+If the agent has already drifted and the user asks it to remove invented copy, correction is still a useful retrieval moment. But removing an unsolicited addition normally restores the original baseline; it does not automatically create a permanent requirement that the text must never exist. A negative test or guardrail needs a durable product contract or an evidenced risk — not merely a record of the agent's own mistake.
+
+## A long-running-task example: reduce contamination before compaction, re-ground after
 
 > **Research direction:** [Issue #32](https://github.com/lorelum/lorelum/issues/32) explores content selection and contamination control before compaction; [Issue #28](https://github.com/lorelum/lorelum/issues/28) explores recovery and Practice injection at critical moments after it. This example shows the intended experience and responsibility boundary, not a capability already shipped in every AI tool.
 
@@ -277,6 +303,9 @@ lore install react-fullstack
 # Ask: "what practices apply to my current task?"
 lore query "settings page with permission guard, form, and tests"
 
+# Retrieve scope and validation guidance before forming a plan
+lore query "I am implementing an existing design and am about to decide the scope, implementation steps, and validation."
+
 # The same natural-language query can include a critical work moment
 lore query "the focused tests passed; I am about to claim the whole settings feature is complete"
 
@@ -291,14 +320,15 @@ Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MC
 
 ## How it's different
 
-|                               | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                                                                                                               |
-| ----------------------------- | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Delivery**                  | Static, all-at-once          | Manual trigger          | **Retrieved on demand**                                                                                                   |
-| **Decays over session**       | Yes                          | No (one-shot)           | No (fresh each query)                                                                                                     |
-| **Support around compaction** | Manual: re-paste all rules   | Manual                  | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
-| **Scales to 100s of rules**   | ❌                           | Tedious                 | ✅ built for it                                                                                                           |
-| **Tool-agnostic**             | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                                                      |
-| **Anti-pattern checks**       | No                           | No                      | ✅ `lore check`                                                                                                           |
+|                                       | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                                                                                                               |
+| ------------------------------------- | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Delivery**                          | Static, all-at-once          | Manual trigger          | **Retrieved on demand**                                                                                                   |
+| **Decays over session**               | Yes                          | No (one-shot)           | No (fresh each query)                                                                                                     |
+| **Support around compaction**         | Manual: re-paste all rules   | Manual                  | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
+| **Calibrates work to scope and risk** | No                           | Depends on the workflow | Research: retrieves planning Practices and anti-patterns for the current task and moment                                  |
+| **Scales to 100s of rules**           | ❌                           | Tedious                 | ✅ built for it                                                                                                           |
+| **Tool-agnostic**                     | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                                                      |
+| **Anti-pattern checks**               | No                           | No                      | ✅ `lore check`                                                                                                           |
 
 Lorelum isn't a better `.cursorrules`. It's the **Practice retrieval layer** that sits behind whatever AI tool you use.
 

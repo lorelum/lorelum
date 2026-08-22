@@ -21,10 +21,11 @@
 你写了 `AGENTS.md`（或 `CLAUDE.md`、`.cursorrules`）。然后这些事就发生了：
 
 - **规则被静默忽略。** 前沿模型对 500 条规则的合规率只有约 68%——_你每多写一条规则，其它规则被遵守的概率都在下降。_<sup>[\[1\]](#fn-1)</sup> 没有任何提示，Agent 就这么悄悄偏离了。
+- **简单任务被做成了复杂工程。** Agent 在规划一个范围明确的改动时，会自动加入用户没有要求的产品行为、抽象、fallback、测试、文档和门禁，因为这些内容更容易被评价为“完整”。每一项都像最佳实践，组合起来却是在优化看起来是否认真，而不是用户真正要的结果。
 - **压缩（compaction）不仅会遗忘，还可能失真。** 长会话触发上下文压缩 → 会话开头的 `AGENTS.md`、原始需求、验收条件和证据边界可能被挤出窗口；与此同时，已否决方案、已证伪假设、legacy code、临时 workaround、偶然问题和原始日志却可能被摘要提升为“当前事实”。压缩后的上下文更短了，但也可能更不准确。
 - **等发现时已经晚了。** Agent 是否已经偏离，你得不到任何信号——直到自己 review 代码时才发现违规。
 
-这是 AI 编码的**知识层缺位**：你的规则存在，却没能在 Agent **需要的那一刻**抵达它。
+这是 AI 编码的**知识与判断缺位**：你的工程经验存在，但正确的切片及其适用边界，没有在 Agent **规划或行动的那一刻**可靠抵达它。
 
 ## 为什么会这样
 
@@ -38,6 +39,9 @@
         ├─▶ 规则多数不被遵守      500 条规则下合规率约 68%
         │                          （写得越多，每条越没用）
         │
+        ├─▶ 代理指标压过真实目标  任务、测试和门禁越多，
+        │                          看起来越完整，即使并不需要
+        │
         ├─▶ 压缩丢失关键内容      持久需求、规则和证据
         │                          可能被挤出窗口
         │
@@ -48,7 +52,7 @@
                                     代码才发现违规
 ```
 
-常见做法（"把规则全量塞进上下文"）对抗的是物理限制：长会话中的注意力衰减、上下文窗口容量，以及"**规则越多，每条合规率越低**"这个事实。<sup>[\[2\]](#fn-2)</sup> 即便 1M token 的窗口，压缩之后早期指令的召回率也不可靠。**规则越多 ≠ 控制力越强。** 靠堆上下文解决不了根本问题。
+常见做法（"把规则全量塞进上下文"）对抗的是物理限制：长会话中的注意力衰减、上下文窗口容量，以及"**规则越多，每条合规率越低**"这个事实。<sup>[\[2\]](#fn-2)</sup> 即便 1M token 的窗口，压缩之后早期指令的召回率也不可靠。它也无法告诉 Agent：哪些熟悉的最佳实践对这次局部修改其实没有必要。**规则越多 ≠ 控制力越强。** 靠堆上下文解决不了根本问题。
 
 ## Lorelum 怎么解决
 
@@ -56,10 +60,12 @@ Lorelum 把团队工程经验切成**离散、可检索、带触发条件的 *Pr
 
 检索可以同时使用两类线索：
 
-- **Agent 正在做什么：** 实现认证流程、修改数据库 schema、编写组件测试。
-- **Agent 正处于什么时刻：** 开始理解复杂需求、compaction 后恢复任务、准备修改失败测试，或准备宣布完成。
+- **Agent 正在做什么：** 规划一个局部 UI 修改、实现认证流程、修改数据库 schema、编写组件测试。
+- **Agent 正处于什么时刻：** 确定范围和验证计划、考虑增加需求之外的工作、compaction 后恢复任务、准备修改失败测试，或准备宣布完成。
 
-调用方说明当前任务和时刻，Lorelum 负责检索并排序相关 Practice。语义上的关键时刻可由 Skill 引导 Agent 主动发起；Plugin/Hook 则可以观察受支持宿主暴露的 lifecycle event。围绕 compaction，前后两个时刻需要的指引并不相同：
+调用方说明当前任务和时刻，Lorelum 负责检索并排序相关 Practice。任务描述可以包含目标、范围和风险：删除一行多余文案，与修改鉴权边界，不应该触发同等规模的工程动作。Practice 不只可以说明应该做什么，还可以说明适用条件和需要避免的反模式。
+
+Skill 可以引导 Agent 在形成计划或做出其他语义判断前主动发起检索。对于简单任务，这可能只是一次很短的范围判断，而不是额外增加一份长计划文档或 workflow 仪式。Plugin/Hook 则可以观察受支持宿主暴露的 lifecycle event。围绕 compaction，前后两个时刻需要的指引并不相同：
 
 - **压缩前：** 检索 Context Hygiene 类 Practice，帮助区分需要长期保留的事实和探索过程中产生的噪声。
 - **压缩后：** 检索恢复类 Practice，提醒 Agent 重新对齐事实，并恢复证据、假设与结论之间的边界。
@@ -75,7 +81,7 @@ Lorelum Core 本身不管理任务、不读取完整 transcript，也不自行�
    └─────────────┘
 ```
 
-**Lorelum 不替代你的 `AGENTS.md`，而是让它保持鲜活。** 每次 Agent 需要其中的一块时，Lorelum 都把那一片精准切片重新注入。当 Agent 开始实现认证模块时，Lorelum 只给它 auth 相关的 Practice，而不是把路由、测试、部署的规范也一起塞进来。当 Agent 即将做出高风险判断时，Lorelum 也可以重新提醒当下最容易被忘记的执行纪律，但它不会因此变成 workflow engine。
+**Lorelum 不替代你的 `AGENTS.md`，而是让它保持鲜活。** 每次 Agent 需要其中的一块时，Lorelum 都把那一片精准切片重新注入。当 Agent 开始实现认证模块时，Lorelum 只给它 auth 相关的 Practice，而不是把路由、测试、部署的规范也一起塞进来。当它准备规划修改时，Lorelum 可以在多余工作进入计划前，提供范围和验证纪律。当它即将做出其他高风险判断时，Lorelum 也可以重新提醒当下最容易被忘记的执行纪律，但它不会因此变成 workflow engine。
 
 ### Practice 长什么样
 
@@ -100,63 +106,83 @@ applies_when: 在 React SPA 中构建 API 层
 
 一个 **Knowledge Pack（知识包）** 把多条 Practice + 模板 + 反模式打包，绑定到某个技术栈或团队标准。
 
-## 端到端示例
+例如，在 React 认证任务中，检索 `react.api.layered-design` 就足以让组件保持在正确边界：
 
-同一个任务、同一个 Agent——一次没有 Lorelum，一次有。
+```tsx
+const { login } = useAuthApi(); // 走分层 API client
+await login({ email }); // token 由 API 层处理
+```
+
+Agent 不需要同时接收无关的路由、部署和测试 Practice。
+
+## 端到端案例：在写代码前，让简单任务保持简单
+
+> **Research 方向：** [Issue #35](https://github.com/lorelum/lorelum/issues/35) 研究 Agent Coding 中的 Reward Hacking 与行为过拟合。这个案例展示的是期望的使用体验和责任边界，不代表该能力已经在所有 AI 工具中完成验证。
 
 ### 场景
 
-一个很长的会话。你的 `AGENTS.md` 写着*"API 要分层；绝不要在组件里直接调 axios"*。但那是 40 条消息之前的事了，上下文刚刚被压缩过。此时 Agent 被要求写一个登录页。
+Agent 被要求按照已有设计实现一个设置卡片。用户要的是标题、显示名称与时区字段，以及保存操作。设计没有增加新的产品文案、交互、通用抽象或工程门禁。
 
-### 没有 Lorelum —— Agent 偏离了
+### 没有 Lorelum——范围在计划里开始膨胀
 
-```tsx
-// LoginPage.tsx —— Agent 写出来的
-function LoginPage() {
-  const [email, setEmail] = useState("");
-  async function handleLogin() {
-    const res = await axios.post("/api/login", { email }); // ❌ 组件里直接调 axios
-    localStorage.setItem("token", res.data.token); // ❌ token 存进 localStorage
-  }
-}
+Agent 为了让结果看起来更完整，制订了这样的计划：
+
+```text
+1. 实现设置卡片和表单
+2. 增加描述性文案和帮助信息，让功能更容易理解
+3. 增加额外的成功状态和空状态
+4. 抽象通用 SettingsSection，方便未来复用
+5. 为新增内容补充快照和组件测试
+6. 更新文档并增加回归保护
 ```
 
-它在组件里直接调了 `axios`，还把 token 塞进了 `localStorage`。你的规则明明禁止这么做。Agent 自己并不知道违规了。
+每一项单独看都可以解释，组合起来却把一个范围明确的 UI 任务变成了产品设计、抽象设计和长期维护工程。如果没有人及时发现，测试可以全部通过，Agent 也可以宣布完成——但它完成的是自己膨胀后的计划，不是用户最初提出的任务。
 
-### 有 Lorelum —— 触发式注入，不是全量灌
+### 有 Lorelum——写代码前先对齐计划
 
-当 Agent 触碰 `src/features/auth/` 时，Lorelum 只检索出唯一相关的那条 Practice——`react.api.layered-design`——并只注入这一片切片：
-
-```markdown
-## 要避免的反模式
-
-- api.direct-axios-in-component （在组件里直接调 axios）
-- api.local-storage-in-api-class （在 API 类里持久化 token）
-- api.dto-used-as-ui-model （DTO 直接当 UI 模型用）
-```
-
-Agent 随即重写了自己的输出——_常新的、来自相关切片的，而非整套规则_：
-
-```tsx
-// LoginPage.tsx —— 注入后 Agent 自我修正
-function LoginPage() {
-  const { login } = useAuthApi(); // ✅ 走分层 API client
-  async function handleLogin() {
-    await login({ email }); // ✅ token 在 API 层内部处理
-  }
-}
-```
-
-### 闭环
+在确定计划前，Agent 使用普通自然语言 query：
 
 ```bash
-lore check src/features/auth/LoginPage.tsx   # 确认无违规
-lore learn "HTTP client 里的 single-flight refresh token"
+lore query "我要按照现有设计实现一个设置卡片，现在准备确定范围、实施步骤和验证方式。"
 ```
 
-这次修复从此成为全团队下次都能检索到的 Practice——不需要任何人重新粘贴 `AGENTS.md`。
+Lorelum 可以返回少量与这个时刻相关的 Practice，例如：
 
-## 另一个端到端案例：压缩前减少污染，压缩后重新对齐
+```text
+planning.ground-plan-in-user-goal
+planning.separate-required-optional-and-out-of-scope
+planning.scale-work-to-risk
+planning.plan-evidence-for-requirements
+```
+
+Agent 随后形成一份与任务相称的计划：
+
+```text
+目标：按照已有设计完成设置卡片
+
+范围内：
+- 标题
+- 显示名称和时区字段
+- 保存行为
+
+范围外：
+- 新增产品文案和交互
+- 没有当前复用场景的通用抽象
+- 没有风险依据的长期门禁
+
+验证：
+- 字段正确显示
+- 保存行为工作
+- 现有相关测试继续通过
+```
+
+### 结果
+
+Agent 实现用户要求的设置卡片，复用现有布局和相关测试，然后停止。规划没有变成新的仪式：对于一个局部修改，同样的判断可能只是一次很短的范围检查，而不是需要提交到仓库的计划、Spec 或 ADR。
+
+如果 Agent 已经偏离，用户要求删除擅自增加的文案，纠正仍然是一次有价值的检索时刻。但删除越界内容通常只是在恢复原始基线，并不自动形成“这段文本永远不得出现”的长期需求。负向测试或门禁需要稳定的产品契约或可证明的风险，而不能只记录 Agent 自己犯过的错误。
+
+## 长任务案例：压缩前减少污染，压缩后重新对齐
 
 > **Research 方向：** [Issue #32](https://github.com/lorelum/lorelum/issues/32) 研究压缩前的内容选择与污染控制；[Issue #28](https://github.com/lorelum/lorelum/issues/28) 研究压缩后的恢复，以及关键时刻的 Practice 注入。这个案例展示的是期望的使用体验和责任边界，不代表所有 AI 工具已经交付该能力。
 
@@ -276,6 +302,9 @@ lore install react-fullstack
 # 问：我当前的任务该遵循哪些 Practice？
 lore query "带权限控制、表单、测试的设置页"
 
+# 在形成计划前，检索范围和验证相关指引
+lore query "我要按照现有设计实现功能，现在准备确定范围、实施步骤和验证方式。"
+
 # 同一个自然语言 query 也可以说明当前的关键时刻
 lore query "定向测试已经通过，我准备宣布整个设置页能力已完成"
 
@@ -290,14 +319,15 @@ lore learn "HTTP client 里的 single-flight refresh token"
 
 ## 和现有方案有什么不同
 
-|                    | `AGENTS.md` / `.cursorrules` | Skills / 斜杠命令 | **Lorelum**                                                                                           |
-| ------------------ | ---------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
-| **供给方式**       | 静态、全量灌入               | 手动触发          | **按需检索**                                                                                          |
-| **长会话衰减**     | 会                           | 不会（一次性）    | 不会（每次查询都新鲜）                                                                                |
-| **压缩前后支持**   | 手动：重新粘贴全部规则       | 手动              | Research：受支持的集成可在压缩前提供内容选择指引、压缩后触发恢复；其他工具通过 Skill / CLI / MCP 调用 |
-| **支持上百条规则** | ❌                           | 繁琐              | ✅ 为此而生                                                                                           |
-| **工具中立**       | 绑定单一工具                 | 绑定单一工具      | ✅ MCP / CLI / Skill                                                                                  |
-| **反模式检查**     | 否                           | 否                | ✅ `lore check`                                                                                       |
+|                              | `AGENTS.md` / `.cursorrules` | Skills / 斜杠命令 | **Lorelum**                                                                                           |
+| ---------------------------- | ---------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
+| **供给方式**                 | 静态、全量灌入               | 手动触发          | **按需检索**                                                                                          |
+| **长会话衰减**               | 会                           | 不会（一次性）    | 不会（每次查询都新鲜）                                                                                |
+| **压缩前后支持**             | 手动：重新粘贴全部规则       | 手动              | Research：受支持的集成可在压缩前提供内容选择指引、压缩后触发恢复；其他工具通过 Skill / CLI / MCP 调用 |
+| **按范围和风险校准工程投入** | 否                           | 取决于具体流程    | Research：根据当前任务和时刻检索规划 Practice 与 anti-pattern                                         |
+| **支持上百条规则**           | ❌                           | 繁琐              | ✅ 为此而生                                                                                           |
+| **工具中立**                 | 绑定单一工具                 | 绑定单一工具      | ✅ MCP / CLI / Skill                                                                                  |
+| **反模式检查**               | 否                           | 否                | ✅ `lore check`                                                                                       |
 
 Lorelum 不是"更好的 .cursorrules"，而是位于你所用 AI 工具背后的 **Practice 检索层**。
 
