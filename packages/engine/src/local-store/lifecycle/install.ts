@@ -132,6 +132,7 @@ export async function installOrUpgrade(
         delta: diffEffectivePractices([], []),
         diagnostics,
         cleanupPending: false,
+        artifactDigest,
         idempotent: true,
       });
     }
@@ -240,6 +241,7 @@ export async function installOrUpgrade(
       delta: reconciled.delta,
       diagnostics,
       cleanupPending,
+      artifactDigest,
       idempotent: false,
     });
   });

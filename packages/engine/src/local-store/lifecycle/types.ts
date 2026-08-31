@@ -16,6 +16,8 @@ export interface MutationResultBase {
 }
 
 export interface InstallResult extends MutationResultBase {
+  /** Digest of the canonical sealed Pack artifact active after the operation. */
+  artifactDigest: string;
   /** True when the candidate matched the already-active artifact digest. */
   idempotent: boolean;
 }

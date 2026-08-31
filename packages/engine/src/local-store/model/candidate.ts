@@ -24,6 +24,13 @@ function isWindowsReservedPathSegment(segment: string): boolean {
   );
 }
 
+function hasControlCharacter(value: string): boolean {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+}
+
 /** Verify a Pack-root-relative Practice source path without resolving it on disk. */
 export function isPracticeSourcePath(path: string): boolean {
   return (
@@ -36,7 +43,7 @@ export function isPracticeSourcePath(path: string): boolean {
     !path.includes("|") &&
     !path.includes(String.fromCharCode(34)) &&
     !path.includes(String.fromCharCode(63)) &&
-    !path.includes(String.fromCharCode(0)) &&
+    !hasControlCharacter(path) &&
     !path
       .split("/")
       .some(

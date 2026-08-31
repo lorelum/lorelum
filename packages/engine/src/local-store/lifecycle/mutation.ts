@@ -54,6 +54,10 @@ export async function withStoreMutation<T>(
   run: (context: MutationContext) => Promise<T>,
   options: MutationLockOptions = {},
 ): Promise<T> {
+  // A first install may target the default `~/.lorelum` before it exists.
+  // Directory creation is idempotent and must precede atomic lock-file create;
+  // recovery and every other store side effect still remain under the lock.
+  await mkdir(rootPath, { recursive: true });
   const lock = await acquireMutationLock(rootPath, {
     ...(options.waitMs === undefined ? {} : { waitMs: options.waitMs }),
   });

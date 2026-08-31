@@ -53,6 +53,10 @@ describe("createPackCandidate", () => {
     illegalCharacter["react.api.layered-design"] = `practices/unsafe${String.fromCharCode(63)}.md`;
     expect(() => createPackCandidate(input, illegalCharacter)).toThrow(InvalidSourcePathError);
 
+    const controlCharacter = sourcePaths();
+    controlCharacter["react.api.layered-design"] = "practices/unsafe\nname.md";
+    expect(() => createPackCandidate(input, controlCharacter)).toThrow(InvalidSourcePathError);
+
     const unexpected = sourcePaths();
     unexpected["react.extra.practice"] = "practices/guide..draft.md";
     expect(() => createPackCandidate(input, unexpected)).toThrow(InvalidSourcePathError);

@@ -206,7 +206,11 @@ test("describes registered commands from a single registry", () => {
     commands: [
       {
         name: "describe",
-        positionals: [{ name: "command", values: ["describe"] }],
+        positionals: [{ name: "command", values: ["describe", "install"] }],
+      },
+      {
+        name: "install",
+        positionals: [{ name: "pack", required: true }],
       },
     ],
   });
@@ -216,6 +220,13 @@ test("describes registered commands from a single registry", () => {
       { behavior: "log-level", scope: "global" },
     ],
   });
+  const install = describeCommand("install") as { options: readonly { name: string }[] };
+  expect(install.options.map((option) => option.name)).toEqual([
+    "-h, --help",
+    "--log-level <level>",
+    "--pack-version <version>",
+    "--registry <repository>",
+  ]);
 });
 
 test("registers every command definition with an executable handler", () => {
@@ -238,7 +249,7 @@ test("derives parser options and describe metadata from registered commands", as
     ],
   });
   expect(describeCommand("describe", definitions)).toMatchObject({
-    positionals: [{ name: "command", values: ["describe", "future"] }],
+    positionals: [{ name: "command", values: ["describe", "install", "future"] }],
   });
 
   const stdout = new MemoryWriter();

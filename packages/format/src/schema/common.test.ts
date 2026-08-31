@@ -44,7 +44,7 @@ describe("SEMVER_REGEX", () => {
     },
   );
 
-  test.each(["1.2", "v1.2.3", "01.2.3", "1.2.3.beta", ""])("rejects %p", (v) => {
+  test.each(["1.2", "v1.2.3", "01.2.3", "1.0.0-01", "1.2.3.beta", ""])("rejects %p", (v) => {
     expect(SEMVER_REGEX.test(v)).toBe(false);
   });
 });
