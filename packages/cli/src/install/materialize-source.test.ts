@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { defaultPackDirectoryLimits } from "@lorelum/engine";
 import type { RegistryRelease } from "@lorelum/format";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { devNull, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { CliError, cliErrorCodes } from "../runtime/errors.js";
 import { materializeRegistryRelease, type MaterializeGitRunner } from "./materialize-source.js";
@@ -161,6 +164,33 @@ function inputLines(call: GitCall): string[] {
   return new TextDecoder().decode(call.input).trimEnd().split("\n");
 }
 
+async function setupGit(directory: string, gitArguments: readonly string[]): Promise<string> {
+  const subprocess = Bun.spawn(["git", ...gitArguments], {
+    cwd: directory,
+    env: {
+      PATH: process.env.PATH,
+      SystemRoot: process.env.SystemRoot,
+      TEMP: process.env.TEMP,
+      TMP: process.env.TMP,
+      TMPDIR: process.env.TMPDIR,
+      GIT_CONFIG_GLOBAL: devNull,
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_TERMINAL_PROMPT: "0",
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(subprocess.stdout).text(),
+    new Response(subprocess.stderr).text(),
+    subprocess.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`git ${gitArguments[0] ?? "command"} failed: ${stderr.trim()}`);
+  }
+  return stdout.trim();
+}
+
 test("materializes many Pack blobs with one exact acquisition and one local batch read", async () => {
   const git = new FakeGit(packEntries());
   const source = await materializeRegistryRelease(release, repository, git.run);
@@ -201,6 +231,96 @@ test("materializes many Pack blobs with one exact acquisition and one local batc
     const temporaryRoot = git.temporaryRoot();
     await source.cleanup();
     expect(await Bun.file(temporaryRoot).exists()).toBe(false);
+  }
+});
+
+test("production runner materializes a filtered local Git remote through batch stdin", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "lorelum-materialize-git-test-"));
+  const sourceRepository = join(parent, "source");
+  const remoteRepository = join(parent, "remote.git");
+  await mkdir(join(sourceRepository, release.path, "practices"), { recursive: true });
+  await setupGit(sourceRepository, ["init", "-b", "main"]);
+  await writeFile(
+    join(sourceRepository, release.path, "pack.yaml"),
+    "name: agentic-coding\nversion: 0.2.0\n",
+  );
+  await writeFile(
+    join(sourceRepository, release.path, "practices", "需求.md"),
+    "Unicode Practice from a promisor remote.\n",
+  );
+  await writeFile(
+    join(sourceRepository, release.path, "ignored.bin"),
+    "Repository content outside the Pack materialization contract.\n",
+  );
+  await setupGit(sourceRepository, ["add", "."]);
+  await setupGit(sourceRepository, [
+    "-c",
+    "user.name=Lorelum Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "commit",
+    "-m",
+    "fixture",
+  ]);
+  await setupGit(sourceRepository, ["tag", release.ref]);
+  const expectedCommit = await setupGit(sourceRepository, ["rev-parse", "HEAD"]);
+  await setupGit(parent, ["clone", "--bare", "--", sourceRepository, remoteRepository]);
+  await setupGit(parent, ["-C", remoteRepository, "config", "uploadpack.allowFilter", "true"]);
+
+  let source: Awaited<ReturnType<typeof materializeRegistryRelease>> | undefined;
+  try {
+    source = await materializeRegistryRelease(release, pathToFileURL(remoteRepository).href);
+    expect(source.resolvedCommit).toBe(expectedCommit);
+    expect(
+      await setupGit(parent, [
+        "-C",
+        join(dirname(source.directory), "repository"),
+        "config",
+        "--get",
+        "remote.origin.promisor",
+      ]),
+    ).toBe("true");
+    expect(await Bun.file(join(source.directory, "pack.yaml")).text()).toContain(
+      "name: agentic-coding",
+    );
+    expect(await Bun.file(join(source.directory, "practices", "需求.md")).text()).toBe(
+      "Unicode Practice from a promisor remote.\n",
+    );
+    expect(await Bun.file(join(source.directory, "ignored.bin")).exists()).toBe(false);
+    const temporaryRoot = dirname(source.directory);
+    await source.cleanup();
+    source = undefined;
+    expect(await Bun.file(temporaryRoot).exists()).toBe(false);
+  } finally {
+    await source?.cleanup().catch(() => undefined);
+    await rm(parent, { force: true, recursive: true });
+  }
+});
+
+test("fetches a shared object once and reads it for every validated target", async () => {
+  const sharedPractice = entry("practices/first.md", "Shared Practice contents.\n", 2);
+  const git = new FakeGit([
+    entry("pack.yaml", "name: fixture\nversion: 0.2.0\n", 1),
+    sharedPractice,
+    {
+      ...entry("practices/second.md", "Shared Practice contents.\n", 3),
+      objectId: sharedPractice.objectId,
+    },
+  ]);
+  const source = await materializeRegistryRelease(release, repository, git.run);
+  try {
+    expect(inputLines(git.callsFor("fetch")[0]!)).toHaveLength(2);
+    const readObjectIds = inputLines(git.callsFor("cat-file")[0]!);
+    expect(readObjectIds).toHaveLength(3);
+    expect(readObjectIds.filter((id) => id === sharedPractice.objectId)).toHaveLength(2);
+    expect(await Bun.file(join(source.directory, "practices", "first.md")).text()).toBe(
+      "Shared Practice contents.\n",
+    );
+    expect(await Bun.file(join(source.directory, "practices", "second.md")).text()).toBe(
+      "Shared Practice contents.\n",
+    );
+  } finally {
+    await source.cleanup();
   }
 });
 
