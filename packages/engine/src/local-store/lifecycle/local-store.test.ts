@@ -109,6 +109,18 @@ test("fresh store open + install + reopen round-trips state", async () => {
   });
 });
 
+test("first install creates a missing storage root before acquiring its lock", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "lorelum-store-parent-"));
+  const root = { rootPath: join(parent, "missing-store") };
+  try {
+    const installed = await createLocalStore().install(root, candidate("platform", platform));
+    expect(installed.generation).toBe(1);
+    expect(await readManifest(root.rootPath)).toMatchObject({ generation: 1 });
+  } finally {
+    await removeStoreRoot(parent);
+  }
+});
+
 test("install is idempotent for the same artifact digest", async () => {
   await withRoot(async (root) => {
     const store = createLocalStore();

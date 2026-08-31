@@ -1,5 +1,16 @@
 export const cliErrorCodes = Object.freeze({
+  packInvalid: "pack.invalid",
+  packUpgradeRequired: "pack.upgrade-required",
+  practiceConflict: "practice.conflict",
+  registryInvalid: "registry.invalid",
+  registryPackNotFound: "registry.pack-not-found",
+  registryUnavailable: "registry.unavailable",
+  registryVersionNotFound: "registry.version-not-found",
   runtimeUnexpected: "runtime.unexpected",
+  sourceInvalid: "source.invalid",
+  sourceUnavailable: "source.unavailable",
+  storeBusy: "store.busy",
+  storeRecoveryRequired: "store.recovery-required",
   usageInvalid: "usage.invalid",
 });
 

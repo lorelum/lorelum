@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { PackValidationError } from "../../model";
+import { decodePackDirectory } from "../../index";
 import { decodeSnapshot } from "./snapshot-codec";
 
 async function withSnapshot(run: (path: string) => Promise<void>): Promise<void> {
@@ -61,5 +62,42 @@ test("SnapshotCodec rejects a symbolic pack manifest before parsing it", async (
     }
 
     await expect(decodeSnapshot(path)).rejects.toThrow("symbolic links are not allowed");
+  });
+});
+
+test("public Pack directory decoder enforces Practice-count and byte budgets", async () => {
+  await withSnapshot(async (path) => {
+    await expect(
+      decodePackDirectory(path, {
+        maxPracticeFiles: 0,
+        maxEntries: 2_048,
+        maxDirectories: 256,
+        maxDirectoryDepth: 32,
+        maxFileBytes: 256 * 1024,
+        maxTotalBytes: 16 * 1024 * 1024,
+      }),
+    ).rejects.toThrow("Practice file budget");
+
+    await expect(
+      decodePackDirectory(path, {
+        maxPracticeFiles: 10,
+        maxEntries: 2_048,
+        maxDirectories: 256,
+        maxDirectoryDepth: 32,
+        maxFileBytes: 8,
+        maxTotalBytes: 16 * 1024 * 1024,
+      }),
+    ).rejects.toThrow("per-file byte budget");
+
+    await expect(
+      decodePackDirectory(path, {
+        maxPracticeFiles: 10,
+        maxEntries: 0,
+        maxDirectories: 256,
+        maxDirectoryDepth: 32,
+        maxFileBytes: 256 * 1024,
+        maxTotalBytes: 16 * 1024 * 1024,
+      }),
+    ).rejects.toThrow("directory-entry budget");
   });
 });

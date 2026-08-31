@@ -12,6 +12,13 @@ export {
   type StorageRoot,
 } from "./lifecycle/local-store";
 
+export {
+  decodeSnapshot as decodePackDirectory,
+  defaultPackDirectoryLimits,
+  type DecodedSnapshot as DecodedPackDirectory,
+  type PackDirectoryLimits,
+} from "./storage/artifacts/snapshot-codec";
+
 export type {
   InstallResult,
   MutationResultBase,
@@ -34,7 +41,7 @@ export {
   InvalidPracticeSourceError,
 } from "./model/errors";
 
-export { StoreBusyError, StoreRecoveryRequiredError } from "./storage/errors";
+export { SnapshotFormatError, StoreBusyError, StoreRecoveryRequiredError } from "./storage/errors";
 
 export type {
   PackCandidate,
@@ -42,3 +49,5 @@ export type {
   RevisionDelta,
   PracticeSource,
 } from "./model/types";
+
+export { isPracticeSourcePath } from "./model/candidate";

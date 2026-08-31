@@ -6,6 +6,7 @@ import {
 } from "./output/protocol.js";
 import { frameworkErrorCodes, invalidInvocationError } from "./runtime/errors.js";
 import { logLevels } from "./runtime/logger.js";
+import { createInstallCommand } from "./install/install-command.js";
 
 export interface CommandOption {
   readonly longFlag: string;
@@ -189,20 +190,18 @@ const discoveryResultSchema: JsonSchema = {
   oneOf: [rootCapabilitySchema, commandCapabilitySchema],
 };
 
-const builtInCommandDefinitions = [
-  {
-    name: discoveryCommandName,
-    summary: "Return machine-readable command capabilities.",
-    positionals: [{ name: "command", required: false }],
-    options: [],
-    resultSchema: discoveryResultSchema,
-    errorCodes: frameworkErrorCodes,
-    exitCodes: [0, 2],
-    handler: (invocation) => ({
-      data: requireCommandDescription(invocation.describeCommand, invocation.positionals[0]),
-    }),
-  },
-] satisfies readonly CommandDefinition[];
+const discoveryCommandDefinition = {
+  name: discoveryCommandName,
+  summary: "Return machine-readable command capabilities.",
+  positionals: [{ name: "command", required: false }],
+  options: [],
+  resultSchema: discoveryResultSchema,
+  errorCodes: frameworkErrorCodes,
+  exitCodes: [0, 2],
+  handler: (invocation) => ({
+    data: requireCommandDescription(invocation.describeCommand, invocation.positionals[0]),
+  }),
+} satisfies CommandDefinition;
 
 /** Root parser metadata is separate because it is not an invokable child command. */
 export const rootCommand = snapshotCommandDefinition({
@@ -217,7 +216,10 @@ export const rootCommand = snapshotCommandDefinition({
 });
 
 /** Immutable child-command registry used unless a complete replacement is supplied. */
-export const commandRegistry = snapshotCommandDefinitions(builtInCommandDefinitions);
+export const commandRegistry = snapshotCommandDefinitions([
+  discoveryCommandDefinition,
+  createInstallCommand(),
+]);
 
 export type KnownCommand = "lore" | (typeof commandRegistry)[number]["name"];
 
