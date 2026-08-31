@@ -216,19 +216,12 @@ function encodeObjectIds(objectIds: readonly string[]): Uint8Array {
   return new TextEncoder().encode(`${objectIds.join("\n")}\n`);
 }
 
-function findLineFeed(output: Uint8Array, start: number): number {
-  for (let index = start; index < output.byteLength; index += 1) {
-    if (output[index] === 0x0a) return index;
-  }
-  return -1;
-}
-
 function parseBlobBatch(output: Uint8Array, blobs: readonly SourceBlob[]): Uint8Array[] {
   const contents: Uint8Array[] = [];
   let offset = 0;
   let totalBytes = 0;
   for (const blob of blobs) {
-    const headerEnd = findLineFeed(output, offset);
+    const headerEnd = output.indexOf(0x0a, offset);
     if (headerEnd < 0) throw sourceInvalid();
     const header = new TextDecoder().decode(output.subarray(offset, headerEnd));
     const match = /^([0-9a-f]{40,64}) blob ([0-9]+)$/.exec(header);

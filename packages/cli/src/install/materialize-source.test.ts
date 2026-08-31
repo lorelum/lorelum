@@ -286,6 +286,7 @@ test("production runner materializes a filtered local Git remote through batch s
     expect(await Bun.file(join(source.directory, "practices", "需求.md")).text()).toBe(
       "Unicode Practice from a promisor remote.\n",
     );
+    expect(await Bun.file(join(source.directory, "decisions.yaml")).exists()).toBe(false);
     expect(await Bun.file(join(source.directory, "ignored.bin")).exists()).toBe(false);
     const temporaryRoot = dirname(source.directory);
     await source.cleanup();
@@ -319,22 +320,6 @@ test("fetches a shared object once and reads it for every validated target", asy
     expect(await Bun.file(join(source.directory, "practices", "second.md")).text()).toBe(
       "Shared Practice contents.\n",
     );
-  } finally {
-    await source.cleanup();
-  }
-});
-
-test("materializes a Unicode Practice path without optional decisions", async () => {
-  const git = new FakeGit([
-    entry("pack.yaml", "name: fixture\nversion: 0.2.0\n", 1),
-    entry("practices/需求.md", "Unicode Practice path.\n", 2),
-  ]);
-  const source = await materializeRegistryRelease(release, repository, git.run);
-  try {
-    expect(await Bun.file(join(source.directory, "practices", "需求.md")).text()).toBe(
-      "Unicode Practice path.\n",
-    );
-    expect(await Bun.file(join(source.directory, "decisions.yaml")).exists()).toBe(false);
   } finally {
     await source.cleanup();
   }
