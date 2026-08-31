@@ -27,6 +27,16 @@ interface SourceBlob {
   readonly relativePath: string;
 }
 
+interface GitCommandOptions {
+  readonly input?: Uint8Array;
+  readonly outputLimit?: number;
+}
+
+export type MaterializeGitRunner = (
+  arguments_: readonly string[],
+  options?: GitCommandOptions,
+) => Promise<Uint8Array>;
+
 function sourceUnavailable(): CliError {
   return new CliError(cliErrorCodes.sourceUnavailable, "The Pack source is unavailable.");
 }
@@ -42,11 +52,16 @@ export interface MaterializedPackSource {
   cleanup(): Promise<void>;
 }
 
-async function runGit(arguments_: readonly string[], outputLimit?: number): Promise<Uint8Array> {
+async function runGit(
+  arguments_: readonly string[],
+  options: GitCommandOptions = {},
+): Promise<Uint8Array> {
+  const { input, outputLimit } = options;
   let subprocess: ReturnType<typeof Bun.spawn>;
   try {
     subprocess = Bun.spawn(["git", ...arguments_], {
       env: GIT_ENVIRONMENT,
+      ...(input === undefined ? {} : { stdin: input }),
       stderr: "ignore",
       stdout: outputLimit === undefined ? "ignore" : "pipe",
     });
@@ -97,8 +112,13 @@ async function runGit(arguments_: readonly string[], outputLimit?: number): Prom
   }
 }
 
-async function cloneRelease(ref: string, destination: string, repository: string): Promise<void> {
-  await runGit([
+async function cloneRelease(
+  ref: string,
+  destination: string,
+  repository: string,
+  git: MaterializeGitRunner,
+): Promise<void> {
+  await git([
     "-c",
     "advice.detachedHead=false",
     "clone",
@@ -115,8 +135,13 @@ async function cloneRelease(ref: string, destination: string, repository: string
   ]);
 }
 
-async function readResolvedCommit(repositoryRoot: string): Promise<string> {
-  const output = await runGit(["-C", repositoryRoot, "rev-parse", "HEAD"], 256);
+async function readResolvedCommit(
+  repositoryRoot: string,
+  git: MaterializeGitRunner,
+): Promise<string> {
+  const output = await git(["-C", repositoryRoot, "rev-parse", "HEAD"], {
+    outputLimit: 256,
+  });
   const commit = new TextDecoder().decode(output).trim();
   if (!/^[0-9a-f]{40,64}$/.test(commit)) throw sourceInvalid();
   return commit;
@@ -134,6 +159,7 @@ function parseSourceTree(output: Uint8Array, sourcePath: string): SourceBlob[] {
 
   const prefix = `${sourcePath}/`;
   const blobs: SourceBlob[] = [];
+  const relativePaths = new Set<string>();
   let practiceFiles = 0;
   for (const entry of entries) {
     const separator = entry.indexOf("\t");
@@ -148,6 +174,8 @@ function parseSourceTree(output: Uint8Array, sourcePath: string): SourceBlob[] {
     if (!["100644", "100755"].includes(match[1]!) || match[2] !== "blob") {
       throw sourceInvalid();
     }
+    if (relativePaths.has(relativePath)) throw sourceInvalid();
+    relativePaths.add(relativePath);
 
     if (isPracticeSourcePath(relativePath)) {
       practiceFiles += 1;
@@ -156,14 +184,17 @@ function parseSourceTree(output: Uint8Array, sourcePath: string): SourceBlob[] {
     blobs.push({ objectId: match[3]!, relativePath });
   }
   if (!blobs.some((blob) => blob.relativePath === "pack.yaml")) throw sourceInvalid();
-  return blobs;
+  return blobs.sort((left, right) =>
+    left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
+  );
 }
 
 async function inspectSourceTree(
   repositoryRoot: string,
   sourcePath: string,
+  git: MaterializeGitRunner,
 ): Promise<SourceBlob[]> {
-  const output = await runGit(
+  const output = await git(
     [
       "-C",
       repositoryRoot,
@@ -176,31 +207,98 @@ async function inspectSourceTree(
       `${sourcePath}/decisions.yaml`,
       `${sourcePath}/practices`,
     ],
-    MAX_SOURCE_TREE_LISTING_BYTES,
+    { outputLimit: MAX_SOURCE_TREE_LISTING_BYTES },
   );
   return parseSourceTree(output, sourcePath);
+}
+
+function encodeObjectIds(objectIds: readonly string[]): Uint8Array {
+  return new TextEncoder().encode(`${objectIds.join("\n")}\n`);
+}
+
+function findLineFeed(output: Uint8Array, start: number): number {
+  for (let index = start; index < output.byteLength; index += 1) {
+    if (output[index] === 0x0a) return index;
+  }
+  return -1;
+}
+
+function parseBlobBatch(output: Uint8Array, blobs: readonly SourceBlob[]): Uint8Array[] {
+  const contents: Uint8Array[] = [];
+  let offset = 0;
+  let totalBytes = 0;
+  for (const blob of blobs) {
+    const headerEnd = findLineFeed(output, offset);
+    if (headerEnd < 0) throw sourceInvalid();
+    const header = new TextDecoder().decode(output.subarray(offset, headerEnd));
+    const match = /^([0-9a-f]{40,64}) blob ([0-9]+)$/.exec(header);
+    if (match === null || match[1] !== blob.objectId) throw sourceInvalid();
+    const byteLength = Number(match[2]);
+    if (!Number.isSafeInteger(byteLength) || byteLength > defaultPackDirectoryLimits.maxFileBytes) {
+      throw sourceInvalid();
+    }
+    const contentsStart = headerEnd + 1;
+    const contentsEnd = contentsStart + byteLength;
+    if (contentsEnd >= output.byteLength || output[contentsEnd] !== 0x0a) {
+      throw sourceInvalid();
+    }
+    totalBytes += byteLength;
+    if (totalBytes > defaultPackDirectoryLimits.maxTotalBytes) throw sourceInvalid();
+    contents.push(output.subarray(contentsStart, contentsEnd));
+    offset = contentsEnd + 1;
+  }
+  if (offset !== output.byteLength) throw sourceInvalid();
+  return contents;
+}
+
+async function readBlobs(
+  repositoryRoot: string,
+  blobs: readonly SourceBlob[],
+  git: MaterializeGitRunner,
+): Promise<Uint8Array[]> {
+  const batchObjectIds = blobs.map((blob) => blob.objectId);
+  const fetchObjectIds = [...new Set(batchObjectIds)];
+  await git(
+    [
+      "-C",
+      repositoryRoot,
+      "-c",
+      "fetch.negotiationAlgorithm=noop",
+      "fetch",
+      "origin",
+      "--no-tags",
+      "--no-write-fetch-head",
+      "--recurse-submodules=no",
+      "--filter=blob:none",
+      "--no-auto-gc",
+      "--stdin",
+    ],
+    { input: encodeObjectIds(fetchObjectIds) },
+  );
+  const output = await git(
+    ["-C", repositoryRoot, "cat-file", "--batch=%(objectname) %(objecttype) %(objectsize)"],
+    {
+      input: encodeObjectIds(batchObjectIds),
+      outputLimit: defaultPackDirectoryLimits.maxTotalBytes + blobs.length * 128,
+    },
+  );
+  return parseBlobBatch(output, blobs);
 }
 
 async function materializeBlobs(
   repositoryRoot: string,
   blobs: readonly SourceBlob[],
   targetDirectory: string,
+  git: MaterializeGitRunner,
 ): Promise<void> {
   await mkdir(join(targetDirectory, "practices"), { recursive: true });
-  let totalBytes = 0;
-  for (const blob of blobs) {
-    // eslint-disable-next-line no-await-in-loop -- bounded sequential reads keep byte accounting simple
-    const contents = await runGit(
-      ["-C", repositoryRoot, "cat-file", "blob", blob.objectId],
-      defaultPackDirectoryLimits.maxFileBytes,
-    );
-    totalBytes += contents.byteLength;
-    if (totalBytes > defaultPackDirectoryLimits.maxTotalBytes) throw sourceInvalid();
+  const contents = await readBlobs(repositoryRoot, blobs, git);
+  for (const [index, blob] of blobs.entries()) {
     const target = join(targetDirectory, ...blob.relativePath.split("/"));
     // eslint-disable-next-line no-await-in-loop -- each validated blob has one deterministic target
     await mkdir(dirname(target), { recursive: true });
     // eslint-disable-next-line no-await-in-loop -- writes remain serial with the shared byte budget
-    await writeFile(target, contents, { flag: "wx", mode: 0o600 });
+    await writeFile(target, contents[index]!, { flag: "wx", mode: 0o600 });
   }
 }
 
@@ -208,15 +306,16 @@ async function materializeBlobs(
 export async function materializeRegistryRelease(
   release: RegistryRelease,
   repository: string,
+  git: MaterializeGitRunner = runGit,
 ): Promise<MaterializedPackSource> {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "lorelum-install-"));
   const repositoryRoot = join(temporaryRoot, "repository");
   const packDirectory = join(temporaryRoot, "pack");
   try {
-    await cloneRelease(release.ref, repositoryRoot, repository);
-    const resolvedCommit = await readResolvedCommit(repositoryRoot);
-    const blobs = await inspectSourceTree(repositoryRoot, release.path);
-    await materializeBlobs(repositoryRoot, blobs, packDirectory);
+    await cloneRelease(release.ref, repositoryRoot, repository, git);
+    const resolvedCommit = await readResolvedCommit(repositoryRoot, git);
+    const blobs = await inspectSourceTree(repositoryRoot, release.path, git);
+    await materializeBlobs(repositoryRoot, blobs, packDirectory, git);
     return {
       directory: packDirectory,
       resolvedRef: release.ref,
