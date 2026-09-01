@@ -1,7 +1,7 @@
 # ADR 0009: Pack localization authoring assets
 
 - **Date:** 2026-09-02
-- **Status:** Proposed
+- **Status:** Accepted
 - **Related:** ADR 0003, ADR 0004, ADR 0008, [Issue #41](https://github.com/lorelum/lorelum/issues/41)
 
 ## Context
@@ -29,7 +29,7 @@ A Pack may contain:
     └── <locale>/practices/**/*.md
 ```
 
-Locale directory names use canonical BCP 47 casing. A localized Practice uses the same path relative to `i18n/<locale>/` as its canonical Practice uses relative to the Pack root. Localized files contain localized Markdown content and do not carry runtime Practice frontmatter.
+Locale directory names use the canonical Unicode locale spelling accepted by `Intl.getCanonicalLocales`, such as `zh-CN`. A localized Practice uses the same path relative to `i18n/<locale>/` as its canonical Practice uses relative to the Pack root. Localized files contain localized Markdown content and do not carry runtime Practice frontmatter.
 
 The terms in the contract are `localization`, `locale`, and `localized content`. Review is one possible consumer, not part of the data model.
 
@@ -63,6 +63,17 @@ An explicit localization synchronization operation records that selected localiz
 
 This prevents `format` from turning a stale translation into an apparently current one while removing all manual hash work from the author workflow.
 
+The CLI exposes the distinction directly:
+
+```sh
+lore format <pack-root>
+lore validate <pack-root>
+lore i18n sync <pack-root> --locale <locale> --practice <practice-id>
+lore i18n sync <pack-root> --locale <locale> --all
+```
+
+Creating a manifest also requires `--source-locale`; later synchronization reads and preserves it from the manifest. `--practice` and `--all` are mutually exclusive.
+
 ### 5. Runtime and distribution remain canonical-only in this version
 
 Localization assets do not enter `PackCandidate`, runtime artifact digests, LocalStore generations or effective revisions, conflict resolution, indexing, retrieval, Decision traversal, or Agent context.
@@ -86,7 +97,7 @@ The agent-first JSON protocol keeps command names, field names, error codes, Pra
 - Localized content is not available from an installed LocalStore in this version; consumers read it from Pack source or repository presentation surfaces.
 - Any substantive canonical Practice change conservatively makes the localization stale, even when a translator decides no wording change is needed. The explicit sync operation records that decision cheaply.
 - Formatter output participates in synchronization identity. Formatter changes that alter normalized bytes require an explicit tooling migration and must not be presented as translator-authored updates.
-- BCP 47 validation and filesystem budgets add authoring complexity, but localization directories are untrusted Pack input and need the same containment discipline as other Pack sources.
+- Locale validation and filesystem budgets add authoring complexity, but localization directories are untrusted Pack input and need the same containment discipline as other Pack sources.
 
 ## Rejected alternatives
 
