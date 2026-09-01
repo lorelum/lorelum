@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 
 import { run } from "../main.js";
 import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
-import { createLocalizationCommands } from "./localization-command.js";
+import { createLocalizationCommands } from "./index.js";
 
 class MemoryWriter {
   value = "";
