@@ -7,6 +7,7 @@ import {
 import { frameworkErrorCodes, invalidInvocationError } from "./runtime/errors.js";
 import { logLevels } from "./runtime/logger.js";
 import { createInstallCommand } from "./install/install-command.js";
+import { createLocalizationCommands } from "./localization/index.js";
 
 export interface CommandOption {
   readonly longFlag: string;
@@ -219,6 +220,7 @@ export const rootCommand = snapshotCommandDefinition({
 export const commandRegistry = snapshotCommandDefinitions([
   discoveryCommandDefinition,
   createInstallCommand(),
+  ...createLocalizationCommands(),
 ]);
 
 export type KnownCommand = "lore" | (typeof commandRegistry)[number]["name"];

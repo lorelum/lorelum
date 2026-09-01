@@ -28,6 +28,7 @@ docs/adr/
 ├── 0005-0006                                   # reserved for in-flight planning numbers; 0007 is numbered to match planning docs, not the strict next-free sequence
 ├── 0007-engine-local-store.md                 # @lorelum/engine LocalStore storage & lifecycle contract
 ├── 0008-pack-registry-and-user-scope-install.md # Pack Registry and user-scope install contract
+├── 0009-pack-localization-authoring.md         # Pack localization source assets and synchronization
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 
