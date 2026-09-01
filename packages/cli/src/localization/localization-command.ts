@@ -102,10 +102,16 @@ const validateResultSchema: JsonSchema = {
   properties: { pack: packResultSchema, localization: localizationResultSchema },
 };
 
-const localizationErrors = Object.freeze([
+const formatErrors = Object.freeze([...frameworkErrorCodes, cliErrorCodes.localizationInvalid]);
+const syncErrors = Object.freeze([
   ...frameworkErrorCodes,
   cliErrorCodes.localizationInvalid,
   cliErrorCodes.localizationPracticeNotFound,
+  cliErrorCodes.packInvalid,
+]);
+const validateErrors = Object.freeze([
+  ...frameworkErrorCodes,
+  cliErrorCodes.localizationInvalid,
   cliErrorCodes.packInvalid,
 ]);
 
@@ -157,6 +163,18 @@ function assertCanonicalLocaleDirectories(files: DiscoveredPackFiles): void {
     }
   }
 }
+function assertLocalizedMarkdown(files: DiscoveredPackFiles): void {
+  for (const localized of files.localized.values()) {
+    for (const text of localized.values()) {
+      if (/^---(?:\r?\n|$)/.test(text)) {
+        throw new CliError(
+          cliErrorCodes.localizationInvalid,
+          "Localized Markdown must not contain runtime frontmatter.",
+        );
+      }
+    }
+  }
+}
 async function loadManifest(packRoot: string): Promise<LocalizationManifest | undefined> {
   const raw = await readOptionalFile(join(packRoot, "i18n", "manifest.yaml"));
   return raw === undefined ? undefined : parseLocalizationManifest(raw);
@@ -175,6 +193,7 @@ async function canonicalDigests(
 async function formatPack(packRoot: string): Promise<JsonValue> {
   const files = await discoverPackFiles(packRoot);
   assertCanonicalLocaleDirectories(files);
+  assertLocalizedMarkdown(files);
   const writes: { path: string; content: string }[] = [];
   const formattedFiles: string[] = [];
   for (const [path, raw] of files.canonical) {
@@ -239,6 +258,7 @@ async function syncLocalization(
   }
   const files = await discoverPackFiles(packRoot);
   assertCanonicalLocaleDirectories(files);
+  assertLocalizedMarkdown(files);
   if (locale === "") throw new CliError(cliErrorCodes.localizationInvalid, "Locale is required.");
   let sourceLocale: string;
   const existing = await loadManifest(packRoot);
@@ -351,6 +371,7 @@ async function validatePack(packRoot: string): Promise<CommandResultLike> {
   }
   const files = await discoverPackFiles(packRoot);
   assertCanonicalLocaleDirectories(files);
+  assertLocalizedMarkdown(files);
   const manifest = await loadManifest(packRoot);
   if (manifest !== undefined) {
     if (
@@ -428,7 +449,7 @@ export function createLocalizationCommands(): readonly CommandDefinition[] {
       positionals: [{ name: "pack-root", required: true }],
       options: [],
       resultSchema: formatResultSchema,
-      errorCodes: localizationErrors,
+      errorCodes: formatErrors,
       exitCodes: [0, 2],
       async handler({ positionals }) {
         try {
@@ -468,7 +489,7 @@ export function createLocalizationCommands(): readonly CommandDefinition[] {
         },
       ],
       resultSchema: syncResultSchema,
-      errorCodes: localizationErrors,
+      errorCodes: syncErrors,
       exitCodes: [0, 2],
       async handler({ options, positionals }) {
         try {
@@ -492,7 +513,7 @@ export function createLocalizationCommands(): readonly CommandDefinition[] {
       positionals: [{ name: "pack-root", required: true }],
       options: [],
       resultSchema: validateResultSchema,
-      errorCodes: localizationErrors,
+      errorCodes: validateErrors,
       exitCodes: [0, 1, 2],
       async handler({ positionals }) {
         try {

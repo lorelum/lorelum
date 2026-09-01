@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { run } from "../main.js";
-import { snapshotCommandDefinitions } from "../registry.js";
+import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
 import { createLocalizationCommands } from "./localization-command.js";
 
 class MemoryWriter {
@@ -87,6 +87,122 @@ test("validate reports stale localization as a completed finding", async () => {
     const response = JSON.parse(output.value);
     expect(response.ok).toBe(true);
     expect(response.data.localization.locales[0].stale).toEqual(["practices/requirements/goal.md"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects localized runtime frontmatter and keeps format error allowlists narrow", async () => {
+  const root = await fixture();
+  try {
+    await writeFile(
+      join(root, "i18n", "zh-CN", "practices", "requirements", "goal.md"),
+      "---\ntitle: forbidden\n---\n\n# 目标\n",
+    );
+    const output = new MemoryWriter();
+    expect(await run(["format", root], { registry, stdout: output })).toBe(2);
+    const response = JSON.parse(output.value);
+    expect(response.error.code).toBe("localization.invalid");
+    expect(
+      (describeCommand("format", registry) as { errorCodes: readonly string[] }).errorCodes,
+    ).toEqual(["usage.invalid", "runtime.unexpected", "localization.invalid"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("requires source locale for a new manifest and rejects a mismatch", async () => {
+  const root = await fixture();
+  try {
+    const missing = new MemoryWriter();
+    expect(
+      await run(["i18n", "sync", root, "--locale", "zh-CN", "--all"], {
+        registry,
+        stdout: missing,
+      }),
+    ).toBe(2);
+    expect(JSON.parse(missing.value).error.code).toBe("localization.invalid");
+    const initial = new MemoryWriter();
+    expect(
+      await run(["i18n", "sync", root, "--locale", "zh-CN", "--source-locale", "en", "--all"], {
+        registry,
+        stdout: initial,
+      }),
+    ).toBe(0);
+    const mismatch = new MemoryWriter();
+    expect(
+      await run(["i18n", "sync", root, "--locale", "zh-CN", "--source-locale", "de", "--all"], {
+        registry,
+        stdout: mismatch,
+      }),
+    ).toBe(2);
+    expect(JSON.parse(mismatch.value).error.code).toBe("localization.invalid");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects mutually exclusive sync selectors and unsafe localized sources", async () => {
+  const root = await fixture();
+  try {
+    const both = new MemoryWriter();
+    expect(
+      await run(
+        [
+          "i18n",
+          "sync",
+          root,
+          "--locale",
+          "zh-CN",
+          "--source-locale",
+          "en",
+          "--all",
+          "--practice",
+          "sample.goal",
+        ],
+        { registry, stdout: both },
+      ),
+    ).toBe(2);
+    expect(JSON.parse(both.value).error.code).toBe("usage.invalid");
+    await rm(join(root, "i18n", "zh-CN", "practices", "requirements", "goal.md"));
+    await symlink(
+      join(root, "practices", "requirements", "goal.md"),
+      join(root, "i18n", "zh-CN", "practices", "requirements", "goal.md"),
+    );
+    const unsafe = new MemoryWriter();
+    expect(await run(["format", root], { registry, stdout: unsafe })).toBe(2);
+    expect(JSON.parse(unsafe.value).error.code).toBe("localization.invalid");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("enforces localized file size budget", async () => {
+  const root = await fixture();
+  try {
+    await writeFile(
+      join(root, "i18n", "zh-CN", "practices", "requirements", "goal.md"),
+      `# 目标\n\n${"x".repeat(300 * 1024)}\n`,
+    );
+    const output = new MemoryWriter();
+    expect(await run(["format", root], { registry, stdout: output })).toBe(2);
+    expect(JSON.parse(output.value).error.code).toBe("localization.invalid");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("treats malformed localization manifest as a localization failure", async () => {
+  const root = await fixture();
+  try {
+    await mkdir(join(root, "i18n"), { recursive: true });
+    await writeFile(
+      join(root, "i18n", "manifest.yaml"),
+      "schema_version: 1\nsource_locale: en\nlocales: nope\n",
+    );
+    const output = new MemoryWriter();
+    expect(await run(["validate", root], { registry, stdout: output })).toBe(2);
+    expect(JSON.parse(output.value).error.code).toBe("localization.invalid");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

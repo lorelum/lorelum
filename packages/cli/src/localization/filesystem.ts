@@ -1,4 +1,4 @@
-import { lstat, mkdir, opendir, readFile, rename, writeFile } from "node:fs/promises";
+import { lstat, mkdir, opendir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -125,7 +125,7 @@ export async function writeAtomic(path: string, contents: string): Promise<void>
     await writeFile(temporary, contents, { encoding: "utf8", flag: "wx" });
     await rename(temporary, path);
   } catch (error) {
-    await import("node:fs/promises").then(({ unlink }) => unlink(temporary).catch(() => undefined));
+    await unlink(temporary).catch(() => undefined);
     throw error;
   }
 }
