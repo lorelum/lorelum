@@ -1,9 +1,12 @@
 import yaml from "js-yaml";
-import { format } from "oxfmt";
+import markdownPlugin from "prettier/plugins/markdown";
+import { format } from "prettier/standalone";
 
 import { parseFrontmatter } from "../frontmatter";
 
-const OXFMT_OPTIONS = {
+const PRETTIER_OPTIONS = {
+  parser: "markdown" as const,
+  plugins: [markdownPlugin],
   endOfLine: "lf" as const,
   proseWrap: "always" as const,
   printWidth: 100,
@@ -38,9 +41,6 @@ export async function formatPracticeMarkdown(markdown: string): Promise<string> 
         return `---\n${frontmatter}---\n${body ? `\n${body}\n` : ""}`;
       })()
     : normalized;
-  const result = await format("practice.md", source, OXFMT_OPTIONS);
-  if (result.errors.length > 0) {
-    throw new Error(`failed to format Practice Markdown: ${result.errors.join("; ")}`);
-  }
-  return result.code.endsWith("\n") ? result.code : `${result.code}\n`;
+  const result = await format(source, PRETTIER_OPTIONS);
+  return result.endsWith("\n") ? result : `${result}\n`;
 }
