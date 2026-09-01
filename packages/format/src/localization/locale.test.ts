@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { canonicalizeLocalizationLocale, validateLocalizationLocale } from "./locale";
+import { validateLocalizationLocale } from "./locale";
 
 describe("localization locale", () => {
   test.each(["en", "zh-CN", "sr-Latn-RS", "de-CH-1996", "en-u-ca-gregory", "zh-Hant-x-private"])(
@@ -12,9 +12,4 @@ describe("localization locale", () => {
     "rejects non-canonical or malformed locale %s",
     (locale) => expect(validateLocalizationLocale(locale)).toBe(false),
   );
-
-  test("canonicalizes casing without accepting it as canonical input", () => {
-    expect(canonicalizeLocalizationLocale("ZH-cn")).toBe("zh-CN");
-    expect(validateLocalizationLocale("ZH-cn")).toBe(false);
-  });
 });

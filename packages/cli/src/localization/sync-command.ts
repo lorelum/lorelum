@@ -1,7 +1,6 @@
 import { join } from "node:path";
 import { decodePackDirectory, PackValidationError, SnapshotFormatError } from "@lorelum/engine";
 import {
-  canonicalizeLocalizationLocale,
   parseFrontmatter,
   serializeLocalizationManifest,
   validateLocalizationLocale,
@@ -77,36 +76,31 @@ async function syncLocalization(
       throw new CliError(cliErrorCodes.packInvalid, "The selected Pack is invalid.");
     throw error;
   }
-  let locale: string;
-  try {
-    if (!validateLocalizationLocale(localeInput)) throw new Error("invalid locale");
-    locale = canonicalizeLocalizationLocale(localeInput);
-  } catch {
+  if (!validateLocalizationLocale(localeInput)) {
     throw new CliError(
       cliErrorCodes.localizationInvalid,
       "Locale is not a valid BCP 47 identifier.",
     );
   }
+  const locale = localeInput;
   const files = await discoverPackFiles(packRoot);
   assertCanonicalLocaleDirectories(files);
   assertLocalizedMarkdown(files);
   const existing = await loadManifest(packRoot);
   let sourceLocale: string;
-  try {
-    if (existing === undefined) {
-      if (sourceLocaleInput === undefined || !validateLocalizationLocale(sourceLocaleInput))
-        throw new Error("source locale required");
-      sourceLocale = canonicalizeLocalizationLocale(sourceLocaleInput);
-    } else {
-      sourceLocale = existing.source_locale;
-      if (
-        sourceLocaleInput !== undefined &&
-        (!validateLocalizationLocale(sourceLocaleInput) || sourceLocaleInput !== sourceLocale)
-      )
-        throw new Error("source locale mismatch");
+  if (existing === undefined) {
+    if (sourceLocaleInput === undefined || !validateLocalizationLocale(sourceLocaleInput)) {
+      throw new CliError(cliErrorCodes.localizationInvalid, "Source locale is missing or invalid.");
     }
-  } catch {
-    throw new CliError(cliErrorCodes.localizationInvalid, "Source locale is missing or invalid.");
+    sourceLocale = sourceLocaleInput;
+  } else {
+    sourceLocale = existing.source_locale;
+    if (
+      sourceLocaleInput !== undefined &&
+      (!validateLocalizationLocale(sourceLocaleInput) || sourceLocaleInput !== sourceLocale)
+    ) {
+      throw new CliError(cliErrorCodes.localizationInvalid, "Source locale is missing or invalid.");
+    }
   }
   if (sourceLocale === locale)
     throw new CliError(cliErrorCodes.localizationInvalid, "Source and target locales must differ.");
