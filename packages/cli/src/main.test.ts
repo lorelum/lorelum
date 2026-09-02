@@ -135,6 +135,8 @@ test("validates invalid calls before help and version responses", async () => {
     ["--help", "--version"],
     ["describe", "--version"],
     ["--log-level"],
+    ["--store-root"],
+    ["install", "agentic-coding", "--store-root="],
     ["--private-token"],
   ];
   await Promise.all(

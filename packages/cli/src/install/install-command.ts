@@ -18,6 +18,7 @@ import type { RegistryRelease } from "@lorelum/format";
 import type { JsonSchema, JsonValue } from "../output/protocol.js";
 import type { CommandDefinition } from "../registry.js";
 import { CliError, cliErrorCodes, frameworkErrorCodes } from "../runtime/errors.js";
+import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import { loadRegistry, type LoadedRegistry } from "./load-registry.js";
 import { materializeRegistryRelease, type MaterializedPackSource } from "./materialize-source.js";
 import { resolveRegistryRelease } from "./resolve-release.js";
@@ -165,6 +166,7 @@ function throwVisibleInstallError(error: unknown): never {
 
 async function installPack(
   services: InstallCommandServices,
+  storageRoot: StorageRoot,
   packName: string,
   requestedVersion?: string,
   registryLocator?: string,
@@ -187,7 +189,7 @@ async function installPack(
       );
     }
     const result = await services.store.install(
-      services.storageRoot,
+      storageRoot,
       decoded.candidate,
       decoded.diagnostics,
     );
@@ -221,7 +223,7 @@ export function createInstallCommand(
 ): CommandDefinition {
   return {
     name: "install",
-    summary: "Install a Knowledge Pack into the user-level local store.",
+    summary: "Install a Knowledge Pack into the selected local Store.",
     positionals: [{ name: "pack", required: true }],
     options: [
       {
@@ -245,6 +247,7 @@ export function createInstallCommand(
         return {
           data: await installPack(
             services,
+            resolveInvocationStorageRoot(invocation.options.storeRoot, services.storageRoot),
             invocation.positionals[0]!,
             optionString(invocation.options, "packVersion"),
             optionString(invocation.options, "registry"),

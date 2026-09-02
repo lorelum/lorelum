@@ -54,6 +54,9 @@ bun install
 
 Precise scripts live in each `packages/*/package.json`.
 
+For the complete local CLI and multi-worktree setup (including isolated
+Store roots), see [Development guide](./docs/development/README.md).
+
 ## Contributor License Agreement (CLA)
 
 Before we can merge your first pull request, you need to sign our CLA. It's quick and one-time:

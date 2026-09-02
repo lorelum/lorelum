@@ -10,6 +10,9 @@ The codebase is **Bun + TypeScript**, organized as a Bun workspace monorepo (`pa
 
 The companion knowledge-pack repo lives elsewhere (`lorelum/lorelum-packs`). This repo does not contain knowledge-pack content.
 
+For local CLI work, including isolated Store roots and multi-worktree usage, see
+[the development guide](./docs/development/README.md).
+
 ## Layout
 
 The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, `packages/format`, `packages/mcp`, `packages/shared`). Repo-root `package.json` declares `workspaces: ["packages/*"]`.
@@ -30,6 +33,13 @@ The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, 
 - **Build single binary:** `bun build --compile`
 
 Precise scripts live in each `packages/*/package.json`; the above is what the root delegates to. Keep CI green on whatever it runs.
+
+### LocalStore CLI constraint
+
+- Every LocalStore-consuming CLI command must use the shared Store-root resolver;
+  do not call `defaultStorageRoot` directly when honoring the global override.
+- When manually writing Store data from a branch or worktree, use an isolated
+  Store root. Never point it at another worktree's or the user's default Store.
 
 ## Code style
 
