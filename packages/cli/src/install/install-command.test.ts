@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -156,6 +157,41 @@ test("installs from an explicit Registry repository and is idempotent", async ()
     expect(
       await fixture.services.store.readEffectivePractices({ rootPath: storageRoot }),
     ).toHaveLength(1);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test("uses an explicit global Store root without touching the default Store", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "lorelum-install-command-"));
+  try {
+    const defaultRoot = join(directory, "default-store");
+    const isolatedRoot = join(directory, "worktree-store");
+    const fixture = createServices(await createPack(directory), defaultRoot);
+    const definitions = snapshotCommandDefinitions([createInstallCommand(fixture.services)]);
+    const firstOutput = new MemoryWriter();
+
+    expect(
+      await run(["--store-root", isolatedRoot, "install", "agentic-coding"], {
+        registry: definitions,
+        stdout: firstOutput,
+      }),
+    ).toBe(0);
+    expect(JSON.parse(firstOutput.value)).toMatchObject({ data: { idempotent: false } });
+    expect(existsSync(defaultRoot)).toBe(false);
+    expect(
+      await fixture.services.store.readEffectivePractices({ rootPath: isolatedRoot }),
+    ).toHaveLength(1);
+
+    const secondOutput = new MemoryWriter();
+    expect(
+      await run(["install", "agentic-coding", "--store-root", isolatedRoot], {
+        registry: definitions,
+        stdout: secondOutput,
+      }),
+    ).toBe(0);
+    expect(JSON.parse(secondOutput.value)).toMatchObject({ data: { idempotent: true } });
+    expect(existsSync(defaultRoot)).toBe(false);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }

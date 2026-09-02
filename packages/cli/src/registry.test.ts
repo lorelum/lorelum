@@ -202,6 +202,11 @@ test("describes registered commands from a single registry", () => {
         name: "--log-level <level>",
         scope: "global",
       },
+      {
+        behavior: "store-root",
+        name: "--store-root <path>",
+        scope: "global",
+      },
     ],
     commands: [
       {
@@ -223,12 +228,14 @@ test("describes registered commands from a single registry", () => {
     options: [
       { behavior: "help", scope: "global" },
       { behavior: "log-level", scope: "global" },
+      { behavior: "store-root", scope: "global" },
     ],
   });
   const install = describeCommand("install") as { options: readonly { name: string }[] };
   expect(install.options.map((option) => option.name)).toEqual([
     "-h, --help",
     "--log-level <level>",
+    "--store-root <path>",
     "--pack-version <version>",
     "--registry <repository>",
   ]);
@@ -250,6 +257,7 @@ test("derives parser options and describe metadata from registered commands", as
     options: [
       { behavior: "help", scope: "global" },
       { behavior: "log-level", scope: "global" },
+      { behavior: "store-root", scope: "global" },
       { name: "--future-mode <mode>", scope: "command" },
     ],
   });

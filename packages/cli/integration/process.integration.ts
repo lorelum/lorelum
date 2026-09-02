@@ -45,6 +45,18 @@ try {
   assert.deepEqual(selectProtocolFields(discovery.stdout), { command: "describe", ok: true });
   assert.equal(discovery.stderr, "");
 
+  const isolatedDiscovery = await runProcess([
+    executable,
+    "--store-root",
+    join(directory, "worktree-store"),
+  ]);
+  assert.equal(isolatedDiscovery.exitCode, 0);
+  assert.deepEqual(selectProtocolFields(isolatedDiscovery.stdout), {
+    command: "describe",
+    ok: true,
+  });
+  assert.equal(isolatedDiscovery.stderr, "");
+
   const invalid = await runProcess([executable, "--private-token"]);
   assert.equal(invalid.exitCode, 2);
   assert.deepEqual(selectProtocolFields(invalid.stdout), {

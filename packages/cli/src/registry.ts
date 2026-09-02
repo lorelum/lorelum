@@ -18,7 +18,7 @@ export interface CommandOption {
   /** Requires callers to provide the option; defaults are therefore not allowed. */
   readonly optionRequired: boolean;
   /** Reserved for framework-owned global options on the root command. */
-  readonly behavior?: "help" | "log-level" | "version";
+  readonly behavior?: "help" | "log-level" | "store-root" | "version";
   /** Framework option availability; local command options omit this field. */
   readonly scope?: "global" | "root";
   /** Static framework response metadata, including its discoverable data contract. */
@@ -116,6 +116,14 @@ const globalOptions: readonly CommandOption[] = [
     defaultValue: "error",
     values: logLevels,
   },
+  {
+    longFlag: "--store-root",
+    description: "Use an explicit LocalStore directory instead of the user-level default.",
+    value: { name: "path", required: true },
+    optionRequired: false,
+    behavior: "store-root",
+    scope: "global",
+  },
 ] as const satisfies readonly CommandOption[];
 
 const positionalDescriptionSchema: JsonSchema = {
@@ -146,7 +154,7 @@ const optionDescriptionSchema: JsonSchema = {
     description: stringSchema,
     required: { type: "boolean" },
     scope: { enum: ["command", "global", "root"] },
-    behavior: { enum: ["help", "log-level", "version"] },
+    behavior: { enum: ["help", "log-level", "store-root", "version"] },
     response: optionResponseDescriptionSchema,
     defaultValue: stringSchema,
     values: { type: "array", items: stringSchema },
