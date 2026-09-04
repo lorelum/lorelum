@@ -39,6 +39,9 @@ jobs:
       - name: Test
         run: bun test
 
+      - name: Integration
+        run: bun run test:integration
+
       # oxfmt is still alpha (ADR 0002). Run as a non-blocking signal for now;
       # promote to blocking once it stabilizes.
       - name: Format check

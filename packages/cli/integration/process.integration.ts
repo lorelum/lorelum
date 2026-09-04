@@ -1,11 +1,51 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { createLocalStore, decodePackDirectory } from "@lorelum/engine";
 
 const entrypoint = join(import.meta.dir, "../src/main.ts");
 const bunExecutable = Bun.which("bun");
 const processTimeoutMs = 60_000;
+
+async function writeLocalStoreFixturePack(directory: string): Promise<string> {
+  const packRoot = join(directory, "localstore-fixture-pack");
+  const practices = join(packRoot, "practices", "react");
+  await mkdir(practices, { recursive: true });
+  await writeFile(join(packRoot, "pack.yaml"), "name: integration-query-get\nversion: 0.1.0\n");
+  await writeFile(
+    join(practices, "api-client.md"),
+    [
+      "---",
+      "id: react.api-client",
+      "title: Layer React API access",
+      "stage: api-layer",
+      "tech_stack: [react, typescript]",
+      "applies_when: adding remote requests to a React interface",
+      "severity: warn",
+      "---",
+      "Keep transport, DTO translation, and expected failures behind a feature API boundary.",
+      "",
+    ].join("\n"),
+  );
+  await writeFile(
+    join(practices, "resource-state.md"),
+    [
+      "---",
+      "id: react.resource-state",
+      "title: Separate resource and UI state",
+      "stage: state",
+      "tech_stack: [react, typescript]",
+      "applies_when: storing remote resource data used by a React interface",
+      "severity: warn",
+      "---",
+      "Model resource data separately from view state and transform DTOs at the boundary.",
+      "",
+    ].join("\n"),
+  );
+  return packRoot;
+}
 
 if (bunExecutable === null) {
   throw new Error("Bun executable is required for CLI integration tests.");
@@ -39,6 +79,83 @@ try {
   assert.equal(binary.exitCode, 0);
   assert.deepEqual(selectProtocolFields(binary.stdout), { command: "version", ok: true });
   assert.equal(binary.stderr, "");
+
+  const packRoot = await writeLocalStoreFixturePack(directory);
+  const decoded = await decodePackDirectory(packRoot);
+  const storeRoot = { rootPath: join(directory, "store") };
+  await createLocalStore().install(storeRoot, decoded.candidate, decoded.diagnostics);
+
+  const query = await runProcess([
+    executable,
+    "--store-root",
+    storeRoot.rootPath,
+    "query",
+    "remote requests React interface",
+  ]);
+  assert.equal(query.exitCode, 0);
+  const queryResponse: unknown = JSON.parse(query.stdout);
+  assert(isRecord(queryResponse));
+  assert.equal(queryResponse.command, "query");
+  assert.equal(queryResponse.ok, true);
+  assert(isRecord(queryResponse.data));
+  assert.equal(queryResponse.data.total, 2);
+  assert(Array.isArray(queryResponse.data.results));
+  assert.equal(queryResponse.data.results[0]?.id, "react.api-client");
+  assert.equal(query.stderr, "");
+
+  const get = await runProcess([
+    executable,
+    "--store-root",
+    storeRoot.rootPath,
+    "get",
+    "react.api-client",
+  ]);
+  assert.equal(get.exitCode, 0);
+  const getResponse: unknown = JSON.parse(get.stdout);
+  assert(isRecord(getResponse));
+  assert.equal(getResponse.command, "get");
+  assert.equal(getResponse.ok, true);
+  assert(isRecord(getResponse.data));
+  assert(isRecord(getResponse.data.practice));
+  assert.equal(getResponse.data.practice.id, "react.api-client");
+  assert.equal(getResponse.data.practice.title, "Layer React API access");
+  assert.equal(
+    getResponse.data.practice.body,
+    "Keep transport, DTO translation, and expected failures behind a feature API boundary.\n",
+  );
+  assert.equal(get.stderr, "");
+
+  const emptyQuery = await runProcess([
+    executable,
+    "--store-root",
+    join(directory, "empty-store"),
+    "query",
+    "remote requests",
+  ]);
+  assert.equal(emptyQuery.exitCode, 0);
+  const emptyQueryResponse: unknown = JSON.parse(emptyQuery.stdout);
+  assert(isRecord(emptyQueryResponse));
+  assert.equal(emptyQueryResponse.command, "query");
+  assert.equal(emptyQueryResponse.ok, true);
+  assert(isRecord(emptyQueryResponse.data));
+  assert.equal(emptyQueryResponse.data.total, 0);
+  assert.deepEqual(emptyQueryResponse.data.results, []);
+  assert.equal(emptyQuery.stderr, "");
+
+  const unknown = await runProcess([
+    executable,
+    "--store-root",
+    storeRoot.rootPath,
+    "get",
+    "react.missing",
+  ]);
+  assert.equal(unknown.exitCode, 2);
+  assert.deepEqual(selectProtocolFields(unknown.stdout), {
+    command: "get",
+    errorCode: "get.unknown_practice",
+    ok: false,
+  });
+  assert.equal(unknown.stderr, "");
 
   const discovery = await runProcess([executable]);
   assert.equal(discovery.exitCode, 0);

@@ -11,3 +11,5 @@ export const PACKAGE_NAME = "@lorelum/engine";
 // vector layer and CLI/MCP consumers take their entry point from this
 // boundary, never from package-internal directories.
 export * from "./local-store";
+export * from "./query";
+export * from "./get";

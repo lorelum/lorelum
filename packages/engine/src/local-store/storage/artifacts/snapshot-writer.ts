@@ -29,7 +29,7 @@ function frontmatterFields(
     stage,
     tech_stack,
     applies_when,
-    ...(severity === undefined ? {} : { severity }),
+    severity,
     ...(anti_patterns === undefined || anti_patterns.length === 0 ? {} : { anti_patterns }),
   };
 }
@@ -75,7 +75,7 @@ export async function writeSnapshotFromCandidate(
       try {
         await mkdir(join(markdownPath, ".."), { recursive: true });
         const frontmatter = JSON.stringify(frontmatterFields(practice));
-        const body = practice.body ?? "";
+        const body = practice.body;
         await writeFile(markdownPath, `---\n${frontmatter}\n---\n${body}`, "utf8");
       } catch (error) {
         throw new ArtifactIntegrityError(

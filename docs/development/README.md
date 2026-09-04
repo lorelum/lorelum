@@ -20,9 +20,8 @@ The CLI's discoverable global option is:
 ```
 
 When omitted, the Store remains `~/.lorelum`. A relative path is resolved from
-the calling process's current working directory. At present, `install` is the
-only CLI command that consumes `LocalStore`; do not infer support for other
-commands from this guide.
+the calling process's current working directory. `install`, `query`, and `get`
+consume the selected LocalStore.
 
 ### A copyable `lore-dev` function
 
@@ -90,8 +89,9 @@ inspect it instead of replacing it blindly.
 Any manual Store-writing workflow (for example, future `uninstall` or
 `reindex` commands) must pass an explicitly isolated `--store-root`. These
 commands are not implemented merely because they are named here; the rule is a
-forward-looking safety constraint. Today, only `install` is implemented as a
-LocalStore consumer.
+forward-looking safety constraint. Read-only commands such as `query` and `get`
+are safe against the worktree Store, but they still honor `--store-root`
+explicitly when an alternate Store is intended.
 
 Automated tests should continue to use temporary directories for Store data.
 They must not write to `~/.lorelum` or to a developer's shared Store.

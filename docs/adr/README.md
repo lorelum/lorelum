@@ -29,6 +29,8 @@ docs/adr/
 ├── 0007-engine-local-store.md                 # @lorelum/engine LocalStore storage & lifecycle contract
 ├── 0008-pack-registry-and-user-scope-install.md # Pack Registry and user-scope install contract
 ├── 0009-pack-localization-authoring.md         # Pack localization source assets and synchronization
+├── 0010-query-retrieval-contract.md          # LocalStore-backed lore query retrieval contract
+├── 0011-get-retrieval-contract.md            # LocalStore-backed lore get retrieval contract
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 

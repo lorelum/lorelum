@@ -11,6 +11,7 @@ export const cliErrorCodes = Object.freeze({
   sourceUnavailable: "source.unavailable",
   storeBusy: "store.busy",
   storeRecoveryRequired: "store.recovery-required",
+  getUnknownPractice: "get.unknown_practice",
   localizationInvalid: "localization.invalid",
   localizationPracticeNotFound: "localization.practice-not-found",
   usageInvalid: "usage.invalid",

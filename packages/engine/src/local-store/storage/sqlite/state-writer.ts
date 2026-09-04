@@ -104,7 +104,7 @@ export function writeDerivedState(database: Database, state: DerivedStoreState):
           practice.stage,
           JSON.stringify(practice.tech_stack),
           practice.applies_when,
-          practice.severity ?? "warn",
+          practice.severity,
           state.effectiveRevision,
         );
         for (const source of effective.sources) {

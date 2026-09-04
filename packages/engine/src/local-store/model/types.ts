@@ -2,9 +2,15 @@ import type { DecisionNode, Pack, Practice } from "@lorelum/format";
 
 /** Deeply frozen snapshot retained after canonicalization. */
 export type PracticeSnapshot = Readonly<
-  Omit<Practice, "tech_stack" | "anti_patterns"> & {
+  Omit<Practice, "tech_stack" | "severity" | "body" | "anti_patterns"> & {
     tech_stack: readonly string[];
-    anti_patterns?: readonly Readonly<NonNullable<Practice["anti_patterns"]>[number]>[];
+    severity: NonNullable<Practice["severity"]>;
+    body: string;
+    anti_patterns: readonly Readonly<
+      Omit<NonNullable<Practice["anti_patterns"]>[number], "severity"> & {
+        severity: NonNullable<NonNullable<Practice["anti_patterns"]>[number]["severity"]>;
+      }
+    >[];
   }
 >;
 

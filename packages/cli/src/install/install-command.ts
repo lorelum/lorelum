@@ -3,8 +3,6 @@ import {
   PackValidationError,
   PracticeConflictError,
   SnapshotFormatError,
-  StoreBusyError,
-  StoreRecoveryRequiredError,
   UpgradeRequiredError,
   createLocalStore,
   decodePackDirectory,
@@ -18,6 +16,7 @@ import type { RegistryRelease } from "@lorelum/format";
 import type { JsonSchema, JsonValue } from "../output/protocol.js";
 import type { CommandDefinition } from "../registry.js";
 import { CliError, cliErrorCodes, frameworkErrorCodes } from "../runtime/errors.js";
+import { throwVisibleStoreError } from "../runtime/store-errors.js";
 import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import { loadRegistry, type LoadedRegistry } from "./load-registry.js";
 import { materializeRegistryRelease, type MaterializedPackSource } from "./materialize-source.js";
@@ -152,16 +151,7 @@ function throwVisibleInstallError(error: unknown): never {
       `Practice "${error.practiceId}" conflicts with an installed Pack.`,
     );
   }
-  if (error instanceof StoreBusyError) {
-    throw new CliError(cliErrorCodes.storeBusy, "The local Pack store is busy.");
-  }
-  if (error instanceof StoreRecoveryRequiredError) {
-    throw new CliError(
-      cliErrorCodes.storeRecoveryRequired,
-      "The local Pack store requires recovery.",
-    );
-  }
-  throw error;
+  throwVisibleStoreError(error);
 }
 
 async function installPack(
