@@ -25,22 +25,38 @@ lore get <practice-id> [--store-root <path>]
 `@lorelum/engine` exposes:
 
 - pure `retrievePractice()` over LocalStore `EffectivePractice[]` returning a get-specific projection (`practice` plus projected `sources`) or `null`;
-- `createGetService()`, which cold-opens the configured LocalStore, resolves the id against the effective Practices, and throws `UnknownPracticeError` when no Practice matches. It returns the result plus `generation` and `effectiveRevision`.
+- `createGetService()`, which cold-opens the configured LocalStore, resolves the
+  id against the effective Practices, and throws `UnknownPracticeError` when no
+  Practice matches. It returns the result plus `generation` and
+  `effectiveRevision`.
 
 The `sources` projection type `PracticeSourceResult` lives in the engine's shared retrieval layer (the same neutral home as `tokenize`/`top-k`). The `null` → `UnknownPracticeError` conversion happens only inside `createGetService()`; the CLI never inspects `null` and never constructs that error itself.
 
 The CLI adapter calls `GetService`; it never accepts a Pack path, decodes a Pack, or performs its own filesystem discovery. A future MCP tool will call the same service.
 
+For the CLI's single invocation, the service cold-opens the configured
+LocalStore once per call; this preserves the ADR 0007 integrity checks without
+holding a long-lived process open. A future long-lived MCP adapter must not
+copy that per-call policy unchanged: it should reuse one open store and
+re-open only when `generation` changes, then carry that policy in its own MCP
+contract.
+
 ### Result
 
 A successful result contains:
 
-- the complete effective Practice as produced by LocalStore canonicalization, including `severity`, `body`, and `anti_patterns` — these are always present and normalized (`severity` defaults to `warn`, `body` to `""`, `anti_patterns` to `[]`). The `PracticeSnapshot` model type is tightened to reflect this canonicalization invariant: the three fields are required, not optional, so consumers need no `undefined` defense;
+- the complete effective Practice as produced by LocalStore canonicalization, including `severity`, `body`, and `anti_patterns` — these are always present and normalized (`severity` defaults to `warn`, `body` to `""`, `anti_patterns` to `[]`, and each anti-pattern `severity` defaults to `warn`). The `PracticeSnapshot` model type is tightened to reflect this canonicalization invariant: the three fields are required, not optional, so consumers need no `undefined` defense. ADR 0007 §2 freezes the canonical object and author-visible array order; this ADR makes the nested `anti_patterns[].severity` default explicit as an extension of the same canonicalization rule.
 - every active LocalStore source claim via the shared `PracticeSourceResult` projection, not a re-declared copy. `PracticeSourceResult` lives in the engine's shared retrieval layer and is available to future retrieval features.
 
 The top level reports LocalStore `generation`, `effectiveRevision`, `practice`, and `sources`. The Practice `id` is the single source of truth for the resolved key; no redundant top-level `practiceId` is emitted.
 
-An unknown id raises `UnknownPracticeError` from the engine, which the CLI adapter maps to the `get.unknown_practice` error code with exit code 2. `get.unknown_practice` must be listed in the command's `errorCodes` allowlist alongside `store.busy` and `store.recovery-required` (ADR 0004 requires every visible error be declared). It uses exit 2 rather than ADR 0004's exit 1 for domain findings to stay consistent with `decide.unknown_decision` and the fork's `get.unknown_practice`. LocalStore busy/recovery failures remain typed errors at the adapter boundary.
+An unknown id raises `UnknownPracticeError` from the engine, which the CLI adapter maps to the `get.unknown_practice` error code with exit code 2. `get.unknown_practice` must be listed in the command's `errorCodes` allowlist alongside `store.busy` and `store.recovery-required` (ADR 0004 requires every visible error be declared). It uses exit 2 because an unknown id is an exact-address error, not a successful domain finding; this matches the current `sync` command's `localization.practice-not-found` precedent. Exit 1 remains reserved for ADR 0004 blocking domain findings, and the removed `decide.unknown_decision` command is not used as a precedent. LocalStore busy/recovery failures remain typed errors at the adapter boundary.
+
+An id that is not a valid dotted Practice id (ADR 0003 `ID_REGEX`) is rejected
+by the CLI before store dispatch as `usage.invalid`. This keeps invalid
+addresses distinct from valid but unknown Practice ids (`get.unknown_practice`).
+Engine callers still see valid-format unknown ids as `UnknownPracticeError`;
+the CLI owns the user-facing syntax boundary.
 
 ### Non-goals
 
@@ -48,4 +64,8 @@ Batch retrieval by multiple ids, explicit-Pack debug paths, `--full` switches, s
 
 ## Consequences
 
-The first official get slice reuses installed, validated, effective Practices, returns the complete canonical Practice the caller asked for by id, and preserves source provenance. It replaces the fork's Pack-path get without reintroducing a second runtime source. Unknown-id remains a hard error rather than a silent empty result, matching the precise-by-id nature of `get` and the existing `decide.unknown_decision` pattern. Batch access remains a future extension.
+The first official get slice reuses installed, validated, effective Practices, returns the complete canonical Practice the caller asked for by id, and preserves source provenance. It replaces the fork's Pack-path get without reintroducing a second runtime source. Unknown-id remains a hard error rather than a silent empty result, matching the precise-by-id nature of `get` and the current `sync` command's exact-address error pattern. Batch access remains a future extension.
+
+**Follow-ups:**
+
+- Cross-call read consistency is not defined here. A single invocation reads one consistent LocalStore snapshot, but orchestrating query-then-get across separate invocations can cross a store revision or observe a Practice removed between calls. A future batch/sequence contract must define the snapshot semantics before adding such an orchestration surface.

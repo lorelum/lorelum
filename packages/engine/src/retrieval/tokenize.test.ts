@@ -22,4 +22,15 @@ describe("normalizeTokens", () => {
   test("splits Han, Hiragana, and Katakana runs", () => {
     expect(normalizeTokens("依頼コンポ")).toEqual(["依頼", "頼コ", "コン", "ンポ"]);
   });
+
+  test("segments CJK pieces inside mixed Latin and CJK runs", () => {
+    expect(normalizeTokens("remote接口请求")).toEqual(["remote", "接口", "口请", "请求"]);
+    expect(normalizeTokens("Add remote 接口请求")).toEqual([
+      "add",
+      "remote",
+      "接口",
+      "口请",
+      "请求",
+    ]);
+  });
 });

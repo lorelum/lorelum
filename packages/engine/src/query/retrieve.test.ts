@@ -130,4 +130,18 @@ describe("retrievePractices", () => {
     expect(result.total).toBe(1);
     expect(result.results[0]?.id).toBe("react.chinese");
   });
+
+  test("matches CJK pieces inside mixed-script Practice text", () => {
+    const mixed = effectivePractice("react.mixed", {
+      title: "Add remote 接口请求",
+      applies_when: "adding remote 接口请求 through a feature API boundary",
+    });
+
+    const result = retrievePractices({
+      effectivePractices: [mixed],
+      query: "remote 接口请求",
+    });
+    expect(result.total).toBe(1);
+    expect(result.results[0]?.id).toBe("react.mixed");
+  });
 });

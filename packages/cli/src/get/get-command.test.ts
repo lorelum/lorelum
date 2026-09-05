@@ -116,7 +116,7 @@ test("maps an unknown id to the declared get.unknown_practice error", async () =
   });
 });
 
-test("rejects blank ids and empty --store-root values before service dispatch", async () => {
+test("rejects blank, malformed, and non-dotted ids before service dispatch", async () => {
   const calls: string[] = [];
   const definitions: readonly CommandDefinition[] = snapshotCommandDefinitions([
     createGetCommand({
@@ -132,7 +132,10 @@ test("rejects blank ids and empty --store-root values before service dispatch", 
 
   const invocations = [
     ["get", "   "],
-    ["get", "react.api", "--store-root", ""],
+    ["get", "React.x"],
+    ["get", "foo"],
+    ["get", "react..api"],
+    ["get", "react.api_client"],
   ] as const;
   await Promise.all(
     invocations.map(async (invocation) => {
@@ -145,6 +148,32 @@ test("rejects blank ids and empty --store-root values before service dispatch", 
       });
     }),
   );
+  expect(calls).toEqual([]);
+});
+
+test("rejects an empty --store-root value before service dispatch", async () => {
+  const calls: string[] = [];
+  const definitions: readonly CommandDefinition[] = snapshotCommandDefinitions([
+    createGetCommand({
+      get: {
+        async get(request) {
+          calls.push(request.practiceId);
+          return fixtureResult;
+        },
+      },
+      storageRoot: defaultStorageRoot(),
+    }),
+  ]);
+
+  const stdout = new MemoryWriter();
+  expect(await run(["get", "react.api", "--store-root", ""], { registry: definitions, stdout })).toBe(
+    2,
+  );
+  expect(JSON.parse(stdout.value)).toMatchObject({
+    command: "get",
+    ok: false,
+    error: { code: "usage.invalid" },
+  });
   expect(calls).toEqual([]);
 });
 

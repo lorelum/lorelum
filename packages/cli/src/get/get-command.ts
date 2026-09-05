@@ -4,6 +4,7 @@ import {
   type GetService,
   type StorageRoot,
 } from "@lorelum/engine";
+import { ID_REGEX } from "@lorelum/format";
 
 import type { JsonSchema, JsonValue } from "../output/protocol.js";
 import { getPracticeSchema, sourceSchema } from "../output/schema-primitives.js";
@@ -48,7 +49,11 @@ export function createGetCommand(
     exitCodes: [0, 2],
     async handler(invocation) {
       const practiceId = invocation.positionals[0];
-      if (practiceId === undefined || practiceId.trim().length === 0) {
+      if (
+        practiceId === undefined ||
+        practiceId.trim().length === 0 ||
+        !ID_REGEX.test(practiceId)
+      ) {
         throw invalidInvocationError();
       }
       const storageRoot = resolveInvocationStorageRoot(
