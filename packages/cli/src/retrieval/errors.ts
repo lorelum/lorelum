@@ -6,6 +6,8 @@ import { throwVisibleStoreError } from "../runtime/store-errors.js";
 /** Error allowlist shared by LocalStore-backed retrieval commands. */
 export const retrievalErrorCodes = Object.freeze([
   ...frameworkErrorCodes,
+  // CLI-owned domain codes for retrieval commands stay in `retrieval/errors`;
+  // engine/store failures are translated here instead of leaking internals.
   cliErrorCodes.storeBusy,
   cliErrorCodes.storeRecoveryRequired,
 ]);

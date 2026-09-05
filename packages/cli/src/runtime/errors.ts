@@ -2,6 +2,8 @@ export const cliErrorCodes = Object.freeze({
   packInvalid: "pack.invalid",
   packUpgradeRequired: "pack.upgrade-required",
   practiceConflict: "practice.conflict",
+  // Error codes are the stable agent-visible surface; handler allowlists and
+  // tests must stay in sync with these canonical string values.
   registryInvalid: "registry.invalid",
   registryPackNotFound: "registry.pack-not-found",
   registryUnavailable: "registry.unavailable",

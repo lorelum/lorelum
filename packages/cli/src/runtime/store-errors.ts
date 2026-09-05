@@ -2,6 +2,7 @@ import { StoreBusyError, StoreRecoveryRequiredError } from "@lorelum/engine";
 
 import { CliError, cliErrorCodes } from "./errors.js";
 
+/** Keep LocalStore error translation in one place for every CLI consumer. */
 export function toStoreCliError(error: unknown): CliError | undefined {
   if (error instanceof StoreBusyError) {
     return new CliError(cliErrorCodes.storeBusy, "The local Pack store is busy.");

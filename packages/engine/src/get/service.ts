@@ -32,6 +32,8 @@ export function createGetService(options: GetServiceOptions = {}): GetService {
     async get(request: GetRequest): Promise<GetResult> {
       const practiceId = request.practiceId;
       if (typeof practiceId !== "string" || practiceId.trim().length === 0) {
+        // The service accepts valid-format ids and treats an unknown id as a
+        // domain error; syntax-only rejection is owned by the CLI adapter.
         throw new UnknownPracticeError(practiceId);
       }
 

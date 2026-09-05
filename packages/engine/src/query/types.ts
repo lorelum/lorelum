@@ -7,6 +7,7 @@ export type RetrievedPractice = Readonly<
   Pick<QueryPracticeSnapshot, "id" | "title" | "stage" | "tech_stack" | "applies_when">
 >;
 
+/** Pure retrieval input; no filesystem, Store, or CLI concerns. */
 export interface RetrievePracticesInput {
   readonly effectivePractices: readonly EffectivePractice[];
   readonly query: string;
@@ -17,6 +18,7 @@ export interface RetrievePracticesInput {
 export interface RetrievedPractices {
   readonly query: string;
   readonly k: number;
+  /** Count of all matches before `k` truncation; v1 does not paginate. */
   readonly total: number;
   readonly results: readonly RetrievedPractice[];
 }

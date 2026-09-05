@@ -17,6 +17,8 @@ export function retrievePractices(input: RetrievePracticesInput): RetrievedPract
   const topK = normalizeTopK(input.topK);
   const tokens = normalizeTokens(input.query);
   if (tokens.length === 0) {
+    // A query with no tokenizable content is still a valid call; unmatched
+    // retrieval is an empty success result, not an invocation error.
     return { query: input.query, k: topK, total: 0, results: [] };
   }
 
@@ -31,6 +33,8 @@ export function retrievePractices(input: RetrievePracticesInput): RetrievedPract
   return {
     query: input.query,
     k: topK,
+    // `total` counts every match before the `k` slice; callers must not treat
+    // the omitted tail as "not present" (ADR 0010).
     total: matches.length,
     results: matches.slice(0, topK).map(toRetrievedPractice),
   };
@@ -52,6 +56,8 @@ const scoredFields = [
 ] as const;
 
 function scorePractice(practice: EffectivePractice["practice"], tokens: readonly string[]): number {
+  // Score a field once per distinct token; repeated query words must not
+  // inflate a Practice's rank.
   const distinct = new Set(tokens);
   let score = 0;
   for (const field of scoredFields) {
@@ -72,6 +78,8 @@ function compareMatches(left: PracticeMatch, right: PracticeMatch): number {
 
 function toRetrievedPractice(match: PracticeMatch): RetrievedPractice {
   const practice = match.effectivePractice.practice;
+  // Body is intentionally excluded here; query remains a cheap summary slice
+  // and full evidence is served by `lore get` (ADR 0010/0011).
   return {
     id: match.effectivePractice.practiceId,
     title: practice.title,

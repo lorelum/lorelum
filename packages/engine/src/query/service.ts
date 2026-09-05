@@ -33,6 +33,8 @@ export function createQueryService(options: QueryServiceOptions = {}): QueryServ
         throw new InvalidQueryError();
       }
 
+      // One cold open per CLI invocation is an intentional policy tradeoff:
+      // it preserves LocalStore integrity checks without a long-lived process.
       const opened = await store.open(request.storageRoot ?? fallbackStorageRoot);
       return {
         ...retrievePractices({

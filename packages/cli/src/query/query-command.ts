@@ -41,6 +41,7 @@ const resultSchema: JsonSchema = {
   },
 };
 
+/** `lore query` data contract (ADR 0010); registry validates handler output. */
 const topKBounds = {
   defaultTopK: DEFAULT_QUERY_TOP_K,
   minTopK: MIN_QUERY_TOP_K,
@@ -66,6 +67,8 @@ export function createQueryCommand(
     errorCodes: retrievalErrorCodes,
     exitCodes: [0, 2],
     async handler(invocation) {
+      // Validate CLI-owned arguments before Store dispatch; Store health is
+      // reported separately through the shared visible error mapping below.
       const query = invocation.positionals[0];
       if (query === undefined || query.trim().length === 0) throw invalidInvocationError();
       const topK = parseTopKOption(invocation.options.topK, topKBounds);

@@ -16,6 +16,8 @@ export function retrievePractice(
   const effective = effectivePractices.find((candidate) => candidate.practiceId === practiceId);
   if (effective === undefined) return null;
 
+  // Copy mutable array fields so service results cannot alias LocalStore
+  // snapshots and later callers cannot mutate the frozen store model.
   return {
     practice: {
       id: effective.practice.id,
@@ -29,6 +31,8 @@ export function retrievePractice(
         ...antiPattern,
       })),
     },
+    // Project before sorting so the shared projection is the only source
+    // shape exposed; LocalStore storage fields stay behind the boundary.
     sources: effective.sources.map(projectSourceResult).sort(compareSourceResults),
   };
 }

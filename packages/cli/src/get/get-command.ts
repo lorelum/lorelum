@@ -36,6 +36,7 @@ const resultSchema: JsonSchema = {
   },
 };
 
+/** `lore get` data contract (ADR 0011); registry validates handler output. */
 export function createGetCommand(
   services: GetCommandServices = defaultGetServices(),
 ): CommandDefinition {
@@ -48,6 +49,8 @@ export function createGetCommand(
     errorCodes: getRetrievalErrorCodes,
     exitCodes: [0, 2],
     async handler(invocation) {
+      // Syntax validation belongs to the CLI adapter: malformed ids are
+      // `usage.invalid`, while valid-format unknown ids stay domain errors.
       const practiceId = invocation.positionals[0];
       if (
         practiceId === undefined ||
