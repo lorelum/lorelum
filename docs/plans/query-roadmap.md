@@ -72,6 +72,10 @@ PR #50 已于 2026-09-06 合入 main，Issue #49 已关闭。已交付契约见[
 
 ## 5. M1：先交付关键词 query
 
+M1 的命令、tokenizer、BM25F 排名、结果摘要和实现边界已由
+[ADR 0010](../adr/0010-keyword-query-retrieval.md) 冻结。实现仍须使用独立
+issue/PR，并提交该 ADR 要求的质量和性能基线。
+
 ### 范围与实现建议
 
 先从 `LocalStore.open()` 的一致快照中构造词法检索输入，以 Practice 为返回单位。优先评估进程内 BM25；如果采用更简单的确定性加权 token-match，必须在设计中标明算法和局限，不将其称为语义检索，也不能声称它与 BM25 等价。
