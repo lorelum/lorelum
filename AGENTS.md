@@ -76,7 +76,8 @@ Keep the tree navigable and each file independently understandable. These are pr
 - **One issue per PR.** Keep PRs focused and reviewable. If a change spans multiple issues, split it.
 - **Conventional Commits** (`feat(cli): ...`, `fix(engine): ...`, `spec(format): ...`, `docs: ...`).
 - **Every PR links to an issue** (`Closes #123`).
-- **Behavioral changes need design discussion first** — open an issue or Discussion before implementing changes to the Practice format, retrieval model, or CLI surface.
+- **Public-contract changes need design alignment first.** Changes to the Practice/pack format, retrieval model, CLI surface, or MCP tool interface require an issue or Discussion with design alignment before implementation. Reuse existing agreed design and acceptance criteria when they cover the requested change; do not require a new discussion for the same decision.
+- **Work that preserves the existing public contract does not need upfront design discussion.** This includes pure bug fixes restoring documented behavior, internal refactors, performance improvements, and docs. Issue and PR requirements, applicable tests and benchmarks, and the approval boundaries below still apply.
 
 ## Boundaries
 
@@ -96,8 +97,10 @@ Keep the tree navigable and each file independently understandable. These are pr
 ## Where to look
 
 - **Product understanding:** `README.md` (overview) and `CONTRIBUTING.md` (workflow).
-- **Planning a feature?** Open a Discussion or issue before implementing — product-surface changes (Practice format, retrieval model, CLI) need alignment first.
+- **Planning a feature?** Check existing issues, Specs, and agreed designs, then apply the design-alignment rule in [Git workflow](#git-workflow).
 
 ## When in doubt
 
-If a task is ambiguous, **open a Draft PR or ask in Discussions** rather than guessing. Lorelum's product surface is the Practice format and retrieval engine — getting those right matters more than speed.
+- Check the request, existing issues, Specs, tests, and code before asking for clarification. Resolve ordinary implementation details using repository conventions and conservative assumptions within the authorized scope.
+- If ambiguity changes the public contract, acceptance criteria, or authorization, state the unresolved decision and pause only the affected steps. Continue independent, authorized investigation, preparation, and verification without crossing the design or approval gates.
+- Do not create a Draft PR or Discussion solely because an implementation detail is unclear. Use them when required by the repository workflow and covered by the task's authorization; preserve the Issue and PR requirements above.
