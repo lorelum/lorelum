@@ -17,8 +17,6 @@ human contribution contract, then use the relevant links below.
 - [Query phased implementation roadmap (Chinese)](../plans/query-roadmap.md) -
   keyword retrieval, configuration, embedding profiles, and derived indexes.
   This plan describes future work, not currently available commands.
-- [Keyword query retrieval contract](../adr/0010-keyword-query-retrieval.md) -
-  M1 CLI behavior, tokenizer, BM25F ranking, architecture, and evidence requirements.
 
 ## Local CLI and multiple worktrees
 
