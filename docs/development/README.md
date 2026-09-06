@@ -12,6 +12,12 @@ human contribution contract, then use the relevant links below.
 - [Local CLI and worktrees](#local-cli-and-multiple-worktrees)
 - [Read an installed Practice with `lore get`](../cli/get.md)
 
+## Proposed plans
+
+- [Query phased implementation roadmap (Chinese)](../plans/query-roadmap.md) -
+  keyword retrieval, configuration, embedding profiles, and derived indexes.
+  This plan describes future work, not currently available commands.
+
 ## Local CLI and multiple worktrees
 
 The CLI's discoverable global option is:
