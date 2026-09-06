@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -66,8 +67,145 @@ try {
   });
   assert.equal(invalid.stdout.includes("private-token"), false);
   assert.equal(invalid.stderr, "");
+
+  await exerciseGet(executable, directory);
 } finally {
   await rm(directory, { force: true, recursive: true });
+}
+
+/**
+ * Install one synthetic Pack through the public engine API in a separate
+ * process, then verify the compiled CLI reads the persisted snapshot.
+ */
+async function exerciseGet(compiledBinary: string, workingDirectory: string): Promise<void> {
+  const packDirectory = join(workingDirectory, "fixture-pack");
+  const storageRoot = join(workingDirectory, "fixture-store");
+  const practiceId = "integration.retrieval.demo";
+  await mkdir(join(packDirectory, "practices"), { recursive: true });
+  await writeFile(
+    join(packDirectory, "pack.yaml"),
+    "name: integration-pack\nversion: 1.0.0\ndescription: Process integration fixture.\n",
+  );
+  await writeFile(
+    join(packDirectory, "practices", "retrieval-demo.md"),
+    `---
+id: ${practiceId}
+title: Persisted retrieval demo
+stage: integration
+tech_stack: [bun, typescript]
+applies_when: exercising the compiled get command
+anti_patterns:
+  - id: integration.retrieval.skip
+    name: Skip persisted state
+    description: Do not bypass the local snapshot.
+---
+# Persisted guidance
+
+This complete body must survive installation and retrieval.
+`,
+  );
+
+  const engineEntrypoint = join(import.meta.dir, "../../engine/src/index.ts");
+  const installer = `
+const { decodePackDirectory, createLocalStore } = await import(${JSON.stringify(engineEntrypoint)});
+const decoded = await decodePackDirectory(${JSON.stringify(packDirectory)});
+const result = await createLocalStore().install(
+  { rootPath: ${JSON.stringify(storageRoot)} },
+  decoded.candidate,
+  decoded.diagnostics,
+);
+console.log(JSON.stringify({ generation: result.generation, effectiveRevision: result.effectiveRevision }));
+`;
+  const installed = await runProcess([bunExecutable!, "-e", installer]);
+  assert.equal(installed.exitCode, 0, installed.stderr || installed.stdout);
+  assert.equal(installed.stderr, "");
+  assert.equal(installed.stdout.trim().split(/\r?\n/).length, 1);
+
+  const first = await runGet(compiledBinary, practiceId, storageRoot);
+  assert.equal(first.exitCode, 0);
+  assert.equal(first.stderr, "");
+  const firstResponse = parseSingleResponse(first.stdout);
+  assert.equal(firstResponse.command, "get");
+  assert.equal(firstResponse.ok, true);
+  assert(isRecord(firstResponse.data));
+  assert(isRecord(firstResponse.data.practice));
+  assert.deepEqual(firstResponse.data.practice, {
+    id: practiceId,
+    title: "Persisted retrieval demo",
+    stage: "integration",
+    tech_stack: ["bun", "typescript"],
+    applies_when: "exercising the compiled get command",
+    severity: "warn",
+    body: "# Persisted guidance\n\nThis complete body must survive installation and retrieval.\n",
+    anti_patterns: [
+      {
+        id: "integration.retrieval.skip",
+        name: "Skip persisted state",
+        description: "Do not bypass the local snapshot.",
+        severity: "warn",
+      },
+    ],
+  });
+  assert.equal(typeof firstResponse.data.practice.body, "string");
+  assert.match(String(firstResponse.data.contentDigest), /^[0-9a-f]{64}$/);
+  assert.deepEqual(firstResponse.data.sources, [
+    { packName: "integration-pack", sourcePath: "practices/retrieval-demo.md" },
+  ]);
+
+  const firstStdout = first.stdout;
+  const second = await runGet(compiledBinary, practiceId, storageRoot, "before");
+  assert.equal(second.exitCode, 0);
+  assert.equal(second.stdout, firstStdout);
+  const third = await runGet(compiledBinary, practiceId, storageRoot, "after");
+  assert.equal(third.exitCode, 0);
+  assert.equal(third.stdout, firstStdout);
+
+  const absent = await runGet(compiledBinary, "integration.retrieval.absent", storageRoot);
+  assert.equal(absent.exitCode, 2);
+  assert.equal(absent.stderr, "");
+  const absentResponse = parseSingleResponse(absent.stdout);
+  assert.equal(absentResponse.ok, false);
+  assert.equal(isRecord(absentResponse.error) && absentResponse.error.code, "practice.not-found");
+
+  const isolatedRoot = join(workingDirectory, "isolated-store");
+  await mkdir(isolatedRoot, { recursive: true });
+  const isolated = await runGet(compiledBinary, practiceId, isolatedRoot);
+  assert.equal(isolated.exitCode, 2);
+  const isolatedResponse = parseSingleResponse(isolated.stdout);
+  assert.equal(
+    isRecord(isolatedResponse.error) && isolatedResponse.error.code,
+    "practice.not-found",
+  );
+
+  const malformedRoot = join(workingDirectory, "malformed-store");
+  const malformed = await runGet(compiledBinary, "invalid-id", malformedRoot);
+  assert.equal(malformed.exitCode, 2);
+  assert.equal(malformed.stderr, "");
+  const malformedResponse = parseSingleResponse(malformed.stdout);
+  assert.equal(malformedResponse.ok, false);
+  assert.equal(isRecord(malformedResponse.error) && malformedResponse.error.code, "usage.invalid");
+  assert.equal(existsSync(malformedRoot), false, "malformed IDs must not create a Store root");
+}
+
+async function runGet(
+  binaryPath: string,
+  practiceId: string,
+  storageRoot: string,
+  globalPosition: "before" | "after" = "after",
+): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  const args =
+    globalPosition === "before"
+      ? [binaryPath, "--store-root", storageRoot, "get", practiceId]
+      : [binaryPath, "get", practiceId, "--store-root", storageRoot];
+  return runProcess(args);
+}
+
+function parseSingleResponse(stdout: string): Record<string, unknown> {
+  const lines = stdout.trim().split(/\r?\n/);
+  assert.equal(lines.length, 1, `expected one JSON response line, got ${lines.length}`);
+  const response: unknown = JSON.parse(lines[0]!);
+  assert(isRecord(response));
+  return response;
 }
 
 function selectProtocolFields(stdout: string): {

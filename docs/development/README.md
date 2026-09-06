@@ -10,6 +10,7 @@ human contribution contract, then use the relevant links below.
 - [Tests and CI](../../CONTRIBUTING.md#testing--ci)
 - [Issues, branches, and PRs](../../CONTRIBUTING.md#development-workflow)
 - [Local CLI and worktrees](#local-cli-and-multiple-worktrees)
+- [Read an installed Practice with `lore get`](../cli/get.md)
 
 ## Local CLI and multiple worktrees
 
@@ -20,9 +21,8 @@ The CLI's discoverable global option is:
 ```
 
 When omitted, the Store remains `~/.lorelum`. A relative path is resolved from
-the calling process's current working directory. At present, `install` is the
-only CLI command that consumes `LocalStore`; do not infer support for other
-commands from this guide.
+the calling process's current working directory. `install` and `get` consume
+`LocalStore`; do not infer support for other commands from this guide.
 
 ### A copyable `lore-dev` function
 
@@ -59,6 +59,8 @@ not part of a commit. For example:
 
 ```zsh
 lore-dev install pack-creator --pack-version 0.1.0
+lore-dev install agentic-coding --pack-version 0.3.0
+lore-dev get agentic-coding.testing.classify-failure-before-changing-test
 ```
 
 Use the source function while iterating. To check compiled behavior for the
@@ -90,8 +92,8 @@ inspect it instead of replacing it blindly.
 Any manual Store-writing workflow (for example, future `uninstall` or
 `reindex` commands) must pass an explicitly isolated `--store-root`. These
 commands are not implemented merely because they are named here; the rule is a
-forward-looking safety constraint. Today, only `install` is implemented as a
-LocalStore consumer.
+forward-looking safety constraint. `get` also needs an isolated root during
+development: its cold open can initialize or recover the selected Store.
 
 Automated tests should continue to use temporary directories for Store data.
 They must not write to `~/.lorelum` or to a developer's shared Store.

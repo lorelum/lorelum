@@ -7,6 +7,7 @@ import {
 import { frameworkErrorCodes, invalidInvocationError } from "./runtime/errors.js";
 import { logLevels } from "./runtime/logger.js";
 import { createInstallCommand } from "./install/install-command.js";
+import { createGetCommand } from "./get/get-command.js";
 import { createLocalizationCommands } from "./localization/index.js";
 
 export interface CommandOption {
@@ -228,6 +229,7 @@ export const rootCommand = snapshotCommandDefinition({
 export const commandRegistry = snapshotCommandDefinitions([
   discoveryCommandDefinition,
   createInstallCommand(),
+  createGetCommand(),
   ...createLocalizationCommands(),
 ]);
 

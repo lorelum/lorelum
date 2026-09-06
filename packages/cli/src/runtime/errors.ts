@@ -2,6 +2,7 @@ export const cliErrorCodes = Object.freeze({
   packInvalid: "pack.invalid",
   packUpgradeRequired: "pack.upgrade-required",
   practiceConflict: "practice.conflict",
+  practiceNotFound: "practice.not-found",
   registryInvalid: "registry.invalid",
   registryPackNotFound: "registry.pack-not-found",
   registryUnavailable: "registry.unavailable",
