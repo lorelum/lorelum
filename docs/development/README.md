@@ -29,9 +29,9 @@ The CLI's discoverable global option is:
 
 When omitted, the Store remains `~/.lorelum`. A relative path is resolved from the calling process's current working directory. `install`, `get`, and `query` consume LocalStore; do not infer support for other commands from this guide.
 
-### A copyable `lore-dev` function
+### Source-level CLI helper
 
-Define this function in the shell where you are working (or temporarily paste it into a session):
+`lore-dev` is a developer convenience, not a CLI requirement. Configure an equivalent helper with the initialization mechanism for the developer's shell; do not assume every developer uses zsh. The following is a zsh example, which can be added to `~/.zshrc` or pasted into one zsh session:
 
 ```zsh
 lore-dev() {
@@ -55,6 +55,8 @@ lore-dev() {
 
   bun "$cli_entry" --store-root "$store_root" "$@"
 }
+
+alias ld='lore-dev'
 ```
 
 The function anchors the source entrypoint to the current worktree and derives its Store from Git administrative data. That Store is worktree-specific and is not part of a commit. For example:
@@ -64,6 +66,12 @@ lore-dev install pack-creator --pack-version 0.1.0
 lore-dev install agentic-coding --pack-version 0.3.0
 lore-dev get agentic-coding.testing.classify-failure-before-changing-test
 ```
+
+The `ld` alias above is optional and specific to the zsh example.
+
+### Agent setup check
+
+Before an Agent exercises the current worktree's CLI source, it should check whether a `lore-dev` helper is available. If not, the Agent must ask the developer whether they want to configure one and which shell they use; it must not assume zsh or modify a shell startup file without explicit developer approval. Once configured, Agents should use the helper instead of rebuilding or repointing global `lore` for ordinary source-level CLI checks.
 
 Use the source function while iterating. To check compiled behavior for the same checkout, run:
 

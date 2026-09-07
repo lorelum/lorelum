@@ -38,6 +38,7 @@ Precise scripts live in each `packages/*/package.json`; the above is what the ro
 
 - Every LocalStore-consuming CLI command must use the shared Store-root resolver; do not call `defaultStorageRoot` directly when honoring the global override.
 - When manually writing Store data from a branch or worktree, use an isolated Store root. Never point it at another worktree's or the user's default Store.
+- Before exercising the current worktree's CLI source, check whether a `lore-dev` helper is available. If not, ask the developer whether they want to configure one and which shell they use; do not assume zsh or modify a shell startup file without explicit developer approval. Use that helper with its worktree-specific Store instead of rebuilding or repointing global `lore` for ordinary source-level CLI checks.
 
 ## Code style
 
