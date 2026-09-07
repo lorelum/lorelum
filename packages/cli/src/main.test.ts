@@ -33,6 +33,7 @@ test("returns machine-readable root capability discovery", async () => {
         { name: "describe" },
         { name: "install" },
         { name: "get" },
+        { name: "query" },
         { name: "format" },
         { name: "i18n.sync" },
         { name: "validate" },

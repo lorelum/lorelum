@@ -14,6 +14,8 @@ export const cliErrorCodes = Object.freeze({
   storeRecoveryRequired: "store.recovery-required",
   localizationInvalid: "localization.invalid",
   localizationPracticeNotFound: "localization.practice-not-found",
+  queryUnavailable: "query.unavailable",
+  queryFailed: "query.failed",
   usageInvalid: "usage.invalid",
 });
 

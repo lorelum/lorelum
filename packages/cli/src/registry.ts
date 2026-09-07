@@ -4,11 +4,12 @@ import {
   type JsonSchema,
   type JsonValue,
 } from "./output/protocol.js";
-import { createLocalStore, defaultStorageRoot } from "@lorelum/engine";
+import { createLocalStore, createQueryService, defaultStorageRoot } from "@lorelum/engine";
 import { frameworkErrorCodes, invalidInvocationError } from "./runtime/errors.js";
 import { logLevels } from "./runtime/logger.js";
 import { createInstallCommand } from "./install/install-command.js";
 import { createGetCommand } from "./get/get-command.js";
+import { createQueryCommand } from "./query/query-command.js";
 import { createLocalizationCommands } from "./localization/index.js";
 
 export interface CommandOption {
@@ -230,12 +231,14 @@ export const rootCommand = snapshotCommandDefinition({
 // default root. Individual operations still open their selected root per call.
 const sharedStore = createLocalStore();
 const sharedStorageRoot = defaultStorageRoot();
+const sharedQueryService = createQueryService({ store: sharedStore });
 
 /** Immutable child-command registry used unless a complete replacement is supplied. */
 export const commandRegistry = snapshotCommandDefinitions([
   discoveryCommandDefinition,
   createInstallCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
   createGetCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
+  createQueryCommand({ queryService: sharedQueryService, storageRoot: sharedStorageRoot }),
   ...createLocalizationCommands(),
 ]);
 

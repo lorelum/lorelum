@@ -1,6 +1,6 @@
 # LocalStore 读取架构与 Query 基础设计
 
-> Draft，供维护者评审。当前 PR 实现点查部分（#59），关键词 Query 部分由后续 PR（#60）交付。本文不是 Accepted ADR；当前实现按 [Issue #59](https://github.com/lorelum/lorelum/issues/59) 及本阶段 Query 交付范围推进，合并后的 ADR 才是不可变合同。
+> Draft，供维护者评审。本文不是 Accepted ADR；当前实现按 [Issue #59](https://github.com/lorelum/lorelum/issues/59) 及本阶段 Query 交付范围推进，合并后的 ADR 才是不可变合同。
 >
 > 相关文档：[LocalStore ADR](../adr/0007-engine-local-store.md)、[精确读取与 QueryService ADR（Proposed）](../adr/0011-local-store-point-read-and-query-boundary.md)、[点查实现 issue #59](https://github.com/lorelum/lorelum/issues/59)、[QueryService 实现 issue #60](https://github.com/lorelum/lorelum/issues/60)、[关键词检索研究 issue #57](https://github.com/lorelum/lorelum/issues/57)、[ORM 研究 issue #58](https://github.com/lorelum/lorelum/issues/58)、[`get` 当前合同](../cli/get.md)、[Query roadmap](./query-roadmap.md)。
 
@@ -367,7 +367,7 @@ QueryService 总耗时
 compiled CLI 进程总耗时与 peak RSS
 ```
 
-用固定种子的 100、1,000、5,000、20,000 条 synthetic Practice 记录 p50、p95 和 peak RSS，再用真实公开 Pack 做校验。关键词质量与性能基线将在 #60 对应的实现 PR 中交付。这些数据只能说明测量环境和样本下的基线，不能证明持久索引必要或不必要。产品延迟/内存预算应在 M1 issue 中结合基线确认；超过预算才提前进入持久化设计。
+用固定种子的 100、1,000、5,000、20,000 条 synthetic Practice 记录 p50、p95 和 peak RSS，再用真实公开 Pack 做校验。当前结果见 [keyword query quality and performance baseline](../development/keyword-query-benchmark.md)。这些数据只能说明测量环境和样本下的基线，不能证明持久索引必要或不必要。产品延迟/内存预算应在 M1 issue 中结合基线确认；超过预算才提前进入持久化设计。
 
 判断时要看瓶颈落在哪一段：如果主要时间在 LocalStore materialization 和索引构建，持久派生索引有直接收益；如果主要时间是 CLI 启动，增加 SQLite 表并不会解决问题；如果只有更大规模下的 search 变慢，才需要优化 top-k 或索引结构。质量基线也要单独记录 Recall@k、MRR/nDCG 和越界误报，不能用延迟变快替代检索结果正确。
 
