@@ -6,7 +6,11 @@ import type { ValidationIssue } from "@lorelum/format";
 import type { EffectivePractice, PackCandidate, RevisionDelta } from "../model";
 
 import { installOrUpgrade } from "./install";
-import { openLocalStore, readEffectivePractices as readEffectivePracticesFromStore } from "./open";
+import {
+  openLocalStore,
+  getEffectivePractice,
+  readEffectivePractices as readEffectivePracticesFromStore,
+} from "./open";
 import { reindexStore } from "./reindex";
 import { uninstallPack } from "./uninstall";
 import type { EffectiveRevisionHook, InstallResult, ReindexResult, UninstallResult } from "./types";
@@ -28,6 +32,11 @@ export interface OpenResult {
 }
 
 export interface LocalStore {
+  /** Consistent indexed point read; validates only the returned Practice and sources. */
+  getEffectivePractice(
+    root: StorageRoot,
+    practiceId: string,
+  ): Promise<EffectivePractice | undefined>;
   /** Cold open; throws StoreRecoveryRequiredError on any inconsistency. */
   open(root: StorageRoot): Promise<OpenResult>;
   install(
@@ -60,6 +69,9 @@ export function createLocalStore(
 ): LocalStore {
   const hook = options.onEffectiveRevisionAdvanced;
   const store: LocalStore = {
+    getEffectivePractice(root, practiceId) {
+      return getEffectivePractice(root.rootPath, practiceId);
+    },
     async open(root: StorageRoot): Promise<OpenResult> {
       const result = await openLocalStore(root.rootPath);
       return {

@@ -9,6 +9,8 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [Issues, branches, and PRs](../../CONTRIBUTING.md#development-workflow)
 - [Local CLI and worktrees](#local-cli-and-multiple-worktrees)
 - [Read an installed Practice with `lore get`](../cli/get.md)
+- [LocalStore Engine API](#localstore-engine-api)
+- [Point-read performance benchmark](./local-store-point-read-benchmark.md)
 
 ## Proposed plans
 
@@ -81,8 +83,27 @@ This assumes `~/.local/bin` is already in `PATH`. If the destination exists, ins
 
 ### Store isolation rules
 
-Any manual Store-writing workflow (for example, future `uninstall` or `reindex` commands) must pass an explicitly isolated `--store-root`. These commands are not implemented merely because they are named here; the rule is a forward-looking safety constraint. `get` also needs an isolated root during development: its cold open can initialize or recover the selected Store.
+Any manual Store-writing workflow (for example, future `uninstall` or `reindex` commands) must pass an explicitly isolated `--store-root`. These commands are not implemented merely because they are named here; the rule is a forward-looking safety constraint. `get` also needs an isolated root during development: its point-read path can initialize or recover the selected Store.
 
 Automated tests should continue to use temporary directories for Store data. They must not write to `~/.lorelum` or to a developer's shared Store.
 
 There is intentionally no Store-related environment variable, automatic worktree detection in the global CLI, project scope, or implicit Store. The global override is explicit and discoverable; callers that need isolation must provide it.
+
+## LocalStore Engine API
+
+Create the facade at your application's composition root and pass it to callers. Construction does not open a database; each operation owns and closes its connection. Pass a root per operation, so sharing the facade does not share a mutable current root or snapshot.
+
+```ts
+import { createLocalStore } from "@lorelum/engine";
+
+const store = createLocalStore();
+const root = { rootPath: "/path/to/isolated-store" };
+const effective = await store.getEffectivePractice(root, "example.api.guidance");
+if (effective !== undefined) {
+  console.log(effective.practice.body, effective.contentDigest);
+}
+```
+
+Use `getEffectivePractice` for an exact ID, `readEffectivePractices` for one full consistent corpus, and `open` when the caller explicitly needs the full artifact audit. Both point and corpus reads validate the SQLite rows they return; only `open` hashes installed artifacts. `getEffectivePractice` and `open` can converge pending operation journals; `readEffectivePractices` does not add that write-recovery step. Invalid IDs throw `InvalidPracticeIdError` before I/O; missing IDs return `undefined`; inconsistent or busy Stores throw `StoreRecoveryRequiredError` or `StoreBusyError`. Do not turn these errors into an empty result.
+
+See [ADR 0011](../adr/0011-local-store-point-read-and-query-boundary.md) for the consistency boundary.

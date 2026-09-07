@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { Database } from "bun:sqlite";
+import { ID_REGEX } from "@lorelum/format";
 
 import type { EffectivePractice } from "../model";
 import { artifactPath, calculateArtifactDigest } from "../storage/artifacts/artifact-store";
@@ -27,7 +29,15 @@ import {
 } from "../storage/mutation-lock";
 import { listOperationJournals } from "../storage/journal/operation-journal";
 import { openStoreDatabase } from "../storage/sqlite/database";
-import { readLocalStoreSnapshot } from "../storage/sqlite/snapshot-reader";
+import {
+  readLocalStoreSnapshot,
+  readStoreMetadata,
+  readActivePackEntries,
+  materializeEffectivePractices,
+  type StoreMetadataSnapshot,
+} from "../storage/sqlite/snapshot-reader";
+import { readPractice } from "../storage/sqlite/practice-reader";
+import { InvalidPracticeIdError } from "./errors";
 
 import { runStoreRecovery } from "./recovery";
 
@@ -260,10 +270,15 @@ async function verifyColdOpenSnapshot(rootPath: string): Promise<ColdOpenResult>
  * §12).
  */
 export async function openLocalStore(rootPath: string): Promise<ColdOpenResult> {
+  return readWithJournalRecovery(rootPath, () => verifyColdOpenSnapshot(rootPath));
+}
+
+/** Only recovery-capable reads use this wrapper; the lock-free public full read does not. */
+async function readWithJournalRecovery<T>(rootPath: string, read: () => Promise<T>): Promise<T> {
   for (let recoveryAttempt = 0; recoveryAttempt < 2; recoveryAttempt++) {
     await convergePendingJournals(rootPath);
     try {
-      const result = await verifyColdOpenSnapshot(rootPath);
+      const result = await read();
       await reclaimStaleMutationLock(rootPath);
       return result;
     } catch (error) {
@@ -295,17 +310,54 @@ export async function openLocalStore(rootPath: string): Promise<ColdOpenResult> 
 export async function readEffectivePractices(
   rootPath: string,
 ): Promise<readonly EffectivePractice[]> {
+  return readConsistentSnapshot(
+    rootPath,
+    (database, metadata) => {
+      // Preserve the full-read path's existing validation of Active Pack rows.
+      readActivePackEntries(database);
+      return materializeEffectivePractices(database, metadata);
+    },
+    Object.freeze([]),
+  );
+}
+
+/** Callbacks are synchronous, read-only, and may be retried. Connections stay private. */
+async function readConsistentSnapshot<T>(
+  rootPath: string,
+  read: (database: Database, metadata: StoreMetadataSnapshot) => T,
+  empty: T,
+): Promise<T> {
   const MAX_READ_RETRIES = 3;
   const database = await openStoreForLifecycle(rootPath);
   try {
     for (let attempt = 0; attempt < MAX_READ_RETRIES; attempt++) {
       // eslint-disable-next-line no-await-in-loop -- bounded retry is inherently sequential
       const manifestA = await tryReadManifest(rootPath);
-      const snapshot = readLocalStoreSnapshot(database);
+      let snapshot: { metadata: StoreMetadataSnapshot; value: T } | undefined;
+      try {
+        snapshot = database.transaction(() => {
+          const metadata = readStoreMetadata(database);
+          if (metadata === undefined) return undefined;
+          return { metadata, value: read(database, metadata) };
+        })();
+      } catch (error) {
+        if (error instanceof SqliteStateError) throw error;
+        throw new SqliteStateError("cannot read LocalStore snapshot", error);
+      }
       // eslint-disable-next-line no-await-in-loop -- manifest B must follow the SQLite snapshot
       const manifestB = await tryReadManifest(rootPath);
       if (manifestA === undefined && snapshot === undefined && manifestB === undefined) {
-        return Object.freeze([]);
+        return empty;
+      }
+      // A persisted empty manifest is also a valid never-written Store.
+      if (
+        snapshot === undefined &&
+        manifestA?.generation === 0 &&
+        manifestA.effectiveRevision === 0 &&
+        manifestA.packs.length === 0 &&
+        manifestsEqual(manifestA, manifestB)
+      ) {
+        return empty;
       }
       if (manifestA === undefined || snapshot === undefined || manifestB === undefined) continue;
       const tupleMatches =
@@ -316,7 +368,7 @@ export async function readEffectivePractices(
         manifestB !== undefined &&
         serializeManifest(manifestA) === serializeManifest(manifestB)
       ) {
-        return snapshot.effectivePractices;
+        return snapshot.value;
       }
     }
     // Retries exhausted. Distinguish a stable mismatch (recovery required)
@@ -341,4 +393,19 @@ export async function readEffectivePractices(
   } finally {
     database.close();
   }
+}
+
+/** Point reads retain cold-open journal convergence without its whole-store artifact audit. */
+export async function getEffectivePractice(
+  rootPath: string,
+  practiceId: string,
+): Promise<EffectivePractice | undefined> {
+  if (!ID_REGEX.test(practiceId)) throw new InvalidPracticeIdError();
+  return readWithJournalRecovery(rootPath, () =>
+    readConsistentSnapshot(
+      rootPath,
+      (database, metadata) => readPractice(database, metadata, practiceId),
+      undefined,
+    ),
+  );
 }

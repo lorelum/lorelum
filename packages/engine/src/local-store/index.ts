@@ -29,6 +29,7 @@ export type {
 export type { EffectiveRevisionHook } from "./lifecycle/types";
 
 export {
+  InvalidPracticeIdError,
   PackNotInstalledError,
   StoreCounterExhaustedError,
   UpgradeRequiredError,

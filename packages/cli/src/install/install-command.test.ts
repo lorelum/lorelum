@@ -69,6 +69,7 @@ function createServices(
   registryVersion = "0.1.0",
 ): {
   services: InstallCommandServices;
+  store: ReturnType<typeof createLocalStore>;
   observed: { cleaned: number; locator: string | undefined; repository: string | undefined };
 } {
   const observed = { cleaned: 0, locator: undefined, repository: undefined } as {
@@ -76,8 +77,10 @@ function createServices(
     locator: string | undefined;
     repository: string | undefined;
   };
+  const store = createLocalStore();
   return {
     observed,
+    store,
     services: {
       async loadRegistry(locator) {
         observed.locator = locator;
@@ -98,7 +101,7 @@ function createServices(
         };
       },
       decodePackDirectory,
-      store: createLocalStore(),
+      store,
       storageRoot: { rootPath: storageRoot },
     },
   };
@@ -154,9 +157,7 @@ test("installs from an explicit Registry repository and is idempotent", async ()
       },
     });
     expect(fixture.observed.cleaned).toBe(2);
-    expect(
-      await fixture.services.store.readEffectivePractices({ rootPath: storageRoot }),
-    ).toHaveLength(1);
+    expect(await fixture.store.readEffectivePractices({ rootPath: storageRoot })).toHaveLength(1);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
@@ -179,9 +180,7 @@ test("uses an explicit global Store root without touching the default Store", as
     ).toBe(0);
     expect(JSON.parse(firstOutput.value)).toMatchObject({ data: { idempotent: false } });
     expect(existsSync(defaultRoot)).toBe(false);
-    expect(
-      await fixture.services.store.readEffectivePractices({ rootPath: isolatedRoot }),
-    ).toHaveLength(1);
+    expect(await fixture.store.readEffectivePractices({ rootPath: isolatedRoot })).toHaveLength(1);
 
     const secondOutput = new MemoryWriter();
     expect(
@@ -232,7 +231,7 @@ Changed content that must not be installed implicitly.
       ok: false,
       error: { code: "pack.upgrade-required" },
     });
-    const effective = await first.services.store.readEffectivePractices({ rootPath: storageRoot });
+    const effective = await first.store.readEffectivePractices({ rootPath: storageRoot });
     expect(effective[0]?.practice.body).toContain("can be decoded and installed");
   } finally {
     await rm(directory, { force: true, recursive: true });

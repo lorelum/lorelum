@@ -1,6 +1,6 @@
 # Read an installed Practice
 
-`lore get <practice-id>` retrieves one complete canonical Practice by its exact ID from the selected LocalStore. The contract was agreed in [issue #49](https://github.com/lorelum/lorelum/issues/49).
+`lore get <practice-id>` retrieves one complete canonical Practice by its exact ID from the selected LocalStore. The public command contract was agreed in [issue #49](https://github.com/lorelum/lorelum/issues/49); the Engine point-read path and its consistency boundary are described in [ADR 0011](../adr/0011-local-store-point-read-and-query-boundary.md).
 
 ```sh
 lore get agentic-coding.testing.classify-failure-before-changing-test
@@ -31,11 +31,11 @@ data: {
 
 ## Store behavior
 
-Each invocation calls `LocalStore.open()` once and selects from that verified snapshot. It inherits normal Store initialization, schema migration, and pending operation-journal recovery. A healthy read does not advance generation or effectiveRevision or change installed content. This is not a promise of zero filesystem writes: opening a missing Store initializes it, and recovering a prior interrupted operation can write Store state.
+Each invocation calls the Engine's `LocalStore.getEffectivePractice()` once for the selected root. The storage layer performs a parameterized SQLite primary-key lookup joined with all source rows, then runs the same canonical, digest, path, and row validation used by full snapshot reads. The read is accepted only when manifest A, the SQLite `(generation, effectiveRevision)` tuple, and manifest B describe the same committed state. Existing operation-journal convergence and Store initialization/recovery behavior remain in force.
 
-Store integrity is checked before reporting absence, including when the requested ID is unknown. Missing or damaged artifacts and inconsistent SQLite state are errors. The command does not invoke `reindex` or access a Registry/network.
+The point-read contract does not scan or hash any Pack artifact, including the artifact containing the requested Practice. Therefore a tampered artifact, or a canonical row unrelated to the requested Practice, can remain undetected by a normal `get`; full Store verification remains the responsibility of recovery/reindex and other paths that explicitly require an audit. A valid ID with no matching row returns `practice.not-found`; a malformed target row, inconsistent SQLite state, unresolved journal, or concurrent mutation is an error. The command does not invoke `reindex` or access a Registry/network.
 
-The current implementation verifies and materializes the full active Store. Separate invocations can observe different Store revisions; there is no cross-command snapshot or version-pinning contract.
+Separate invocations can observe different Store revisions; there is no cross-command snapshot or version-pinning contract. A single point read is consistent, but it is not a long-lived Session and does not pin a revision for a later command.
 
 ## Errors and exit codes
 
@@ -49,6 +49,6 @@ Success exits `0`. Failures use `ok: false` with `error: { code, message }` and 
 | `store.recovery-required` | The selected Store could not be opened and recovered normally. |
 | `runtime.unexpected` | An undeclared internal failure prevented completion. |
 
-Invalid IDs fail before opening the Store. Visible errors do not include raw arguments or internal failure details. Callers should branch on `code` rather than parsing `message`.
+Invalid IDs fail before opening the Store. The Engine API reports `InvalidPracticeIdError`; the CLI translates it to `usage.invalid`. Visible errors do not include raw arguments or internal failure details. Callers should branch on `code` rather than parsing `message`.
 
 This command does not implement semantic search, batch lookup, Pack/version selection, runtime translations, or related-Practice expansion.

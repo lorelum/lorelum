@@ -4,6 +4,7 @@ import {
   type JsonSchema,
   type JsonValue,
 } from "./output/protocol.js";
+import { createLocalStore, defaultStorageRoot } from "@lorelum/engine";
 import { frameworkErrorCodes, invalidInvocationError } from "./runtime/errors.js";
 import { logLevels } from "./runtime/logger.js";
 import { createInstallCommand } from "./install/install-command.js";
@@ -225,11 +226,16 @@ export const rootCommand = snapshotCommandDefinition({
   handler: (invocation) => ({ data: requireCommandDescription(invocation.describeCommand) }),
 });
 
+// Commands in one CLI invocation share the same cheap LocalStore facade and
+// default root. Individual operations still open their selected root per call.
+const sharedStore = createLocalStore();
+const sharedStorageRoot = defaultStorageRoot();
+
 /** Immutable child-command registry used unless a complete replacement is supplied. */
 export const commandRegistry = snapshotCommandDefinitions([
   discoveryCommandDefinition,
-  createInstallCommand(),
-  createGetCommand(),
+  createInstallCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
+  createGetCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
   ...createLocalizationCommands(),
 ]);
 

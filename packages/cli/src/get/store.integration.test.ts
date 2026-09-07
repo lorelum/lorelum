@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -27,6 +28,7 @@ async function install(
   packName = "sample",
   rootName = "store",
   body = "Complete guidance.\n",
+  practiceId = id,
 ) {
   const packPath = join(directory, packName);
   await mkdir(join(packPath, "practices"), { recursive: true });
@@ -34,7 +36,7 @@ async function install(
   await writeFile(
     join(packPath, "practices/read.md"),
     `---
-id: ${id}
+id: ${practiceId}
 title: Read the requested Practice
 stage: verification
 tech_stack: [typescript, bun]
@@ -138,29 +140,76 @@ test("Store overrides isolate content and empty guidance stays retrievable", asy
 });
 
 test.each(["artifact", "sqlite"] as const)(
-  "fails on damaged %s even when the ID is absent",
+  "ignores unrelated %s damage for ordinary get",
   async (damage) => {
     await withDirectory(async (directory) => {
       const root = await install(directory);
+      await install(directory, "other", "store", "Other guidance.\n", "example.other");
       if (damage === "artifact") {
-        const artifactRoot = join(root.rootPath, "packs/p-sample");
+        const artifactRoot = join(root.rootPath, "packs/p-other");
         const [digest] = await readdir(artifactRoot);
         expect(digest).toBeDefined();
         await writeFile(join(artifactRoot, digest!, "practices/read.md"), "Changed artifact.\n");
       } else {
-        await rm(join(root.rootPath, "store.sqlite"));
+        const database = new Database(join(root.rootPath, "store.sqlite"));
+        database.run("UPDATE effective_practices SET canonical_content = ? WHERE practice_id = ?", [
+          '{"id":"example.other"}',
+          "example.other",
+        ]);
+        database.close();
       }
-      for (const practiceId of [id, "example.absent"]) {
-        // eslint-disable-next-line no-await-in-loop -- verify the same damaged Store for both lookups
-        const result = await get(directory, "store", practiceId);
-        expect(result.exitCode).toBe(2);
-        expect(result.response.error.code).toBe("store.recovery-required");
-      }
+      const target = await get(directory, "store", id);
+      expect(target.exitCode).toBe(0);
+      expect(target.response.data.practice.id).toBe(id);
+      const absent = await get(directory, "store", "example.absent");
+      expect(absent.exitCode).toBe(2);
+      expect(absent.response.error.code).toBe("practice.not-found");
     });
   },
 );
 
-test("cold open converges an interrupted manifest publication before returning guidance", async () => {
+test("does not audit the artifact when the requested Practice is present", async () => {
+  await withDirectory(async (directory) => {
+    const root = await install(directory);
+    const artifactRoot = join(root.rootPath, "packs/p-sample");
+    const [digest] = await readdir(artifactRoot);
+    expect(digest).toBeDefined();
+    await writeFile(join(artifactRoot, digest!, "practices/read.md"), "Changed artifact.\n");
+    const result = await get(directory, "store", id);
+    expect(result.exitCode).toBe(0);
+    expect(result.response.data.practice.id).toBe(id);
+  });
+});
+
+test("fails when the requested Practice has SQLite row damage", async () => {
+  await withDirectory(async (directory) => {
+    const root = await install(directory);
+    const database = new Database(join(root.rootPath, "store.sqlite"));
+    database.run("UPDATE effective_practices SET canonical_content = ? WHERE practice_id = ?", [
+      '{"id":"example.read-practice"}',
+      id,
+    ]);
+    database.close();
+    const result = await get(directory, "store", id);
+    expect(result.exitCode).toBe(2);
+    expect(result.response.error.code).toBe("store.recovery-required");
+  });
+});
+
+test("requires recovery when SQLite is missing for existing and absent IDs", async () => {
+  await withDirectory(async (directory) => {
+    const root = await install(directory);
+    await rm(join(root.rootPath, "store.sqlite"));
+    for (const practiceId of [id, "example.absent"]) {
+      // eslint-disable-next-line no-await-in-loop -- verify the same damaged Store for both lookups
+      const result = await get(directory, "store", practiceId);
+      expect(result.exitCode).toBe(2);
+      expect(result.response.error.code).toBe("store.recovery-required");
+    }
+  });
+});
+
+test("point read converges an interrupted manifest publication before returning guidance", async () => {
   await withDirectory(async (directory) => {
     const root = await install(directory);
     const manifestPath = join(root.rootPath, "installed-packs.json");

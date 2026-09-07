@@ -6,9 +6,7 @@ import {
   StoreBusyError,
   StoreRecoveryRequiredError,
   UpgradeRequiredError,
-  createLocalStore,
   decodePackDirectory,
-  defaultStorageRoot,
   type DecodedPackDirectory,
   type LocalStore,
   type StorageRoot,
@@ -24,25 +22,19 @@ import { materializeRegistryRelease, type MaterializedPackSource } from "./mater
 import { resolveRegistryRelease } from "./resolve-release.js";
 
 export interface InstallCommandServices {
-  readonly loadRegistry: (locator?: string) => Promise<LoadedRegistry>;
-  readonly materializeRelease: (
+  /** Core storage dependencies are supplied by the CLI composition root. */
+  readonly store: Pick<LocalStore, "install">;
+  readonly storageRoot: StorageRoot;
+  /** Ancillary dependencies default to the production implementations. */
+  readonly loadRegistry?: (locator?: string) => Promise<LoadedRegistry>;
+  readonly materializeRelease?: (
     release: RegistryRelease,
     repository: string,
   ) => Promise<MaterializedPackSource>;
-  readonly decodePackDirectory: (directory: string) => Promise<DecodedPackDirectory>;
-  readonly store: LocalStore;
-  readonly storageRoot: StorageRoot;
+  readonly decodePackDirectory?: (directory: string) => Promise<DecodedPackDirectory>;
 }
 
-function defaultInstallServices(): InstallCommandServices {
-  return {
-    loadRegistry,
-    materializeRelease: materializeRegistryRelease,
-    decodePackDirectory,
-    store: createLocalStore(),
-    storageRoot: defaultStorageRoot(),
-  };
-}
+type ResolvedInstallCommandServices = Required<InstallCommandServices>;
 
 const stringSchema: JsonSchema = { type: "string" };
 const stringArraySchema: JsonSchema = { type: "array", items: stringSchema };
@@ -165,7 +157,7 @@ function throwVisibleInstallError(error: unknown): never {
 }
 
 async function installPack(
-  services: InstallCommandServices,
+  services: ResolvedInstallCommandServices,
   storageRoot: StorageRoot,
   packName: string,
   requestedVersion?: string,
@@ -218,9 +210,14 @@ async function installPack(
   }
 }
 
-export function createInstallCommand(
-  services: InstallCommandServices = defaultInstallServices(),
-): CommandDefinition {
+export function createInstallCommand(services: InstallCommandServices): CommandDefinition {
+  const resolvedServices = {
+    loadRegistry: services.loadRegistry ?? loadRegistry,
+    materializeRelease: services.materializeRelease ?? materializeRegistryRelease,
+    decodePackDirectory: services.decodePackDirectory ?? decodePackDirectory,
+    store: services.store,
+    storageRoot: services.storageRoot,
+  };
   return {
     name: "install",
     summary: "Install a Knowledge Pack into the selected local Store.",
@@ -246,8 +243,11 @@ export function createInstallCommand(
       try {
         return {
           data: await installPack(
-            services,
-            resolveInvocationStorageRoot(invocation.options.storeRoot, services.storageRoot),
+            resolvedServices,
+            resolveInvocationStorageRoot(
+              invocation.options.storeRoot,
+              resolvedServices.storageRoot,
+            ),
             invocation.positionals[0]!,
             optionString(invocation.options, "packVersion"),
             optionString(invocation.options, "registry"),

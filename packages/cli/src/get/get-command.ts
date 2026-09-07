@@ -1,6 +1,4 @@
 import {
-  createLocalStore,
-  defaultStorageRoot,
   StoreBusyError,
   StoreRecoveryRequiredError,
   type LocalStore,
@@ -19,16 +17,11 @@ import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import { getResultSchema } from "./result-schema.js";
 
 export interface GetCommandServices {
-  readonly store: Pick<LocalStore, "open">;
+  readonly store: Pick<LocalStore, "getEffectivePractice">;
   readonly storageRoot: StorageRoot;
 }
 
-export function createGetCommand(
-  services: GetCommandServices = {
-    store: createLocalStore(),
-    storageRoot: defaultStorageRoot(),
-  },
-): CommandDefinition {
+export function createGetCommand(services: GetCommandServices): CommandDefinition {
   return {
     name: "get",
     summary: "Read one installed Practice by its exact ID from the selected local Store.",
@@ -47,9 +40,7 @@ export function createGetCommand(
       if (id === undefined || !ID_REGEX.test(id)) throw invalidInvocationError();
       const root = resolveInvocationStorageRoot(invocation.options.storeRoot, services.storageRoot);
       try {
-        // Use the verified cold-open snapshot, including pending-journal recovery.
-        const snapshot = await services.store.open(root);
-        const effective = snapshot.effectivePractices.find((entry) => entry.practiceId === id);
+        const effective = await services.store.getEffectivePractice(root, id);
         if (effective === undefined) {
           throw new CliError(
             cliErrorCodes.practiceNotFound,

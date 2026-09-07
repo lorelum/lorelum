@@ -1,3 +1,11 @@
+/** The requested ID does not satisfy the shared Practice format rule. */
+export class InvalidPracticeIdError extends Error {
+  constructor() {
+    super("Invalid Practice ID");
+    this.name = "InvalidPracticeIdError";
+  }
+}
+
 /** A Pack named in a mutation does not appear in the active manifest. */
 export class PackNotInstalledError extends Error {
   constructor(readonly packName: string) {
