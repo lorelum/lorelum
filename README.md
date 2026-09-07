@@ -229,13 +229,13 @@ Before compaction, the working context contains several very different kinds of 
 
 They should not all survive compaction in the same way:
 
-| Content                                               | How compaction should treat it                                       |
-| ----------------------------------------------------- | -------------------------------------------------------------------- |
-| Current goal, authoritative spec, acceptance criteria | Must be preserved                                                    |
-| Accepted decisions                                    | Preserve the decision and only the rationale needed to understand it |
-| Rejected approaches and disproved assumptions         | Preserve the conclusion, not the full exploration trail              |
-| Long logs and tool output                             | Preserve only key errors and evidence                                |
-| Incidental issues and unrelated tasks                 | Must not continue to influence the main task                         |
+| Content | How compaction should treat it |
+| --- | --- |
+| Current goal, authoritative spec, acceptance criteria | Must be preserved |
+| Accepted decisions | Preserve the decision and only the rationale needed to understand it |
+| Rejected approaches and disproved assumptions | Preserve the conclusion, not the full exploration trail |
+| Long logs and tool output | Preserve only key errors and evidence |
+| Incidental issues and unrelated tasks | Must not continue to influence the main task |
 
 After a long session, context is compacted. A poor summary can preserve the recent form refactor and green focused tests while losing the full acceptance scope. Worse, it can retain fragments of the rejected client-only shortcut, the disproved persistence assumption, or the legacy panel without preserving the fact that they are no longer authoritative.
 
@@ -342,16 +342,16 @@ Or wire it into your AI tool via MCP — Lorelum ships an MCP server that any MC
 
 ## How it's different
 
-|                                           | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum**                                                                                                               |
-| ----------------------------------------- | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Delivery**                              | Static, all-at-once          | Manual trigger          | **Retrieved on demand**                                                                                                   |
-| **Decays over session**                   | Yes                          | No (one-shot)           | No (fresh each query)                                                                                                     |
-| **Support around compaction**             | Manual: re-paste all rules   | Manual                  | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
-| **Requires you to know every rule first** | Yes                          | Often                   | No: start with community Packs, then add team Practices                                                                   |
-| **Calibrates work to scope and risk**     | No                           | Depends on the workflow | Research: retrieves planning Practices and anti-patterns for the current task and moment                                  |
-| **Scales to 100s of rules**               | ❌                           | Tedious                 | ✅ built for it                                                                                                           |
-| **Tool-agnostic**                         | Tool-specific                | Tool-specific           | ✅ MCP / CLI / Skill                                                                                                      |
-| **Anti-pattern checks**                   | No                           | No                      | ✅ `lore check`                                                                                                           |
+|  | `AGENTS.md` / `.cursorrules` | Skills / Slash commands | **Lorelum** |
+| --- | --- | --- | --- |
+| **Delivery** | Static, all-at-once | Manual trigger | **Retrieved on demand** |
+| **Decays over session** | Yes | No (one-shot) | No (fresh each query) |
+| **Support around compaction** | Manual: re-paste all rules | Manual | Research: supported integrations may guide selection before compaction and recovery after it; otherwise Skill / CLI / MCP |
+| **Requires you to know every rule first** | Yes | Often | No: start with community Packs, then add team Practices |
+| **Calibrates work to scope and risk** | No | Depends on the workflow | Research: retrieves planning Practices and anti-patterns for the current task and moment |
+| **Scales to 100s of rules** | ❌ | Tedious | ✅ built for it |
+| **Tool-agnostic** | Tool-specific | Tool-specific | ✅ MCP / CLI / Skill |
+| **Anti-pattern checks** | No | No | ✅ `lore check` |
 
 Lorelum isn't a better `.cursorrules`. It's the **Practice retrieval layer** that sits behind whatever AI tool you use.
 

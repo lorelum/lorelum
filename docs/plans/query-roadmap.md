@@ -29,16 +29,16 @@
 
 以下基线对应 get 已合入 main 的提交 `833444fdcf63f9cc9dbbb42395174132701d813b`，后续实施前应复核相应代码和 issue 状态。
 
-| 项目          | 基线                                                                                                                      | 对规划的影响                                                     |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| LocalStore    | 有 Effective Practice、digest、来源、generation、effectiveRevision、outbox 与恢复机制                                     | 复用已验证的内容快照和生命周期                                   |
-| 检索索引      | 尚无运行时词法索引、向量表和 Embedding provider                                                                           | 分阶段新增，不把已存在 hook 当成已完成索引                       |
-| get           | [#50](https://github.com/lorelum/lorelum/pull/50) 已合入 main，[#49](https://github.com/lorelum/lorelum/issues/49) 已关闭 | 已交付基线，直接复用，不重复安排实现                             |
-| 旧 query 方案 | [#45](https://github.com/lorelum/lorelum/issues/45) 及未合并的 [#46](https://github.com/lorelum/lorelum/pull/46) 已关闭   | 可以参考历史，但需重新对齐关键词 query 的当前契约                |
-| 配置          | 无产品化 config 命令；registry 测试中的 config 是测试定义                                                                 | 需要单独设计配置所有权、验证和命令协议                           |
-| Store 根目录  | 由显式 `--store-root` 和共享 resolver 决定                                                                                | 不引入隐式项目 Store 或新的 Store 环境变量                       |
-| ADR 0002      | SQLite + 内存精确余弦检索；P2 默认 text-embedding-3-small 与兼容客户端                                                    | 存储方向可沿用；改变默认模型策略需新 ADR，部署与离线策略另行明确 |
-| ADR 0007      | LocalStore 不拥有向量表或执行 Embedding                                                                                   | 检索持有派生状态，Embedding 不进入内容写事务                     |
+| 项目 | 基线 | 对规划的影响 |
+| --- | --- | --- |
+| LocalStore | 有 Effective Practice、digest、来源、generation、effectiveRevision、outbox 与恢复机制 | 复用已验证的内容快照和生命周期 |
+| 检索索引 | 尚无运行时词法索引、向量表和 Embedding provider | 分阶段新增，不把已存在 hook 当成已完成索引 |
+| get | [#50](https://github.com/lorelum/lorelum/pull/50) 已合入 main，[#49](https://github.com/lorelum/lorelum/issues/49) 已关闭 | 已交付基线，直接复用，不重复安排实现 |
+| 旧 query 方案 | [#45](https://github.com/lorelum/lorelum/issues/45) 及未合并的 [#46](https://github.com/lorelum/lorelum/pull/46) 已关闭 | 可以参考历史，但需重新对齐关键词 query 的当前契约 |
+| 配置 | 无产品化 config 命令；registry 测试中的 config 是测试定义 | 需要单独设计配置所有权、验证和命令协议 |
+| Store 根目录 | 由显式 `--store-root` 和共享 resolver 决定 | 不引入隐式项目 Store 或新的 Store 环境变量 |
+| ADR 0002 | SQLite + 内存精确余弦检索；P2 默认 text-embedding-3-small 与兼容客户端 | 存储方向可沿用；改变默认模型策略需新 ADR，部署与离线策略另行明确 |
+| ADR 0007 | LocalStore 不拥有向量表或执行 Embedding | 检索持有派生状态，Embedding 不进入内容写事务 |
 
 相关来源：[工具链 ADR](../adr/0002-bun-typescript-toolchain.md)、[LocalStore ADR](../adr/0007-engine-local-store.md)、[CLI 协议 ADR](../adr/0004-agent-first-cli-protocol.md)、[开发与 Store 隔离约定](../development/README.md)、[SQLite schema](../../packages/engine/src/local-store/storage/sqlite/migrations.ts)、[命令注册表](../../packages/cli/src/registry.ts)。
 
@@ -50,15 +50,15 @@ Accepted ADR 保留历史原意。改变既有选择应添加 superseding ADR，
 
 ## 3. 阶段与依赖总览
 
-| 阶段                  | 独立交付物                                      | 前置依赖                        | 暂不承担                        |
-| --------------------- | ----------------------------------------------- | ------------------------------- | ------------------------------- |
-| M0 精确读取（已完成） | get 已通过 #50 合入 main                        | 现有 LocalStore                 | 语义索引、配置重构              |
-| M1 关键词检索         | 可离线使用的 query 与检索基线                   | 现有 Store；完整使用流程配合 M0 | config、Embedding、持久全文索引 |
-| M2 配置基础           | 版本化配置、解析器和 config 管理能力            | 配置设计对齐                    | 模型下载、索引自动重建          |
-| M3 Embedding          | 不可变 profile、provider 接口及逐个接入的适配器 | M2                              | 用户可用的语义 query 承诺       |
-| M4 派生索引           | 模型隔离、持久化、构建/恢复/迁移和状态诊断      | M3；存储设计对齐                | ANN、独立数据库服务             |
-| M5 语义与混合检索     | 显式模式、向量召回、RRF 和故障语义              | M1 + M4                         | 默认自动切换、LLM query rewrite |
-| M6 质量与规模优化     | 由评测驱动的精排、多视图或 ANN                  | M5 的质量/性能证据              | 为假设中的规模提前改造          |
+| 阶段 | 独立交付物 | 前置依赖 | 暂不承担 |
+| --- | --- | --- | --- |
+| M0 精确读取（已完成） | get 已通过 #50 合入 main | 现有 LocalStore | 语义索引、配置重构 |
+| M1 关键词检索 | 可离线使用的 query 与检索基线 | 现有 Store；完整使用流程配合 M0 | config、Embedding、持久全文索引 |
+| M2 配置基础 | 版本化配置、解析器和 config 管理能力 | 配置设计对齐 | 模型下载、索引自动重建 |
+| M3 Embedding | 不可变 profile、provider 接口及逐个接入的适配器 | M2 | 用户可用的语义 query 承诺 |
+| M4 派生索引 | 模型隔离、持久化、构建/恢复/迁移和状态诊断 | M3；存储设计对齐 | ANN、独立数据库服务 |
+| M5 语义与混合检索 | 显式模式、向量召回、RRF 和故障语义 | M1 + M4 | 默认自动切换、LLM query rewrite |
+| M6 质量与规模优化 | 由评测驱动的精排、多视图或 ANN | M5 的质量/性能证据 | 为假设中的规模提前改造 |
 
 M0 已完成，下一阶段是 M1；M1 正式验收包含与已交付 get 的完整 query → get 使用流程。M2 的设计也可提前开展，但不能阻塞 M1。M4 的状态机可先通过 fake provider 验证，真实模型实验不必阻塞持久化正确性测试。
 
@@ -112,13 +112,13 @@ PR #50 已于 2026-09-06 合入 main，Issue #49 已关闭。已交付契约见[
 
 ### 配置内容与管理能力
 
-| 配置类别      | 例子                                         | 行为                                         |
-| ------------- | -------------------------------------------- | -------------------------------------------- |
-| 检索偏好      | 模式、结果数量、期望 profile                 | 不改变既有索引的实际状态                     |
-| Provider 连接 | provider 类型、endpoint、credential 引用     | 明确本地/远程及数据发送目标                  |
-| 编码参数      | 模型标识、版本、维度、指令、归一化和截断策略 | 生成新的不可变 profile，不原地修改旧 profile |
-| 运行参数      | timeout、batch size、有限重试                | 不改变向量空间时不触发重建                   |
-| 构建策略      | 显式构建、资源预算、失败处理                 | 不把一次配置写入升级为隐式计费任务           |
+| 配置类别 | 例子 | 行为 |
+| --- | --- | --- |
+| 检索偏好 | 模式、结果数量、期望 profile | 不改变既有索引的实际状态 |
+| Provider 连接 | provider 类型、endpoint、credential 引用 | 明确本地/远程及数据发送目标 |
+| 编码参数 | 模型标识、版本、维度、指令、归一化和截断策略 | 生成新的不可变 profile，不原地修改旧 profile |
+| 运行参数 | timeout、batch size、有限重试 | 不改变向量空间时不触发重建 |
+| 构建策略 | 显式构建、资源预算、失败处理 | 不把一次配置写入升级为隐式计费任务 |
 
 候选命令形态是 `lore config show/get/set/unset/path`，此处只列能力，不冻结语法。首个 PR 可以只提供解析与只读诊断，写入能力单独交付。所有命令遵循现有 Agent-first JSON 协议与 discoverability。
 
@@ -136,13 +136,13 @@ API key 初期优先使用环境变量引用或凭证存储引用，不要求把
 
 相同模型名不保证相同权重，相同维度更不保证兼容。需要持久化不可变的 EmbeddingProfile，由确定性序列化后的编码契约生成 profileId，而不是用用户起的别名或 `model + dimensions` 作为唯一身份。
 
-| 身份内容                                                     | 原因                                                                |
-| ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| provider/部署命名空间、模型 ID、可固定的 revision 或权重标识 | 防止同名模型、不同部署产生不同空间                                  |
-| 文档编码与 query 编码的配对契约                              | query/passage 前缀或 instruction 可能不同，但必须来自同一已验证组合 |
-| 实际输出维度、pooling、归一化和距离度量                      | 维度正确不代表处理方式相同                                          |
-| tokenizer/截断策略、文本投影版本                             | 模型输入构造变化会改变可比较性或索引语义                            |
-| 会改变输出的量化/运行时版本                                  | 无明确兼容证据时，按新 profile 隔离                                 |
+| 身份内容 | 原因 |
+| --- | --- |
+| provider/部署命名空间、模型 ID、可固定的 revision 或权重标识 | 防止同名模型、不同部署产生不同空间 |
+| 文档编码与 query 编码的配对契约 | query/passage 前缀或 instruction 可能不同，但必须来自同一已验证组合 |
+| 实际输出维度、pooling、归一化和距离度量 | 维度正确不代表处理方式相同 |
+| tokenizer/截断策略、文本投影版本 | 模型输入构造变化会改变可比较性或索引语义 |
+| 会改变输出的量化/运行时版本 | 无明确兼容证据时，按新 profile 隔离 |
 
 provider 不暴露不可变 revision 时，记录可取得的标识并承认不能自动证明权重未漂移；禁止将维度探测当作同一空间的证明。部署变更、服务方模型迁移或无法确认兼容时显式重建。
 
@@ -204,16 +204,16 @@ Embedding 计算在 SQLite 内容写事务外。outbox 是至少一次通知，�
 
 ### 哪些变化需要什么动作
 
-| 变化                    | 必要处理                                                                  |
-| ----------------------- | ------------------------------------------------------------------------- |
-| Practice 新增/正文变化  | 为改变的输入生成或复用同 profile 向量，建立新绑定                         |
-| Practice 删除           | 从可发布绑定集中移除，不允许历史向量继续召回                              |
-| 只有来源增减            | 更新/读取当前来源；不能只按 effectiveRevision 缓存 provenance             |
-| LocalStore reindex      | 与当前快照重新对账；内容和 profile 均相同可复用向量，不等于必须重新计费   |
-| 切换模型/维度/编码契约  | 建立独立 profile 和新索引，禁止原地混写                                   |
-| 仅替换凭证/timeout      | 不改变空间时无需重建                                                      |
-| 词法 tokenizer/投影改变 | 重建对应词法派生状态；不要误触发所有模型重新编码                          |
-| 翻译检索投影改变        | 若纳入检索，单独按 locale/翻译 digest 失效，不能只依赖 canonical revision |
+| 变化 | 必要处理 |
+| --- | --- |
+| Practice 新增/正文变化 | 为改变的输入生成或复用同 profile 向量，建立新绑定 |
+| Practice 删除 | 从可发布绑定集中移除，不允许历史向量继续召回 |
+| 只有来源增减 | 更新/读取当前来源；不能只按 effectiveRevision 缓存 provenance |
+| LocalStore reindex | 与当前快照重新对账；内容和 profile 均相同可复用向量，不等于必须重新计费 |
+| 切换模型/维度/编码契约 | 建立独立 profile 和新索引，禁止原地混写 |
+| 仅替换凭证/timeout | 不改变空间时无需重建 |
+| 词法 tokenizer/投影改变 | 重建对应词法派生状态；不要误触发所有模型重新编码 |
+| 翻译检索投影改变 | 若纳入检索，单独按 locale/翻译 digest 失效，不能只依赖 canonical revision |
 
 ### 模型切换流程
 
@@ -298,16 +298,16 @@ LLM query rewrite、GraphRAG、自动研究、微调和内嵌模型下载器均�
 
 ## 12. 后续工作拆分与决策节点
 
-| 工作包                   | 产出                              | 启动前需要对齐                                 |
-| ------------------------ | --------------------------------- | ---------------------------------------------- |
-| W0 get（已完成）         | #50 已合入 main，#49 已关闭       | 后续阶段复用已交付契约，不重复实现             |
-| W1 关键词 query 设计     | 独立 issue/ADR 与验收样例         | 算法、摘要、top-k、空结果、计数和诊断字段      |
-| W2 关键词 query 实现     | engine service、CLI、测试与基线   | W1 设计已对齐                                  |
-| W3 config 基础           | schema、resolver、读取/写入管理   | scope、优先级、凭证、原子写入、版本            |
-| W4 profile/provider      | 空间身份、编码接口、单独适配器 PR | 版本/部署身份、错误与联网策略                  |
-| W5 检索存储设计及实现    | 独立派生 DB、快照、构建与迁移     | 所有权、Store 绑定、ready 语义、恢复与命令边界 |
-| W6 semantic/hybrid query | 显式模式、融合与基准对照          | 未就绪/降级语义、是否更改默认模式              |
-| W7 后续质量/规模改进     | 每个瓶颈单独 issue/PR             | 真实失败案例和可衡量收益                       |
+| 工作包 | 产出 | 启动前需要对齐 |
+| --- | --- | --- |
+| W0 get（已完成） | #50 已合入 main，#49 已关闭 | 后续阶段复用已交付契约，不重复实现 |
+| W1 关键词 query 设计 | 独立 issue/ADR 与验收样例 | 算法、摘要、top-k、空结果、计数和诊断字段 |
+| W2 关键词 query 实现 | engine service、CLI、测试与基线 | W1 设计已对齐 |
+| W3 config 基础 | schema、resolver、读取/写入管理 | scope、优先级、凭证、原子写入、版本 |
+| W4 profile/provider | 空间身份、编码接口、单独适配器 PR | 版本/部署身份、错误与联网策略 |
+| W5 检索存储设计及实现 | 独立派生 DB、快照、构建与迁移 | 所有权、Store 绑定、ready 语义、恢复与命令边界 |
+| W6 semantic/hybrid query | 显式模式、融合与基准对照 | 未就绪/降级语义、是否更改默认模式 |
+| W7 后续质量/规模改进 | 每个瓶颈单独 issue/PR | 真实失败案例和可衡量收益 |
 
 W0 已完成，W1–W7 是待拆分的工作包，不是自动创建 issue 或实施所有阶段的授权。每个实现 PR 链接自己的 issue，不用一个宽泛 roadmap issue 代替各公共契约的设计对齐。
 

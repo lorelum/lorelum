@@ -17,14 +17,12 @@ The constraints that shaped the choice:
 
 ## Decision
 
-**Runtime & package manager: Bun.**
-**Language: TypeScript** (`strict: true`), run directly by Bun without a separate compile step.
-**Monorepo: Bun workspaces** (`packages/cli`, `engine`, `format`, `mcp`, `shared`).
+**Runtime & package manager: Bun.** **Language: TypeScript** (`strict: true`), run directly by Bun without a separate compile step. **Monorepo: Bun workspaces** (`packages/cli`, `engine`, `format`, `mcp`, `shared`).
 
 For the adjacent tooling (chosen at the same time and documented here for completeness):
 
 | Concern | Choice |
-|---|---|
+| --- | --- |
 | Tests | `bun:test` |
 | Lint | `oxlint` |
 | Format | `oxfmt` (beta; see consequences) |

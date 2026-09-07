@@ -39,11 +39,7 @@ Increment rules (frozen):
 - A normal mutation (`install`/`upgrade`/`uninstall`) increments `effectiveRevision` **iff** the Effective Practice _set_ changes or an existing Practice's _effective content_ changes.
 - Adding or removing a source whose content is identical to what is already effective does **not** increment (it only adjusts source rows).
 - A successful `reindex` **always** produces a new `effectiveRevision`.
-- Both counters are exact non-negative JavaScript safe integers. A mutation
-  that would advance `generation` or `effectiveRevision` past
-  `Number.MAX_SAFE_INTEGER` fails with `StoreCounterExhaustedError` before it
-  writes a journal or changes any medium; `reindex` cannot repair exhaustion
-  without a future counter-version migration.
+- Both counters are exact non-negative JavaScript safe integers. A mutation that would advance `generation` or `effectiveRevision` past `Number.MAX_SAFE_INTEGER` fails with `StoreCounterExhaustedError` before it writes a journal or changes any medium; `reindex` cannot repair exhaustion without a future counter-version migration.
 - **Generation coupling:** `generation` increments on **any** active-manifest content change — including a reindex that only changes `effectiveRevision`. A reindex is a manifest mutation: it bumps `generation` _and_ `effectiveRevision` together. SQLite metadata carries both `installedPacksGeneration` and `effectiveRevision` as derived copies, and the two move together atomically in the manifest.
 
 - On recovery, the journal records a `(oldGeneration, targetGeneration, oldEffectiveRevision, targetEffectiveRevision)` tuple, and recovery compares **both** fields: see §8 for the full state machine. (The earlier rule "manifest wins, then reindex issues a fresh revision" is superseded by §8's explicit generation+revision comparison; generation alone can mask a stale revision.)
@@ -88,12 +84,7 @@ Implementation SQL table names may differ; the entities, fields, and uniqueness 
 - **3.2 Active Pack** — `packName` (unique; = `pack.yaml.name`), `packVersion`, `artifactDigest`, `storageKey`, `installedAt`. `(packName, artifactDigest)` must match an active-manifest entry.
 - **3.3 Practice source** — `packName`, `practiceId` (composite key, `(packName, practiceId)` unique), `contentDigest` (SHA-256 of this source's canonical content), `sourcePath` (relative to the Pack snapshot, for diagnostics and rebuild verification).
 - **3.4 Effective Practice** — `practiceId` (unique), `contentDigest` (current effective content digest), `canonicalContent` + retrieval metadata (materialized from the verified Practice parse), `effectiveRevision` (the revision this record was written under).
-- **3.5 Revision notification outbox** — `revision` (primary key), serialized
-  `RevisionDelta`, and creation time. A mutation enqueues its notification in
-  the same SQLite transaction as the derived state. Successful delivery
-  deletes the row; failed delivery leaves it durable and blocks later rows
-  from overtaking it. This table is LocalStore-owned coordination state and is
-  preserved when the other derived tables are rebuilt.
+- **3.5 Revision notification outbox** — `revision` (primary key), serialized `RevisionDelta`, and creation time. A mutation enqueues its notification in the same SQLite transaction as the derived state. Successful delivery deletes the row; failed delivery leaves it durable and blocks later rows from overtaking it. This table is LocalStore-owned coordination state and is preserved when the other derived tables are rebuilt.
 
 The **read path** uses a single, deterministically ordered SQL statement that returns Effective Practice rows joined with their source rows, materialized in memory grouped by `practiceId`. Both the public read API and the cold-open verifier use the same materializer. **No N+1 queries** (read effective row, then per-practice source lookup) — this was a defect in the prior abandoned implementation.
 
@@ -105,8 +96,7 @@ This ADR clarifies the boundary the doc left ambiguous:
 - `install`/`upgrade`/`uninstall` commit LocalStore state in one SQLite transaction. The increment of `effectiveRevision` happens in that transaction (§1). On commit, LocalStore invokes a **pluggable hook** (default: no-op) that the future vector layer will implement to receive `(newRevision, delta: { added, changed, invalidated })`. The hook is invoked **after** the transaction commits, never inside it.
 - For this task (LocalStore only), install/upgrade/uninstall return success based on **LocalStore commit** alone. The doc's rule "CLI returns success only when the semantic index reaches the target `ready` revision" is **deferred** to the task that implements the vector layer; until then, LocalStore's own success/failure is the whole truth. This is recorded so a future PR does not need to re-litigate it.
 
-_Why not write vector state in the LocalStore transaction (as the doc literally said):_ the vector layer is an explicit non-goal of this task, embedding calls must not run inside a SQLite write transaction (the vector doc requires this), and coupling the two layers' writes would re-introduce the "half-installed readable state" defect the doc's journal protocol exists to prevent. A post-commit hook keeps LocalStore the single writer of its own tables while letting the vector layer observe revisions.
-Hook failure and ordering (frozen):
+_Why not write vector state in the LocalStore transaction (as the doc literally said):_ the vector layer is an explicit non-goal of this task, embedding calls must not run inside a SQLite write transaction (the vector doc requires this), and coupling the two layers' writes would re-introduce the "half-installed readable state" defect the doc's journal protocol exists to prevent. A post-commit hook keeps LocalStore the single writer of its own tables while letting the vector layer observe revisions. Hook failure and ordering (frozen):
 
 - **Hook failure never rolls back a committed mutation.** The hook runs _after_ the SQLite transaction commits. If it throws or rejects, the LocalStore mutation **stays successful**; the result object carries a `notificationPending` diagnostic for the oldest queued revision and the error. The durable outbox retains that row, and a later mutation retries it before delivering any newer revision. `reindex` writes a full-refresh notification containing every current Practice and supersedes older pending deltas.
 - **Strict serial, in-revision-order, at-least-once delivery.** Outbox rows are drained by ascending `effectiveRevision`; a failed row stops the drain. Delivery runs after the mutation lock is released and uses a separate non-blocking delivery lock, so a hook may safely start another LocalStore mutation without self-deadlocking; the outer drainer then observes the newly queued revision. A crash after an external hook succeeds but before its SQLite acknowledgement can replay that revision, so exactly-once delivery is not claimed. The future vector consumer must make revision application idempotent. It never receives revision N+1 before a queued revision N, and a reindex full refresh is the explicit recovery boundary for an unknown or missed prior state.
@@ -152,17 +142,15 @@ Hook failure and ordering (frozen):
 
 The doc's §9 lists seven acceptance behaviors. Their disposition under this ADR:
 
-| Doc §9 behavior                                                                                                                                                            | Disposition                                                  |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 1. Default root + StorageRoot injection + manifest/artifact write & restart read                                                                                           | **Implement** (PR 2)                                         |
-| 2. install / idempotent install / upgrade-required / upgrade removes old sources                                                                                           | **Implement** (PR 2)                                         |
-| 3. Same-title-different-id coexist; same-id-same-digest merge; same-id-different-digest reject; upgrade-vs-other-source conflict reject                                    | **Implement pure rule** (PR 1a model) **+ integrate** (PR 2) |
-| 4. Uninstall keeps still-sourced Effective Practice; last-source removal deletes it; vector invalidation hook fires                                                        | **Implement** (PR 2); vector invalidation = no-op hook (§4)  |
-| 5. Crash recovery via journal comparing the `(generation, effectiveRevision)` tuple (not generation alone); reindex bumps both together; no queryable half-installed state | **Implement** (PR 2)                                         |
+| Doc §9 behavior | Disposition |
+| --- | --- |
+| 1. Default root + StorageRoot injection + manifest/artifact write & restart read | **Implement** (PR 2) |
+| 2. install / idempotent install / upgrade-required / upgrade removes old sources | **Implement** (PR 2) |
+| 3. Same-title-different-id coexist; same-id-same-digest merge; same-id-different-digest reject; upgrade-vs-other-source conflict reject | **Implement pure rule** (PR 1a model) **+ integrate** (PR 2) |
+| 4. Uninstall keeps still-sourced Effective Practice; last-source removal deletes it; vector invalidation hook fires | **Implement** (PR 2); vector invalidation = no-op hook (§4) |
+| 5. Crash recovery via journal comparing the `(generation, effectiveRevision)` tuple (not generation alone); reindex bumps both together; no queryable half-installed state | **Implement** (PR 2) |
 
-| 6. Source-only change does not increment revision; effective content change does increment and passes the same revision to the vector seam | **Implement pure rule** (PR 1a) **+ integrate** (PR 2); "passes to vector seam" = hook call (§4) |
-| 7. Corrupt/missing SQLite, schema-incompatible, missing/digest-mismatched artifact, invalid projection, manifest↔SQLite/generation mismatch, tampered source digest or Effective Practice content → `StoreRecoveryRequiredError`; `reindex` restores from active manifest + original snapshot without reviving history | **Implement** (PR 2) |
-| (doc §9 integration with vector layer) target revision ready before query succeeds | **Deferred** to the vector-layer task (§4); not in scope here |
+| 6. Source-only change does not increment revision; effective content change does increment and passes the same revision to the vector seam | **Implement pure rule** (PR 1a) **+ integrate** (PR 2); "passes to vector seam" = hook call (§4) | | 7. Corrupt/missing SQLite, schema-incompatible, missing/digest-mismatched artifact, invalid projection, manifest↔SQLite/generation mismatch, tampered source digest or Effective Practice content → `StoreRecoveryRequiredError`; `reindex` restores from active manifest + original snapshot without reviving history | **Implement** (PR 2) | | (doc §9 integration with vector layer) target revision ready before query succeeds | **Deferred** to the vector-layer task (§4); not in scope here |
 
 ### 10. Validation gating and Pack snapshot parsing (SnapshotCodec)
 

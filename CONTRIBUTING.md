@@ -2,7 +2,7 @@
 
 Thanks for your interest in contributing to Lorelum! This doc explains how we work — the workflow, the conventions, and what to expect.
 
-> 🤖 **Using an AI coding assistant (Cursor / Claude Code / Codex)?** Also read [**AGENTS.md**](./AGENTS.md) — it tells the agent how to work *in this specific repo* (commands, layout, boundaries). This doc is for humans; AGENTS.md is for machines.
+> 🤖 **Using an AI coding assistant (Cursor / Claude Code / Codex)?** Also read [**AGENTS.md**](./AGENTS.md) — it tells the agent how to work _in this specific repo_ (commands, layout, boundaries). This doc is for humans; AGENTS.md is for machines.
 
 ---
 
@@ -44,18 +44,17 @@ bun install
 
 **Common commands**
 
-| Task | Command |
-|---|---|
-| Run tests | `bun test` |
-| Lint | `bun run lint` (oxlint) |
-| Format | `bun run fmt` (oxfmt) |
-| Typecheck | `bun run typecheck` (`tsc --noEmit`) |
-| Run any package script | `bun run <script>` |
+| Task                   | Command                              |
+| ---------------------- | ------------------------------------ |
+| Run tests              | `bun test`                           |
+| Lint                   | `bun run lint` (oxlint)              |
+| Format                 | `bun run fmt` (oxfmt)                |
+| Typecheck              | `bun run typecheck` (`tsc --noEmit`) |
+| Run any package script | `bun run <script>`                   |
 
 Precise scripts live in each `packages/*/package.json`.
 
-For the complete local CLI and multi-worktree setup (including isolated
-Store roots), see [Development guide](./docs/development/README.md).
+For the complete local CLI and multi-worktree setup (including isolated Store roots), see [Development guide](./docs/development/README.md).
 
 ## Contributor License Agreement (CLA)
 
@@ -76,7 +75,7 @@ A PR cannot be merged until the CLA check passes. This protects the entire Lorel
 
 ## How we work: issue-driven, design-first
 
-Lorelum uses **issue-driven development** with a **design-first** rule for anything that touches the product surface. Every change starts with an issue; changes to the Practice format, retrieval model, or CLI commands need design alignment *before* code.
+Lorelum uses **issue-driven development** with a **design-first** rule for anything that touches the product surface. Every change starts with an issue; changes to the Practice format, retrieval model, or CLI commands need design alignment _before_ code.
 
 **The flow at a glance:**
 
@@ -126,12 +125,12 @@ Before opening a new issue, please search existing ones to avoid duplicates.
 
 **Branch naming:**
 
-| Type | Pattern | Example |
-|---|---|---|
+| Type    | Pattern                | Example                   |
+| ------- | ---------------------- | ------------------------- |
 | Feature | `feat/<scope>-<short>` | `feat/cli-decide-command` |
-| Fix | `fix/<scope>-<short>` | `fix/decide-empty-result` |
-| Spec | `spec/<topic>` | `spec/practice-format` |
-| Docs | `docs/<topic>` | `docs/readme-refresh` |
+| Fix     | `fix/<scope>-<short>`  | `fix/decide-empty-result` |
+| Spec    | `spec/<topic>`         | `spec/practice-format`    |
+| Docs    | `docs/<topic>`         | `docs/readme-refresh`     |
 
 ## Commit conventions
 
@@ -147,17 +146,17 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 
 ### Type (required)
 
-| Type | Use for |
-|---|---|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `perf` | A change that improves performance |
+| Type       | Use for                                                   |
+| ---------- | --------------------------------------------------------- |
+| `feat`     | A new feature                                             |
+| `fix`      | A bug fix                                                 |
+| `perf`     | A change that improves performance                        |
 | `refactor` | A code change that neither fixes a bug nor adds a feature |
-| `docs` | Documentation only |
-| `test` | Adding or correcting tests |
-| `build` | Changes to the build system or dependencies |
-| `ci` | Changes to CI configuration |
-| `chore` | Routine maintenance, tooling, repo config |
+| `docs`     | Documentation only                                        |
+| `test`     | Adding or correcting tests                                |
+| `build`    | Changes to the build system or dependencies               |
+| `ci`       | Changes to CI configuration                               |
+| `chore`    | Routine maintenance, tooling, repo config                 |
 
 ### Scope (optional but encouraged)
 
@@ -185,11 +184,13 @@ A short noun identifying the area of the change — e.g. `cli`, `engine`, `forma
 ### Examples
 
 **Simple (most commits):**
+
 ```
 docs(readme): add 5-minute tour section
 ```
 
 **With body:**
+
 ```
 fix(engine): handle empty practice list in retrieval
 
@@ -199,6 +200,7 @@ and the `lore learn` workflow.
 ```
 
 **Breaking change:**
+
 ```
 feat(format)!: rename `applies_when` to `trigger`
 
@@ -207,6 +209,7 @@ BREAKING CHANGE: the Practice frontmatter field `applies_when` is now
 ```
 
 **Closing an issue:**
+
 ```
 feat(cli): add `lore decide` with decision-graph evaluator
 
@@ -218,11 +221,13 @@ Closes #42
 Because we **squash-merge**, the PR title becomes the commit message on `main`. So PR titles **must follow the same Conventional Commits format** as commits.
 
 ✅ Good:
+
 - `feat(cli): add lore decide command`
 - `fix(engine): handle empty practice list in retrieval`
 - `docs: refresh README 5-minute tour`
 
 ❌ Avoid:
+
 - `update` (no type, no detail)
 - `fixed the bug` (no type, lowercase scope missing)
 - `Feat: added a new CLI command!!!` (uppercase, trailing punctuation, vague)

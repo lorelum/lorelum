@@ -13,7 +13,7 @@ Copy this file to a new NNNN-*.md to start an ADR.
 
 ## Context
 
-What is the problem we're solving? What are the constraints, forces, and alternatives in view at the time of the decision? State the situation *as it is now* — future readers need to understand the world the decision was made in, not the world it led to.
+What is the problem we're solving? What are the constraints, forces, and alternatives in view at the time of the decision? State the situation _as it is now_ — future readers need to understand the world the decision was made in, not the world it led to.
 
 Include:
 
