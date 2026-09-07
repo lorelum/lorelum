@@ -35,7 +35,7 @@ When omitted, the Store remains `~/.lorelum`. A relative path is resolved from t
 
 ```zsh
 lore-dev() {
-  local repo_root store_root cli_entry
+  local repo_root cli_entry
 
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
     print -u2 "lore-dev: current directory is not inside a Git worktree"
@@ -48,30 +48,25 @@ lore-dev() {
     return 1
   fi
 
-  store_root="$(git rev-parse --path-format=absolute --git-path lorelum/store 2>/dev/null)" || {
-    print -u2 "lore-dev: could not resolve the worktree-specific Git administrative Store"
-    return 1
-  }
-
-  bun "$cli_entry" --store-root "$store_root" "$@"
+  bun "$cli_entry" "$@"
 }
 
 alias ld='lore-dev'
 ```
 
-The function anchors the source entrypoint to the current worktree and derives its Store from Git administrative data. That Store is worktree-specific and is not part of a commit. For example:
+The function anchors the source entrypoint to the current worktree while leaving Store selection to the CLI. Without `--store-root`, it uses the normal default `~/.lorelum`; pass `--store-root` explicitly when a check requires an isolated Store. For example:
 
 ```zsh
-lore-dev install pack-creator --pack-version 0.1.0
-lore-dev install agentic-coding --pack-version 0.3.0
-lore-dev get agentic-coding.testing.classify-failure-before-changing-test
+lore-dev query "responsibility boundary" --top-k 2
+lore-dev --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/store)" \
+  install pack-creator --pack-version 0.1.0
 ```
 
 The `ld` alias above is optional and specific to the zsh example.
 
 ### Agent setup check
 
-Before an Agent exercises the current worktree's CLI source, it should check whether a `lore-dev` helper is available. If not, the Agent must ask the developer whether they want to configure one and which shell they use; it must not assume zsh or modify a shell startup file without explicit developer approval. Once configured, Agents should use the helper instead of rebuilding or repointing global `lore` for ordinary source-level CLI checks.
+Before an Agent exercises the current worktree's CLI source, it should check whether a `lore-dev` helper is available. If not, the Agent must ask the developer whether they want to configure one and which shell they use; it must not assume zsh or modify a shell startup file without explicit developer approval. Once configured, Agents should use the helper instead of rebuilding or repointing global `lore` for ordinary source-level CLI checks, passing `--store-root` only when isolation is required.
 
 Use the source function while iterating. To check compiled behavior for the same checkout, run:
 
