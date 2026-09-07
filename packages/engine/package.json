@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@lorelum/shared": "workspace:*",
-    "@lorelum/format": "workspace:*"
+    "@lorelum/format": "workspace:*",
+    "@lorelum/shared": "workspace:*"
   }
 }
