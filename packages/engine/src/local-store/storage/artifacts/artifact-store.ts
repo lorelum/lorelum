@@ -17,21 +17,18 @@ function posixRelative(rootPath: string, path: string): string {
 async function collectFiles(rootPath: string, directory = rootPath): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const files: string[] = [];
-  async function visit(index: number): Promise<void> {
-    const entry = entries[index];
-    if (entry === undefined) return;
+  for (const entry of entries) {
     const path = join(directory, entry.name);
     if (entry.isSymbolicLink()) {
       throw new ArtifactIntegrityError(path, "symbolic links are not allowed in a snapshot");
     }
     if (entry.isDirectory()) {
+      // eslint-disable-next-line no-await-in-loop -- recurse one directory at a time to preserve bounded I/O
       files.push(...(await collectFiles(rootPath, path)));
     } else if (entry.isFile()) {
       files.push(path);
     }
-    await visit(index + 1);
   }
-  await visit(0);
   return files.sort((left, right) => {
     const leftRelative = posixRelative(rootPath, left);
     const rightRelative = posixRelative(rootPath, right);
@@ -43,16 +40,13 @@ async function collectFiles(rootPath: string, directory = rootPath): Promise<str
 export async function calculateArtifactDigest(snapshotPath: string): Promise<string> {
   const hash = createHash("sha256");
   const paths = await collectFiles(snapshotPath);
-  async function hashFile(index: number): Promise<void> {
-    const path = paths[index];
-    if (path === undefined) return;
+  for (const path of paths) {
     hash.update(posixRelative(snapshotPath, path), "utf8");
     hash.update(Buffer.from([0]));
+    // eslint-disable-next-line no-await-in-loop -- hash input order is part of the digest contract
     hash.update(await readFile(path));
     hash.update(Buffer.from([10]));
-    await hashFile(index + 1);
   }
-  await hashFile(0);
   return hash.digest("hex");
 }
 

@@ -9,12 +9,15 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [Issues, branches, and PRs](../../CONTRIBUTING.md#development-workflow)
 - [Local CLI and worktrees](#local-cli-and-multiple-worktrees)
 - [Read an installed Practice with `lore get`](../cli/get.md)
+- [Query installed Practices with `lore query`](../cli/query.md)
 - [LocalStore Engine API](#localstore-engine-api)
+- [QueryService Engine API](#queryservice-engine-api)
 - [Point-read performance benchmark](./local-store-point-read-benchmark.md)
+- [Keyword query quality and performance baseline](./keyword-query-benchmark.md)
 
 ## Proposed plans
 
-- [Query phased implementation roadmap (Chinese)](../plans/query-roadmap.md) - keyword retrieval, configuration, embedding profiles, and derived indexes. This plan describes future work, not currently available commands.
+- [Query phased implementation roadmap (Chinese)](../plans/query-roadmap.md) - keyword retrieval, configuration, embedding profiles, and derived indexes. The keyword query foundation is implemented; later phases remain proposed.
 
 ## Local CLI and multiple worktrees
 
@@ -24,7 +27,7 @@ The CLI's discoverable global option is:
 --store-root <path>
 ```
 
-When omitted, the Store remains `~/.lorelum`. A relative path is resolved from the calling process's current working directory. `install` and `get` consume `LocalStore`; do not infer support for other commands from this guide.
+When omitted, the Store remains `~/.lorelum`. A relative path is resolved from the calling process's current working directory. `install`, `get`, and `query` consume LocalStore; do not infer support for other commands from this guide.
 
 ### A copyable `lore-dev` function
 
@@ -106,4 +109,23 @@ if (effective !== undefined) {
 
 Use `getEffectivePractice` for an exact ID, `readEffectivePractices` for one full consistent corpus, and `open` when the caller explicitly needs the full artifact audit. Both point and corpus reads validate the SQLite rows they return; only `open` hashes installed artifacts. `getEffectivePractice` and `open` can converge pending operation journals; `readEffectivePractices` does not add that write-recovery step. Invalid IDs throw `InvalidPracticeIdError` before I/O; missing IDs return `undefined`; inconsistent or busy Stores throw `StoreRecoveryRequiredError` or `StoreBusyError`. Do not turn these errors into an empty result.
 
-See [ADR 0011](../adr/0011-local-store-point-read-and-query-boundary.md) for the consistency boundary.
+See [ADR 0011](../adr/0011-local-store-point-read-and-query-boundary.md) for the consistency boundary and query lifecycle.
+
+## QueryService Engine API
+
+`QueryService` owns the query use case in Engine so CLI and future MCP callers do not duplicate validation, snapshot reads, ranking, or result assembly. Create it at the composition root and inject a LocalStore facade:
+
+```ts
+import { createLocalStore, createQueryService } from "@lorelum/engine";
+
+const store = createLocalStore();
+const queryService = createQueryService({ store });
+const result = await queryService.query(
+  { rootPath: "/path/to/isolated-store" },
+  { text: "React API boundary", limit: 5 },
+);
+```
+
+`text` is trimmed, must not be empty, and is limited to 4,096 Unicode code points. `limit` defaults to `5` and must be an integer from `1` to `50`. The result has `mode: "keyword"` and `results` containing `practiceId`, `title`, `stage`, `techStack`, `appliesWhen`, `severity`, and `contentDigest`; it does not include full bodies or internal scores. Invalid requests throw `InvalidQueryRequestError`. FTS5 runtime failures throw `KeywordIndexUnavailableError` or `KeywordIndexError`; callers at protocol boundaries translate these types to their own error codes.
+
+QueryService calls `readEffectivePractices()` once per request, builds and closes a request-local FTS5 database, and keeps request state local. It does not persist an index, retain a Session, or expose SQLite handles. The current keyword implementation is intentionally synchronous inside the service boundary; persistent indexes, semantic retrieval, and MCP lifecycle caching are later design work.

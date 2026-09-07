@@ -4,7 +4,7 @@
 - 日期：2026-09-06。
 - 状态复核：2026-09-06，get 已通过 PR #50 合入 main（`833444fdcf63f9cc9dbbb42395174132701d813b`）。
 - 范围：关键词检索、配置、Embedding、派生索引、向量与混合检索，以及后续质量和性能演进。
-- 本文不代表所列命令或字段已经实现，也不替代 Accepted ADR。示例命令、配置路径和状态名均为设计建议，需在对应阶段对齐后实现。
+- 除已在对应 ADR/issue 中交付的能力外，本文不代表所列命令或字段已经实现，也不替代 Accepted ADR。示例命令、配置路径和状态名均为设计建议，需在对应阶段对齐后实现。
 
 ## 1. 目标与推进原则
 
@@ -40,7 +40,7 @@
 | ADR 0002 | SQLite + 内存精确余弦检索；P2 默认 text-embedding-3-small 与兼容客户端 | 存储方向可沿用；改变默认模型策略需新 ADR，部署与离线策略另行明确 |
 | ADR 0007 | LocalStore 不拥有向量表或执行 Embedding | 检索持有派生状态，Embedding 不进入内容写事务 |
 
-相关来源：[工具链 ADR](../adr/0002-bun-typescript-toolchain.md)、[LocalStore ADR](../adr/0007-engine-local-store.md)、[CLI 协议 ADR](../adr/0004-agent-first-cli-protocol.md)、[开发与 Store 隔离约定](../development/README.md)、[SQLite schema](../../packages/engine/src/local-store/storage/sqlite/migrations.ts)、[命令注册表](../../packages/cli/src/registry.ts)。
+相关来源：[工具链 ADR](../adr/0002-bun-typescript-toolchain.md)、[LocalStore ADR](../adr/0007-engine-local-store.md)、[精确读取与 QueryService ADR（Proposed）](../adr/0011-local-store-point-read-and-query-boundary.md)、[CLI 协议 ADR](../adr/0004-agent-first-cli-protocol.md)、[开发与 Store 隔离约定](../development/README.md)、[SQLite schema](../../packages/engine/src/local-store/storage/sqlite/migrations.ts)、[命令注册表](../../packages/cli/src/registry.ts)。
 
 `stage` 当前是 `auth`、`api-layer` 等自由领域标签，不是标准化的开发生命周期。`applies_when` 是自然语言，不是可直接执行的条件表达式。后续过滤和精排都必须尊重这两个事实。
 
@@ -74,7 +74,7 @@ PR #50 已于 2026-09-06 合入 main，Issue #49 已关闭。已交付契约见[
 
 ### 范围与实现建议
 
-先从 `LocalStore.open()` 的一致快照中构造词法检索输入，以 Practice 为返回单位。优先评估进程内 BM25；如果采用更简单的确定性加权 token-match，必须在设计中标明算法和局限，不将其称为语义检索，也不能声称它与 BM25 等价。
+先从 `LocalStore.readEffectivePractices()` 的一致快照中构造词法检索输入，以 Practice 为返回单位。本阶段采用 Bun 内置 SQLite FTS5 的请求内 `:memory:` 索引和 SQLite `bm25()`；不把索引持久化到 `store.sqlite`。如果未来改用其他检索实现，必须在设计中标明算法和局限，不把关键词检索称为语义检索，也不能声称不同算法等价。
 
 为避免前置存储工程，第一版可以在进程内构建词法索引，不要求引入 SQLite FTS 表。现有读取路径本来就会物化完整快照，先测真实 Pack 的冷启动成本，再决定何时持久化词法索引。若采用检索库，需要评估维护状况、Bun 兼容和许可证。
 

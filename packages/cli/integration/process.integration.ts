@@ -87,6 +87,20 @@ async function exerciseGet(compiledBinary: string, workingDirectory: string): Pr
     "name: integration-pack\nversion: 1.0.0\ndescription: Process integration fixture.\n",
   );
   await writeFile(
+    join(packDirectory, "practices", "chinese-query.md"),
+    `---
+id: integration.retrieval.chinese
+title: 中文认证接口
+stage: integration
+tech_stack: [react, typescript]
+applies_when: 在 React 页面接入认证接口时
+---
+# 中文检索
+
+通过现有认证接口完成页面请求。
+`,
+  );
+  await writeFile(
     join(packDirectory, "practices", "retrieval-demo.md"),
     `---
 id: ${practiceId}
@@ -153,6 +167,48 @@ console.log(JSON.stringify({ generation: result.generation, effectiveRevision: r
   ]);
 
   const firstStdout = first.stdout;
+
+  const keyword = await runQuery(compiledBinary, "retrieval OR", storageRoot, 3);
+  assert.equal(keyword.exitCode, 0);
+  assert.equal(keyword.stderr, "");
+  const keywordResponse = parseSingleResponse(keyword.stdout);
+  assert.equal(keywordResponse.command, "query");
+  assert.equal(keywordResponse.ok, true);
+  assert(isRecord(keywordResponse.data));
+  assert.equal(keywordResponse.data.mode, "keyword");
+  assert(Array.isArray(keywordResponse.data.results));
+  const keywordHit = keywordResponse.data.results.find(
+    (value) => isRecord(value) && value.practiceId === practiceId,
+  );
+  assert(isRecord(keywordHit));
+  const queriedGet = await runGet(compiledBinary, String(keywordHit.practiceId), storageRoot);
+  assert.equal(queriedGet.exitCode, 0);
+  const queriedGetResponse = parseSingleResponse(queriedGet.stdout);
+  assert.equal(queriedGetResponse.ok, true);
+  assert(isRecord(queriedGetResponse.data));
+  assert.equal(keywordHit.contentDigest, queriedGetResponse.data.contentDigest);
+  assert.equal(queriedGetResponse.data.contentDigest, firstResponse.data.contentDigest);
+
+  const chinese = await runQuery(compiledBinary, "认证接口", storageRoot, 5);
+  assert.equal(chinese.exitCode, 0);
+  assert.equal(chinese.stderr, "");
+  const chineseResponse = parseSingleResponse(chinese.stdout);
+  assert.equal(chineseResponse.ok, true);
+  assert(isRecord(chineseResponse.data));
+  assert(Array.isArray(chineseResponse.data.results));
+  assert(
+    chineseResponse.data.results.some(
+      (value) => isRecord(value) && value.practiceId === "integration.retrieval.chinese",
+    ),
+  );
+
+  const noMatches = await runQuery(compiledBinary, "zzzxylophone", storageRoot);
+  assert.equal(noMatches.exitCode, 0);
+  const noMatchesResponse = parseSingleResponse(noMatches.stdout);
+  assert.equal(noMatchesResponse.ok, true);
+  assert(isRecord(noMatchesResponse.data));
+  assert.deepEqual(noMatchesResponse.data.results, []);
+
   const second = await runGet(compiledBinary, practiceId, storageRoot, "before");
   assert.equal(second.exitCode, 0);
   assert.equal(second.stdout, firstStdout);
@@ -197,6 +253,17 @@ async function runGet(
     globalPosition === "before"
       ? [binaryPath, "--store-root", storageRoot, "get", practiceId]
       : [binaryPath, "get", practiceId, "--store-root", storageRoot];
+  return runProcess(args);
+}
+
+async function runQuery(
+  binaryPath: string,
+  text: string,
+  storageRoot: string,
+  topK?: number,
+): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  const args = [binaryPath, "query", text, "--store-root", storageRoot];
+  if (topK !== undefined) args.push("--top-k", String(topK));
   return runProcess(args);
 }
 

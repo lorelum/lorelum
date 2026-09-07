@@ -1,8 +1,5 @@
 /**
- * @lorelum/engine — Practice retrieval (embed + metadata + graph).
- *
- * P0 scaffold: only a presence marker. Retrieval, ranking, and the local
- * vector store land with the engine tasks.
+ * @lorelum/engine — canonical LocalStore reads and keyword Practice retrieval.
  */
 
 export const PACKAGE_NAME = "@lorelum/engine";
@@ -11,3 +8,4 @@ export const PACKAGE_NAME = "@lorelum/engine";
 // vector layer and CLI/MCP consumers take their entry point from this
 // boundary, never from package-internal directories.
 export * from "./local-store";
+export * from "./query";

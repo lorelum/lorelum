@@ -2,9 +2,6 @@
 
 - **Date:** 2026-09-07
 - **Status:** Proposed
-
-> Delivery note: this PR implements the point-read portion under #59. The QueryService decision below is the agreed follow-up under #60; the query API and its benchmarks are not included in this first implementation PR.
-
 - **Related:** ADR 0002, ADR 0004, ADR 0007, [Issue #59](https://github.com/lorelum/lorelum/issues/59)（LocalStore 点查与服务组装）, [Issue #60](https://github.com/lorelum/lorelum/issues/60)（QueryService 与 FTS5）, [Issue #57](https://github.com/lorelum/lorelum/issues/57)（关键词检索研究）, [Issue #58](https://github.com/lorelum/lorelum/issues/58)（ORM 研究）, [LocalStore 读取与 Query 基础设计](../plans/local-store-read-and-query-foundation.md), [Query 分阶段规划](../plans/query-roadmap.md)
 
 ## Context
@@ -144,7 +141,7 @@ Engine 成为 get 和 query 的真实业务入口。Engine 拥有 query 请求�
 
 验证覆盖目标存在、目标不存在、空 Store、非法 ID、来源合并、canonical/digest 损坏、manifest/SQLite tuple 不一致、并发 mutation、pending journal、Store 隔离和无关 artifact 损坏不阻塞普通点查。点查性能应拆分 SQLite 点查、Engine 调用、CLI 冷启动和端到端耗时。当前数据集只能作为基线，不能据此宣称已达到未来 query 的规模目标。
 
-本 PR 包含[点查基线](../development/local-store-point-read-benchmark.md)。关键词实现及其基线由 #60 的后续 PR 交付；检索方案比较与 ORM 选择继续由 #57 和 #58 研究。ADR 合并前保持 Proposed，合并后按仓库约定转为 Accepted。
+本次交付包含[关键词质量与性能基线](../development/keyword-query-benchmark.md)以及[点查基线](../development/local-store-point-read-benchmark.md)。检索方案比较与 ORM 选择继续由 issue #57 和 #58 研究，不把它们当作本次已完成的工作。ADR 合并前保持 `Proposed`；合并后按仓库约定转为 `Accepted`，实现若偏离本决定需另开 ADR 或明确 superseding 关系。
 
 ## References
 

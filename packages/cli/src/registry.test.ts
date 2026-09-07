@@ -214,7 +214,7 @@ test("describes registered commands from a single registry", () => {
         positionals: [
           {
             name: "command",
-            values: ["describe", "install", "get", "format", "i18n.sync", "validate"],
+            values: ["describe", "install", "get", "query", "format", "i18n.sync", "validate"],
           },
         ],
       },
@@ -223,6 +223,7 @@ test("describes registered commands from a single registry", () => {
         positionals: [{ name: "pack", required: true }],
       },
       { name: "get", positionals: [{ name: "practice-id", required: true }] },
+      { name: "query", positionals: [{ name: "text", required: true }] },
       { name: "format" },
       { name: "i18n.sync" },
       { name: "validate" },
@@ -269,7 +270,16 @@ test("derives parser options and describe metadata from registered commands", as
     positionals: [
       {
         name: "command",
-        values: ["describe", "install", "get", "format", "i18n.sync", "validate", "future"],
+        values: [
+          "describe",
+          "install",
+          "get",
+          "query",
+          "format",
+          "i18n.sync",
+          "validate",
+          "future",
+        ],
       },
     ],
   });

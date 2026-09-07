@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,6 +32,32 @@ test("artifact digest is stable across file creation order and reacts to raw byt
     expect(await calculateArtifactDigest(first)).not.toBe(await calculateArtifactDigest(second));
   });
 });
+
+test("artifact digest handles 20,000 sibling files without recursive stack growth", async () => {
+  await withDirectory(async (root) => {
+    const snapshot = join(root, "large");
+    await mkdir(snapshot);
+    const names = Array.from(
+      { length: 20_000 },
+      (_, index) => `file-${index.toString().padStart(5, "0")}.txt`,
+    );
+    const batchSize = 500;
+    for (let offset = names.length - batchSize; offset >= 0; offset -= batchSize) {
+      const batch = names.slice(offset, offset + batchSize);
+      // eslint-disable-next-line no-await-in-loop -- bounded batches avoid unbounded pending writes
+      await Promise.all(batch.map((name) => writeFile(join(snapshot, name), name)));
+    }
+
+    const expected = createHash("sha256");
+    for (const name of names) {
+      expected.update(name, "utf8");
+      expected.update(Buffer.from([0]));
+      expected.update(name, "utf8");
+      expected.update(Buffer.from([10]));
+    }
+    expect(await calculateArtifactDigest(snapshot)).toBe(expected.digest("hex"));
+  });
+}, 30_000);
 
 test("promotion verifies an existing artifact before treating it as idempotent", async () => {
   await withDirectory(async (root) => {
