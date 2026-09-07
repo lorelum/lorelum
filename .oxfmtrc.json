@@ -1,0 +1,10 @@
+{
+  "overrides": [
+    {
+      "files": ["*.md", "**/*.md", "*.mdx", "**/*.mdx"],
+      "options": {
+        "proseWrap": "never"
+      }
+    }
+  ]
+}
