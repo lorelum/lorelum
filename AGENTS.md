@@ -74,7 +74,10 @@ Keep the tree navigable and each file independently understandable. These are pr
 - **Never commit directly to `main`.** Every change goes through a PR.
 - **One issue per PR.** Keep PRs focused and reviewable. If a change spans multiple issues, split it.
 - **Conventional Commits** (`feat(cli): ...`, `fix(engine): ...`, `spec(format): ...`, `docs: ...`).
-- **Every PR links to an issue** (`Closes #123`).
+- **Every PR links to the issue it actually addresses** with `Closes #123`. Do not close or cite an unrelated issue just to satisfy the format; create a focused issue when one does not exist.
+- **Use the repository PR template.** Before opening or editing a PR, read [`.github/PULL_REQUEST_TEMPLATE.md`](./.github/PULL_REQUEST_TEMPLATE.md) and keep every section, including the linked issue, change type, verification, checklist, AI assistance, and reviewer notes.
+- **Sync before the final review.** Fetch the latest `origin/main`, rebase or merge it into the feature branch, then rerun the relevant checks before pushing the PR branch.
+- **Review before publishing.** Inspect the staged file list and diff before commits, run a repository-appropriate secret scan, and verify the remote branch and PR after pushing.
 - **Public-contract changes need design alignment first.** Changes to the Practice/pack format, retrieval model, CLI surface, or MCP tool interface require an issue or Discussion with design alignment before implementation. Reuse existing agreed design and acceptance criteria when they cover the requested change; do not require a new discussion for the same decision.
 - **Work that preserves the existing public contract does not need upfront design discussion.** This includes pure bug fixes restoring documented behavior, internal refactors, performance improvements, and docs. Issue and PR requirements, applicable tests and benchmarks, and the approval boundaries below still apply.
 
@@ -99,6 +102,7 @@ Keep the tree navigable and each file independently understandable. These are pr
 ## Where to look
 
 - **Product understanding:** `README.md` (overview) and `CONTRIBUTING.md` (workflow).
+- **Pull requests:** `.github/PULL_REQUEST_TEMPLATE.md` is the source of truth for PR body sections and checkboxes.
 - **Planning a feature?** Check existing issues, Specs, and agreed designs, then apply the design-alignment rule in [Git workflow](#git-workflow).
 
 ## When in doubt
