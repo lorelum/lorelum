@@ -31,7 +31,6 @@ Closes #
 
 - [ ] This PR used AI assistance (describe the scope or tool below)
 - [ ] If AI-assisted: an AI code review covered the changed behavior and edge cases; material findings are resolved or documented below
-- [ ] Maintainer sign-off is recorded for a change to public behavior, contracts, schemas, or architecture (maintainer completes before merge)
 
 <!-- Leave the first two items unchecked for a human-only PR. If AI-assisted, link the AI CR or summarize its material findings below. "Reviewed every line" is not an acceptance criterion. -->
 
