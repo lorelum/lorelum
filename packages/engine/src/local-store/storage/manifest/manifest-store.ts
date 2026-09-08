@@ -23,6 +23,24 @@ export interface InstalledPacksManifest {
   packs: readonly InstalledPackManifestEntry[];
 }
 
+/** Compare the ordered Active Pack projection with the authoritative manifest. */
+export function installedPackEntriesEqual(
+  left: readonly InstalledPackManifestEntry[],
+  right: readonly InstalledPackManifestEntry[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (entry, index) =>
+        entry.packName === right[index]?.packName &&
+        entry.packVersion === right[index]?.packVersion &&
+        entry.artifactDigest === right[index]?.artifactDigest &&
+        entry.storageKey === right[index]?.storageKey &&
+        entry.installedAt === right[index]?.installedAt,
+    )
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

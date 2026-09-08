@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { EffectivePractice, PracticeSource } from "../model";
+import { installedPackEntriesEqual } from "../storage/manifest/manifest-store";
 import { acquireMutationLock } from "../storage/mutation-lock";
 import { openStoreDatabase } from "../storage/sqlite/database";
 import { readActivePackEntries } from "../storage/sqlite/snapshot-reader";
@@ -24,23 +25,6 @@ export interface MutationLockOptions {
   waitMs?: number;
   /** Test seam for proving the lock is released when database open fails. */
   openDatabase?: ((rootPath: string) => Promise<Database>) | undefined;
-}
-
-function activePacksMatch(
-  left: readonly import("../storage/manifest/manifest-store").InstalledPackManifestEntry[],
-  right: readonly import("../storage/manifest/manifest-store").InstalledPackManifestEntry[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every(
-      (entry, index) =>
-        entry.packName === right[index]?.packName &&
-        entry.packVersion === right[index]?.packVersion &&
-        entry.artifactDigest === right[index]?.artifactDigest &&
-        entry.storageKey === right[index]?.storageKey &&
-        entry.installedAt === right[index]?.installedAt,
-    )
-  );
 }
 
 /**
@@ -93,7 +77,7 @@ export async function withStoreMutation<T>(
     const recovery = await runStoreRecovery(rootPath, database);
     if (
       recovery.metadata !== undefined &&
-      !activePacksMatch(readActivePackEntries(database), recovery.manifest.packs)
+      !installedPackEntriesEqual(readActivePackEntries(database), recovery.manifest.packs)
     ) {
       throw new StoreRecoveryRequiredError(
         "SQLite Active Pack rows differ from the active manifest",

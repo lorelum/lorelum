@@ -73,6 +73,56 @@ function assertStateIsCoherent(state: DerivedStoreState): void {
   }
 }
 
+function insertEffectivePracticeRows(
+  database: Database,
+  practices: readonly EffectivePractice[],
+  revisionFor: (practice: EffectivePractice) => number,
+): void {
+  const insertEffective = database.query(
+    "INSERT INTO effective_practices (practice_id, content_digest, canonical_content, title, stage, tech_stack_json, applies_when, severity, effective_revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  const insertSource = database.query(
+    "INSERT INTO practice_sources (pack_name, practice_id, content_digest, source_path) VALUES (?, ?, ?, ?)",
+  );
+  for (const effective of practices) {
+    const practice = effective.practice;
+    insertEffective.run(
+      effective.practiceId,
+      effective.contentDigest,
+      effective.canonicalContent,
+      practice.title,
+      practice.stage,
+      JSON.stringify(practice.tech_stack),
+      practice.applies_when,
+      practice.severity ?? "warn",
+      revisionFor(effective),
+    );
+    for (const source of effective.sources) {
+      insertSource.run(source.packName, source.practiceId, source.contentDigest, source.sourcePath);
+    }
+  }
+}
+
+function writeRevisionRecords(database: Database, state: DerivedStoreState): void {
+  if (state.revisionNotification?.supersedesPending === true) {
+    database.exec("DELETE FROM effective_revision_outbox");
+  }
+  if (state.revisionNotification !== undefined) {
+    database
+      .query(
+        "INSERT OR REPLACE INTO effective_revision_outbox (revision, delta_json, created_at) VALUES (?, ?, ?)",
+      )
+      .run(
+        state.effectiveRevision,
+        serializeRevisionDelta(state.revisionNotification.delta),
+        new Date().toISOString(),
+      );
+  }
+  if (state.revisionLogDelta !== undefined) {
+    appendEffectiveRevisionLog(database, state.effectiveRevision, state.revisionLogDelta);
+  }
+}
+
 /** Replaces SQLite's fully-derived LocalStore state in one write transaction. */
 export function writeDerivedState(database: Database, state: DerivedStoreState): void {
   assertStateIsCoherent(state);
@@ -82,10 +132,6 @@ export function writeDerivedState(database: Database, state: DerivedStoreState):
       database.exec("DELETE FROM effective_practices");
       database.exec("DELETE FROM active_packs");
       database.exec("DELETE FROM local_store_metadata");
-
-      if (state.revisionNotification?.supersedesPending === true) {
-        database.exec("DELETE FROM effective_revision_outbox");
-      }
 
       const insertPack = database.query(
         "INSERT INTO active_packs (pack_name, pack_version, artifact_digest, storage_key, installed_at) VALUES (?, ?, ?, ?, ?)",
@@ -100,34 +146,11 @@ export function writeDerivedState(database: Database, state: DerivedStoreState):
         );
       }
 
-      const insertEffective = database.query(
-        "INSERT INTO effective_practices (practice_id, content_digest, canonical_content, title, stage, tech_stack_json, applies_when, severity, effective_revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      insertEffectivePracticeRows(
+        database,
+        state.effectivePractices,
+        () => state.effectiveRevision,
       );
-      const insertSource = database.query(
-        "INSERT INTO practice_sources (pack_name, practice_id, content_digest, source_path) VALUES (?, ?, ?, ?)",
-      );
-      for (const effective of state.effectivePractices) {
-        const practice = effective.practice;
-        insertEffective.run(
-          effective.practiceId,
-          effective.contentDigest,
-          effective.canonicalContent,
-          practice.title,
-          practice.stage,
-          JSON.stringify(practice.tech_stack),
-          practice.applies_when,
-          practice.severity ?? "warn",
-          state.effectiveRevision,
-        );
-        for (const source of effective.sources) {
-          insertSource.run(
-            source.packName,
-            source.practiceId,
-            source.contentDigest,
-            source.sourcePath,
-          );
-        }
-      }
 
       database
         .query(
@@ -135,21 +158,7 @@ export function writeDerivedState(database: Database, state: DerivedStoreState):
         )
         .run(LOCAL_STORE_SCHEMA_VERSION, state.generation, state.effectiveRevision);
 
-      if (state.revisionNotification !== undefined) {
-        database
-          .query(
-            "INSERT OR REPLACE INTO effective_revision_outbox (revision, delta_json, created_at) VALUES (?, ?, ?)",
-          )
-          .run(
-            state.effectiveRevision,
-            serializeRevisionDelta(state.revisionNotification.delta),
-            new Date().toISOString(),
-          );
-      }
-
-      if (state.revisionLogDelta !== undefined) {
-        appendEffectiveRevisionLog(database, state.effectiveRevision, state.revisionLogDelta);
-      }
+      writeRevisionRecords(database, state);
     })();
   } catch (error) {
     if (error instanceof SqliteStateError) throw error;
@@ -247,13 +256,7 @@ export function applyIncrementalDerivedState(
       }
 
       const changedIds = changedPracticeIds(state.revisionLogDelta);
-      const insertEffective = database.query(
-        "INSERT INTO effective_practices (practice_id, content_digest, canonical_content, title, stage, tech_stack_json, applies_when, severity, effective_revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      );
-      const insertSource = database.query(
-        "INSERT INTO practice_sources (pack_name, practice_id, content_digest, source_path) VALUES (?, ?, ?, ?)",
-      );
-      for (const effective of state.effectivePractices) {
+      insertEffectivePracticeRows(database, state.effectivePractices, (effective) => {
         const priorRevision = priorRevisions.get(effective.practiceId);
         const rowRevision = changedIds.has(effective.practiceId)
           ? state.effectiveRevision
@@ -261,27 +264,8 @@ export function applyIncrementalDerivedState(
         if (rowRevision === undefined) {
           throw new SqliteStateError("unchanged Effective Practice has no prior revision");
         }
-        const practice = effective.practice;
-        insertEffective.run(
-          effective.practiceId,
-          effective.contentDigest,
-          effective.canonicalContent,
-          practice.title,
-          practice.stage,
-          JSON.stringify(practice.tech_stack),
-          practice.applies_when,
-          practice.severity ?? "warn",
-          rowRevision,
-        );
-        for (const source of effective.sources) {
-          insertSource.run(
-            source.packName,
-            source.practiceId,
-            source.contentDigest,
-            source.sourcePath,
-          );
-        }
-      }
+        return rowRevision;
+      });
 
       database
         .query(
@@ -289,23 +273,7 @@ export function applyIncrementalDerivedState(
         )
         .run(LOCAL_STORE_SCHEMA_VERSION, state.generation, state.effectiveRevision);
 
-      if (state.revisionNotification?.supersedesPending === true) {
-        database.exec("DELETE FROM effective_revision_outbox");
-      }
-      if (state.revisionNotification !== undefined) {
-        database
-          .query(
-            "INSERT OR REPLACE INTO effective_revision_outbox (revision, delta_json, created_at) VALUES (?, ?, ?)",
-          )
-          .run(
-            state.effectiveRevision,
-            serializeRevisionDelta(state.revisionNotification.delta),
-            new Date().toISOString(),
-          );
-      }
-      if (state.revisionLogDelta !== undefined) {
-        appendEffectiveRevisionLog(database, state.effectiveRevision, state.revisionLogDelta);
-      }
+      writeRevisionRecords(database, state);
     })();
   } catch (error) {
     if (error instanceof SqliteStateError) throw error;

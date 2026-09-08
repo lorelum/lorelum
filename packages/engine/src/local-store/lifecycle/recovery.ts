@@ -14,12 +14,12 @@ import {
   writeManifest,
   type InstalledPacksManifest,
 } from "../storage/manifest/manifest-store";
-import { readStoreMetadata } from "../storage/sqlite/snapshot-reader";
+import { readStoreMetadata, type StoreMetadataSnapshot } from "../storage/sqlite/snapshot-reader";
 
 export interface RecoveryResult {
   manifest: InstalledPacksManifest;
   /** undefined means a fresh store whose SQLite has never been written. */
-  metadata: { generation: number; effectiveRevision: number } | undefined;
+  metadata: StoreMetadataSnapshot | undefined;
 }
 
 function tupleEquals(

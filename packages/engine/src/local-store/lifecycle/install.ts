@@ -20,7 +20,6 @@ import {
 import {
   materializeEffectivePracticesByIds,
   readPracticeIdsForPack,
-  readStoreMetadata,
 } from "../storage/sqlite/snapshot-reader";
 import { applyIncrementalDerivedState } from "../storage/sqlite/state-writer";
 
@@ -145,11 +144,10 @@ export async function installOrUpgrade(
         ...(mode === "upgrade" ? readPracticeIdsForPack(database, candidate.pack.name) : []),
       ]),
     ].sort(compareCodeUnits);
-    const metadata = readStoreMetadata(database);
     const effectivePractices =
-      metadata === undefined
+      recovery.metadata === undefined
         ? []
-        : materializeEffectivePracticesByIds(database, metadata, affectedPracticeIds);
+        : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
 
     const entry = entryForCandidate(candidate, artifactDigest);
     let reconciled: ReturnType<typeof reconcileEffectivePractices>;

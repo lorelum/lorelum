@@ -18,7 +18,7 @@ The manifest remains authoritative for active artifacts; `store.sqlite` is a can
 
 Install reads IDs supplied by the candidate. Upgrade reads their union with the previous source IDs of the replaced Pack. Uninstall reads the removed Pack's source IDs. The existing reconciliation rules run on exactly that complete affected source set; conflict detection and `RevisionDelta` calculation are not duplicated.
 
-The SQLite transaction upserts or removes one active-Pack row, replaces source/effective rows only for affected IDs, updates metadata, and appends outbox/revision-log records atomically. It uses `ON CONFLICT DO UPDATE`, never `INSERT OR REPLACE`, because replacement would delete a parent row and trigger foreign-key cascades. `writeDerivedState()` remains the explicit full-rebuild writer for reindex and recovery.
+The SQLite transaction upserts or removes one active-Pack row, replaces source/effective rows only for affected IDs, updates metadata, and appends outbox/revision-log records atomically. It uses `ON CONFLICT DO UPDATE`, never `INSERT OR REPLACE`, because replacement would delete a parent row and trigger foreign-key cascades. `writeDerivedState()` remains the explicit full-rebuild writer for reindex.
 
 ### 2. An Effective Practice row records its own last content revision
 

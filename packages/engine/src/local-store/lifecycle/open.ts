@@ -19,6 +19,7 @@ import {
 } from "../storage/errors";
 import {
   createEmptyManifest,
+  installedPackEntriesEqual,
   serializeManifest,
   tryReadManifest,
   type InstalledPacksManifest,
@@ -117,29 +118,6 @@ function manifestsEqual(
 ): boolean {
   if (left === undefined || right === undefined) return left === right;
   return serializeManifest(left) === serializeManifest(right);
-}
-
-function activeEntriesEqual(
-  left: readonly InstalledPacksManifest["packs"][number][],
-  right: readonly InstalledPacksManifest["packs"][number][],
-): boolean {
-  if (left.length !== right.length) return false;
-  for (let index = 0; index < left.length; index++) {
-    const l = left[index];
-    const r = right[index];
-    if (
-      l === undefined ||
-      r === undefined ||
-      l.packName !== r.packName ||
-      l.packVersion !== r.packVersion ||
-      l.artifactDigest !== r.artifactDigest ||
-      l.storageKey !== r.storageKey ||
-      l.installedAt !== r.installedAt
-    ) {
-      return false;
-    }
-  }
-  return true;
 }
 
 async function readSealedProjection(artifactDir: string): Promise<SnapshotProjection> {
@@ -262,7 +240,7 @@ async function verifyColdOpenSnapshot(rootPath: string): Promise<ColdOpenResult>
       const tupleMatches =
         snapshot.metadata.generation === manifestA.generation &&
         snapshot.metadata.effectiveRevision === manifestA.effectiveRevision;
-      if (!tupleMatches || !activeEntriesEqual(snapshot.activePacks, manifestA.packs)) {
+      if (!tupleMatches || !installedPackEntriesEqual(snapshot.activePacks, manifestA.packs)) {
         const manifestB = await tryReadManifest(rootPath);
         if (!manifestsEqual(manifestA, manifestB)) continue;
         throw new StoreRecoveryRequiredError(

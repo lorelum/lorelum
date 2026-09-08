@@ -11,7 +11,6 @@ import { writeManifest, type InstalledPacksManifest } from "../storage/manifest/
 import {
   materializeEffectivePracticesByIds,
   readPracticeIdsForPack,
-  readStoreMetadata,
 } from "../storage/sqlite/snapshot-reader";
 import { applyIncrementalDerivedState } from "../storage/sqlite/state-writer";
 
@@ -50,11 +49,10 @@ export async function uninstallPack(
     if (entry === undefined) throw new PackNotInstalledError(packName);
 
     const affectedPracticeIds = readPracticeIdsForPack(database, packName);
-    const metadata = readStoreMetadata(database);
     const effectivePractices =
-      metadata === undefined
+      recovery.metadata === undefined
         ? []
-        : materializeEffectivePracticesByIds(database, metadata, affectedPracticeIds);
+        : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
     const reconciled = removePackSources(activeSources(effectivePractices), packName);
 
     const advances = reconciled.advancesEffectiveRevision;
