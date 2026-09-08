@@ -29,7 +29,7 @@ export function Features({ lang }: { lang: string }) {
   ];
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 py-24 sm:py-32">
+    <section id="features" className="relative mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:py-32">
       <SectionHeading eyebrow={t.featuresEyebrow} title={t.featuresHeading} sub={t.featuresSub} />
       <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {items.map((item, i) => {

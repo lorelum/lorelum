@@ -100,6 +100,7 @@ export function Hero({ lang }: { lang: string }) {
 
   return (
     <section
+      id="landing-hero"
       ref={sectionRef}
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}

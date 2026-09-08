@@ -1,0 +1,24 @@
+.site-theme-toggle {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  color: var(--color-fd-foreground);
+  transition:
+    color 160ms ease-out,
+    background-color 160ms ease-out;
+}
+
+.site-theme-toggle:hover {
+  background: color-mix(in oklab, var(--color-fd-primary) 9%, transparent);
+  color: var(--color-fd-primary);
+}
+
+.site-theme-toggle svg {
+  width: 1rem;
+  height: 1rem;
+}

@@ -56,7 +56,7 @@ export function Ecosystem({ lang }: { lang: string }) {
   }));
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 py-24 sm:py-32">
+    <section id="ecosystem" className="relative mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:py-32">
       <SectionHeading eyebrow={t.ecosystemEyebrow} title={t.ecosystemHeading} sub={t.ecosystemSub} />
       <Reveal className="mt-14">
         <LogoLoop

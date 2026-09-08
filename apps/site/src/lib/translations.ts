@@ -12,6 +12,9 @@
 export interface LandingStrings {
   tagline: string;
   readDocs: string;
+  navHome: string;
+  navDocs: string;
+  toggleTheme: string;
   // Hero
   heroBadge: string;
   heroTitleBefore: string;
@@ -94,6 +97,9 @@ export interface LandingStrings {
 const en: LandingStrings = {
   tagline: 'The right engineering Practice for the right AI coding task and moment.',
   readDocs: 'Read the docs',
+  navHome: 'Home',
+  navDocs: 'Docs',
+  toggleTheme: 'Toggle theme',
   // Hero
   heroBadge: 'Engineering knowledge, injected on demand',
   heroTitleBefore: 'The right ',
@@ -193,6 +199,9 @@ const en: LandingStrings = {
 const zh: LandingStrings = {
   tagline: '在正确的任务与关键时刻，为 AI 编码智能体检索正确的工程 Practice。',
   readDocs: '阅读文档',
+  navHome: '首页',
+  navDocs: '文档',
+  toggleTheme: '切换主题',
   // Hero
   heroBadge: '按需注入的工程知识',
   heroTitleBefore: '正确的 ',
@@ -283,6 +292,3 @@ const dictionaries: Record<string, LandingStrings> = { en, zh };
 export function getStrings(locale: string): LandingStrings {
   return dictionaries[locale] ?? en;
 }
-
-
-
