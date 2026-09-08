@@ -27,12 +27,13 @@ Closes #
 - [ ] Updated relevant documentation
 - [ ] No secrets, credentials, or private info in the diff
 
-## AI assistance
+## AI assistance and review
 
-- [ ] Parts of this PR were generated or assisted by an AI tool
-- [ ] I have reviewed every line of the AI-generated code and take full responsibility for it
+- [ ] This PR contains code or documentation generated or assisted by an AI tool
+- [ ] An AI code review covered the changed behavior and edge cases; material findings are resolved or documented below
+- [ ] For a change to public behavior, contracts, schemas, or architecture, a maintainer has approved the design, acceptance evidence, and residual risks before merge
 
-<!-- If unchecked, both reviewer and author save time. -->
+<!-- If this PR used AI assistance, link the AI CR or summarize its material findings below. "Reviewed every line" is not an acceptance criterion. -->
 
 ## Notes for reviewers
 
