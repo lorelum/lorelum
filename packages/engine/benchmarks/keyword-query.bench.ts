@@ -41,6 +41,12 @@ function syntheticCandidate(count: number): PackCandidate {
 const iterations = Number(process.env.LORELUM_BENCH_ITERATIONS ?? 20);
 if (!Number.isSafeInteger(iterations) || iterations < 1)
   throw new Error("Invalid benchmark iterations");
+const incrementalIterations = Number(
+  process.env.LORELUM_BENCH_INCREMENTAL_ITERATIONS ?? iterations,
+);
+if (!Number.isSafeInteger(incrementalIterations) || incrementalIterations < 1) {
+  throw new Error("Invalid incremental benchmark iterations");
+}
 const binary = process.env.LORELUM_CLI_BINARY;
 const packDirectory = process.env.LORELUM_BENCH_PACK;
 const scales = (process.env.LORELUM_BENCH_SCALES ?? "100,1000,5000,20000").split(",").map(Number);
@@ -50,6 +56,67 @@ const text = process.env.LORELUM_BENCH_QUERY ?? "React authentication";
 
 function report(label: string, stage: string, latency: LatencySummary): void {
   console.log(JSON.stringify({ label, stage, ...latency }));
+}
+
+function incrementalCandidate(index: number): {
+  readonly candidate: PackCandidate;
+  readonly practiceId: string;
+  readonly queryText: string;
+} {
+  const practiceId = `benchmark.incremental.${index}`;
+  const queryText = `incremental-index-marker-${index}`;
+  const candidate = createPackCandidate(
+    {
+      pack: { name: `query-incremental-${index}`, version: "1.0.0" },
+      practices: [
+        {
+          id: practiceId,
+          title: `Incremental index ${index}`,
+          stage: "implementation",
+          tech_stack: ["typescript"],
+          applies_when: queryText,
+          body: queryText,
+        },
+      ],
+      decisions: [],
+    },
+    { [practiceId]: `practices/incremental-${index}.md` },
+  ).candidate;
+  return Object.freeze({ candidate, practiceId, queryText });
+}
+
+async function measureIncrementalIndex(
+  label: string,
+  root: { readonly rootPath: string },
+  store: ReturnType<typeof createLocalStore>,
+  service: ReturnType<typeof createQueryService>,
+): Promise<void> {
+  const installSamples: number[] = [];
+  const updateSamples: number[] = [];
+  const reuseSamples: number[] = [];
+  for (let index = 0; index < incrementalIterations; index++) {
+    const incremental = incrementalCandidate(index);
+    let startedAt = performance.now();
+    // eslint-disable-next-line no-await-in-loop -- each mutation creates the next index revision.
+    await store.install(root, incremental.candidate);
+    installSamples.push(performance.now() - startedAt);
+
+    startedAt = performance.now();
+    // eslint-disable-next-line no-await-in-loop -- this query consumes exactly the revision above.
+    const updated = await service.query(root, { text: incremental.queryText, limit: 1 });
+    updateSamples.push(performance.now() - startedAt);
+    if (updated.results[0]?.practiceId !== incremental.practiceId) {
+      throw new Error("Incremental query did not return the just-installed Practice");
+    }
+
+    startedAt = performance.now();
+    // eslint-disable-next-line no-await-in-loop -- the second query measures the resulting steady state.
+    await service.query(root, { text: incremental.queryText, limit: 1 });
+    reuseSamples.push(performance.now() - startedAt);
+  }
+  report(label, "incremental-install", summarize(installSamples));
+  report(label, "query-delta-update", summarize(updateSamples));
+  report(label, "query-delta-reuse", summarize(reuseSamples));
 }
 
 async function benchmark(candidate: PackCandidate, label: string): Promise<void> {
@@ -97,11 +164,22 @@ async function benchmark(candidate: PackCandidate, label: string): Promise<void>
     }
     report(
       label,
-      "query-service-total",
+      "query-first-build",
+      await measure(iterations, 0, async () => {
+        await rm(join(rootPath, "indexes"), { recursive: true, force: true });
+        await service.query(root, { text });
+      }),
+    );
+    // Build once before timing the cross-process-reusable steady state.
+    await service.query(root, { text });
+    report(
+      label,
+      "query-reuse",
       await measure(iterations, 2, async () => {
         await service.query(root, { text });
       }),
     );
+    await measureIncrementalIndex(label, root, store, service);
     if (binary !== undefined) {
       const elapsed: number[] = [];
       const rss: number[] = [];
@@ -146,6 +224,7 @@ console.log(
     platform: process.platform,
     arch: process.arch,
     iterations,
+    incrementalIterations,
     seed: 42,
     text,
     compiled: binary !== undefined,

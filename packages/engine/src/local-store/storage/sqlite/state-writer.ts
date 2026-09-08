@@ -9,7 +9,8 @@ import {
 import type { InstalledPackManifestEntry } from "../manifest/manifest-store";
 import { SqliteStateError } from "../errors";
 import { LOCAL_STORE_SCHEMA_VERSION } from "./migrations";
-import { serializeRevisionDelta } from "./revision-outbox";
+import { serializeRevisionDelta } from "./revision-delta";
+import { appendEffectiveRevisionLog } from "./revision-log";
 
 export interface DerivedStoreState {
   generation: number;
@@ -24,6 +25,8 @@ export interface DerivedStoreState {
         supersedesPending?: boolean;
       }
     | undefined;
+  /** Persisted indexing history; independent of the consumable hook outbox. */
+  revisionLogDelta?: RevisionDelta | undefined;
 }
 
 function assertStateIsCoherent(state: DerivedStoreState): void {
@@ -133,6 +136,10 @@ export function writeDerivedState(database: Database, state: DerivedStoreState):
             serializeRevisionDelta(state.revisionNotification.delta),
             new Date().toISOString(),
           );
+      }
+
+      if (state.revisionLogDelta !== undefined) {
+        appendEffectiveRevisionLog(database, state.effectiveRevision, state.revisionLogDelta);
       }
     })();
   } catch (error) {

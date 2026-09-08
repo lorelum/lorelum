@@ -10,6 +10,9 @@ export {
   type LocalStore,
   type OpenResult,
   type StorageRoot,
+  type StoreSnapshotIdentity,
+  type EffectivePracticeSnapshot,
+  type EffectivePracticeChangeSnapshot,
 } from "./lifecycle/local-store";
 
 export {
@@ -32,6 +35,7 @@ export {
   InvalidPracticeIdError,
   PackNotInstalledError,
   StoreCounterExhaustedError,
+  StoreSnapshotChangedError,
   UpgradeRequiredError,
 } from "./lifecycle/errors";
 

@@ -285,6 +285,7 @@ export async function reindexStore(
         revisionNotification: !shouldQueueNotification
           ? undefined
           : { delta, supersedesPending: true },
+        revisionLogDelta: delta,
       } as const;
       try {
         writeDerivedState(database, derivedState);

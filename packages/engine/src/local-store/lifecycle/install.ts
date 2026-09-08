@@ -210,6 +210,7 @@ export async function installOrUpgrade(
         effectivePractices: reconciled.effectivePractices,
         revisionNotification:
           advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
+        revisionLogDelta: advances ? reconciled.delta : undefined,
       });
     } catch (error) {
       await rm(stagingPath, { recursive: true, force: true });

@@ -32,6 +32,24 @@ function candidate(input: PackInput) {
   ).candidate;
 }
 
+function singlePracticePack(packName: string, practiceId: string, text: string): PackInput {
+  return {
+    pack: { name: packName, version: "1.0.0" },
+    practices: [
+      {
+        id: practiceId,
+        title: practiceId,
+        stage: "api",
+        tech_stack: ["typescript"],
+        applies_when: text,
+        severity: "warn",
+        body: text,
+      },
+    ],
+    decisions: [],
+  };
+}
+
 test("query-to-get preserves IDs and digest on the public React fixture", async () => {
   await withRoot(async (root) => {
     const store = createLocalStore();
@@ -57,12 +75,22 @@ test("query-to-get preserves IDs and digest on the public React fixture", async 
 test("new queries reflect install, upgrade and uninstall without an index migration", async () => {
   await withRoot(async (root) => {
     const store = createLocalStore();
-    const query = createQueryService({ store });
+    let fullSnapshots = 0;
+    const query = createQueryService({
+      store: {
+        ...store,
+        async readEffectivePracticeSnapshot(...args) {
+          fullSnapshots++;
+          return store.readEffectivePracticeSnapshot(...args);
+        },
+      },
+    });
     const input = reactPack();
     input.practices[0]!.body = "Zebrafish guidance";
     await store.install(root, candidate(input));
     const first = await query.query(root, { text: "Zebrafish" });
     expect(first.results).toHaveLength(1);
+    expect(fullSnapshots).toBe(1);
     input.pack.version = "0.2.0";
     input.practices[0]!.body = "Narwhal guidance";
     await store.upgrade(root, candidate(input));
@@ -70,6 +98,7 @@ test("new queries reflect install, upgrade and uninstall without an index migrat
     const second = await query.query(root, { text: "Narwhal" });
     expect(second.results).toHaveLength(1);
     expect(second.results[0]?.contentDigest).not.toBe(first.results[0]?.contentDigest);
+    expect(fullSnapshots).toBe(1);
     const before = await readManifest(root.rootPath);
     const database = await openStoreDatabase(root.rootPath);
     const tables = () =>
@@ -84,6 +113,37 @@ test("new queries reflect install, upgrade and uninstall without an index migrat
     }
     await store.uninstall(root, input.pack.name);
     expect((await query.query(root, { text: "Narwhal" })).results).toEqual([]);
+    expect(fullSnapshots).toBe(1);
+  });
+});
+
+test("successive install-query cycles apply revision deltas without rebuilding the corpus index", async () => {
+  await withRoot(async (root) => {
+    const store = createLocalStore();
+    let fullSnapshots = 0;
+    const query = createQueryService({
+      store: {
+        ...store,
+        async readEffectivePracticeSnapshot(...args) {
+          fullSnapshots++;
+          return store.readEffectivePracticeSnapshot(...args);
+        },
+      },
+    });
+    await store.install(root, candidate(singlePracticePack("seed", "seed.initial", "seed")));
+    await query.query(root, { text: "seed" });
+    for (let index = 1; index <= 3; index++) {
+      const term = `incrementalterm${index}`;
+      // eslint-disable-next-line no-await-in-loop -- each mutation must advance exactly one revision.
+      await store.install(
+        root,
+        candidate(singlePracticePack(`pack${index}`, `incremental.practice${index}`, term)),
+      );
+      // eslint-disable-next-line no-await-in-loop -- each query must consume exactly one delta.
+      const result = await query.query(root, { text: term, limit: 1 });
+      expect(result.results[0]?.practiceId).toBe(`incremental.practice${index}`);
+    }
+    expect(fullSnapshots).toBe(1);
   });
 });
 

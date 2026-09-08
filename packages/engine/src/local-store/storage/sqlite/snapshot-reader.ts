@@ -70,6 +70,27 @@ export function materializeEffectivePractices(
   return materializePracticeRows(rows, metadata);
 }
 
+/** Materializes a bounded subset while retaining the same row validation as full reads. */
+export function materializeEffectivePracticesByIds(
+  database: Database,
+  metadata: StoreMetadataSnapshot,
+  ids: readonly string[],
+): readonly EffectivePractice[] {
+  if (ids.length === 0) return Object.freeze([]);
+  const uniqueIds = [...new Set(ids)].sort();
+  try {
+    const rows = database
+      .query(
+        `SELECT e.practice_id, e.content_digest, e.canonical_content, e.title, e.stage, e.tech_stack_json, e.applies_when, e.severity, e.effective_revision, s.pack_name, s.source_path, s.content_digest AS source_digest FROM effective_practices e LEFT JOIN practice_sources s ON s.practice_id = e.practice_id WHERE e.practice_id IN (${uniqueIds.map(() => "?").join(", ")}) ORDER BY e.practice_id ASC, s.pack_name ASC, s.source_path ASC`,
+      )
+      .all(...uniqueIds);
+    return materializePracticeRows(rows, metadata);
+  } catch (error) {
+    if (error instanceof SqliteStateError) throw error;
+    throw new SqliteStateError("cannot materialize selected Effective Practices", error);
+  }
+}
+
 /** Materializes Effective Practices and sources from one deterministically ordered SQL statement. */
 export function readEffectivePracticeSnapshot(database: Database): EffectivePracticeSnapshot {
   try {

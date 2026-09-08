@@ -39,3 +39,11 @@ export class StoreCounterExhaustedError extends Error {
     this.name = "StoreCounterExhaustedError";
   }
 }
+
+/** A query index was bound to a Store snapshot that is no longer current. */
+export class StoreSnapshotChangedError extends Error {
+  constructor() {
+    super("LocalStore snapshot changed during query");
+    this.name = "StoreSnapshotChangedError";
+  }
+}

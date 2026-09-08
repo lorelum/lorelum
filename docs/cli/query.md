@@ -36,11 +36,13 @@ The command writes one JSON protocol envelope to stdout. A successful result has
 
 ## Store and index behavior
 
-Each query reads `readEffectivePractices()` once to obtain one consistent corpus. QueryService projects that snapshot into keyword documents, builds a request-local in-memory SQLite FTS5 index, searches it with SQLite's `bm25()`, assembles the summaries from the same snapshot, and closes the index in `finally`. The index is not persisted in `store.sqlite`, and the command does not create a Session or cross-command cache. The Store facade is created once by the CLI composition root and injected into the command; the database connection remains owned by the individual operation.
+The first query builds a derived SQLite FTS5 index under the selected Store root at `indexes/keyword/v<index-version>/active.sqlite`; it is separate from `store.sqlite`, whose canonical Practice rows remain the source of truth. Later queries reuse an index whose root binding and effective revision match the Store. An implementation-version directory isolates indexes when the FTS schema, projection, tokenizer, or ranking behavior changes. Queries search FTS5, then materialize and digest-check only the matched canonical Practice rows before assembling summaries.
+
+Install, upgrade, uninstall, and reindex do not wait for index work. LocalStore records an internal effective-revision delta with each changed corpus. A later query applies a contiguous delta to the FTS table in one SQLite transaction; it deletes affected IDs, inserts the final changed rows, and advances the index checkpoint. A missing, corrupt, incompatible, or history-gap index is rebuilt from one complete consistent snapshot. The index is never treated as a source for summaries or as a fallback for an inconsistent Store.
 
 The indexed fields are Practice ID, title, applies-when text, tech-stack values, stage, anti-pattern text, and body. The current internal weights are `id: 8`, `title: 5`, `appliesWhen: 3`, `techStack: 2`, `stage: 1`, `antiPatterns: 1`, and `body: 1`. These are implementation parameters, not CLI options. Query text and indexed text use the same tokenizer, including normalization for technical identifiers and CJK text; raw user text is encoded as FTS literal terms rather than passed through as FTS operators.
 
-The query path does not run the full artifact audit performed by `open()`, and it does not converge pending operation journals. It follows the existing `readEffectivePractices()` read behavior. A Store that is busy or inconsistent therefore fails instead of returning a mixed or stale corpus. Query does not access the Registry or network.
+The query path does not run the full artifact audit performed by `open()`, and it does not converge pending operation journals. It uses the same lock-free manifest/SQLite snapshot protocol as the existing full-read path. A Store that is busy or inconsistent therefore fails instead of returning a mixed or stale corpus. The query does not access the Registry or network. A query checks index metadata and its returned candidate digests; it is not a whole-index audit.
 
 ## Errors and exit codes
 
@@ -55,4 +57,4 @@ Success exits `0`. Failures use `ok: false` with `error: { code, message }` and 
 | `store.recovery-required` | The selected LocalStore is inconsistent or cannot be read normally. |
 | `runtime.unexpected` | An undeclared internal failure prevented completion. |
 
-The Engine API reports `InvalidQueryRequestError`, `KeywordIndexUnavailableError`, and `KeywordIndexError` for the corresponding domain failures. CLI translation keeps those implementation types out of the protocol. Semantic, hybrid, structured-filter, persistent-index, and result-count options are not part of this command.
+The Engine API reports `InvalidQueryRequestError`, `KeywordIndexUnavailableError`, and `KeywordIndexError` for the corresponding domain failures. CLI translation keeps those implementation types out of the protocol. Semantic, hybrid, structured-filter, and result-count options are not part of this command.

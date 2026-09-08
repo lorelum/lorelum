@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 
 import { SqliteStateError } from "../errors";
 
-export const LOCAL_STORE_SCHEMA_VERSION = 2;
+export const LOCAL_STORE_SCHEMA_VERSION = 3;
 
 const INITIAL_SCHEMA = [
   "CREATE TABLE IF NOT EXISTS local_store_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), schema_version INTEGER NOT NULL, installed_packs_generation INTEGER NOT NULL, effective_revision INTEGER NOT NULL)",
@@ -11,10 +11,16 @@ const INITIAL_SCHEMA = [
   "CREATE TABLE IF NOT EXISTS effective_practices (practice_id TEXT PRIMARY KEY, content_digest TEXT NOT NULL, canonical_content TEXT NOT NULL, title TEXT NOT NULL, stage TEXT NOT NULL, tech_stack_json TEXT NOT NULL, applies_when TEXT NOT NULL, severity TEXT NOT NULL, effective_revision INTEGER NOT NULL)",
   "CREATE INDEX IF NOT EXISTS practice_sources_by_practice ON practice_sources(practice_id, pack_name, source_path)",
   "CREATE TABLE IF NOT EXISTS effective_revision_outbox (revision INTEGER PRIMARY KEY, delta_json TEXT NOT NULL, created_at TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS effective_revision_log (revision INTEGER PRIMARY KEY, delta_json TEXT NOT NULL, created_at TEXT NOT NULL)",
 ].join(";");
 
 const ADD_REVISION_OUTBOX = [
   "CREATE TABLE effective_revision_outbox (revision INTEGER PRIMARY KEY, delta_json TEXT NOT NULL, created_at TEXT NOT NULL)",
+  "UPDATE local_store_metadata SET schema_version = 2 WHERE singleton = 1",
+].join(";");
+
+const ADD_EFFECTIVE_REVISION_LOG = [
+  "CREATE TABLE effective_revision_log (revision INTEGER PRIMARY KEY, delta_json TEXT NOT NULL, created_at TEXT NOT NULL)",
   `UPDATE local_store_metadata SET schema_version = ${LOCAL_STORE_SCHEMA_VERSION} WHERE singleton = 1`,
 ].join(";");
 
@@ -44,6 +50,11 @@ export function migrateDatabase(database: Database): void {
         database.exec("PRAGMA user_version = " + LOCAL_STORE_SCHEMA_VERSION);
       } else if (currentVersion === 1) {
         database.exec(ADD_REVISION_OUTBOX);
+        database.exec("PRAGMA user_version = 2");
+        database.exec(ADD_EFFECTIVE_REVISION_LOG);
+        database.exec("PRAGMA user_version = " + LOCAL_STORE_SCHEMA_VERSION);
+      } else if (currentVersion === 2) {
+        database.exec(ADD_EFFECTIVE_REVISION_LOG);
         database.exec("PRAGMA user_version = " + LOCAL_STORE_SCHEMA_VERSION);
       }
     })();

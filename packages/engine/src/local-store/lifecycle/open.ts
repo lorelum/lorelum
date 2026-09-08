@@ -1,9 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import type { Database } from "bun:sqlite";
 import { ID_REGEX } from "@lorelum/format";
 
-import type { EffectivePractice } from "../model";
+import { revisionDeltaPracticeIds, type EffectivePractice, type RevisionDelta } from "../model";
 import { artifactPath, calculateArtifactDigest } from "../storage/artifacts/artifact-store";
 import {
   parseProjection,
@@ -34,10 +35,12 @@ import {
   readStoreMetadata,
   readActivePackEntries,
   materializeEffectivePractices,
+  materializeEffectivePracticesByIds,
   type StoreMetadataSnapshot,
 } from "../storage/sqlite/snapshot-reader";
 import { readPractice } from "../storage/sqlite/practice-reader";
-import { InvalidPracticeIdError } from "./errors";
+import { readEffectiveRevisionLog } from "../storage/sqlite/revision-log";
+import { InvalidPracticeIdError, StoreSnapshotChangedError } from "./errors";
 
 import { runStoreRecovery } from "./recovery";
 
@@ -51,6 +54,36 @@ import { runStoreRecovery } from "./recovery";
 export interface ColdOpenResult {
   manifest: InstalledPacksManifest;
   effectivePractices: readonly EffectivePractice[];
+}
+
+/** A verified Store snapshot identity used to bind a derived query index. */
+export interface StoreSnapshotIdentity {
+  readonly rootBinding: string;
+  readonly generation: number;
+  readonly effectiveRevision: number;
+  readonly manifestDigest: string;
+}
+
+export interface EffectivePracticeSnapshot {
+  readonly identity: StoreSnapshotIdentity;
+  readonly practices: readonly EffectivePractice[];
+}
+
+export interface EffectivePracticeChange {
+  readonly revision: number;
+  readonly delta: RevisionDelta;
+}
+
+export interface EffectivePracticeChangeSnapshot {
+  readonly identity: StoreSnapshotIdentity;
+  readonly deltas: readonly EffectivePracticeChange[];
+  readonly currentPractices: readonly EffectivePractice[];
+}
+
+interface ConsistentSnapshot<T> {
+  readonly manifest: InstalledPacksManifest;
+  readonly metadata: StoreMetadataSnapshot | undefined;
+  readonly value: T;
 }
 
 const MAX_OPEN_RETRIES = 3;
@@ -128,8 +161,8 @@ async function verifyArtifactsAndSources(
   await Promise.all(
     manifest.packs.map(async (entry) => {
       const artifactDir = artifactPath(rootPath, entry.storageKey, entry.artifactDigest);
-      const digest = await calculateArtifactDigest(artifactDir);
-      if (digest !== entry.artifactDigest) {
+      const artifactDigest = await calculateArtifactDigest(artifactDir);
+      if (artifactDigest !== entry.artifactDigest) {
         throw new StoreRecoveryRequiredError(`artifact digest mismatch for ${entry.storageKey}`);
       }
       const projection = await readSealedProjection(artifactDir);
@@ -310,15 +343,148 @@ async function readWithJournalRecovery<T>(rootPath: string, read: () => Promise<
 export async function readEffectivePractices(
   rootPath: string,
 ): Promise<readonly EffectivePractice[]> {
-  return readConsistentSnapshot(
+  const snapshot = await readConsistentSnapshotWithActivePacks(
     rootPath,
-    (database, metadata) => {
-      // Preserve the full-read path's existing validation of Active Pack rows.
-      readActivePackEntries(database);
-      return materializeEffectivePractices(database, metadata);
-    },
+    (database, metadata) => materializeEffectivePractices(database, metadata),
     Object.freeze([]),
   );
+  return snapshot.value;
+}
+
+function digest(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function snapshotIdentity(
+  rootBinding: string,
+  manifest: InstalledPacksManifest,
+  metadata: StoreMetadataSnapshot | undefined,
+): StoreSnapshotIdentity {
+  return Object.freeze({
+    rootBinding,
+    generation: metadata?.generation ?? manifest.generation,
+    effectiveRevision: metadata?.effectiveRevision ?? manifest.effectiveRevision,
+    manifestDigest: digest(serializeManifest(manifest)),
+  });
+}
+
+function identitiesEqual(left: StoreSnapshotIdentity, right: StoreSnapshotIdentity): boolean {
+  return (
+    left.rootBinding === right.rootBinding &&
+    left.generation === right.generation &&
+    left.effectiveRevision === right.effectiveRevision &&
+    left.manifestDigest === right.manifestDigest
+  );
+}
+
+async function resolvedRootBinding(rootPath: string): Promise<string> {
+  return digest(await realpath(rootPath));
+}
+
+/** Read only the committed Store identity and active-pack rows. */
+export async function readSnapshotIdentity(rootPath: string): Promise<StoreSnapshotIdentity> {
+  const snapshot = await readConsistentSnapshotWithActivePacks(
+    rootPath,
+    () => undefined,
+    undefined,
+  );
+  return snapshotIdentity(
+    await resolvedRootBinding(rootPath),
+    snapshot.manifest,
+    snapshot.metadata,
+  );
+}
+
+/** Read one full effective corpus and the identity that produced it. */
+export async function readEffectivePracticeSnapshot(
+  rootPath: string,
+): Promise<EffectivePracticeSnapshot> {
+  const snapshot = await readConsistentSnapshotWithActivePacks(
+    rootPath,
+    (database, metadata) => materializeEffectivePractices(database, metadata),
+    Object.freeze([]),
+  );
+  return Object.freeze({
+    identity: snapshotIdentity(
+      await resolvedRootBinding(rootPath),
+      snapshot.manifest,
+      snapshot.metadata,
+    ),
+    practices: snapshot.value,
+  });
+}
+
+/**
+ * Read a contiguous revision range and the final canonical rows it affects.
+ * Undefined means a caller must rebuild rather than guess missing history.
+ */
+export async function readEffectivePracticeChanges(
+  rootPath: string,
+  afterEffectiveRevision: number,
+): Promise<EffectivePracticeChangeSnapshot | undefined> {
+  if (!Number.isSafeInteger(afterEffectiveRevision) || afterEffectiveRevision < 0) {
+    throw new StoreSnapshotChangedError();
+  }
+  const snapshot = await readConsistentSnapshotWithActivePacks(
+    rootPath,
+    (database, metadata) => {
+      if (afterEffectiveRevision > metadata.effectiveRevision) return undefined;
+      let entries: readonly EffectivePracticeChange[];
+      try {
+        entries = readEffectiveRevisionLog(database, afterEffectiveRevision).map((entry) =>
+          Object.freeze({ revision: entry.revision, delta: entry.delta }),
+        );
+      } catch (error) {
+        if (error instanceof SqliteStateError) return undefined;
+        throw error;
+      }
+      let expected = afterEffectiveRevision + 1;
+      for (const entry of entries) {
+        if (entry.revision !== expected) return undefined;
+        expected += 1;
+      }
+      if (expected !== metadata.effectiveRevision + 1) return undefined;
+      return Object.freeze({
+        deltas: Object.freeze(entries),
+        currentPractices: materializeEffectivePracticesByIds(
+          database,
+          metadata,
+          revisionDeltaPracticeIds(entries.map((entry) => entry.delta)),
+        ),
+      });
+    },
+    Object.freeze({ deltas: Object.freeze([]), currentPractices: Object.freeze([]) }),
+  );
+  if (snapshot.value === undefined) return undefined;
+  return Object.freeze({
+    identity: snapshotIdentity(
+      await resolvedRootBinding(rootPath),
+      snapshot.manifest,
+      snapshot.metadata,
+    ),
+    deltas: snapshot.value.deltas,
+    currentPractices: snapshot.value.currentPractices,
+  });
+}
+
+/** Materialize selected current rows only when the expected Store identity remains current. */
+export async function readEffectivePracticesAtSnapshot(
+  rootPath: string,
+  expected: StoreSnapshotIdentity,
+  ids: readonly string[],
+): Promise<readonly EffectivePractice[]> {
+  const snapshot = await readConsistentSnapshotWithActivePacks(
+    rootPath,
+    (database, metadata) => materializeEffectivePracticesByIds(database, metadata, ids),
+    Object.freeze([]),
+  );
+  const actual = snapshotIdentity(
+    await resolvedRootBinding(rootPath),
+    snapshot.manifest,
+    snapshot.metadata,
+  );
+  if (!identitiesEqual(actual, expected)) throw new StoreSnapshotChangedError();
+  return snapshot.value;
 }
 
 /** Callbacks are synchronous, read-only, and may be retried. Connections stay private. */
@@ -326,7 +492,7 @@ async function readConsistentSnapshot<T>(
   rootPath: string,
   read: (database: Database, metadata: StoreMetadataSnapshot) => T,
   empty: T,
-): Promise<T> {
+): Promise<ConsistentSnapshot<T>> {
   const MAX_READ_RETRIES = 3;
   const database = await openStoreForLifecycle(rootPath);
   try {
@@ -347,7 +513,11 @@ async function readConsistentSnapshot<T>(
       // eslint-disable-next-line no-await-in-loop -- manifest B must follow the SQLite snapshot
       const manifestB = await tryReadManifest(rootPath);
       if (manifestA === undefined && snapshot === undefined && manifestB === undefined) {
-        return empty;
+        return Object.freeze({
+          manifest: createEmptyManifest(),
+          metadata: undefined,
+          value: empty,
+        });
       }
       // A persisted empty manifest is also a valid never-written Store.
       if (
@@ -357,7 +527,7 @@ async function readConsistentSnapshot<T>(
         manifestA.packs.length === 0 &&
         manifestsEqual(manifestA, manifestB)
       ) {
-        return empty;
+        return Object.freeze({ manifest: manifestA, metadata: undefined, value: empty });
       }
       if (manifestA === undefined || snapshot === undefined || manifestB === undefined) continue;
       const tupleMatches =
@@ -368,7 +538,11 @@ async function readConsistentSnapshot<T>(
         manifestB !== undefined &&
         serializeManifest(manifestA) === serializeManifest(manifestB)
       ) {
-        return snapshot.value;
+        return Object.freeze({
+          manifest: manifestA,
+          metadata: snapshot.metadata,
+          value: snapshot.value,
+        });
       }
     }
     // Retries exhausted. Distinguish a stable mismatch (recovery required)
@@ -395,6 +569,21 @@ async function readConsistentSnapshot<T>(
   }
 }
 
+function readConsistentSnapshotWithActivePacks<T>(
+  rootPath: string,
+  read: (database: Database, metadata: StoreMetadataSnapshot) => T,
+  empty: T,
+): Promise<ConsistentSnapshot<T>> {
+  return readConsistentSnapshot(
+    rootPath,
+    (database, metadata) => {
+      readActivePackEntries(database);
+      return read(database, metadata);
+    },
+    empty,
+  );
+}
+
 /** Point reads retain cold-open journal convergence without its whole-store artifact audit. */
 export async function getEffectivePractice(
   rootPath: string,
@@ -406,6 +595,6 @@ export async function getEffectivePractice(
       rootPath,
       (database, metadata) => readPractice(database, metadata, practiceId),
       undefined,
-    ),
+    ).then((snapshot) => snapshot.value),
   );
 }

@@ -16,7 +16,10 @@ export interface KeywordIndex {
   close(): void;
 }
 
-const CREATE_KEYWORD_TABLE = `
+/** Bump when any persistent keyword-index behavior can change query results. */
+export const KEYWORD_INDEX_VERSION = 1;
+
+export const CREATE_KEYWORD_TABLE = `
   CREATE VIRTUAL TABLE keyword_documents USING fts5(
     practice_id UNINDEXED,
     content_digest UNINDEXED,
@@ -31,7 +34,7 @@ const CREATE_KEYWORD_TABLE = `
   )
 `;
 
-const INSERT_DOCUMENT = `
+export const INSERT_DOCUMENT = `
   INSERT INTO keyword_documents (
     practice_id, content_digest, id, title, applies_when, tech_stack, stage, anti_patterns, body
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -77,13 +80,13 @@ function isFts5Unavailable(error: unknown): boolean {
   return error instanceof Error && /no such module:\s*fts5/i.test(error.message);
 }
 
-function asKeywordIndexError(message: string, error: unknown): KeywordIndexError {
+export function toKeywordIndexError(message: string, error: unknown): KeywordIndexError {
   if (error instanceof KeywordIndexError) return error;
   if (isFts5Unavailable(error)) return new KeywordIndexUnavailableError({ cause: error });
   return new KeywordIndexError(message, { cause: error });
 }
 
-function tokenizeDocument(document: KeywordDocument): readonly string[] {
+export function tokenizeDocument(document: KeywordDocument): readonly string[] {
   return [
     document.practiceId,
     document.contentDigest,
@@ -124,25 +127,54 @@ export function buildKeywordIndex(documents: readonly KeywordDocument[]): Keywor
   let database: Database | undefined;
   try {
     database = new Database(":memory:");
-    database.exec(CREATE_KEYWORD_TABLE);
-    const insertDocument = database.query(INSERT_DOCUMENT);
-    database.transaction(() => {
-      for (const document of documents) {
-        insertDocument.run(...tokenizeDocument(document));
-      }
-    })();
-    return createKeywordIndex(database);
+    initializeKeywordIndex(database, documents);
+    return openKeywordIndex(database);
   } catch (error) {
     try {
       database?.close();
     } catch {
       // The original build failure is the useful error for callers.
     }
-    throw asKeywordIndexError("Cannot build SQLite keyword index", error);
+    throw toKeywordIndexError("Cannot build SQLite keyword index", error);
   }
 }
 
-function createKeywordIndex(database: Database): KeywordIndex {
+/** Initialize a new FTS5 table in the caller-owned Database transaction scope. */
+export function initializeKeywordIndex(
+  database: Database,
+  documents: readonly KeywordDocument[],
+): void {
+  database.exec(CREATE_KEYWORD_TABLE);
+  const insertDocument = database.query(INSERT_DOCUMENT);
+  database.transaction(() => {
+    for (const document of documents) {
+      insertDocument.run(...tokenizeDocument(document));
+    }
+  })();
+}
+
+/** Add already-projected documents to an initialized FTS5 table. */
+export function insertKeywordDocuments(
+  database: Database,
+  documents: readonly KeywordDocument[],
+): void {
+  const insertDocument = database.query(INSERT_DOCUMENT);
+  for (const document of documents) {
+    insertDocument.run(...tokenizeDocument(document));
+  }
+}
+
+export function deleteKeywordDocuments(database: Database, practiceIds: readonly string[]): void {
+  if (practiceIds.length === 0) return;
+  database
+    .query(
+      `DELETE FROM keyword_documents WHERE practice_id IN (${practiceIds.map(() => "?").join(", ")})`,
+    )
+    .run(...practiceIds);
+}
+
+/** Wrap an initialized FTS5 Database. The caller transfers Database ownership to the result. */
+export function openKeywordIndex(database: Database): KeywordIndex {
   let closed = false;
   const searchDocuments = database.query(SEARCH_DOCUMENTS);
   const requireOpen = (): void => {
@@ -159,7 +191,7 @@ function createKeywordIndex(database: Database): KeywordIndex {
       try {
         return Object.freeze(searchDocuments.all(match, limit).map(candidateFromRow));
       } catch (error) {
-        throw asKeywordIndexError("Cannot search SQLite keyword index", error);
+        throw toKeywordIndexError("Cannot search SQLite keyword index", error);
       }
     },
     close() {
@@ -168,7 +200,7 @@ function createKeywordIndex(database: Database): KeywordIndex {
       try {
         database.close();
       } catch (error) {
-        throw asKeywordIndexError("Cannot close SQLite keyword index", error);
+        throw toKeywordIndexError("Cannot close SQLite keyword index", error);
       }
     },
   } satisfies KeywordIndex);

@@ -15,13 +15,14 @@ test("migrations create the LocalStore-only schema and are idempotent", () => {
     expect(
       database
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('local_store_metadata', 'active_packs', 'practice_sources', 'effective_practices', 'effective_revision_outbox') ORDER BY name",
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('local_store_metadata', 'active_packs', 'practice_sources', 'effective_practices', 'effective_revision_outbox', 'effective_revision_log') ORDER BY name",
         )
         .all()
         .map((row) => (row as { name: string }).name),
     ).toEqual([
       "active_packs",
       "effective_practices",
+      "effective_revision_log",
       "effective_revision_outbox",
       "local_store_metadata",
       "practice_sources",
@@ -41,7 +42,7 @@ test("migrations reject a database from a newer LocalStore schema", () => {
   }
 });
 
-test("migrations upgrade a v1 database with the durable revision outbox", () => {
+test("migrations upgrade a v1 database with both revision queues", () => {
   const database = new Database(":memory:");
   try {
     database.exec(
@@ -52,15 +53,38 @@ test("migrations upgrade a v1 database with the durable revision outbox", () => 
     expect(
       database
         .query(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'effective_revision_outbox'",
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('effective_revision_outbox', 'effective_revision_log') ORDER BY name",
         )
-        .get(),
-    ).toEqual({ name: "effective_revision_outbox" });
+        .all(),
+    ).toEqual([{ name: "effective_revision_log" }, { name: "effective_revision_outbox" }]);
     expect(database.query("SELECT * FROM local_store_metadata").get()).toEqual({
       singleton: 1,
       schema_version: LOCAL_STORE_SCHEMA_VERSION,
       installed_packs_generation: 7,
       effective_revision: 9,
+    });
+  } finally {
+    database.close();
+  }
+});
+
+test("migrations upgrade a v2 database with the retained revision log", () => {
+  const database = new Database(":memory:");
+  try {
+    database.exec(
+      "CREATE TABLE local_store_metadata (singleton INTEGER PRIMARY KEY, schema_version INTEGER NOT NULL, installed_packs_generation INTEGER NOT NULL, effective_revision INTEGER NOT NULL); CREATE TABLE effective_revision_outbox (revision INTEGER PRIMARY KEY, delta_json TEXT NOT NULL, created_at TEXT NOT NULL); INSERT INTO local_store_metadata VALUES (1, 2, 7, 9)",
+    );
+    database.exec("PRAGMA user_version = 2");
+    migrateDatabase(database);
+    expect(
+      database
+        .query(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'effective_revision_log'",
+        )
+        .get(),
+    ).toEqual({ name: "effective_revision_log" });
+    expect(database.query("SELECT schema_version FROM local_store_metadata").get()).toEqual({
+      schema_version: LOCAL_STORE_SCHEMA_VERSION,
     });
   } finally {
     database.close();

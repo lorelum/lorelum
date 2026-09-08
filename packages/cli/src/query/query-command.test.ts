@@ -103,8 +103,30 @@ test("delegates query-domain validation to Engine before Store I/O", async () =>
     ["query", "   "],
     createQueryService({
       store: {
-        async readEffectivePractices() {
+        async readSnapshotIdentity() {
           reads++;
+          return {
+            rootBinding: "unused",
+            generation: 0,
+            effectiveRevision: 0,
+            manifestDigest: "unused",
+          };
+        },
+        async readEffectivePracticeSnapshot() {
+          return {
+            identity: {
+              rootBinding: "unused",
+              generation: 0,
+              effectiveRevision: 0,
+              manifestDigest: "unused",
+            },
+            practices: [],
+          };
+        },
+        async readEffectivePracticeChanges() {
+          return undefined;
+        },
+        async readEffectivePracticesAtSnapshot() {
           return [];
         },
       },

@@ -26,5 +26,11 @@ export interface QueryService {
 }
 
 export interface QueryDependencies {
-  readonly store: Pick<LocalStore, "readEffectivePractices">;
+  readonly store: Pick<
+    LocalStore,
+    | "readSnapshotIdentity"
+    | "readEffectivePracticeSnapshot"
+    | "readEffectivePracticeChanges"
+    | "readEffectivePracticesAtSnapshot"
+  >;
 }

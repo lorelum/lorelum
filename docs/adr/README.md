@@ -30,12 +30,13 @@ docs/adr/
 ├── 0008-pack-registry-and-user-scope-install.md # Pack Registry and user-scope install contract
 ├── 0009-pack-localization-authoring.md         # Pack localization source assets and synchronization
 ├── 0011-local-store-point-read-and-query-boundary.md # proposed point-read and keyword query foundation
+├── 0012-persistent-keyword-index.md            # cross-process keyword index reuse (#63)
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 
 - Files are **zero-padded 4-digit numbers** + kebab-case title: `NNNN-short-title.md`.
 - Numbers are **monotonic** — never renumber, never reuse. Superseded ADRs keep their number.
-- Number `0010` was used by a withdrawn, unaccepted planning artifact and remains intentionally unused. The next ADR therefore uses `0011`; the withdrawn material is not restored by this document.
+- Number `0010` was used by a withdrawn, unaccepted planning artifact and remains intentionally unused. Numbering resumed at `0011`; the withdrawn material is not restored by this document.
 - One decision per file. If a decision has sub-decisions, link to child ADRs rather than cramming them in.
 
 ## ADR lifecycle

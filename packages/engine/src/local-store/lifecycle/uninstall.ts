@@ -72,6 +72,7 @@ export async function uninstallPack(
       effectivePractices: reconciled.effectivePractices,
       revisionNotification:
         advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
+      revisionLogDelta: advances ? reconciled.delta : undefined,
     });
 
     await clearOperationJournal(rootPath, journal.operationId);

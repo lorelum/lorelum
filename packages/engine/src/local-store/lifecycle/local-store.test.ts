@@ -159,6 +159,26 @@ test("upgrade replaces sources and removes old ones", async () => {
   });
 });
 
+test("revision change snapshots retain only changed canonical Practices", async () => {
+  await withRoot(async (root) => {
+    const store = createLocalStore();
+    const first = await store.install(root, candidate("platform", platform));
+    await store.upgrade(root, candidate("platform", platformV2));
+
+    const changes = await store.readEffectivePracticeChanges(root, first.effectiveRevision);
+    expect(changes?.deltas).toEqual([
+      {
+        revision: first.effectiveRevision + 1,
+        delta: { added: [], changed: ["platform.api"], invalidated: ["platform.auth"] },
+      },
+    ]);
+    expect(changes?.currentPractices.map((practice) => practice.practiceId)).toEqual([
+      "platform.api",
+    ]);
+    expect(changes?.currentPractices[0]?.practice.body).toBe("Use APIs with retries.\n");
+  });
+});
+
 test("upgrade conflicting with another active pack's practice is rejected", async () => {
   await withRoot(async (root) => {
     const store = createLocalStore();

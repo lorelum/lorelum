@@ -125,6 +125,22 @@ export function diffEffectivePractices(
   });
 }
 
+/** Deduplicate Practice IDs touched by a sequence of Effective Practice revisions. */
+export function revisionDeltaPracticeIds(
+  deltas: readonly RevisionDelta[],
+  includeInvalidated = false,
+): readonly string[] {
+  const ids = new Set<string>();
+  for (const delta of deltas) {
+    for (const practiceId of delta.added) ids.add(practiceId);
+    for (const practiceId of delta.changed) ids.add(practiceId);
+    if (includeInvalidated) {
+      for (const practiceId of delta.invalidated) ids.add(practiceId);
+    }
+  }
+  return [...ids];
+}
+
 /**
  * Reconcile one candidate into the complete active source set. Set
  * `replacePackName` for an upgrade, which removes that Pack's old sources

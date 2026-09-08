@@ -9,7 +9,14 @@ import { installOrUpgrade } from "./install";
 import {
   openLocalStore,
   getEffectivePractice,
+  readEffectivePracticeChanges,
+  readEffectivePracticeSnapshot,
+  readEffectivePracticesAtSnapshot,
   readEffectivePractices as readEffectivePracticesFromStore,
+  readSnapshotIdentity,
+  type EffectivePracticeChangeSnapshot,
+  type EffectivePracticeSnapshot,
+  type StoreSnapshotIdentity,
 } from "./open";
 import { reindexStore } from "./reindex";
 import { uninstallPack } from "./uninstall";
@@ -54,6 +61,21 @@ export interface LocalStore {
   reindex(root: StorageRoot): Promise<ReindexResult>;
   /** Lock-free read path: consistent (manifest, SQLite) Effective Practice materialization. */
   readEffectivePractices(root: StorageRoot): Promise<readonly EffectivePractice[]>;
+  /** Verified lightweight identity for a query index checkpoint. */
+  readSnapshotIdentity(root: StorageRoot): Promise<StoreSnapshotIdentity>;
+  /** Verified complete corpus and the identity that produced it. */
+  readEffectivePracticeSnapshot(root: StorageRoot): Promise<EffectivePracticeSnapshot>;
+  /** Verified contiguous deltas after a query-index checkpoint, or undefined when unavailable. */
+  readEffectivePracticeChanges(
+    root: StorageRoot,
+    afterEffectiveRevision: number,
+  ): Promise<EffectivePracticeChangeSnapshot | undefined>;
+  /** Verified bounded current rows for a query result at one expected Store snapshot. */
+  readEffectivePracticesAtSnapshot(
+    root: StorageRoot,
+    expected: StoreSnapshotIdentity,
+    ids: readonly string[],
+  ): Promise<readonly EffectivePractice[]>;
   /** Post-commit vector seam (default no-op). */
   onEffectiveRevisionAdvanced?: EffectiveRevisionHook | undefined;
 }
@@ -103,8 +125,34 @@ export function createLocalStore(
     readEffectivePractices(root: StorageRoot): Promise<readonly EffectivePractice[]> {
       return readEffectivePracticesFromStore(root.rootPath);
     },
+    readSnapshotIdentity(root: StorageRoot): Promise<StoreSnapshotIdentity> {
+      return readSnapshotIdentity(root.rootPath);
+    },
+    readEffectivePracticeSnapshot(root: StorageRoot): Promise<EffectivePracticeSnapshot> {
+      return readEffectivePracticeSnapshot(root.rootPath);
+    },
+    readEffectivePracticeChanges(
+      root: StorageRoot,
+      afterEffectiveRevision: number,
+    ): Promise<EffectivePracticeChangeSnapshot | undefined> {
+      return readEffectivePracticeChanges(root.rootPath, afterEffectiveRevision);
+    },
+    readEffectivePracticesAtSnapshot(
+      root: StorageRoot,
+      expected: StoreSnapshotIdentity,
+      ids: readonly string[],
+    ): Promise<readonly EffectivePractice[]> {
+      return readEffectivePracticesAtSnapshot(root.rootPath, expected, ids);
+    },
   };
   return Object.freeze(store);
 }
 
-export type { EffectivePractice, PackCandidate, RevisionDelta };
+export type {
+  EffectivePractice,
+  EffectivePracticeChangeSnapshot,
+  EffectivePracticeSnapshot,
+  PackCandidate,
+  RevisionDelta,
+  StoreSnapshotIdentity,
+};
