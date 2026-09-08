@@ -31,6 +31,7 @@ docs/adr/
 ├── 0009-pack-localization-authoring.md         # Pack localization source assets and synchronization
 ├── 0011-local-store-point-read-and-query-boundary.md # proposed point-read and keyword query foundation
 ├── 0012-persistent-keyword-index.md            # cross-process keyword index reuse (#63)
+├── 0013-incremental-local-store-projection-writes.md # affected-ID canonical projection writes (#73)
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 

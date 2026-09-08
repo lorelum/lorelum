@@ -8,7 +8,7 @@ import { createPackCandidate, reconcileEffectivePractices } from "../../model";
 import { migrateDatabase } from "./migrations";
 import { LOCAL_STORE_SCHEMA_VERSION } from "./migrations";
 import { readEffectivePracticeSnapshot } from "./snapshot-reader";
-import { writeDerivedState } from "./state-writer";
+import { applyIncrementalDerivedState, writeDerivedState } from "./state-writer";
 
 function candidate(name: string) {
   const input = reactPack();
@@ -28,6 +28,26 @@ function activePack(packName: string) {
     storageKey: "p-" + packName,
     installedAt: "2026-07-27T00:00:00.000Z",
   };
+}
+
+function singlePracticeCandidate(packName: string, practiceId: string) {
+  return createPackCandidate(
+    {
+      pack: { name: packName, version: "0.1.0" },
+      practices: [
+        {
+          id: practiceId,
+          title: "Extra guidance",
+          stage: "implementation",
+          tech_stack: ["typescript"],
+          applies_when: "Adding an incremental writer test",
+          body: "Keep unrelated canonical rows untouched.\n",
+        },
+      ],
+      decisions: [],
+    },
+    { [practiceId]: "practices/extra.md" },
+  ).candidate;
 }
 
 test("writer and reader round-trip derived state with deterministic source ordering", () => {
@@ -105,6 +125,57 @@ test("writer rejects an Effective Practice whose source data was tampered", () =
         ],
       }),
     ).toThrow("source is inconsistent");
+  } finally {
+    database.close();
+  }
+});
+
+test("incremental writer preserves unrelated row revisions while advancing metadata", () => {
+  const database = new Database(":memory:");
+  try {
+    migrateDatabase(database);
+    const initial = reconcileEffectivePractices([], candidate("react-core"));
+    writeDerivedState(database, {
+      generation: 1,
+      effectiveRevision: 1,
+      activePacks: [activePack("react-core")],
+      effectivePractices: initial.effectivePractices,
+    });
+
+    const next = reconcileEffectivePractices(
+      initial.sources,
+      singlePracticeCandidate("extra", "extra.incremental"),
+    );
+    applyIncrementalDerivedState(database, {
+      generation: 2,
+      effectiveRevision: 2,
+      activePacks: [activePack("extra"), activePack("react-core")],
+      effectivePractices: next.effectivePractices.filter(
+        (practice) => practice.practiceId === "extra.incremental",
+      ),
+      affectedPracticeIds: ["extra.incremental"],
+      activePackMutation: { kind: "upsert", entry: activePack("extra") },
+      revisionLogDelta: next.delta,
+    });
+
+    expect(readEffectivePracticeSnapshot(database).effectivePractices).toHaveLength(4);
+    expect(
+      database
+        .query("SELECT effective_revision FROM effective_practices WHERE practice_id = ?")
+        .get("react.api.layered-design"),
+    ).toEqual({ effective_revision: 1 });
+    expect(
+      database
+        .query("SELECT effective_revision FROM effective_practices WHERE practice_id = ?")
+        .get("extra.incremental"),
+    ).toEqual({ effective_revision: 2 });
+
+    database
+      .query("UPDATE effective_practices SET effective_revision = 3 WHERE practice_id = ?")
+      .run("react.api.layered-design");
+    expect(() => readEffectivePracticeSnapshot(database)).toThrow(
+      "materialized Practice row is inconsistent with metadata",
+    );
   } finally {
     database.close();
   }

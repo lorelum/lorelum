@@ -12,7 +12,7 @@ LORELUM_CLI_BINARY=dist/lore bun packages/engine/benchmarks/keyword-query.bench.
 bun packages/engine/benchmarks/keyword-query-quality.bench.ts
 ```
 
-The performance script defaults to fixed seed 42, 100 / 1,000 / 5,000 / 20,000 Practices, and 20 measured samples per stage. Each synthetic Practice has one source, one of four topics, and a deterministic variable-length body. `query-first-build` removes the derived index before every sample; `query-reuse` warms it once and measures cross-process-reusable in-process queries. The incremental sequence installs one unique single-Practice Pack per sample, then reports `incremental-install`, `query-delta-update`, and `query-delta-reuse`; set `LORELUM_BENCH_INCREMENTAL_ITERATIONS` independently when needed. Compiled queries run in fresh processes after the steady-state warmup. Filesystem caches are warm, so this is not a cold-disk benchmark.
+The performance script defaults to fixed seed 42, 100 / 1,000 / 5,000 / 20,000 Practices, and 20 measured samples per stage. Each synthetic Practice has one source, one of four topics, and a deterministic variable-length body. `query-first-build` removes the derived index before every sample; `query-reuse` warms it once and measures cross-process-reusable in-process queries. Each incremental sequence installs, upgrades, then uninstalls one unique single-Practice Pack, reporting the three mutation stages and their separate FTS delta queries; set `LORELUM_BENCH_INCREMENTAL_ITERATIONS` independently when needed. Compiled queries run in fresh processes after the steady-state warmup. Filesystem caches are warm, so this is not a cold-disk benchmark.
 
 For a quick run, set `LORELUM_BENCH_SCALES=100,1000` and `LORELUM_BENCH_ITERATIONS=5`. For a public Pack, set `LORELUM_BENCH_PACK` to its local directory and optionally set `LORELUM_BENCH_QUERY`. The recorded public input was the 30-Practice `agentic-coding` Pack from `lorelum/lorelum-packs`, commit `4e0ba43d4274c4908c3eb6bf178ec666980f49ea`. Acquire that exact revision in a temporary checkout before reproducing:
 
@@ -55,19 +55,25 @@ Observed on 2026-09-08 UTC, macOS arm64, Bun 1.3.8, compiled CLI from the curren
 | 20,000 synthetic | 5 | 1100.19 / 1132.72 | 16.02 / 16.64 | 70.08 / 71.54 | 59.3 |
 | agentic-coding, 30 Practices | 20 | 11.56 / 12.77 | 1.08 / 1.30 | 56.06 / 56.66 | 51.3 |
 
-### Incremental update verification
+### Incremental mutation verification
 
-Observed on the same machine with five unique one-Practice Pack installs per corpus. `incremental-install` is reported separately because the current LocalStore mutation path rewrites its complete canonical SQLite derived state. `query-delta-update` starts after that commit and measures only the subsequent revision-log-driven FTS synchronization plus query.
+Observed on 2026-09-08 UTC, macOS arm64, Bun 1.3.8, with five unique one-Practice Pack add/change/remove cycles per corpus. These are source-runner in-process measurements, not compiled-CLI peak-RSS results; they establish the canonical mutation work boundary and retain the raw script for the full 20-sample/compiled follow-up. Each mutation timing excludes its subsequent FTS query, which is reported separately.
 
-| Corpus | Samples | Incremental install p50 / p95 ms | Delta query p50 / p95 ms | Delta reuse p50 / p95 ms |
+| Corpus | Samples | Install p50 / p95 ms | Upgrade p50 / p95 ms | Uninstall p50 / p95 ms |
 | --- | --- | --- | --- | --- |
-| 1,000 synthetic | 5 | 121.21 / 126.40 | 3.69 / 9.51 | 1.03 / 1.58 |
-| 5,000 synthetic | 5 | 595.80 / 610.51 | 9.41 / 9.93 | 1.19 / 1.38 |
-| 20,000 synthetic | 5 | 2459.93 / 2478.51 | 11.28 / 19.75 | 1.47 / 1.64 |
+| 1,000 synthetic | 5 | 2.77 / 17.06 | 2.73 / 3.27 | 2.18 / 2.28 |
+| 5,000 synthetic | 5 | 2.31 / 3.02 | 2.79 / 3.43 | 1.94 / 2.48 |
+| 20,000 synthetic | 5 | 2.56 / 3.14 | 2.79 / 6.48 | 1.99 / 2.26 |
 
-The FTS update therefore scales with the changed Practice, not the corpus: it stays below 20ms p95 at 20,000 Practices. The increasing install time is a separate LocalStore lifecycle cost and is not solved by this index work. Improving it requires a distinct design to stop `writeDerivedState()` from replacing the complete canonical projection per mutation.
+| Corpus | Add FTS delta p50 / p95 ms | Upgrade FTS delta p50 / p95 ms | Uninstall FTS delta p50 / p95 ms | Reuse p50 / p95 ms |
+| --- | --- | --- | --- | --- |
+| 1,000 synthetic | 2.17 / 5.93 | 2.50 / 3.16 | 2.17 / 5.22 | 0.88 / 1.34 |
+| 5,000 synthetic | 3.76 / 6.91 | 3.42 / 6.85 | 3.06 / 3.33 | 0.87 / 0.92 |
+| 20,000 synthetic | 8.76 / 11.29 | 9.15 / 16.85 | 7.92 / 9.55 | 1.01 / 1.58 |
 
-The successive install/query integration test separately proves that, after its initial build, each normal mutation is applied from one revision delta and does not call the full-corpus snapshot method. The performance script reports the corresponding in-process latency stages; a 100-cycle compiled benchmark remains required before treating this table as the issue's final performance acceptance record.
+Normal mutation now materializes and rewrites only the candidate/replaced/removed Pack's affected IDs. `writeDerivedState()` remains the explicit full-rebuild path for reindex. The persistent FTS update therefore stays separate from canonical mutation work, and both scale with changed Practice/source rows rather than the full corpus.
+
+The successive mutation/query integration test separately proves that, after its initial build, each normal mutation is applied from one revision delta and does not call the full-corpus snapshot method. The performance script reports the corresponding in-process latency stages. A 20-sample compiled lifecycle run with peak RSS and logical SQLite row-write counts remains a broader operational benchmark, rather than evidence hidden behind the FTS stages.
 
 The first 20,000-Practice run exposed an existing sibling-file recursion overflow while installing the fixture. Artifact enumeration and hashing now use loops without changing sorted path-NUL-content-LF digest encoding. A separate 20,000-file regression independently checks the digest. The table records the completed run after that correction.
 

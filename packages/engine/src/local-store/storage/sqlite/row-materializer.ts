@@ -85,7 +85,9 @@ export function materializePracticeRows(
   for (const rawRow of rows) {
     if (!isMaterializedRow(rawRow)) throw new SqliteStateError("materialized row is malformed");
     if (
-      rawRow.effective_revision !== metadata.effectiveRevision ||
+      !Number.isSafeInteger(rawRow.effective_revision) ||
+      rawRow.effective_revision < 0 ||
+      rawRow.effective_revision > metadata.effectiveRevision ||
       !isPracticeSourcePath(rawRow.source_path)
     ) {
       throw new SqliteStateError("materialized Practice row is inconsistent with metadata");

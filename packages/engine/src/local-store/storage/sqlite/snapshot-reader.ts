@@ -145,6 +145,25 @@ export function readActivePackEntries(database: Database): readonly InstalledPac
   }
 }
 
+/** Read the bounded Practice-ID set owned by one active Pack. */
+export function readPracticeIdsForPack(database: Database, packName: string): readonly string[] {
+  try {
+    const rows = database
+      .query(
+        "SELECT practice_id FROM practice_sources WHERE pack_name = ? ORDER BY practice_id ASC",
+      )
+      .all(packName) as readonly Record<string, unknown>[];
+    const ids = rows.map((row) => row.practice_id);
+    if (ids.some((id) => typeof id !== "string")) {
+      throw new SqliteStateError("Practice source ID is malformed");
+    }
+    return Object.freeze(ids as string[]);
+  } catch (error) {
+    if (error instanceof SqliteStateError) throw error;
+    throw new SqliteStateError("cannot read Pack Practice IDs", error);
+  }
+}
+
 /**
  * Read metadata, Active Packs, Effective Practices, and source rows from one
  * SQLite snapshot. Cold open pairs this with manifest A/B reads so it never

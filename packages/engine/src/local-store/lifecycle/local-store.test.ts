@@ -9,6 +9,7 @@ import {
   createLocalStore,
   defaultStorageRoot,
   StoreCounterExhaustedError,
+  StoreRecoveryRequiredError,
   type StorageRoot,
 } from "../index";
 import { createPackCandidate, type PackCandidate } from "../model";
@@ -216,9 +217,50 @@ test("a source-only addition does not advance effectiveRevision (定稿 §9 #6)"
     expect(merged.effectiveRevision).toBe(first.effectiveRevision);
     expect(merged.generation).toBe(first.generation + 1); // manifest still changes
 
+    // A later unrelated effective change advances the Store revision without
+    // rewriting this source-only Practice's last-content revision.
+    await store.install(root, candidate("extra", { "extra.api": "Use extras.\n" }));
+    const database = await openStoreDatabase(root.rootPath);
+    try {
+      expect(
+        database
+          .query("SELECT effective_revision FROM effective_practices WHERE practice_id = ?")
+          .get("platform.api"),
+      ).toEqual({ effective_revision: first.effectiveRevision });
+    } finally {
+      database.close();
+    }
+
     const practices = await store.readEffectivePractices(root);
     const api = practices.find((p) => p.practiceId === "platform.api");
     expect(api?.sources.map((s) => s.packName).sort()).toEqual(["platform", "web"]);
+
+    const sourceOnlyRemoval = await store.uninstall(root, "web");
+    expect(sourceOnlyRemoval.effectiveRevision).toBe(first.effectiveRevision + 1);
+    const changes = await store.readEffectivePracticeChanges(root, first.effectiveRevision);
+    expect(changes?.deltas).toEqual([
+      {
+        revision: first.effectiveRevision + 1,
+        delta: { added: ["extra.api"], changed: [], invalidated: [] },
+      },
+    ]);
+  });
+});
+
+test("normal mutation rejects Active Pack rows that disagree with the manifest", async () => {
+  await withRoot(async (root) => {
+    const store = createLocalStore();
+    await store.install(root, candidate("platform", platform));
+    const database = await openStoreDatabase(root.rootPath);
+    try {
+      database.query("UPDATE active_packs SET pack_version = 'tampered'").run();
+    } finally {
+      database.close();
+    }
+
+    await expect(
+      store.install(root, candidate("extra", { "extra.api": "Use extras.\n" })),
+    ).rejects.toBeInstanceOf(StoreRecoveryRequiredError);
   });
 });
 
