@@ -17,6 +17,7 @@ import { applyIncrementalDerivedState } from "../storage/sqlite/state-writer";
 import { PackNotInstalledError } from "./errors";
 import { nextStoreCounter } from "./counters";
 import { activeSources, deliverRevisionNotifications, withStoreMutation } from "./mutation";
+import type { MutationMetricsObserver } from "../storage/sqlite/mutation-metrics";
 import type { EffectiveRevisionHook, UninstallResult } from "./types";
 
 function withoutPack(
@@ -42,6 +43,7 @@ export async function uninstallPack(
   rootPath: string,
   packName: string,
   hook: EffectiveRevisionHook | undefined,
+  metrics?: MutationMetricsObserver,
 ): Promise<UninstallResult> {
   const committed = await withStoreMutation(rootPath, async ({ database, recovery }) => {
     const active = recovery.manifest;
@@ -53,6 +55,14 @@ export async function uninstallPack(
       recovery.metadata === undefined
         ? []
         : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
+    metrics?.recordRead("practice_sources", affectedPracticeIds.length);
+    metrics?.recordRead("effective_practices", effectivePractices.length);
+    const sourceRows = effectivePractices.reduce(
+      (count, practice) => count + practice.sources.length,
+      0,
+    );
+    metrics?.recordRead("practice_sources", sourceRows);
+    metrics?.recordMaterialization(effectivePractices.length, sourceRows);
     const reconciled = removePackSources(activeSources(effectivePractices), packName);
 
     const advances = reconciled.advancesEffectiveRevision;
@@ -67,17 +77,21 @@ export async function uninstallPack(
     const journal = createOperationJournalRecord("uninstall", active, targetManifest);
     await writeOperationJournal(rootPath, journal);
     await writeManifest(rootPath, targetManifest);
-    applyIncrementalDerivedState(database, {
-      generation: targetManifest.generation,
-      effectiveRevision: targetManifest.effectiveRevision,
-      activePacks: targetManifest.packs,
-      effectivePractices: reconciled.effectivePractices,
-      affectedPracticeIds,
-      activePackMutation: { kind: "remove", packName },
-      revisionNotification:
-        advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
-      revisionLogDelta: advances ? reconciled.delta : undefined,
-    });
+    applyIncrementalDerivedState(
+      database,
+      {
+        generation: targetManifest.generation,
+        effectiveRevision: targetManifest.effectiveRevision,
+        activePacks: targetManifest.packs,
+        effectivePractices: reconciled.effectivePractices,
+        affectedPracticeIds,
+        activePackMutation: { kind: "remove", packName },
+        revisionNotification:
+          advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
+        revisionLogDelta: advances ? reconciled.delta : undefined,
+      },
+      metrics,
+    );
 
     await clearOperationJournal(rootPath, journal.operationId);
 
@@ -99,7 +113,7 @@ export async function uninstallPack(
       diagnostics: Object.freeze([]),
       cleanupPending,
     });
-  });
+  }, { metrics });
   const notificationPending = await deliverRevisionNotifications(
     rootPath,
     hook,

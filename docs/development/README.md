@@ -13,6 +13,7 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [LocalStore Engine API](#localstore-engine-api)
 - [QueryService Engine API](#queryservice-engine-api)
 - [Point-read performance benchmark](./local-store-point-read-benchmark.md)
+- [Compiled LocalStore mutation benchmark](./local-store-mutation-benchmark.md)
 - [Keyword query quality and performance baseline](./keyword-query-benchmark.md)
 
 ## Proposed plans

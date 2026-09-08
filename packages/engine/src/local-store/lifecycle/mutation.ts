@@ -14,6 +14,7 @@ import {
   readPendingRevisionNotifications,
 } from "../storage/sqlite/revision-outbox";
 import type { EffectiveRevisionHook } from "./types";
+import type { MutationMetricsObserver } from "../storage/sqlite/mutation-metrics";
 
 export interface MutationContext {
   database: Database;
@@ -25,6 +26,8 @@ export interface MutationLockOptions {
   waitMs?: number;
   /** Test seam for proving the lock is released when database open fails. */
   openDatabase?: ((rootPath: string) => Promise<Database>) | undefined;
+  /** Internal benchmark/test observer; never serialized or returned. */
+  metrics?: MutationMetricsObserver | undefined;
 }
 
 /**
@@ -75,14 +78,16 @@ export async function withStoreMutation<T>(
       throw error;
     }
     const recovery = await runStoreRecovery(rootPath, database);
-    if (
-      recovery.metadata !== undefined &&
-      !installedPackEntriesEqual(readActivePackEntries(database), recovery.manifest.packs)
-    ) {
-      throw new StoreRecoveryRequiredError(
-        "SQLite Active Pack rows differ from the active manifest",
-      );
+    if (recovery.metadata !== undefined) {
+      const activePacks = readActivePackEntries(database);
+      options.metrics?.recordRead("active_packs", activePacks.length);
+      if (!installedPackEntriesEqual(activePacks, recovery.manifest.packs)) {
+        throw new StoreRecoveryRequiredError(
+          "SQLite Active Pack rows differ from the active manifest",
+        );
+      }
     }
+    options.metrics?.recordRead("local_store_metadata", recovery.metadata === undefined ? 0 : 1);
     return await run({ database, recovery });
   } finally {
     database?.close();

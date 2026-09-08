@@ -26,6 +26,7 @@ import { applyIncrementalDerivedState } from "../storage/sqlite/state-writer";
 import { UpgradeRequiredError, PackNotInstalledError } from "./errors";
 import { nextStoreCounter } from "./counters";
 import { activeSources, deliverRevisionNotifications, withStoreMutation } from "./mutation";
+import type { MutationMetricsObserver } from "../storage/sqlite/mutation-metrics";
 import type { EffectiveRevisionHook, InstallResult } from "./types";
 
 function compareCodeUnits(left: string, right: string): number {
@@ -82,6 +83,7 @@ export async function installOrUpgrade(
   mode: "install" | "upgrade",
   hook: EffectiveRevisionHook | undefined,
   diagnostics: readonly ValidationIssue[] = [],
+  metrics?: MutationMetricsObserver,
 ): Promise<InstallResult> {
   const committed = await withStoreMutation(rootPath, async ({ database, recovery }) => {
     // `recovery.manifest` is the converged, tuple-validated manifest (fresh
@@ -138,16 +140,32 @@ export async function installOrUpgrade(
       throw new PackNotInstalledError(candidate.pack.name);
     }
 
+    const previousPackPracticeIds =
+      mode === "upgrade" ? readPracticeIdsForPack(database, candidate.pack.name) : [];
     const affectedPracticeIds = [
       ...new Set([
         ...candidate.sources.map((source) => source.practiceId),
-        ...(mode === "upgrade" ? readPracticeIdsForPack(database, candidate.pack.name) : []),
+        ...previousPackPracticeIds,
       ]),
     ].sort(compareCodeUnits);
     const effectivePractices =
       recovery.metadata === undefined
         ? []
         : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
+    if (metrics !== undefined) {
+      metrics.recordRead("effective_practices", effectivePractices.length);
+      const sourceRows = effectivePractices.reduce(
+        (count, practice) => count + practice.sources.length,
+        0,
+      );
+      metrics.recordRead("practice_sources", sourceRows);
+      metrics.recordMaterialization(effectivePractices.length, sourceRows);
+      if (mode === "upgrade") {
+        // The ID lookup is a separate SELECT from the bounded joined
+        // materialization above and is part of the mutation's logical reads.
+        metrics.recordRead("practice_sources", previousPackPracticeIds.length);
+      }
+    }
 
     const entry = entryForCandidate(candidate, artifactDigest);
     let reconciled: ReturnType<typeof reconcileEffectivePractices>;
@@ -198,17 +216,21 @@ export async function installOrUpgrade(
         await rm(stagingPath, { recursive: true, force: true });
       }
       await writeManifest(rootPath, targetManifest);
-      applyIncrementalDerivedState(database, {
-        generation: targetManifest.generation,
-        effectiveRevision: targetManifest.effectiveRevision,
-        activePacks: targetManifest.packs,
-        effectivePractices: reconciled.effectivePractices,
-        affectedPracticeIds,
-        activePackMutation: { kind: "upsert", entry },
-        revisionNotification:
-          advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
-        revisionLogDelta: advances ? reconciled.delta : undefined,
-      });
+      applyIncrementalDerivedState(
+        database,
+        {
+          generation: targetManifest.generation,
+          effectiveRevision: targetManifest.effectiveRevision,
+          activePacks: targetManifest.packs,
+          effectivePractices: reconciled.effectivePractices,
+          affectedPracticeIds,
+          activePackMutation: { kind: "upsert", entry },
+          revisionNotification:
+            advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
+          revisionLogDelta: advances ? reconciled.delta : undefined,
+        },
+        metrics,
+      );
     } catch (error) {
       await rm(stagingPath, { recursive: true, force: true });
       throw error;
@@ -242,7 +264,7 @@ export async function installOrUpgrade(
       artifactDigest,
       idempotent: false,
     });
-  });
+  }, { metrics });
   const notificationPending = await deliverRevisionNotifications(
     rootPath,
     hook,
