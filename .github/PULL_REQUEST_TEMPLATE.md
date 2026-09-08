@@ -29,11 +29,11 @@ Closes #
 
 ## AI assistance and review
 
-- [ ] This PR contains code or documentation generated or assisted by an AI tool
-- [ ] An AI code review covered the changed behavior and edge cases; material findings are resolved or documented below
-- [ ] For a change to public behavior, contracts, schemas, or architecture, a maintainer has approved the design, acceptance evidence, and residual risks before merge
+- [ ] This PR used AI assistance (describe the scope or tool below)
+- [ ] If AI-assisted: an AI code review covered the changed behavior and edge cases; material findings are resolved or documented below
+- [ ] Maintainer sign-off is recorded for a change to public behavior, contracts, schemas, or architecture (maintainer completes before merge)
 
-<!-- If this PR used AI assistance, link the AI CR or summarize its material findings below. "Reviewed every line" is not an acceptance criterion. -->
+<!-- Leave the first two items unchecked for a human-only PR. If AI-assisted, link the AI CR or summarize its material findings below. "Reviewed every line" is not an acceptance criterion. -->
 
 ## Notes for reviewers
 
