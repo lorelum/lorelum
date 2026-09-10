@@ -5,6 +5,7 @@
 - 范围：为已安装的 Practice 增加本地优先的 semantic query；不实现 Hybrid 或后续检索优化。
 - 关联 Issue：[Semantic Query v1 设计 #92](https://github.com/lorelum/lorelum/issues/92)、[后续模型评测 #85](https://github.com/lorelum/lorelum/issues/85)。
 - 前置文档：[Query 功能路线](./query-implementation-design.md)、[持久关键词 index ADR](../adr/0012-persistent-keyword-index.md)、[Query CLI 合同](../cli/query.md)。
+- 后续设计：[本地常驻后端](./local-backend-service-design.md) 承接已批准的服务基础、进程管理与 keyword HTTP 接入；模型驻留仍留待后续阶段。
 
 ## 结论
 

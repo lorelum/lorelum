@@ -21,6 +21,7 @@ This is the index for day-to-day development topics that do not belong in the pr
 ## Proposed plans
 
 - [Query phased implementation roadmap (Chinese)](../plans/query-roadmap.md) - keyword retrieval, configuration, embedding profiles, and derived indexes. The keyword query foundation is implemented; later phases remain proposed.
+- [Local resident backend design (Chinese)](../plans/local-backend-service-design.md) - approved first-stage service lifecycle, shared configuration, and Store isolation; model residency remains deferred.
 
 ## Local CLI and multiple worktrees
 
