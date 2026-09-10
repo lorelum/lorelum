@@ -1,4 +1,5 @@
 import { consumeDaemonLaunch, resolveBackendSettings } from "../config";
+import { createLocalStore, createQueryService } from "@lorelum/engine";
 import { BACKEND_HOST, MAX_BODY_BYTES } from "../protocol/constants";
 import { BackendError } from "../protocol/errors";
 import { createBackendApp } from "../app";
@@ -40,6 +41,7 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
   const app = createBackendApp({
     backend,
     port,
+    queryService: createQueryService({ store: createLocalStore() }),
   });
   const signalHandler = () => {
     void backend.stop();

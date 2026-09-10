@@ -14,6 +14,7 @@ import {
   backendErrorCodes,
 } from "../protocol/errors";
 import { constantTimeEqual, identityProof, type InstanceIdentity } from "../protocol/identity";
+import { queryRequestSchema, queryResultSchema } from "../modules/query/model";
 import {
   identitySchema,
   statusSchema,
@@ -21,6 +22,7 @@ import {
   type BackendStatus,
 } from "../modules/backend/model";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
+import type { QueryRequest, QueryResult, StorageRoot } from "@lorelum/engine";
 
 export interface CreateBackendClientOptions {
   readonly identity: InstanceIdentity;
@@ -35,6 +37,7 @@ export interface BackendClient {
   identity(): Promise<BackendIdentity>;
   status(): Promise<BackendStatus>;
   stop(): Promise<BackendStatus>;
+  query(root: StorageRoot, request: QueryRequest): Promise<QueryResult>;
 }
 
 function validatedLoopbackUrl(value: string): URL {
@@ -197,6 +200,20 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
         headers: authenticated.headers,
       });
       return checkedStatus(body, authenticated.identity);
+    },
+    async query(root, request) {
+      const payload = { storageRoot: root.rootPath, query: request };
+      if (!queryRequestSchema.safeParse(payload).success)
+        throw new BackendRemoteError("usage.invalid");
+      const authenticated = await authorized(true);
+      const body = await send("/internal/v1/query", {
+        method: "POST",
+        headers: { ...authenticated.headers, "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const parsed = queryResultSchema.safeParse(body);
+      if (!parsed.success) throw new BackendError("backend.failed");
+      return parsed.data;
     },
   } satisfies BackendClient);
 }

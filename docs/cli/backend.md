@@ -68,4 +68,4 @@ Control requests contain no Store paths or query text; the client authenticates 
 
 ## Implementation scope
 
-This stage provides a resident service and process control. Keyword HTTP query integration is delivered separately. Existing CLI commands still execute through their original Engine path; reducing full CLI startup cost is separate work. No model is loaded. The process supervisor currently targets macOS/Linux; other platforms are not verified.
+This stage provides a resident keyword-query endpoint and process control. Existing CLI commands still execute through their original Engine path; reducing full CLI startup cost is separate work. No model is loaded. The process supervisor currently targets macOS/Linux; other platforms are not verified.

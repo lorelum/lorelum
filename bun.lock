@@ -52,6 +52,7 @@
       "name": "@lorelum/backend",
       "version": "0.0.0",
       "dependencies": {
+        "@lorelum/engine": "workspace:*",
         "@lorelum/shared": "workspace:*",
         "elysia": "1.4.30",
         "zod": "4.4.3",

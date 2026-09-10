@@ -27,11 +27,14 @@ const elysia = (path: string) => path.includes("node_modules/elysia/");
 
 test("client/control exports exclude server dependencies; server build is the positive control", async () => {
   // No external exclusions: follow the actual complete resolved dependency graph.
-  const client = await bundledInputs([join(import.meta.dir, "index.ts")]);
+  const client = await bundledInputs([
+    join(import.meta.dir, "index.ts"),
+    join(import.meta.dir, "../runtime/index.ts"),
+  ]);
   expect(client.some((path) => path.endsWith("client/client.ts"))).toBe(true);
   expect(client.some(engine)).toBe(false);
   expect(client.some(elysia)).toBe(false);
   const server = await bundledInputs([join(import.meta.dir, "../app.ts")]);
-  expect(server.some(engine)).toBe(false);
+  expect(server.some(engine)).toBe(true);
   expect(server.some(elysia)).toBe(true);
 });

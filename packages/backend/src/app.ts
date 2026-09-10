@@ -1,11 +1,14 @@
+import type { QueryService } from "@lorelum/engine";
 import { Elysia } from "elysia";
 import { backendController } from "./modules/backend/controller";
 import type { BackendService } from "./modules/backend/service";
+import { queryController } from "./modules/query/controller";
 import { localBoundary, reject } from "./plugins/local-auth";
 import { BACKEND_HOST, BACKEND_PORT } from "./protocol/constants";
 
 export interface CreateBackendAppOptions {
   readonly backend: BackendService;
+  readonly queryService: QueryService;
   /** Internal test injection; production always uses the fixed IPv4 endpoint. */
   readonly host?: string;
   readonly port?: number;
@@ -31,5 +34,6 @@ export function createBackendApp(options: CreateBackendAppOptions) {
         ? reject(400, "backend.invalid-request")
         : reject(500, "backend.failed");
     })
-    .use(backendController(backend));
+    .use(backendController(backend))
+    .use(queryController(options.queryService, backend.available));
 }

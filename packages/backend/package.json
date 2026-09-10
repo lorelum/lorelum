@@ -7,14 +7,15 @@
     "./client": "./src/client/index.ts",
     "./protocol": "./src/protocol/index.ts",
     "./server": "./src/app.ts",
-    "./config": "./src/config/index.ts",
+    "./daemon": "./src/runtime/daemon.ts",
     "./control": "./src/runtime/index.ts",
-    "./daemon": "./src/runtime/daemon.ts"
+    "./config": "./src/config/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@lorelum/engine": "workspace:*",
     "@lorelum/shared": "workspace:*",
     "elysia": "1.4.30",
     "zod": "4.4.3"
