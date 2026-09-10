@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   verify:
-    name: typecheck · lint · test
+    name: quality · design · site
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -33,11 +33,17 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Validate design contract
+        run: bun run design:lint
+
       - name: Lint
         run: bun run lint
 
       - name: Test
         run: bun test
+
+      - name: Build site
+        run: bun run build:site
 
       # oxfmt is still alpha (ADR 0002). Run as a non-blocking signal for now;
       # promote to blocking once it stabilizes.

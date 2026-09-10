@@ -1,0 +1,174 @@
+/*
+ * Fumadocs adapter for the documentation surface.
+ *
+ * Keep component-specific refinements here: the shared package owns semantic
+ * tokens, while Fumadocs owns the generated markup and interaction behavior.
+ */
+
+:root,
+.dark {
+  --color-fd-overlay: var(--overlay);
+  --color-fd-info: var(--info);
+  --color-fd-warning: var(--warning);
+  --color-fd-error: var(--destructive);
+  --color-fd-success: var(--success);
+  --color-fd-idea: var(--primary);
+}
+
+#nd-docs-layout {
+  --docs-divider: color-mix(in srgb, var(--border) 72%, transparent);
+  --docs-divider-soft: color-mix(in srgb, var(--border) 46%, transparent);
+  --docs-control-surface: color-mix(in srgb, var(--secondary) 68%, transparent);
+}
+
+.dark #nd-docs-layout {
+  --docs-divider: color-mix(in srgb, var(--border) 60%, transparent);
+  --docs-divider-soft: color-mix(in srgb, var(--border) 38%, transparent);
+  --docs-control-surface: color-mix(in srgb, var(--secondary) 58%, transparent);
+}
+
+#nd-sidebar {
+  border-inline-end-color: var(--docs-divider);
+}
+
+#nd-sidebar [data-search-full] {
+  border-color: var(--docs-divider);
+  background: var(--docs-control-surface);
+}
+
+#nd-sidebar [data-search-full]:hover {
+  background: var(--sidebar-accent);
+}
+
+#nd-sidebar [data-search-full] kbd {
+  border-color: var(--docs-divider-soft);
+  background: color-mix(in srgb, var(--sidebar) 76%, transparent);
+  box-shadow: none;
+}
+
+#nd-sidebar a[data-status="active"] {
+  background: color-mix(in srgb, var(--sidebar-primary) 9%, transparent);
+}
+
+#nd-sidebar > div:last-child > div:has(> a[aria-label="GitHub"]) {
+  align-self: flex-start;
+  width: fit-content;
+  gap: 0.125rem;
+  border-color: var(--docs-divider);
+  background: var(--docs-control-surface);
+}
+
+#nd-sidebar a[aria-label="GitHub"] {
+  width: var(--lore-size-control-sm);
+  height: var(--lore-size-control-sm);
+  padding: 0;
+  border-radius: var(--lore-radius-pill);
+}
+
+#nd-sidebar :is(a[aria-label="GitHub"], button[aria-label="Toggle theme"]):focus-visible,
+#nd-sidebar-mobile :is(a[aria-label="GitHub"], button[aria-label="Toggle theme"]):focus-visible {
+  border-color: transparent;
+  outline: 2px solid color-mix(in srgb, var(--sidebar-ring) 76%, transparent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+#nd-sidebar-mobile {
+  border-inline-start-color: var(--docs-divider);
+  box-shadow: var(--lore-shadow-overlay);
+}
+
+#nd-sidebar-mobile a[data-status="active"] {
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+}
+
+[data-sidebar-panel] {
+  border-color: var(--docs-divider);
+  background: color-mix(in srgb, var(--muted) 88%, transparent);
+  box-shadow: var(--lore-shadow-contact);
+  backdrop-filter: blur(var(--lore-blur-soft));
+}
+
+[data-toc-popover] > header {
+  border-color: var(--docs-divider);
+  background: color-mix(in srgb, var(--background) 88%, transparent);
+  backdrop-filter: blur(var(--lore-blur-soft));
+}
+
+#nd-page > h1,
+#nd-page .prose :is(h2, h3) {
+  font-family: var(--lore-font-display);
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+#nd-page > p:first-of-type {
+  max-width: var(--lore-reading-width);
+  text-wrap: pretty;
+}
+
+#nd-page > div.border-b {
+  border-color: var(--docs-divider);
+}
+
+#nd-page .prose > div[style*="--callout-color"] {
+  border-color: color-mix(in srgb, var(--callout-color) 22%, transparent);
+  background: color-mix(in srgb, var(--callout-color) 5%, var(--card));
+  box-shadow: var(--lore-shadow-contact);
+}
+
+#nd-page .prose > div:has(> [role="tablist"]) {
+  border-color: var(--docs-divider);
+  background: var(--docs-control-surface);
+  box-shadow: none;
+}
+
+#nd-page [role="tabpanel"] {
+  border-top: 1px solid var(--docs-divider-soft);
+}
+
+#nd-page :is([role="tab"], [role="tabpanel"]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+#nd-page figure.shiki {
+  border-color: var(--docs-divider);
+  box-shadow: var(--lore-shadow-contact);
+}
+
+#nd-page figure.shiki > [role="region"] {
+  --padding-right: 3.5rem !important;
+  scrollbar-color: color-mix(in srgb, var(--border-strong) 58%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+#nd-page figure.shiki > [role="region"]::-webkit-scrollbar {
+  width: 0.375rem;
+  height: 0.375rem;
+}
+
+#nd-page figure.shiki > [role="region"]::-webkit-scrollbar-thumb {
+  border-radius: var(--lore-radius-pill);
+  background: color-mix(in srgb, var(--border-strong) 58%, transparent);
+}
+
+#nd-page figure.shiki > div:first-child {
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+}
+
+#nd-page .prose :is(table, th, td) {
+  border-color: var(--docs-divider);
+}
+
+#nd-toc h3 {
+  font-weight: var(--lore-font-weight-medium);
+}
+
+#nd-toc a[data-active="false"] {
+  color: color-mix(in srgb, var(--muted-foreground) 90%, var(--foreground));
+}
+
+#nd-toc a:hover {
+  color: var(--foreground);
+}

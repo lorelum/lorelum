@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-nova",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@lorelum/ui/components",
+    "utils": "@lorelum/ui/lib/utils",
+    "ui": "@lorelum/ui/components",
+    "lib": "@lorelum/ui/lib"
+  }
+}

@@ -21,6 +21,13 @@ The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, 
 - **Practice / pack format** — the public schema that packs and users depend on. Changes are high-impact; see CONTRIBUTING.md.
 - **Retrieval engine** — performance-sensitive; benchmark before changing.
 
+### UI and design system
+
+- Read [`DESIGN.md`](./DESIGN.md) before visual or component work.
+- Keep its front matter compatible with Google DESIGN.md and run `bun run design:lint` after edits.
+- Reusable Web components and production tokens belong to `packages/ui`; page composition, routes, copy, data, and page-specific motion stay with the consuming app.
+- Follow `packages/ui/AGENTS.md` for shadcn changes and `apps/site/AGENTS.md` for site integration and visual verification.
+
 ## Commands
 
 - **Runtime:** Bun ≥ 1.1 (TypeScript support is built in — no separate `tsc`/Node install needed)

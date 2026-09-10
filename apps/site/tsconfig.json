@@ -15,7 +15,9 @@
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@lorelum/ui": ["../../packages/ui/src/index.ts"],
+      "@lorelum/ui/*": ["../../packages/ui/src/*"]
     },
     "noEmit": true
   }

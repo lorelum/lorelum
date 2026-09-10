@@ -34,6 +34,9 @@ bun run lint
   Add CSS only for complex animation, material/filter effects, pseudo-elements,
   upstream adaptation, or selector relationships that utilities cannot express
   clearly. Do not put feature styles in `styles/app.css`.
+- `@lorelum/ui` owns production tokens and reusable primitives. Keep the
+  Fumadocs adapter inside the Docs feature; do not create a second
+  site-local `components/ui` tree.
 - The current handwritten locale catalog is a temporary compatibility layer in
   `src/shared/i18n/legacy-translations.ts`. Do not redesign or replace i18n as
   part of a directory-only migration.

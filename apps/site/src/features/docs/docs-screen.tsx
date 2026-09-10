@@ -1,6 +1,7 @@
 import { Suspense, use } from "react";
 import { useFumadocsLoader } from "fumadocs-core/source/client";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
+import "./styles/docs.css";
 import {
   DocsBody,
   DocsDescription,

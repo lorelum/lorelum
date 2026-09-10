@@ -1,1 +1,1 @@
-export { cn } from 'cnfast';
+export { cn } from '@lorelum/ui/lib/utils';

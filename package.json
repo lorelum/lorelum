@@ -13,6 +13,7 @@
     "lint": "oxlint .",
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
+    "design:lint": "designmd lint DESIGN.md",
     "typecheck": "bun run --filter '*' typecheck && tsc --noEmit -p scripts/release/tsconfig.json",
     "build:native": "bun scripts/native/build-embedding.ts",
     "build:cli": "bun build --compile packages/cli/src/main.ts --outfile dist/lore",
@@ -23,6 +24,7 @@
     "versions:site": "cd apps/site && npx wrangler versions upload"
   },
   "devDependencies": {
+    "@google/design.md": "0.4.0",
     "@types/bun": "1.4.2",
     "oxfmt": "0.59.0",
     "oxlint": "1.74.0",
