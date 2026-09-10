@@ -92,6 +92,7 @@ test("fresh store open + install + reopen round-trips state", async () => {
     const store = createLocalStore();
     const opened = await store.open(root);
     expect(opened.generation).toBe(0);
+    expect(opened.packs).toEqual([]);
     expect(opened.effectivePractices).toEqual([]);
 
     const installed = await store.install(root, candidate("platform", platform));
@@ -102,11 +103,28 @@ test("fresh store open + install + reopen round-trips state", async () => {
 
     const reopened = await store.open(root);
     expect(reopened.generation).toBe(1);
+    expect(reopened.packs).toEqual([{ name: "platform", version: "1.0.0" }]);
     expect(reopened.effectivePractices.map((p) => p.practiceId)).toEqual([
       "platform.api",
       "platform.auth",
     ]);
     expect(await store.readEffectivePractices(root)).toHaveLength(2);
+  });
+});
+
+test("open exposes minimal installed Pack summaries in manifest order", async () => {
+  await withRoot(async (root) => {
+    const store = createLocalStore();
+    await store.install(root, candidate("platform", platform));
+    await store.install(root, candidate("web", web));
+
+    const opened = await store.open(root);
+    expect(opened.packs).toEqual([
+      { name: "platform", version: "1.0.0" },
+      { name: "web", version: "1.0.0" },
+    ]);
+    expect(Object.isFrozen(opened.packs)).toBe(true);
+    expect(Object.isFrozen(opened.packs[0])).toBe(true);
   });
 });
 

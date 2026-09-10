@@ -135,7 +135,36 @@ console.log(JSON.stringify({ generation: result.generation, effectiveRevision: r
   assert.equal(installed.stderr, "");
   assert.equal(installed.stdout.trim().split(/\r?\n/).length, 1);
 
-  const first = await runGet(compiledBinary, practiceId, storageRoot);
+  const listed = await runList(compiledBinary, storageRoot);
+  assert.equal(listed.exitCode, 0);
+  assert.equal(listed.stderr, "");
+  const listedResponse = parseSingleResponse(listed.stdout);
+  assert.equal(listedResponse.command, "list");
+  assert.equal(listedResponse.ok, true);
+  assert(isRecord(listedResponse.data));
+  assert.deepEqual(listedResponse.data.packs, [
+    { name: "integration-pack", version: "1.0.0", practiceCount: 2 },
+  ]);
+
+  const listedPack = await runList(compiledBinary, storageRoot, "integration-pack");
+  assert.equal(listedPack.exitCode, 0);
+  assert.equal(listedPack.stderr, "");
+  const listedPackResponse = parseSingleResponse(listedPack.stdout);
+  assert.equal(listedPackResponse.command, "list");
+  assert.equal(listedPackResponse.ok, true);
+  assert(isRecord(listedPackResponse.data));
+  assert.deepEqual(listedPackResponse.data.pack, {
+    name: "integration-pack",
+    version: "1.0.0",
+  });
+  assert(Array.isArray(listedPackResponse.data.practices));
+  const listedPractice = listedPackResponse.data.practices.find(
+    (value) => isRecord(value) && value.id === practiceId,
+  );
+  assert(isRecord(listedPractice));
+  const listedPracticeId = String(listedPractice.id);
+
+  const first = await runGet(compiledBinary, listedPracticeId, storageRoot);
   assert.equal(first.exitCode, 0);
   assert.equal(first.stderr, "");
   const firstResponse = parseSingleResponse(first.stdout);
@@ -241,6 +270,22 @@ console.log(JSON.stringify({ generation: result.generation, effectiveRevision: r
   assert.equal(malformedResponse.ok, false);
   assert.equal(isRecord(malformedResponse.error) && malformedResponse.error.code, "usage.invalid");
   assert.equal(existsSync(malformedRoot), false, "malformed IDs must not create a Store root");
+
+  const emptyList = await runList(compiledBinary, join(workingDirectory, "empty-list-store"));
+  assert.equal(emptyList.exitCode, 0);
+  const emptyListResponse = parseSingleResponse(emptyList.stdout);
+  assert.equal(emptyListResponse.ok, true);
+  assert(isRecord(emptyListResponse.data));
+  assert.deepEqual(emptyListResponse.data.packs, []);
+
+  const missingPack = await runList(compiledBinary, storageRoot, "missing-pack");
+  assert.equal(missingPack.exitCode, 2);
+  const missingPackResponse = parseSingleResponse(missingPack.stdout);
+  assert.equal(missingPackResponse.ok, false);
+  assert.equal(
+    isRecord(missingPackResponse.error) && missingPackResponse.error.code,
+    "list.pack-not-found",
+  );
 }
 
 async function runGet(
@@ -264,6 +309,17 @@ async function runQuery(
 ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
   const args = [binaryPath, "query", text, "--store-root", storageRoot];
   if (topK !== undefined) args.push("--top-k", String(topK));
+  return runProcess(args);
+}
+
+async function runList(
+  binaryPath: string,
+  storageRoot: string,
+  packName?: string,
+): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  const args = [binaryPath, "list"];
+  if (packName !== undefined) args.push("--pack", packName);
+  args.push("--store-root", storageRoot);
   return runProcess(args);
 }
 

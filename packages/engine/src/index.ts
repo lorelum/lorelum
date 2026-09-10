@@ -9,3 +9,4 @@ export const PACKAGE_NAME = "@lorelum/engine";
 // boundary, never from package-internal directories.
 export * from "./local-store";
 export * from "./query";
+export * from "./list";

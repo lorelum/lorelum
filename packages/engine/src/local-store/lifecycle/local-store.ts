@@ -33,9 +33,16 @@ export function defaultStorageRoot(): StorageRoot {
 }
 
 export interface OpenResult {
-  generation: number;
-  effectiveRevision: number;
-  effectivePractices: readonly EffectivePractice[];
+  readonly generation: number;
+  readonly effectiveRevision: number;
+  readonly packs: readonly InstalledPackSummary[];
+  readonly effectivePractices: readonly EffectivePractice[];
+}
+
+/** The public projection of one active manifest Pack entry. */
+export interface InstalledPackSummary {
+  readonly name: string;
+  readonly version: string;
 }
 
 export interface LocalStore {
@@ -99,6 +106,11 @@ export function createLocalStore(
       return {
         generation: result.manifest.generation,
         effectiveRevision: result.manifest.effectiveRevision,
+        packs: Object.freeze(
+          result.manifest.packs.map((pack) =>
+            Object.freeze({ name: pack.packName, version: pack.packVersion }),
+          ),
+        ),
         effectivePractices: result.effectivePractices,
       };
     },

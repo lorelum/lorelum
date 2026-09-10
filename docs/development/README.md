@@ -8,6 +8,7 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [Tests and CI](../../CONTRIBUTING.md#testing--ci)
 - [Issues, branches, and PRs](../../CONTRIBUTING.md#development-workflow)
 - [Local CLI and worktrees](#local-cli-and-multiple-worktrees)
+- [Discover installed Packs with `lore list`](../cli/list.md)
 - [Read an installed Practice with `lore get`](../cli/get.md)
 - [Query installed Practices with `lore query`](../cli/query.md)
 - [LocalStore Engine API](#localstore-engine-api)
@@ -29,7 +30,7 @@ The CLI's discoverable global option is:
 --store-root <path>
 ```
 
-When omitted, the Store remains `~/.lorelum`. A relative path is resolved from the calling process's current working directory. `install`, `get`, and `query` consume LocalStore; do not infer support for other commands from this guide.
+When omitted, the Store remains `~/.lorelum`. A relative path is resolved from the calling process's current working directory. `install`, `list`, `get`, and `query` consume LocalStore; do not infer support for other commands from this guide.
 
 ### Source-level CLI helper
 

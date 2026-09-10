@@ -32,6 +32,7 @@ docs/adr/
 ├── 0011-local-store-point-read-and-query-boundary.md # proposed point-read and keyword query foundation
 ├── 0012-persistent-keyword-index.md            # cross-process keyword index reuse (#63)
 ├── 0013-incremental-local-store-projection-writes.md # affected-ID canonical projection writes (#73)
+├── 0014-list-catalog-contract.md                # LocalStore-backed lore list catalog
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 

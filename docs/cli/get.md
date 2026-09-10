@@ -3,10 +3,15 @@
 `lore get <practice-id>` retrieves one complete canonical Practice by its exact ID from the selected LocalStore. The public command contract was agreed in [issue #49](https://github.com/lorelum/lorelum/issues/49); the Engine point-read path and its consistency boundary are described in [ADR 0011](../adr/0011-local-store-point-read-and-query-boundary.md).
 
 ```sh
+lore list
+lore list --pack agentic-coding
 lore get agentic-coding.testing.classify-failure-before-changing-test
 lore --store-root /path/to/isolated-store get agentic-coding.testing.classify-failure-before-changing-test
 lore describe get
 ```
+
+For discovery, use `lore list` first, then `lore list --pack <name>` and pass
+one returned Practice ID to `lore get`.
 
 The ID must follow the existing dotted Practice ID format. Lookup is exact: there is no title matching, prefix completion, or case normalization. The global `--store-root` option also works after the command; relative paths resolve from the calling process's working directory. Omitting it selects the user Store.
 

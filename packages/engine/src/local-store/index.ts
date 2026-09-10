@@ -9,6 +9,7 @@ export {
   defaultStorageRoot,
   type LocalStore,
   type OpenResult,
+  type InstalledPackSummary,
   type StorageRoot,
   type StoreSnapshotIdentity,
   type EffectivePracticeSnapshot,
