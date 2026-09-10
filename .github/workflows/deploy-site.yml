@@ -1,20 +1,11 @@
 name: Deploy site
 
-# Auto-deploy only when the landing/docs site or its build inputs change.
-# Path filtering is a GitHub-native feature; Workers Builds has no equivalent,
-# which is why auto-deploy runs here instead of Cloudflare-side (see
-# docs/site-deploy.md).
+# Production deployment is an explicit release action. Merging to main does not
+# publish the site; run this workflow manually after the target ref is verified.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/site/**"
-      - "bun.lock" # dependency changes must reach the live site
-      - "package.json" # root workspace scripts and deps feed the build
-  workflow_dispatch: {} # manual redeploy without path filtering
+  workflow_dispatch: {}
 
-# One deploy at a time; a superseded in-progress deploy is cancelled so the
-# newest commit always wins.
+# One deploy at a time; a newer manual request supersedes an in-progress run.
 concurrency:
   group: deploy-site
   cancel-in-progress: true

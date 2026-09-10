@@ -61,5 +61,6 @@ bun run lint
 
 ## Deployment
 
-GitHub Actions deploys `main` on `apps/site` path matches only. See
+Production deployment is manual through the `Deploy site` GitHub Actions
+workflow. Merging to `main` does not deploy automatically. See
 [`docs/development/site-deploy.md`](../../docs/development/site-deploy.md).
