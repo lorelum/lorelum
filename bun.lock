@@ -61,9 +61,10 @@
       "name": "@lorelum/cli",
       "version": "0.0.0",
       "bin": {
-        "lore": "./src/index.ts",
+        "lore": "./src/main.ts",
       },
       "dependencies": {
+        "@lorelum/backend": "workspace:*",
         "@lorelum/engine": "workspace:*",
         "@lorelum/format": "workspace:*",
         "@lorelum/mcp": "workspace:*",

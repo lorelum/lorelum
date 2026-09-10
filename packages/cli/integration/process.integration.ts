@@ -22,6 +22,19 @@ assert.equal(source.exitCode, 0);
 assert.deepEqual(selectProtocolFields(source.stdout), { command: "version", ok: true });
 assert.equal(source.stderr, "");
 
+const hiddenWithoutGrant = await runProcess([
+  bunExecutable,
+  entrypoint,
+  "--internal-backend-serve",
+]);
+assert.equal(hiddenWithoutGrant.exitCode, 2);
+assert.deepEqual(selectProtocolFields(hiddenWithoutGrant.stdout), {
+  command: "unknown",
+  errorCode: "usage.invalid",
+  ok: false,
+});
+assert.equal(hiddenWithoutGrant.stderr, "");
+
 const directory = await mkdtemp(join(tmpdir(), "lorelum-cli-"));
 const executable = join(directory, process.platform === "win32" ? "lore.exe" : "lore");
 

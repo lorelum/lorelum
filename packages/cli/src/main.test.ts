@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { run } from "./main.js";
+import { isInternalBackendDaemonLaunch, isInternalBackendServeInvocation, run } from "./main.js";
 import { protocolResponseSchema, toolVersion, type JsonSchema } from "./output/protocol.js";
 import {
   validateJsonSchema,
@@ -15,6 +15,25 @@ class MemoryWriter {
     this.value += message;
   }
 }
+
+test("recognizes only the exact private backend daemon invocation", () => {
+  expect(isInternalBackendServeInvocation(["--internal-backend-serve"])).toBe(true);
+  expect(isInternalBackendServeInvocation([])).toBe(false);
+  expect(isInternalBackendServeInvocation(["--internal-backend-serve", "extra"])).toBe(false);
+  expect(isInternalBackendServeInvocation(["backend", "start"])).toBe(false);
+});
+
+test("requires private lifecycle environment before entering the backend daemon", () => {
+  const args = ["--internal-backend-serve"];
+  expect(isInternalBackendDaemonLaunch(args, {})).toBe(false);
+  expect(
+    isInternalBackendDaemonLaunch(args, {
+      LORELUM_BACKEND_DIRECTORY: "/tmp/lorelum",
+      LORELUM_BACKEND_INSTANCE: "instance",
+      LORELUM_BACKEND_PORT: "26186",
+    }),
+  ).toBe(true);
+});
 
 test("returns machine-readable root capability discovery", async () => {
   const stdout = new MemoryWriter();
@@ -35,6 +54,9 @@ test("returns machine-readable root capability discovery", async () => {
         { name: "get" },
         { name: "query" },
         { name: "list" },
+        { name: "backend.start" },
+        { name: "backend.status" },
+        { name: "backend.stop" },
         { name: "format" },
         { name: "i18n.sync" },
         { name: "validate" },

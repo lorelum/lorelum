@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { hasDaemonLaunchEnvironment } from "@lorelum/backend/config";
 import { createProgram, type CliRuntime } from "./create-program.js";
 import { renderFailure, type OutputWriter } from "./output/protocol.js";
 import { rootCommand, type CommandDefinition, type KnownCommand } from "./registry.js";
@@ -49,5 +50,22 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
 }
 
 if (import.meta.main) {
-  process.exitCode = await run(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  if (isInternalBackendDaemonLaunch(args)) {
+    const { currentBuildIdentity } = await import("@lorelum/backend/control");
+    const { runBackendDaemon } = await import("@lorelum/backend/daemon");
+    await runBackendDaemon({ buildIdentity: await currentBuildIdentity(import.meta.path) });
+  } else {
+    process.exitCode = await run(args);
+  }
+}
+
+export function isInternalBackendServeInvocation(args: readonly string[]): boolean {
+  return args.length === 1 && args[0] === "--internal-backend-serve";
+}
+export function isInternalBackendDaemonLaunch(
+  args: readonly string[],
+  environment?: Readonly<Record<string, string | undefined>>,
+): boolean {
+  return isInternalBackendServeInvocation(args) && hasDaemonLaunchEnvironment(environment);
 }

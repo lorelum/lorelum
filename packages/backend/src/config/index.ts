@@ -11,3 +11,10 @@ export {
   type BackendSettings,
   type Environment,
 } from "./model";
+export {
+  consumeDaemonLaunch,
+  hasDaemonLaunchEnvironment,
+  platformEnvironment,
+  daemonEnvironment,
+  type DaemonLaunch,
+} from "./launch";

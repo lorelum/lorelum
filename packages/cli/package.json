@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@lorelum/backend": "workspace:*",
     "@lorelum/engine": "workspace:*",
     "@lorelum/format": "workspace:*",
     "@lorelum/mcp": "workspace:*",

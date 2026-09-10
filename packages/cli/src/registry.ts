@@ -16,6 +16,10 @@ import { createInstallCommand } from "./install/install-command.js";
 import { createGetCommand } from "./get/get-command.js";
 import { createQueryCommand } from "./query/query-command.js";
 import { createListCommand } from "./list/list-command.js";
+import {
+  createBackendCommands,
+  createProcessBackendSupervisor,
+} from "./backend/control-commands.js";
 import { createLocalizationCommands } from "./localization/index.js";
 
 export interface CommandOption {
@@ -250,6 +254,7 @@ export const commandRegistry = snapshotCommandDefinitions([
   createGetCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
   createQueryCommand({ queryService: sharedQueryService, storageRoot: sharedStorageRoot }),
   createListCommand({ list: sharedListService, storageRoot: sharedStorageRoot }),
+  ...createBackendCommands({ createSupervisor: createProcessBackendSupervisor }),
   ...createLocalizationCommands(),
 ]);
 
