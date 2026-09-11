@@ -1,6 +1,6 @@
 # CLI 首次发布与安装方案
 
-状态：**已确认，关联 #105；第一阶段已完成。** 日期：2026-09-11。
+状态：**已确认，关联 #105；已实现 macOS arm64 的本地构建、打包和安装基础。** 日期：2026-09-11。
 
 建议按平台发布一个包含 `lore`、native runtime 和许可证的压缩包，再提供 `install.sh` 自动下载安装。模型继续在 `lore model load` 时按需下载。用户不需要安装 Bun、Node.js、npm、CMake 或编译工具，也不需要 sudo。
 
@@ -13,13 +13,13 @@
 - [`embedding-resources.ts`](../../packages/backend/src/runtime/embedding-resources.ts) 在编译模式下从 `process.execPath` 所在目录寻找 `native/<platform>-<arch>`，要求磁盘 manifest 与 CLI 编入的固定 manifest 完全相等，再验证文件大小、SHA-256 和使用前未被替换。当前只接受 darwin-arm64。
 - [`模型交付方案`](./model-delivery-and-api-design.md) 已实现进程内 got 下载：固定 Hugging Face revision 的 Q4_0 模型为 66,345,216 bytes，支持续传和摘要校验。安装器无须再次实现模型下载。
 - [`@lorelum/config`](../../packages/config/src/paths/lorelum.ts) 已独立管理 `~/.lorelum/config.yaml`。运行状态、模型缓存和 Store 不属于安装包。
-- [`第二阶段方案`](./local-backend-stage-2-design.md) 明确 Windows native 与端到端交付尚未完成。当前 macOS 构建参数包含 macOS 13.3 和 CPU 指令要求；它们是验收输入，不能代替最低系统和硬件的实际支持证明。
+- [后续 backend 设计](./local-backend-stage-2-design.md) 记录了 Windows native 与端到端交付尚未完成。当前 macOS 构建参数包含 macOS 13.3 和 CPU 指令要求；它们是验收输入，不能代替最低系统和硬件的实际支持证明。
 
 ## 为什么选平台压缩包
 
 打包内容和安装入口是两个决定：`install.sh` 可以下载任何一种包，它本身不解决 runtime 的配套和校验问题。
 
-| 方案 | 用户实际得到什么 | 主要代价 | 本阶段判断 |
+| 方案 | 用户实际得到什么 | 主要代价 | 当前判断 |
 | --- | --- | --- | --- |
 | CLI、native、许可证放在同一平台包 | 下载、解压后即有执行代码，模型按需下载 | 每次下载安装都包含 native | **推荐**；约 12.6 MB native 换取完整、配套的执行环境 |
 | native 嵌入 CLI，启动时释放 | 表面只有一个文件，运行时仍需 native 落盘执行 | 增加释放目录、并发写入、权限与清理逻辑，许可证仍需可取得 | 当前没有必须只分发单文件的需求，暂不选 |
@@ -69,7 +69,7 @@ lore model status
 
 必须增加从符号链接启动的真实验证，并将资源定位明确为 `dirname(await realpath(process.execPath))` 后的相邻目录。不能假定每个运行平台都会把 `process.execPath` 解析为同一种路径形式。
 
-安装脚本只负责落盘程序和设置命令入口，不管理 daemon。显式执行 `backend start` 时才使用现有的实例身份和端口检查。本阶段不加入自动升级、后台更新服务或历史版本迁移逻辑。
+安装脚本只负责落盘程序和设置命令入口，不管理 daemon。显式执行 `backend start` 时才使用现有的实例身份和端口检查。当前实现不加入自动升级、后台更新服务或历史版本迁移逻辑。
 
 ## 构建必须绑定同一批字节
 
@@ -97,7 +97,7 @@ CLI 构建脚本通过构建专用生成模块绑定该 manifest；发布构建�
 
 打包脚本只收集这次构建的 CLI、native 和许可证，保留可执行权限，生成最终 archive SHA-256。若采用签名，顺序必须是：签 native，再生成 manifest 和 hash，再把该 manifest 编入 CLI，然后签 CLI，最后完成公证相关处理并计算最终 archive 摘要。任何改变受校验文件字节的处理都必须发生在对应摘要生成之前；最后用解压后的成品重跑加载与校验。
 
-发布渠道是下载信任起点：固定仓库的 HTTPS Release 页面及其资产提供包与清单。清单可检测下载损坏，不能独立证明发布账户未受侵害；本阶段不自建签名平台。macOS 首发前必须实际检查浏览器下载后的 Gatekeeper 行为，并据结果确定签名/公证要求，不能把建议关闭系统安全检查当作安装流程。
+发布渠道是下载信任起点：固定仓库的 HTTPS Release 页面及其资产提供包与清单。清单可检测下载损坏，不能独立证明发布账户未受侵害；当前实现不自建签名平台。macOS 首发前必须实际检查浏览器下载后的 Gatekeeper 行为，并据结果确定签名/公证要求，不能把建议关闭系统安全检查当作安装流程。
 
 ## Draft 验证最终资产，不重新构建
 
@@ -140,12 +140,12 @@ release-metadata.json
 | 4. 验证生命周期和分发体验 | 安装后的 CLI 可正常 start/status/stop；模型下载续传、摘要检查和 native 父进程退出回归通过；安装不自动启动 daemon 或下载模型；浏览器下载的包在真实 macOS 安全策略下完成安装 |
 | 5. 建立手动发布流程 | 经单独授权后新增手动触发的 CI：固定源码和版本生成 draft Release，记录包大小、SHA、工具链、测试结果及支持范围。验收从 draft 下载并复核资产与 target commit；Owner 审查后在 GitHub 页面公开同一批已验证资产 |
 
-本阶段先完成 macOS arm64 的完整下载到运行链。Windows 后续沿用同一平台包责任划分，提供 ZIP 与 PowerShell 下载入口，但必须先完成 native 构建、进程身份与退出管理、文件校验及干净 Windows 环境验收；Linux 和 Intel Mac 也按同样证据要求决定是否发布，不因 Bun 能交叉编译而直接列入支持矩阵。
+当前交付完成 macOS arm64 的本地构建、归档和安装验收。Windows 后续沿用同一平台包责任划分，提供 ZIP 与 PowerShell 下载入口，但必须先完成 native 构建、进程身份与退出管理、文件校验及干净 Windows 环境验收；Linux 和 Intel Mac 也按同样证据要求决定是否发布，不因 Bun 能交叉编译而直接列入支持矩阵。
 
-本设计对应已存在的 #105。第一阶段先实现不触及 Release 的本地成品构建与安装验收；手动 draft workflow 和真正公开发布在该链条验收后单独处理。修改 release workflow 和公开发布分别遵守仓库明确的授权边界。
+本设计对应已存在的 #105。本 PR 实现不触及 GitHub Release 的本地成品构建与安装验收；手动 draft workflow 和真正公开发布尚未单独规划或实现。修改 release workflow 和公开发布分别遵守仓库明确的授权边界。
 
 ## 参考依据
 
 - [Bun 独立可执行文件文档](https://github.com/oven-sh/bun/blob/main/docs/bundler/executables.mdx)：编入运行时和导入依赖；资源内嵌得到 Bun 虚拟文件路径，不能据此假定任意 native 文件自动打包、自动执行。实现以仓库固定的 Bun 1.4.2 为准。
 - [uv 官方安装入口](https://github.com/astral-sh/uv#installation)：同一产品分别提供 Unix shell 与 Windows PowerShell 安装入口，是本方案区分安装脚本和实际程序包的参考。
-- [cargo-dist 的构建与分发职责](https://github.com/axodotdev/cargo-dist#building)：归档、安装器与发布编排可交给现成工具；本阶段仅一个平台及现有自定义 native 构建，不直接引入完整发行框架。
+- [cargo-dist 的构建与分发职责](https://github.com/axodotdev/cargo-dist#building)：归档、安装器与发布编排可交给现成工具；当前只有一个平台及现有自定义 native 构建，不直接引入完整发行框架。
