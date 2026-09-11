@@ -27,3 +27,5 @@ bun packages/backend/integration/daemon-embedding.integration.ts /absolute/path/
 ```
 
 The first script optionally accepts a second argument pointing to the preserved validation reference directory; this also checks frozen tokenizer and Q4 vectors. It performs no model download. The second uses an isolated runtime directory and verifies process reuse, timeout/crash recovery, parent death, and clean daemon restart.
+
+For the four integration entrypoints, scenario boundaries, optional frozen references, and the distinction between acceptance and performance observations, see the [backend integration guide](../../docs/development/backend-integration.md).
