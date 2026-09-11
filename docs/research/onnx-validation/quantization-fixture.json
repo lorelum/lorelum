@@ -1,0 +1,317 @@
+{
+  "description": "Synthetic generic software-engineering retrieval fixture. Forty documents form twenty precise near-neighbor pairs; labels are frozen before model evaluation.",
+  "documents": [
+    {
+      "id": "d01",
+      "text": "SQL transaction isolation: use READ COMMITTED when each statement may see newly committed rows and short blocking is preferred."
+    },
+    {
+      "id": "d02",
+      "text": "SQL transaction isolation: use REPEATABLE READ when all statements in one transaction must observe a stable snapshot."
+    },
+    {
+      "id": "d03",
+      "text": "HTTP retries: retry idempotent GET and PUT requests with exponential backoff and jitter after transient 5xx responses."
+    },
+    {
+      "id": "d04",
+      "text": "HTTP retries: do not automatically retry non-idempotent POST requests unless the API provides an idempotency key."
+    },
+    {
+      "id": "d05",
+      "text": "Cache policy: set a finite TTL so entries expire and stale values are eventually refreshed."
+    },
+    {
+      "id": "d06",
+      "text": "Cache invalidation: actively evict affected keys after a successful write when immediate freshness is required."
+    },
+    {
+      "id": "d07",
+      "text": "Queue delivery: at-least-once consumers must acknowledge only after durable processing completes."
+    },
+    {
+      "id": "d08",
+      "text": "Queue delivery: exactly-once business effects require a deduplication key or idempotent handler even with acknowledgements."
+    },
+    {
+      "id": "d09",
+      "text": "Logging security: redact passwords, access tokens, and authorization headers before writing logs."
+    },
+    {
+      "id": "d10",
+      "text": "Logging operations: preserve a request correlation ID so events from one request can be traced across services."
+    },
+    {
+      "id": "d11",
+      "text": "Unicode input: normalize user identifiers to NFC before equality checks to unify canonically equivalent sequences."
+    },
+    {
+      "id": "d12",
+      "text": "Unicode input: apply case folding only when the field's semantics define case-insensitive matching; preserve original display text."
+    },
+    {
+      "id": "d13",
+      "text": "Filesystem security: reject paths whose normalized form escapes the designated root directory to prevent traversal."
+    },
+    {
+      "id": "d14",
+      "text": "Filesystem behavior: resolve symbolic links according to policy before access checks because a link can escape the apparent root."
+    },
+    {
+      "id": "d15",
+      "text": "React hooks: include every render-dependent value in a useEffect dependency array to avoid stale closures."
+    },
+    {
+      "id": "d16",
+      "text": "React hooks: use a functional state updater when a callback derives next state from the previous value."
+    },
+    {
+      "id": "d17",
+      "text": "Graceful shutdown: stop accepting new work, drain in-flight requests, then close resources before the deadline."
+    },
+    {
+      "id": "d18",
+      "text": "Graceful shutdown: enforce a hard termination timeout after which remaining work is cancelled and the process exits."
+    },
+    {
+      "id": "d19",
+      "text": "Database migrations: expand-contract begins by adding backward-compatible columns or tables before switching writers."
+    },
+    {
+      "id": "d20",
+      "text": "Database migrations: contract removes obsolete columns only after all readers and writers no longer depend on them."
+    },
+    {
+      "id": "d21",
+      "text": "API pagination: cursor tokens represent a stable position and avoid duplicates when rows are inserted during traversal."
+    },
+    {
+      "id": "d22",
+      "text": "API pagination: offset pagination is simple for static collections but can skip or repeat rows under concurrent writes."
+    },
+    {
+      "id": "d23",
+      "text": "Distributed locks: renew a lease before expiry and attach an ownership token to prevent an old holder from releasing a new lock."
+    },
+    {
+      "id": "d24",
+      "text": "Distributed locks: a mutex in one process coordinates local threads but provides no cross-process exclusion."
+    },
+    {
+      "id": "d25",
+      "text": "Metrics: counters record monotonically increasing occurrences such as requests or errors."
+    },
+    {
+      "id": "d26",
+      "text": "Metrics: gauges represent values that rise and fall, such as queue depth or active connections."
+    },
+    {
+      "id": "d27",
+      "text": "Python async code: await the coroutine returned by an async function or it will not execute to completion."
+    },
+    {
+      "id": "d28",
+      "text": "Python async errors: RuntimeWarning: coroutine was never awaited indicates a coroutine object was dropped without await or task scheduling."
+    },
+    {
+      "id": "d29",
+      "text": "TLS validation: verify the server certificate chain and hostname; disabling verification is unsafe for production traffic."
+    },
+    {
+      "id": "d30",
+      "text": "TLS client authentication: mutual TLS additionally requires the client to present a certificate accepted by the server."
+    },
+    {
+      "id": "d31",
+      "text": "JSON schema evolution: adding an optional field with a default is backward compatible for readers that ignore unknown fields."
+    },
+    {
+      "id": "d32",
+      "text": "JSON schema evolution: renaming or removing a required field is breaking until all producers and consumers migrate."
+    },
+    {
+      "id": "d33",
+      "text": "Container health: liveness checks should answer whether the process should be restarted, not whether every dependency is healthy."
+    },
+    {
+      "id": "d34",
+      "text": "Container health: readiness checks should fail when the instance must be removed from traffic, such as a database outage."
+    },
+    {
+      "id": "d35",
+      "text": "Security headers: Content-Security-Policy restricts which scripts and resources a browser may load."
+    },
+    {
+      "id": "d36",
+      "text": "Security headers: Strict-Transport-Security tells browsers to use HTTPS for a host during a defined max-age."
+    },
+    {
+      "id": "d37",
+      "text": "Go maps: concurrent read and write access without synchronization can trigger fatal error: concurrent map read and map write."
+    },
+    {
+      "id": "d38",
+      "text": "Go slices: append may reallocate backing storage, so retaining pointers or aliases requires understanding capacity and ownership."
+    },
+    {
+      "id": "d39",
+      "text": "Search ranking: BM25 scores term frequency and document length for lexical relevance."
+    },
+    {
+      "id": "d40",
+      "text": "Search ranking: vector cosine similarity compares embedding direction to retrieve semantically related wording."
+    }
+  ],
+  "queries": [
+    {
+      "id": "q01",
+      "text": "哪种隔离级别让同一事务看到稳定快照？",
+      "relevantIds": ["d02"]
+    },
+    {
+      "id": "q02",
+      "text": "READ COMMITTED 适合什么读取行为？",
+      "relevantIds": ["d01"]
+    },
+    {
+      "id": "q03",
+      "text": "Should a client retry POST after a 503?",
+      "relevantIds": ["d04"]
+    },
+    {
+      "id": "q04",
+      "text": "GET retry with jitter after transient 5xx",
+      "relevantIds": ["d03"]
+    },
+    {
+      "id": "q05",
+      "text": "TTL 到期和写入后立即删除缓存分别解决什么问题？",
+      "relevantIds": ["d05", "d06"]
+    },
+    {
+      "id": "q06",
+      "text": "When may an at-least-once consumer acknowledge a message?",
+      "relevantIds": ["d07"]
+    },
+    {
+      "id": "q07",
+      "text": "Exactly-once effects need what despite ack semantics?",
+      "relevantIds": ["d08"]
+    },
+    {
+      "id": "q08",
+      "text": "日志里如何处理 authorization header 和 traceability？",
+      "relevantIds": ["d09", "d10"]
+    },
+    {
+      "id": "q09",
+      "text": "NFC normalization should happen before comparing identifiers",
+      "relevantIds": ["d11"]
+    },
+    {
+      "id": "q10",
+      "text": "大小写折叠何时适用，原始显示文本怎么办？",
+      "relevantIds": ["d12"]
+    },
+    {
+      "id": "q11",
+      "text": "How do you stop ../etc/passwd from escaping a file root?",
+      "relevantIds": ["d13"]
+    },
+    {
+      "id": "q12",
+      "text": "Symlink escape means which filesystem check is missing?",
+      "relevantIds": ["d14"]
+    },
+    {
+      "id": "q13",
+      "text": "React useEffect reads changing state but sees an old value",
+      "relevantIds": ["d15"]
+    },
+    {
+      "id": "q14",
+      "text": "React callback increments based on previous state safely",
+      "relevantIds": ["d16"]
+    },
+    {
+      "id": "q15",
+      "text": "优雅停机时先停止接收还是先关闭数据库？",
+      "relevantIds": ["d17"]
+    },
+    {
+      "id": "q16",
+      "text": "What happens when graceful draining exceeds its deadline?",
+      "relevantIds": ["d18"]
+    },
+    {
+      "id": "q17",
+      "text": "expand-contract 的第一步是什么？",
+      "relevantIds": ["d19"]
+    },
+    {
+      "id": "q18",
+      "text": "When is it safe to drop the old migration column?",
+      "relevantIds": ["d20"]
+    },
+    {
+      "id": "q19",
+      "text": "Which pagination method avoids duplicates during inserts?",
+      "relevantIds": ["d21"]
+    },
+    {
+      "id": "q20",
+      "text": "Offset pagination under concurrent writes has what failure mode?",
+      "relevantIds": ["d22"]
+    },
+    {
+      "id": "q21",
+      "text": "分布式租约如何防止旧持有者释放新锁？",
+      "relevantIds": ["d23"]
+    },
+    {
+      "id": "q22",
+      "text": "Does an in-process mutex coordinate two separate processes?",
+      "relevantIds": ["d24"]
+    },
+    {
+      "id": "q23",
+      "text": "监控队列中等待处理的消息数量，应该选 counter 还是 gauge？",
+      "relevantIds": ["d26"]
+    },
+    {
+      "id": "q24",
+      "text": "请求总数和错误总数适合哪种 metric 类型？",
+      "relevantIds": ["d25"]
+    },
+    {
+      "id": "q25",
+      "text": "Python async function returns a coroutine and nothing runs",
+      "relevantIds": ["d27", "d28"]
+    },
+    {
+      "id": "q26",
+      "text": "What does RuntimeWarning: coroutine was never awaited mean?",
+      "relevantIds": ["d28"]
+    },
+    {
+      "id": "q27",
+      "text": "TLS hostname verification versus requiring a client certificate",
+      "relevantIds": ["d29", "d30"]
+    },
+    {
+      "id": "q28",
+      "text": "Can an optional JSON field be added without breaking old readers?",
+      "relevantIds": ["d31"]
+    },
+    {
+      "id": "q29",
+      "text": "Kubernetes readiness versus liveness during a database outage",
+      "relevantIds": ["d33", "d34"]
+    },
+    {
+      "id": "q30",
+      "text": "BM25 lexical matching versus vector cosine semantic similarity",
+      "relevantIds": ["d39", "d40"]
+    }
+  ]
+}

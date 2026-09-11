@@ -1,0 +1,1375 @@
+{
+  "date": "2026-09-11",
+  "hardware": "Apple M4, 32 GiB, macOS 15.7.1 arm64",
+  "runtime": {
+    "bun": "1.3.8",
+    "onnxruntime-node": "1.29.0",
+    "tokenizers": "0.2.0",
+    "provider": "cpu",
+    "intraOpThreads": 4,
+    "interOpThreads": 1
+  },
+  "quantizedModel": {
+    "revision": "835ad14087e140460703cf0fae09f97d469d65c2",
+    "path": "onnx/model_quint8_avx2.onnx",
+    "bytes": 98247878,
+    "sha256": "a6022dd8220ea6f6595562a1328ee216f4a94faa55362f2f4747c80f1e78772e"
+  },
+  "modelHashVerifiedAgainstHubLfs": true,
+  "method": {
+    "trialOrder": ["fp32", "int8", "int8", "fp32"],
+    "performance": "Fresh sequential processes; end-to-end tokenization, inference, CLS + L2; warmup 3; repeats 60/60/40/20/20/10. Synthetic repeated hello for fixed-length workloads. Shared desktop, no power telemetry. RSS sampled, not complete transient peak.",
+    "quality": "40 synthetic generic engineering docs and 30 queries; labels fixed before final fixture inference; encode each text singly. Both document and query vectors use the same precision. Exact cosine ranking, no ANN. Binary relevance; no production acceptance threshold or confidence claim.",
+    "limits": [
+      "Small synthetic set; not independent real-user benchmark or retrieval-quality guarantee",
+      "No Windows/x86, other quantization recipes, long-context quality or mixed precision index compatibility validation",
+      "INT8 batch p95 and 64-token latency do not consistently improve"
+    ]
+  },
+  "performance": {
+    "fp32": [
+      {
+        "threads": 4,
+        "tokenizerMs": 179.197,
+        "sessionMs": 288.27637500000003,
+        "loadTotalMs": 493.64170900000005,
+        "loadedRss": 1463697408,
+        "peakRss": 1633009664,
+        "steadyRss": 1633026048,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.7443329999999833,
+              "p95": 3.2200409999999238,
+              "mean": 2.8346562666666597
+            },
+            "inferenceMs": {
+              "p50": 2.718417000000045,
+              "p95": 3.168374999999969,
+              "mean": 2.800688933333326
+            },
+            "tokenizationMs": {
+              "p50": 0.03012499999999818,
+              "p95": 0.0587079999999105,
+              "mean": 0.033967333333333724
+            },
+            "documentsPerSecond": 352.7764589164541
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 3.2959999999999354,
+              "p95": 3.804458000000068,
+              "mean": 3.37186663333333
+            },
+            "inferenceMs": {
+              "p50": 3.2590830000000324,
+              "p95": 3.746040999999991,
+              "mean": 3.324756249999998
+            },
+            "tokenizationMs": {
+              "p50": 0.043000000000006366,
+              "p95": 0.0714580000000069,
+              "mean": 0.04711038333333211
+            },
+            "documentsPerSecond": 296.5716348666581
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 7.008458000000019,
+              "p95": 10.446959000000106,
+              "mean": 7.714808299999976
+            },
+            "inferenceMs": {
+              "p50": 6.92166700000007,
+              "p95": 10.3275000000001,
+              "mean": 7.6206291499999965
+            },
+            "tokenizationMs": {
+              "p50": 0.07629099999985556,
+              "p95": 0.1698750000000473,
+              "mean": 0.09417914999997948
+            },
+            "documentsPerSecond": 129.6208487772798
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 26.90704199999982,
+              "p95": 28.758207999999968,
+              "mean": 26.233970899999964
+            },
+            "inferenceMs": {
+              "p50": 26.729916999999887,
+              "p95": 28.438708000000133,
+              "mean": 25.953370749999966
+            },
+            "tokenizationMs": {
+              "p50": 0.31949999999983447,
+              "p95": 0.392708999999968,
+              "mean": 0.28060014999999794
+            },
+            "documentsPerSecond": 38.11851449450229
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 60.248957999999675,
+              "p95": 65.36941699999988,
+              "mean": 59.8298376
+            },
+            "inferenceMs": {
+              "p50": 59.72608300000002,
+              "p95": 65.12104199999976,
+              "mean": 59.490216699999976
+            },
+            "tokenizationMs": {
+              "p50": 0.2857910000002448,
+              "p95": 0.5511250000004111,
+              "mean": 0.33962090000002265
+            },
+            "documentsPerSecond": 16.71406843330626
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 519.698958,
+              "p95": 567.72775,
+              "mean": 531.1604749
+            },
+            "inferenceMs": {
+              "p50": 518.0122080000001,
+              "p95": 563.850375,
+              "mean": 528.3411415999998
+            },
+            "tokenizationMs": {
+              "p50": 1.8426250000002256,
+              "p95": 4.007916000000478,
+              "mean": 2.8193333000001983
+            },
+            "documentsPerSecond": 15.061361637471492
+          }
+        ]
+      },
+      {
+        "threads": 4,
+        "tokenizerMs": 179.582167,
+        "sessionMs": 228.20158299999997,
+        "loadTotalMs": 433.982917,
+        "loadedRss": 1600241664,
+        "peakRss": 1787461632,
+        "steadyRss": 1787461632,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.8617080000000215,
+              "p95": 3.2732919999999694,
+              "mean": 2.931051399999991
+            },
+            "inferenceMs": {
+              "p50": 2.7851249999999936,
+              "p95": 3.2428750000000264,
+              "mean": 2.869807749999995
+            },
+            "tokenizationMs": {
+              "p50": 0.03849999999999909,
+              "p95": 0.19087500000000546,
+              "mean": 0.06124364999999538
+            },
+            "documentsPerSecond": 341.17450140929054
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 3.1580000000000155,
+              "p95": 3.537249999999972,
+              "mean": 3.2233340000000017
+            },
+            "inferenceMs": {
+              "p50": 3.1019999999999754,
+              "p95": 3.5100830000000087,
+              "mean": 3.1683548666666637
+            },
+            "tokenizationMs": {
+              "p50": 0.02733299999999872,
+              "p95": 0.1818749999999909,
+              "mean": 0.05497913333333789
+            },
+            "documentsPerSecond": 310.23778485257793
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 6.08829199999991,
+              "p95": 6.737124999999992,
+              "mean": 6.222927099999987
+            },
+            "inferenceMs": {
+              "p50": 5.950457999999912,
+              "p95": 6.527917000000002,
+              "mean": 6.113624924999996
+            },
+            "tokenizationMs": {
+              "p50": 0.06549999999992906,
+              "p95": 0.22020799999995688,
+              "mean": 0.10930217499999059
+            },
+            "documentsPerSecond": 160.69608143087552
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 22.165291000000025,
+              "p95": 27.398833000000195,
+              "mean": 23.071068550000017
+            },
+            "inferenceMs": {
+              "p50": 21.868375000000015,
+              "p95": 26.75841700000001,
+              "mean": 22.771160399999985
+            },
+            "tokenizationMs": {
+              "p50": 0.29691600000001017,
+              "p95": 0.6404160000001866,
+              "mean": 0.29990815000003296
+            },
+            "documentsPerSecond": 43.344329623605546
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 67.51545800000031,
+              "p95": 70.62687499999993,
+              "mean": 67.26543344999999
+            },
+            "inferenceMs": {
+              "p50": 66.97254199999998,
+              "p95": 70.0830420000002,
+              "mean": 66.7197501
+            },
+            "tokenizationMs": {
+              "p50": 0.5473750000001019,
+              "p95": 0.8272079999999278,
+              "mean": 0.5456833499999902
+            },
+            "documentsPerSecond": 14.866476713382424
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 550.8260420000006,
+              "p95": 573.80825,
+              "mean": 544.277996
+            },
+            "inferenceMs": {
+              "p50": 546.7143750000005,
+              "p95": 569.9936250000001,
+              "mean": 541.0188167
+            },
+            "tokenizationMs": {
+              "p50": 3.644709000000148,
+              "p95": 4.380041999999776,
+              "mean": 3.2591792999999596
+            },
+            "documentsPerSecond": 14.698371161049105
+          }
+        ]
+      }
+    ],
+    "int8": [
+      {
+        "threads": 4,
+        "tokenizerMs": 179.49054099999998,
+        "sessionMs": 171.774333,
+        "loadTotalMs": 377.16925000000003,
+        "loadedRss": 683622400,
+        "peakRss": 954843136,
+        "steadyRss": 954843136,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.848374999999976,
+              "p95": 2.289292000000046,
+              "mean": 1.9157868499999968
+            },
+            "inferenceMs": {
+              "p50": 1.8150419999999485,
+              "p95": 2.2632500000000277,
+              "mean": 1.8848264166666675
+            },
+            "tokenizationMs": {
+              "p50": 0.026999999999986812,
+              "p95": 0.05904099999997925,
+              "mean": 0.030960433333329245
+            },
+            "documentsPerSecond": 521.9787368307709
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.4125419999999167,
+              "p95": 2.905666999999994,
+              "mean": 2.4891570166666668
+            },
+            "inferenceMs": {
+              "p50": 2.385833000000048,
+              "p95": 2.8661670000000186,
+              "mean": 2.46111053333334
+            },
+            "tokenizationMs": {
+              "p50": 0.022124999999959982,
+              "p95": 0.049999999999954525,
+              "mean": 0.028046483333326933
+            },
+            "documentsPerSecond": 401.74243460910367
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 6.377624999999966,
+              "p95": 6.866457999999966,
+              "mean": 6.50680309999999
+            },
+            "inferenceMs": {
+              "p50": 6.32445800000005,
+              "p95": 6.809999999999945,
+              "mean": 6.449374974999989
+            },
+            "tokenizationMs": {
+              "p50": 0.05645800000002055,
+              "p95": 0.0737499999999045,
+              "mean": 0.05742812500000127
+            },
+            "documentsPerSecond": 153.6853020802184
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 22.18533400000001,
+              "p95": 22.78362500000003,
+              "mean": 22.316112550000014
+            },
+            "inferenceMs": {
+              "p50": 22.02254199999993,
+              "p95": 22.621374999999944,
+              "mean": 22.141256349999992
+            },
+            "tokenizationMs": {
+              "p50": 0.16279200000008132,
+              "p95": 0.2257079999999405,
+              "mean": 0.174856200000022
+            },
+            "documentsPerSecond": 44.810672009269794
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 52.47312499999998,
+              "p95": 56.58129199999985,
+              "mean": 52.981618849999975
+            },
+            "inferenceMs": {
+              "p50": 52.203083000000106,
+              "p95": 56.20758399999977,
+              "mean": 52.70269799999996
+            },
+            "tokenizationMs": {
+              "p50": 0.2759169999999358,
+              "p95": 0.2998749999997017,
+              "mean": 0.2789208500000086
+            },
+            "documentsPerSecond": 18.874470461749592
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 466.926958,
+              "p95": 475.2979580000001,
+              "mean": 469.17793730000005
+            },
+            "inferenceMs": {
+              "p50": 465.05279099999916,
+              "p95": 473.0095000000001,
+              "mean": 467.1304915000002
+            },
+            "tokenizationMs": {
+              "p50": 2.0554170000004888,
+              "p95": 2.2884579999999914,
+              "mean": 2.0474457999998776
+            },
+            "documentsPerSecond": 17.051100156239166
+          }
+        ]
+      },
+      {
+        "threads": 4,
+        "tokenizerMs": 181.207042,
+        "sessionMs": 167.2005,
+        "loadTotalMs": 366.92058299999997,
+        "loadedRss": 647823360,
+        "peakRss": 930758656,
+        "steadyRss": 930758656,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.8382500000000164,
+              "p95": 2.237459000000001,
+              "mean": 1.9126687666666697
+            },
+            "inferenceMs": {
+              "p50": 1.8063750000000027,
+              "p95": 2.2050839999999994,
+              "mean": 1.8834326833333372
+            },
+            "tokenizationMs": {
+              "p50": 0.024917000000016287,
+              "p95": 0.05454099999997197,
+              "mean": 0.029236083333332392
+            },
+            "documentsPerSecond": 522.8296804065892
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.5039580000000115,
+              "p95": 3.32912500000009,
+              "mean": 2.660500649999998
+            },
+            "inferenceMs": {
+              "p50": 2.457958000000076,
+              "p95": 3.284334000000058,
+              "mean": 2.6238117833333336
+            },
+            "tokenizationMs": {
+              "p50": 0.029832999999939602,
+              "p95": 0.06529199999999946,
+              "mean": 0.036688866666664426
+            },
+            "documentsPerSecond": 375.86910568881115
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 6.661791999999991,
+              "p95": 7.422832999999969,
+              "mean": 6.728671849999995
+            },
+            "inferenceMs": {
+              "p50": 6.58887500000003,
+              "p95": 7.373333000000002,
+              "mean": 6.6610843250000045
+            },
+            "tokenizationMs": {
+              "p50": 0.06433300000003328,
+              "p95": 0.0947079999999687,
+              "mean": 0.06758752499999048
+            },
+            "documentsPerSecond": 148.61773947261239
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 22.855583000000024,
+              "p95": 25.532208000000082,
+              "mean": 23.209216549999987
+            },
+            "inferenceMs": {
+              "p50": 22.665291000000025,
+              "p95": 25.35587499999997,
+              "mean": 23.030279099999984
+            },
+            "tokenizationMs": {
+              "p50": 0.17508300000008603,
+              "p95": 0.20466699999997218,
+              "mean": 0.1789374500000008
+            },
+            "documentsPerSecond": 43.086331580632375
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 52.576542000000245,
+              "p95": 53.71858300000031,
+              "mean": 52.680252150000015
+            },
+            "inferenceMs": {
+              "p50": 52.31437499999993,
+              "p95": 53.45783300000039,
+              "mean": 52.39952504999999
+            },
+            "tokenizationMs": {
+              "p50": 0.2725420000001577,
+              "p95": 0.31779199999982666,
+              "mean": 0.28072710000002415
+            },
+            "documentsPerSecond": 18.982445208360677
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 474.5889589999997,
+              "p95": 666.5971659999996,
+              "mean": 502.6342208999998
+            },
+            "inferenceMs": {
+              "p50": 472.7085419999994,
+              "p95": 664.7897079999993,
+              "mean": 500.5836500999999
+            },
+            "tokenizationMs": {
+              "p50": 1.8804170000003069,
+              "p95": 3.1349589999999807,
+              "mean": 2.0505707999998775
+            },
+            "documentsPerSecond": 15.916146707391851
+          }
+        ]
+      }
+    ]
+  },
+  "referenceParity": [
+    {
+      "name": "english-query",
+      "batch": 1,
+      "sequenceLength": 15,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.9766588796223233,
+          "maxAbs": 0.05380394901417537
+        }
+      ]
+    },
+    {
+      "name": "chinese-query",
+      "batch": 1,
+      "sequenceLength": 22,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.978745738713388,
+          "maxAbs": 0.0542945129946729
+        }
+      ]
+    },
+    {
+      "name": "code",
+      "batch": 1,
+      "sequenceLength": 21,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.9749541791160484,
+          "maxAbs": 0.04694333648003666
+        }
+      ]
+    },
+    {
+      "name": "unicode",
+      "batch": 1,
+      "sequenceLength": 23,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.966711785550197,
+          "maxAbs": 0.05119355422037497
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "batch": 1,
+      "sequenceLength": 2,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.9249583462969269,
+          "maxAbs": 0.10141710027472067
+        }
+      ]
+    },
+    {
+      "name": "whitespace",
+      "batch": 1,
+      "sequenceLength": 4,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.9617970382642858,
+          "maxAbs": 0.053130950681232095
+        }
+      ]
+    },
+    {
+      "name": "mixed-padding",
+      "batch": 3,
+      "sequenceLength": 513,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.9633359861868657,
+          "maxAbs": 0.05347733239201782
+        },
+        {
+          "cosine": 0.9591156025273473,
+          "maxAbs": 0.06075475329311457
+        },
+        {
+          "cosine": 0.9592814578061252,
+          "maxAbs": 0.05105639535644987
+        }
+      ]
+    },
+    {
+      "name": "long-context",
+      "batch": 1,
+      "sequenceLength": 1025,
+      "tokensEqual": true,
+      "comparisons": [
+        {
+          "cosine": 0.9772665099941173,
+          "maxAbs": 0.04790971848010982
+        }
+      ]
+    }
+  ],
+  "retrieval": {
+    "fixtureSha256": "c970f19f49a6c899cbed095725ed63d697e2cfb6ddfe6a0445502271db1c54fb",
+    "documents": 40,
+    "queries": 30,
+    "vectorCosine": {
+      "min": 0.9597123490346916,
+      "mean": 0.9737861359040852,
+      "max": 0.9929223444011464
+    },
+    "vectorMaxAbsoluteError": 0.07330355635710739,
+    "pairScoreAbsoluteDrift": {
+      "min": 3.2879640207483796e-5,
+      "mean": 0.03140348701137273,
+      "max": 0.07955205393694154
+    },
+    "fp32": {
+      "hitAt1": 0.8333333333333334,
+      "recallAt5": 1.0,
+      "mrrAt10": 0.9111111111111111,
+      "ndcgAt5": 0.9341239671428611
+    },
+    "int8": {
+      "hitAt1": 0.8666666666666667,
+      "recallAt5": 1.0,
+      "mrrAt10": 0.9277777777777778,
+      "ndcgAt5": 0.9464263086904791
+    },
+    "top1Agreement": 0.9666666666666667,
+    "meanTop5Overlap": 0.84,
+    "queriesDetail": [
+      {
+        "id": "q01",
+        "query": "哪种隔离级别让同一事务看到稳定快照？",
+        "relevantIds": ["d02"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d02", "d01", "d24", "d26", "d08"],
+        "int8Top5": ["d02", "d01", "d26", "d25", "d24"]
+      },
+      {
+        "id": "q02",
+        "query": "READ COMMITTED 适合什么读取行为？",
+        "relevantIds": ["d01"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d01", "d02", "d06", "d37", "d07"],
+        "int8Top5": ["d01", "d02", "d07", "d06", "d37"]
+      },
+      {
+        "id": "q03",
+        "query": "Should a client retry POST after a 503?",
+        "relevantIds": ["d04"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": false,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d03", "d04", "d08", "d29", "d25"],
+        "int8Top5": ["d04", "d03", "d08", "d25", "d29"]
+      },
+      {
+        "id": "q04",
+        "query": "GET retry with jitter after transient 5xx",
+        "relevantIds": ["d03"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d03", "d04", "d25", "d02", "d28"],
+        "int8Top5": ["d03", "d04", "d25", "d28", "d02"]
+      },
+      {
+        "id": "q05",
+        "query": "TTL 到期和写入后立即删除缓存分别解决什么问题？",
+        "relevantIds": ["d05", "d06"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.6,
+        "fp32Top5": ["d05", "d06", "d01", "d02", "d20"],
+        "int8Top5": ["d05", "d06", "d01", "d38", "d37"]
+      },
+      {
+        "id": "q06",
+        "query": "When may an at-least-once consumer acknowledge a message?",
+        "relevantIds": ["d07"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d07", "d08", "d33", "d25", "d06"],
+        "int8Top5": ["d07", "d08", "d33", "d25", "d06"]
+      },
+      {
+        "id": "q07",
+        "query": "Exactly-once effects need what despite ack semantics?",
+        "relevantIds": ["d08"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d08", "d11", "d07", "d24", "d06"],
+        "int8Top5": ["d08", "d24", "d07", "d06", "d03"]
+      },
+      {
+        "id": "q08",
+        "query": "日志里如何处理 authorization header 和 traceability？",
+        "relevantIds": ["d09", "d10"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d09", "d10", "d36", "d29", "d35"],
+        "int8Top5": ["d09", "d10", "d36", "d35", "d34"]
+      },
+      {
+        "id": "q09",
+        "query": "NFC normalization should happen before comparing identifiers",
+        "relevantIds": ["d11"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d11", "d12", "d32", "d31", "d20"],
+        "int8Top5": ["d11", "d12", "d32", "d31", "d25"]
+      },
+      {
+        "id": "q10",
+        "query": "大小写折叠何时适用，原始显示文本怎么办？",
+        "relevantIds": ["d12"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.6,
+        "fp32Top5": ["d12", "d19", "d11", "d20", "d08"],
+        "int8Top5": ["d12", "d21", "d11", "d31", "d19"]
+      },
+      {
+        "id": "q11",
+        "query": "How do you stop ../etc/passwd from escaping a file root?",
+        "relevantIds": ["d13"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d13", "d14", "d09", "d11", "d35"],
+        "int8Top5": ["d13", "d14", "d09", "d11", "d38"]
+      },
+      {
+        "id": "q12",
+        "query": "Symlink escape means which filesystem check is missing?",
+        "relevantIds": ["d14"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d14", "d13", "d06", "d11", "d29"],
+        "int8Top5": ["d14", "d13", "d06", "d24", "d11"]
+      },
+      {
+        "id": "q13",
+        "query": "React useEffect reads changing state but sees an old value",
+        "relevantIds": ["d15"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "int8": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d16", "d15", "d06", "d05", "d32"],
+        "int8Top5": ["d16", "d15", "d06", "d05", "d38"]
+      },
+      {
+        "id": "q14",
+        "query": "React callback increments based on previous state safely",
+        "relevantIds": ["d16"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.6,
+        "fp32Top5": ["d16", "d15", "d08", "d06", "d03"],
+        "int8Top5": ["d16", "d15", "d33", "d06", "d38"]
+      },
+      {
+        "id": "q15",
+        "query": "优雅停机时先停止接收还是先关闭数据库？",
+        "relevantIds": ["d17"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt5": 0.5
+        },
+        "int8": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt5": 0.5
+        },
+        "top1Same": true,
+        "top5Overlap": 0.6,
+        "fp32Top5": ["d34", "d01", "d17", "d02", "d20"],
+        "int8Top5": ["d34", "d01", "d17", "d22", "d06"]
+      },
+      {
+        "id": "q16",
+        "query": "What happens when graceful draining exceeds its deadline?",
+        "relevantIds": ["d18"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "int8": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d17", "d18", "d07", "d33", "d08"],
+        "int8Top5": ["d17", "d18", "d07", "d08", "d33"]
+      },
+      {
+        "id": "q17",
+        "query": "expand-contract 的第一步是什么？",
+        "relevantIds": ["d19"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d19", "d23", "d08", "d17", "d20"],
+        "int8Top5": ["d19", "d23", "d17", "d18", "d08"]
+      },
+      {
+        "id": "q18",
+        "query": "When is it safe to drop the old migration column?",
+        "relevantIds": ["d20"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d20", "d19", "d32", "d34", "d31"],
+        "int8Top5": ["d20", "d19", "d32", "d34", "d31"]
+      },
+      {
+        "id": "q19",
+        "query": "Which pagination method avoids duplicates during inserts?",
+        "relevantIds": ["d21"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "int8": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d22", "d21", "d04", "d02", "d03"],
+        "int8Top5": ["d22", "d21", "d04", "d38", "d03"]
+      },
+      {
+        "id": "q20",
+        "query": "Offset pagination under concurrent writes has what failure mode?",
+        "relevantIds": ["d22"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d22", "d37", "d21", "d06", "d01"],
+        "int8Top5": ["d22", "d37", "d21", "d06", "d25"]
+      },
+      {
+        "id": "q21",
+        "query": "分布式租约如何防止旧持有者释放新锁？",
+        "relevantIds": ["d23"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d23", "d08", "d24", "d07", "d17"],
+        "int8Top5": ["d23", "d08", "d24", "d07", "d18"]
+      },
+      {
+        "id": "q22",
+        "query": "Does an in-process mutex coordinate two separate processes?",
+        "relevantIds": ["d24"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d24", "d08", "d01", "d37", "d33"],
+        "int8Top5": ["d24", "d08", "d37", "d33", "d23"]
+      },
+      {
+        "id": "q23",
+        "query": "监控队列中等待处理的消息数量，应该选 counter 还是 gauge？",
+        "relevantIds": ["d26"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d26", "d25", "d34", "d02", "d07"],
+        "int8Top5": ["d26", "d25", "d07", "d02", "d34"]
+      },
+      {
+        "id": "q24",
+        "query": "请求总数和错误总数适合哪种 metric 类型？",
+        "relevantIds": ["d25"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d25", "d26", "d04", "d03", "d10"],
+        "int8Top5": ["d25", "d26", "d04", "d03", "d10"]
+      },
+      {
+        "id": "q25",
+        "query": "Python async function returns a coroutine and nothing runs",
+        "relevantIds": ["d27", "d28"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d27", "d28", "d03", "d04", "d17"],
+        "int8Top5": ["d27", "d28", "d04", "d16", "d03"]
+      },
+      {
+        "id": "q26",
+        "query": "What does RuntimeWarning: coroutine was never awaited mean?",
+        "relevantIds": ["d28"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d28", "d27", "d34", "d17", "d07"],
+        "int8Top5": ["d28", "d27", "d34", "d17", "d06"]
+      },
+      {
+        "id": "q27",
+        "query": "TLS hostname verification versus requiring a client certificate",
+        "relevantIds": ["d29", "d30"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d29", "d30", "d36", "d09", "d35"],
+        "int8Top5": ["d29", "d30", "d36", "d04", "d35"]
+      },
+      {
+        "id": "q28",
+        "query": "Can an optional JSON field be added without breaking old readers?",
+        "relevantIds": ["d31"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d31", "d32", "d06", "d20", "d04"],
+        "int8Top5": ["d31", "d32", "d06", "d20", "d04"]
+      },
+      {
+        "id": "q29",
+        "query": "Kubernetes readiness versus liveness during a database outage",
+        "relevantIds": ["d33", "d34"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d34", "d33", "d06", "d17", "d18"],
+        "int8Top5": ["d34", "d33", "d06", "d03", "d17"]
+      },
+      {
+        "id": "q30",
+        "query": "BM25 lexical matching versus vector cosine semantic similarity",
+        "relevantIds": ["d39", "d40"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "int8": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d40", "d39", "d12", "d11", "d25"],
+        "int8Top5": ["d40", "d39", "d12", "d11", "d25"]
+      }
+    ]
+  }
+}

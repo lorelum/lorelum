@@ -1,0 +1,1149 @@
+{
+  "date": "2026-09-11",
+  "hardware": "Apple M4 / 32 GiB / macOS 15.7.1 arm64",
+  "llamaRelease": {
+    "tag": "b10901",
+    "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
+    "archiveBytes": 11140410,
+    "archiveSha256": "ba64da4bb1ba01dce65cd05d36e90d2cb22c7a2fb7cbc90e4911628138a1c34b",
+    "wholeExtractedReleaseBytes": 27860742
+  },
+  "modelSource": {
+    "repo": "atfai/granite-embedding-97m-multilingual-r2-GGUF",
+    "revision": "cb3a901538f0b154ff9df54186fef4b3f52f0600",
+    "file": "granite-embedding-97m-multilingual-r2-f16.gguf",
+    "sha256": "74075aeea7bd9ac4e5d74755e216fa487f5b6cce9ac6c5a363936370585b1a38",
+    "bytes": 206403072,
+    "verifiedAgainstHubLfs": true
+  },
+  "quantizedArtifacts": [
+    {
+      "file": "granite-q8_0.gguf",
+      "bytes": 115060992,
+      "sha256": "5970c9a320278023493cdcbd572844ce322b0e93f994bcdffcb5daa64a5ed533"
+    },
+    {
+      "file": "granite-q4_k_m.gguf",
+      "bytes": 105467136,
+      "sha256": "f8e12c35422840d77f9e4448afc21d62a9269c434fab28edb2794a3fcd037432"
+    },
+    {
+      "file": "granite-q4_0.gguf",
+      "bytes": 66345216,
+      "sha256": "18e8ce8ce834790618e90d26bed465cca87362076f3042eb0d8eee0732596f59"
+    }
+  ],
+  "quantization": {
+    "source": "same F16 file, not requantized",
+    "q8": "Q8_0 4",
+    "q4": "Q4_K_M 4; 384 columns cause K-type fallbacks to Q5_0/Q8_0, token_embd stays Q8_0",
+    "q4_0": "--pure --token-embedding-type q4_0 INPUT OUTPUT Q4_0 4; norm vectors remain F32"
+  },
+  "method": {
+    "transport": "Same Python persistent HTTP client, /v1/embeddings, 384-dim output validated. ONNX experimental Bun.serve vs native llama-server; end-to-end product path comparison, not isolated kernel benchmark.",
+    "order512": ["q8", "q4", "q4_0", "onnx-int8", "onnx-int8", "q4_0", "q4", "q8"],
+    "timing": "3 warmups, 60/60/40/20/20/10 repeats. Includes tokenization and response JSON. Performance processes did not run long-context correctness cases. Warm filesystem; not cold disk cache.",
+    "batchCaveat": "llama -np 1 encodes 8 request inputs sequentially; ONNX executes tensor batch [8,512]. Multi-input request durations are recorded but NOT used to infer equal batching efficiency. Primary speed comparison uses single document.",
+    "memory": "ps RSS sampled every 200ms; loaded and workload-end values. Max sampled is not full transient peak or isolated model allocation. llama context/batch/ubatch=512; ONNX dynamic input shape.",
+    "cache": "Pinned source CLS embedding cannot split and bypasses prompt-prefix reuse branch; logs process all tokens on every repeat. Synthetic repeated hello, not real corpus throughput.",
+    "quality": "40 docs/30 frozen queries; exact cosine, same-precision query and doc vectors, official CPU FP32 baseline. Ten Chinese queries retrieve English docs; small synthetic set only."
+  },
+  "cpuExecutionEvidence": [
+    "load_tensors: offloading 0 repeating layers to GPU",
+    "load_tensors: offloaded 0/13 layers to GPU",
+    "load_tensors:   CPU_Mapped model buffer size =    97.57 MiB",
+    "load_tensors:   CPU_REPACK model buffer size =    28.69 MiB",
+    "sched_reserve:        CPU compute buffer size =    12.26 MiB"
+  ],
+  "f16Parity": {
+    "cases": 8,
+    "vectors": 10,
+    "allTokensEqual": true,
+    "minCosine": 0.9999999142101706,
+    "maxAbsoluteError": 7.098540663719177e-5
+  },
+  "quantizedDrift": {
+    "q8": {
+      "cases": 8,
+      "vectors": 10,
+      "allTokensEqual": true,
+      "minCosine": 0.9996871092611419,
+      "maxAbsoluteError": 0.005250260233879089
+    },
+    "q4": {
+      "cases": 8,
+      "vectors": 10,
+      "allTokensEqual": true,
+      "minCosine": 0.9927455859699065,
+      "maxAbsoluteError": 0.022163924761116505
+    },
+    "q4_0": {
+      "cases": 8,
+      "vectors": 10,
+      "allTokensEqual": true,
+      "minCosine": 0.9695962669316082,
+      "maxAbsoluteError": 0.05268548149615526
+    }
+  },
+  "performance512": {
+    "onnx-int8": [
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "interOpThreads": 1,
+          "provider": "cpu",
+          "transport": "HTTP experiment harness"
+        },
+        "spawnToReadyMs": 524.6240409906022,
+        "readyRss": 650100736,
+        "steadyRss": 912572416,
+        "peakSampledRss": 912572416,
+        "stopMs": 130.90824999380857,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.1308750146999955,
+              "p95": 2.715167007409036,
+              "mean": 2.2077006860248125
+            },
+            "documentsPerSecond": 452.95995346207945,
+            "rss": 653934592
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.6539580430835485,
+              "p95": 3.280417004134506,
+              "mean": 2.7347292333918936
+            },
+            "documentsPerSecond": 365.6669142194003,
+            "rss": 655392768
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 6.723083963152021,
+              "p95": 7.745583017822355,
+              "mean": 6.920096951944288
+            },
+            "documentsPerSecond": 144.5066459248143,
+            "rss": 655867904
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 22.922291012946516,
+              "p95": 23.506542027462274,
+              "mean": 23.000558209605515
+            },
+            "documentsPerSecond": 43.4772056785291,
+            "rss": 667041792
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 54.16762502864003,
+              "p95": 55.72408402804285,
+              "mean": 54.48017080198042
+            },
+            "documentsPerSecond": 18.355302218759725,
+            "rss": 682524672
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 495.2467499533668,
+              "p95": 523.2810000306927,
+              "mean": 498.8672999024857
+            },
+            "documentsPerSecond": 16.03632870216944,
+            "rss": 912572416
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "interOpThreads": 1,
+          "provider": "cpu",
+          "transport": "HTTP experiment harness"
+        },
+        "spawnToReadyMs": 417.5870419712737,
+        "readyRss": 668450816,
+        "steadyRss": 931086336,
+        "peakSampledRss": 931086336,
+        "stopMs": 128.02875001216307,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.1164999925531447,
+              "p95": 2.634708012919873,
+              "mean": 2.2246846628452963
+            },
+            "documentsPerSecond": 449.50190770903856,
+            "rss": 672268288
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 2.6823750231415033,
+              "p95": 3.224374959245324,
+              "mean": 2.7804298675619066
+            },
+            "documentsPerSecond": 359.65661700968434,
+            "rss": 673529856
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 6.731665984261781,
+              "p95": 7.076082983985543,
+              "mean": 6.783504075428937
+            },
+            "documentsPerSecond": 147.41643682682798,
+            "rss": 675905536
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 22.819000005256385,
+              "p95": 23.441166966222227,
+              "mean": 22.868422750616446
+            },
+            "documentsPerSecond": 43.72842022841491,
+            "rss": 687407104
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 52.231791021768004,
+              "p95": 53.78116696374491,
+              "mean": 52.8130957914982
+            },
+            "documentsPerSecond": 18.934697635372835,
+            "rss": 702988288
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 469.04674998950213,
+              "p95": 479.05358299613,
+              "mean": 470.97470420994796
+            },
+            "documentsPerSecond": 16.986050266584623,
+            "rss": 931086336
+          }
+        ]
+      }
+    ],
+    "q8": [
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "threadsBatch": 4,
+          "ctx": 512,
+          "batch": 512,
+          "ubatch": 512,
+          "parallel": 1,
+          "gpuLayers": 0,
+          "device": "none",
+          "opOffload": false,
+          "pooling": "cls",
+          "normalization": 2
+        },
+        "spawnToReadyMs": 633.456124982331,
+        "readyRss": 331399168,
+        "steadyRss": 713900032,
+        "peakSampledRss": 713916416,
+        "stopMs": 73.90162500087172,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.4668750227428973,
+              "p95": 1.7817920306697488,
+              "mean": 1.5153673652093858
+            },
+            "documentsPerSecond": 659.9059891076809,
+            "rss": 340099072
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.7884159460663795,
+              "p95": 2.0744999637827277,
+              "mean": 1.8399437035744388
+            },
+            "documentsPerSecond": 543.4948895758663,
+            "rss": 344784896
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 5.436624982394278,
+              "p95": 6.472791952546686,
+              "mean": 5.617167674063239
+            },
+            "documentsPerSecond": 178.02566311442135,
+            "rss": 380846080
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 20.919291011523455,
+              "p95": 24.06612498452887,
+              "mean": 21.435793704586104
+            },
+            "documentsPerSecond": 46.650943453801474,
+            "rss": 524075008
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 46.6730420012027,
+              "p95": 48.86695899767801,
+              "mean": 47.30488130298909
+            },
+            "documentsPerSecond": 21.139467481061246,
+            "rss": 713621504
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 382.09787500090897,
+              "p95": 387.64716702280566,
+              "mean": 382.6841627014801
+            },
+            "documentsPerSecond": 20.904967541707624,
+            "rss": 713900032
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "threadsBatch": 4,
+          "ctx": 512,
+          "batch": 512,
+          "ubatch": 512,
+          "parallel": 1,
+          "gpuLayers": 0,
+          "device": "none",
+          "opOffload": false,
+          "pooling": "cls",
+          "normalization": 2
+        },
+        "spawnToReadyMs": 632.8853339655325,
+        "readyRss": 336592896,
+        "steadyRss": 722223104,
+        "peakSampledRss": 722223104,
+        "stopMs": 75.90841699857265,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.4563750009983778,
+              "p95": 1.5256660408340394,
+              "mean": 1.461688315612264
+            },
+            "documentsPerSecond": 684.1403802158229,
+            "rss": 345194496
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.741749991197139,
+              "p95": 1.8971670069731772,
+              "mean": 1.7701353033771738
+            },
+            "documentsPerSecond": 564.9285668118918,
+            "rss": 352124928
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 5.599958007223904,
+              "p95": 6.0338330222293735,
+              "mean": 5.6423989226459526
+            },
+            "documentsPerSecond": 177.2295815502281,
+            "rss": 388366336
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 22.249332978390157,
+              "p95": 22.63600000878796,
+              "mean": 22.29062075202819
+            },
+            "documentsPerSecond": 44.861917984451445,
+            "rss": 531644416
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 50.30808295123279,
+              "p95": 51.017875026445836,
+              "mean": 50.402543746167794
+            },
+            "documentsPerSecond": 19.840268480021546,
+            "rss": 721977344
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 405.88183305226266,
+              "p95": 412.20233304193243,
+              "mean": 407.49817491159774
+            },
+            "documentsPerSecond": 19.631989767157883,
+            "rss": 722223104
+          }
+        ]
+      }
+    ],
+    "q4": [
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "threadsBatch": 4,
+          "ctx": 512,
+          "batch": 512,
+          "ubatch": 512,
+          "parallel": 1,
+          "gpuLayers": 0,
+          "device": "none",
+          "opOffload": false,
+          "pooling": "cls",
+          "normalization": 2
+        },
+        "spawnToReadyMs": 525.2312499796972,
+        "readyRss": 280313856,
+        "steadyRss": 680574976,
+        "peakSampledRss": 680673280,
+        "stopMs": 73.19583301432431,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 3.457707993220538,
+              "p95": 4.3127500102855265,
+              "mean": 3.557794431496101
+            },
+            "documentsPerSecond": 281.0730128608039,
+            "rss": 289128448
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 4.721708013676107,
+              "p95": 5.100124981254339,
+              "mean": 4.812704253708944
+            },
+            "documentsPerSecond": 207.78338898122468,
+            "rss": 296124416
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 10.875709005631506,
+              "p95": 11.980957991909236,
+              "mean": 11.004486326419283
+            },
+            "documentsPerSecond": 90.87202894688743,
+            "rss": 347717632
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 28.867250017356128,
+              "p95": 30.078999989200383,
+              "mean": 29.078741697594523
+            },
+            "documentsPerSecond": 34.38938350220026,
+            "rss": 490946560
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 57.94670799514279,
+              "p95": 59.40962495515123,
+              "mean": 58.21618734335061
+            },
+            "documentsPerSecond": 17.17735299466015,
+            "rss": 680443904
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 463.9875839930028,
+              "p95": 478.16870798124,
+              "mean": 468.27352080726996
+            },
+            "documentsPerSecond": 17.08403239672526,
+            "rss": 680574976
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "threadsBatch": 4,
+          "ctx": 512,
+          "batch": 512,
+          "ubatch": 512,
+          "parallel": 1,
+          "gpuLayers": 0,
+          "device": "none",
+          "opOffload": false,
+          "pooling": "cls",
+          "normalization": 2
+        },
+        "spawnToReadyMs": 622.962000023108,
+        "readyRss": 297992192,
+        "steadyRss": 698564608,
+        "peakSampledRss": 698613760,
+        "stopMs": 73.48525000270456,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 3.6732919979840517,
+              "p95": 4.2265409720130265,
+              "mean": 3.7447305832756683
+            },
+            "documentsPerSecond": 267.0419080256661,
+            "rss": 306724864
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 4.844332986976951,
+              "p95": 5.379540962167084,
+              "mean": 4.954235367282915
+            },
+            "documentsPerSecond": 201.8474952974301,
+            "rss": 313655296
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 11.267874971963465,
+              "p95": 17.18916604295373,
+              "mean": 12.123562420310918
+            },
+            "documentsPerSecond": 82.48400637791694,
+            "rss": 365527040
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 30.509167001582682,
+              "p95": 31.43483301391825,
+              "mean": 30.50136674719397
+            },
+            "documentsPerSecond": 32.785416086051185,
+            "rss": 508772352
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 60.20804197760299,
+              "p95": 61.66720803594217,
+              "mean": 60.523729198030196
+            },
+            "documentsPerSecond": 16.522445216950477,
+            "rss": 698286080
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 491.0734999575652,
+              "p95": 550.760917016305,
+              "mean": 496.840420801891
+            },
+            "documentsPerSecond": 16.101749505581996,
+            "rss": 698564608
+          }
+        ]
+      }
+    ],
+    "q4_0": [
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "threadsBatch": 4,
+          "ctx": 512,
+          "batch": 512,
+          "ubatch": 512,
+          "parallel": 1,
+          "gpuLayers": 0,
+          "device": "none",
+          "opOffload": false,
+          "pooling": "cls",
+          "normalization": 2
+        },
+        "spawnToReadyMs": 628.2920840312727,
+        "readyRss": 272596992,
+        "steadyRss": 657653760,
+        "peakSampledRss": 657702912,
+        "stopMs": 71.12445798702538,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.3571669696830213,
+              "p95": 1.441249973140657,
+              "mean": 1.3702077267225832
+            },
+            "documentsPerSecond": 729.8163486436559,
+            "rss": 281247744
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.5735839842818677,
+              "p95": 1.9044589716941118,
+              "mean": 1.6285069985315204
+            },
+            "documentsPerSecond": 614.0593813239573,
+            "rss": 288243712
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 5.056124995462596,
+              "p95": 5.2538340096361935,
+              "mean": 5.0621759801288135
+            },
+            "documentsPerSecond": 197.54350775741972,
+            "rss": 324255744
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 21.03162498679012,
+              "p95": 25.48650000244379,
+              "mean": 21.473377142683603
+            },
+            "documentsPerSecond": 46.569293379207444,
+            "rss": 467501056
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 47.433750005438924,
+              "p95": 48.22750005405396,
+              "mean": 47.53122280235402
+            },
+            "documentsPerSecond": 21.038802308079358,
+            "rss": 657063936
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 383.11587495263666,
+              "p95": 391.2077090353705,
+              "mean": 384.48159580584615
+            },
+            "documentsPerSecond": 20.80723781650086,
+            "rss": 657653760
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "configuration": {
+          "threads": 4,
+          "threadsBatch": 4,
+          "ctx": 512,
+          "batch": 512,
+          "ubatch": 512,
+          "parallel": 1,
+          "gpuLayers": 0,
+          "device": "none",
+          "opOffload": false,
+          "pooling": "cls",
+          "normalization": 2
+        },
+        "spawnToReadyMs": 624.8237080289982,
+        "readyRss": 273432576,
+        "steadyRss": 656343040,
+        "peakSampledRss": 656343040,
+        "stopMs": 70.70575002580881,
+        "exitCode": 0,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.3705000164918602,
+              "p95": 1.4765000087209046,
+              "mean": 1.3855124678229913
+            },
+            "documentsPerSecond": 721.7546021590596,
+            "rss": 282099712
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 1.5520419692620635,
+              "p95": 1.6448329552076757,
+              "mean": 1.571065265064438
+            },
+            "documentsPerSecond": 636.5107944506585,
+            "rss": 286785536
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 5.076625035144389,
+              "p95": 5.405541975051165,
+              "mean": 5.083303096762393
+            },
+            "documentsPerSecond": 196.72248161572543,
+            "rss": 322764800
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 20.930957980453968,
+              "p95": 21.30695799132809,
+              "mean": 20.9759229561314
+            },
+            "documentsPerSecond": 47.67370675852399,
+            "rss": 465960960
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 47.66295797890052,
+              "p95": 48.383249959442765,
+              "mean": 47.70121044712141
+            },
+            "documentsPerSecond": 20.96382860364807,
+            "rss": 655556608
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 386.4398750010878,
+              "p95": 414.9205409921706,
+              "mean": 389.7522957937326
+            },
+            "documentsPerSecond": 20.52585728509426,
+            "rss": 656343040
+          }
+        ]
+      }
+    ]
+  },
+  "context4096Memory": {
+    "q8": {
+      "configuration": {
+        "threads": 4,
+        "threadsBatch": 4,
+        "ctx": 4096,
+        "batch": 4096,
+        "ubatch": 4096,
+        "parallel": 1,
+        "gpuLayers": 0,
+        "device": "none",
+        "opOffload": false,
+        "pooling": "cls",
+        "normalization": 2
+      },
+      "readyRss": 341180416,
+      "steadyRss": 1144553472,
+      "peakSampledRss": 1144651776
+    },
+    "q4": {
+      "configuration": {
+        "threads": 4,
+        "threadsBatch": 4,
+        "ctx": 4096,
+        "batch": 4096,
+        "ubatch": 4096,
+        "parallel": 1,
+        "gpuLayers": 0,
+        "device": "none",
+        "opOffload": false,
+        "pooling": "cls",
+        "normalization": 2
+      },
+      "readyRss": 276152320,
+      "steadyRss": 1099431936,
+      "peakSampledRss": 1099530240
+    },
+    "q4_0": {
+      "configuration": {
+        "threads": 4,
+        "threadsBatch": 4,
+        "ctx": 4096,
+        "batch": 4096,
+        "ubatch": 4096,
+        "parallel": 1,
+        "gpuLayers": 0,
+        "device": "none",
+        "opOffload": false,
+        "pooling": "cls",
+        "normalization": 2
+      },
+      "readyRss": 267436032,
+      "steadyRss": 1070825472,
+      "peakSampledRss": 1071005696
+    }
+  },
+  "fixtureSha256": "c970f19f49a6c899cbed095725ed63d697e2cfb6ddfe6a0445502271db1c54fb",
+  "retrieval": {
+    "onnx-int8": {
+      "documents": 40,
+      "queries": 30,
+      "vectorCosine": {
+        "min": 0.9597123490346916,
+        "mean": 0.9737861359040852,
+        "max": 0.9929223444011464
+      },
+      "vectorMaxAbsoluteError": 0.07330355635710739,
+      "pairScoreAbsoluteDrift": {
+        "min": 3.2879640207483796e-5,
+        "mean": 0.03140348701137273,
+        "max": 0.07955205393694154
+      },
+      "fp32": {
+        "hitAt1": 0.8333333333333334,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9111111111111111,
+        "ndcgAt5": 0.9341239671428611
+      },
+      "candidate": {
+        "hitAt1": 0.8666666666666667,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9277777777777778,
+        "ndcgAt5": 0.9464263086904791
+      },
+      "top1Agreement": 0.9666666666666667,
+      "meanTop5Overlap": 0.84,
+      "metricChanges": [
+        {
+          "query": "q03",
+          "fp32": {
+            "hitAt1": 0,
+            "recallAt5": 1.0,
+            "mrrAt10": 0.5,
+            "ndcgAt5": 0.6309297535714575
+          },
+          "candidate": {
+            "hitAt1": 1,
+            "recallAt5": 1.0,
+            "mrrAt10": 1.0,
+            "ndcgAt5": 1.0
+          }
+        }
+      ]
+    },
+    "q8": {
+      "documents": 40,
+      "queries": 30,
+      "vectorCosine": {
+        "min": 0.99969488298276,
+        "mean": 0.9998494026784365,
+        "max": 0.999894398081019
+      },
+      "vectorMaxAbsoluteError": 0.004863905655154932,
+      "pairScoreAbsoluteDrift": {
+        "min": 1.1673766817654752e-6,
+        "mean": 0.0011696572408058147,
+        "max": 0.005707104307001387
+      },
+      "fp32": {
+        "hitAt1": 0.8333333333333334,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9111111111111111,
+        "ndcgAt5": 0.9341239671428611
+      },
+      "candidate": {
+        "hitAt1": 0.8333333333333334,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9111111111111111,
+        "ndcgAt5": 0.9341239671428611
+      },
+      "top1Agreement": 1,
+      "meanTop5Overlap": 0.9866666666666667,
+      "metricChanges": []
+    },
+    "q4": {
+      "documents": 40,
+      "queries": 30,
+      "vectorCosine": {
+        "min": 0.991853912830189,
+        "mean": 0.9966611589413653,
+        "max": 0.9978442400622555
+      },
+      "vectorMaxAbsoluteError": 0.022960092653695356,
+      "pairScoreAbsoluteDrift": {
+        "min": 8.342851522957773e-7,
+        "mean": 0.0043442329708966694,
+        "max": 0.017325415072184325
+      },
+      "fp32": {
+        "hitAt1": 0.8333333333333334,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9111111111111111,
+        "ndcgAt5": 0.9341239671428611
+      },
+      "candidate": {
+        "hitAt1": 0.8333333333333334,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9083333333333333,
+        "ndcgAt5": 0.9318131857453075
+      },
+      "top1Agreement": 1,
+      "meanTop5Overlap": 0.9333333333333333,
+      "metricChanges": [
+        {
+          "query": "q15",
+          "fp32": {
+            "hitAt1": 0,
+            "recallAt5": 1.0,
+            "mrrAt10": 0.3333333333333333,
+            "ndcgAt5": 0.5
+          },
+          "candidate": {
+            "hitAt1": 0,
+            "recallAt5": 1.0,
+            "mrrAt10": 0.25,
+            "ndcgAt5": 0.43067655807339306
+          }
+        }
+      ]
+    },
+    "q4_0": {
+      "documents": 40,
+      "queries": 30,
+      "vectorCosine": {
+        "min": 0.9752643896510502,
+        "mean": 0.9877635520287337,
+        "max": 0.9922261891345849
+      },
+      "vectorMaxAbsoluteError": 0.04692240092449652,
+      "pairScoreAbsoluteDrift": {
+        "min": 7.785032547058535e-6,
+        "mean": 0.008115930325032012,
+        "max": 0.03758307165500063
+      },
+      "fp32": {
+        "hitAt1": 0.8333333333333334,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9111111111111111,
+        "ndcgAt5": 0.9341239671428611
+      },
+      "candidate": {
+        "hitAt1": 0.8333333333333334,
+        "recallAt5": 1.0,
+        "mrrAt10": 0.9083333333333333,
+        "ndcgAt5": 0.9318131857453075
+      },
+      "top1Agreement": 0.9666666666666667,
+      "meanTop5Overlap": 0.8533333333333334,
+      "metricChanges": [
+        {
+          "query": "q15",
+          "fp32": {
+            "hitAt1": 0,
+            "recallAt5": 1.0,
+            "mrrAt10": 0.3333333333333333,
+            "ndcgAt5": 0.5
+          },
+          "candidate": {
+            "hitAt1": 0,
+            "recallAt5": 1.0,
+            "mrrAt10": 0.25,
+            "ndcgAt5": 0.43067655807339306
+          }
+        }
+      ]
+    }
+  },
+  "relocation": {
+    "copiedWholeOfficialRuntime": true,
+    "cwd": "/tmp",
+    "PATH": "/usr/bin:/bin",
+    "systemNodePythonNeededByChild": false,
+    "status": "completed",
+    "exitCode": 0,
+    "parity": {
+      "cases": 8,
+      "vectors": 10,
+      "allTokensEqual": true,
+      "minCosine": 0.9996871092611419,
+      "maxAbsoluteError": 0.005250260233879089
+    }
+  },
+  "limits": [
+    "Mac ARM CPU only, no Windows/Linux/x86 validation",
+    "No hard native hang or parent-death recovery test",
+    "No final packaging/signing/installer implementation",
+    "Small synthetic quality set; no generalized quality win or loss conclusion",
+    "No default runtime changed in product code"
+  ]
+}

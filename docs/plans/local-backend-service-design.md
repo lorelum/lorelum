@@ -1,6 +1,6 @@
 # 本地后端：第一阶段
 
-- 状态：Owner 已授权 B1–B3；实现按 B1、B2、B3 分别提交 PR，后续模型阶段仍需单独启动。
+- 状态：B1–B3 已通过 #98、#99、#100 合并；[第二阶段：embedding 常驻](./local-backend-stage-2-design.md) 已确定采用 llama.cpp + Q4_0 CPU，当前为接入规划，尚未实现。
 - Issue：#95（服务基础）、#96（进程管理）、#97（Query 接入）。
 - 相关设计：[Semantic Query v1](./semantic-query-v1-design.md)。
 

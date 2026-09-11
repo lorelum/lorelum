@@ -1,0 +1,484 @@
+{
+  "recordedAtUtc": "2026-09-10T19:46:34.079341+00:00",
+  "hardware": {
+    "cpu": "Apple M4",
+    "memoryGiB": 32,
+    "architecture": "arm64"
+  },
+  "versions": {
+    "bun": "1.3.8",
+    "onnxruntime-node": "1.29.0",
+    "tokenizers-js": "0.2.0",
+    "reference-torch": "2.8.0",
+    "reference-transformers": "4.56.2",
+    "reference-numpy": "2.2.6"
+  },
+  "model": {
+    "revision": "835ad14087e140460703cf0fae09f97d469d65c2",
+    "files": [
+      {
+        "path": "onnx/model.onnx",
+        "bytes": 390004608,
+        "sha256": "68e592b160673d30250824c1116bc6ab33f70efb22b97c9e1d7ce1e69c1c9d70"
+      },
+      {
+        "path": "model.safetensors",
+        "bytes": 194889568,
+        "sha256": "f3ea88b230492811046145513710e76b4cc8c2ad49e8708da0e7247e548903be"
+      },
+      {
+        "path": "tokenizer.json",
+        "bytes": 25301672,
+        "sha256": "4f2842d568e2724370aec203652a42ac783c7937f8347a1a2cc7506d71f1582f"
+      },
+      {
+        "path": "config.json",
+        "bytes": 1216,
+        "sha256": "de948b0bdc6f356afad7a84b276d8dd7e7fe10fb9add1bb5e610621c28e41ebc"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "bytes": 12860,
+        "sha256": "6ed69389e30a8ecabfce2f9ebcdf0c908b34056f24d994340f2f216521c057d5"
+      },
+      {
+        "path": "special_tokens_map.json",
+        "bytes": 871,
+        "sha256": "013787ee251ff611722479197c00853b62113ad303cb0a36524231783c676c69"
+      },
+      {
+        "path": "1_Pooling/config.json",
+        "bytes": 313,
+        "sha256": "8bc5c9a40814fcf48d2fbe7cfeff4bee6736c3c2a823ba0ce098985c59d12ab7"
+      },
+      {
+        "path": "modules.json",
+        "bytes": 349,
+        "sha256": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf"
+      },
+      {
+        "path": "config_sentence_transformers.json",
+        "bytes": 283,
+        "sha256": "93a59cbc7d82a47a7148719d9b21c0f2f111121e495b3918143184f4cd0ea25e"
+      }
+    ]
+  },
+  "reference": {
+    "dtype": "float32",
+    "attention": "eager",
+    "threads": 4,
+    "pooling": "CLS",
+    "normalization": "L2"
+  },
+  "acceptanceAssumptions": {
+    "queryP95Ms": 200,
+    "document512PerSecond": 5,
+    "residentBudgetGiB": 1.5
+  },
+  "parity": {
+    "cases": 8,
+    "vectors": 10,
+    "allTokensMatch": true,
+    "minimumCosine": 0.9999999999996696,
+    "maximumAbsoluteError": 3.6494987487589725e-7,
+    "sequenceLengths": [15, 22, 21, 23, 2, 4, 513, 1025]
+  },
+  "compiledParity": {
+    "cases": 8,
+    "vectors": 10,
+    "allTokensMatch": true,
+    "minimumCosine": 0.9999999999996696,
+    "maximumAbsoluteError": 3.6494987487589725e-7,
+    "sequenceLengths": [15, 22, 21, 23, 2, 4, 513, 1025]
+  },
+  "directProcessTrials": [
+    {
+      "mode": "bench",
+      "runtime": "1.3.8",
+      "threads": 4,
+      "provider": "cpu",
+      "tokenizerMs": 195.516292,
+      "sessionMs": 332.848708,
+      "loadTotalMs": 559.141875,
+      "initialRss": 42287104,
+      "tokenizerRss": 359202816,
+      "loadedRss": 1323859968,
+      "inputs": ["input_ids", "attention_mask"],
+      "outputs": ["last_hidden_state"],
+      "firstEncodeMs": 7.494625000000042,
+      "workloads": [
+        {
+          "name": "query-en",
+          "batch": 1,
+          "sequenceLength": 11,
+          "repeats": 60,
+          "totalMs": {
+            "p50": 3.8127079999999296,
+            "p95": 5.501333000000045,
+            "mean": 4.0503701666666645
+          },
+          "inferenceMs": {
+            "p50": 3.7162910000000693,
+            "p95": 5.265667000000008,
+            "mean": 3.9773882666666642
+          },
+          "tokenizationMs": {
+            "p50": 0.059833000000026004,
+            "p95": 0.10245799999995597,
+            "mean": 0.07298190000000014
+          },
+          "documentsPerSecond": 246.8910146113807
+        },
+        {
+          "name": "query-zh",
+          "batch": 1,
+          "sequenceLength": 17,
+          "repeats": 60,
+          "totalMs": {
+            "p50": 3.8044170000000577,
+            "p95": 7.969708999999966,
+            "mean": 4.487134766666657
+          },
+          "inferenceMs": {
+            "p50": 3.7486659999999574,
+            "p95": 7.891083999999978,
+            "mean": 4.424616716666654
+          },
+          "tokenizationMs": {
+            "p50": 0.05729199999996126,
+            "p95": 0.1049160000000029,
+            "mean": 0.0625180500000018
+          },
+          "documentsPerSecond": 222.85936393723847
+        },
+        {
+          "name": "document-256",
+          "batch": 1,
+          "sequenceLength": 256,
+          "repeats": 20,
+          "totalMs": {
+            "p50": 30.277415999999903,
+            "p95": 33.55645800000002,
+            "mean": 28.57776039999999
+          },
+          "inferenceMs": {
+            "p50": 29.9068749999999,
+            "p95": 33.16116699999998,
+            "mean": 28.25734994999998
+          },
+          "tokenizationMs": {
+            "p50": 0.3791249999999309,
+            "p95": 0.46779099999980644,
+            "mean": 0.3204104500000085
+          },
+          "documentsPerSecond": 34.99224522856593
+        },
+        {
+          "name": "document-512",
+          "batch": 1,
+          "sequenceLength": 512,
+          "repeats": 20,
+          "totalMs": {
+            "p50": 71.90670899999986,
+            "p95": 84.8233750000004,
+            "mean": 73.47986460000006
+          },
+          "inferenceMs": {
+            "p50": 71.40087500000027,
+            "p95": 84.31879099999969,
+            "mean": 73.0170061
+          },
+          "tokenizationMs": {
+            "p50": 0.5240830000002461,
+            "p95": 0.5970839999999953,
+            "mean": 0.46285850000004986
+          },
+          "documentsPerSecond": 13.609170422995026
+        },
+        {
+          "name": "batch-8x512",
+          "batch": 8,
+          "sequenceLength": 512,
+          "repeats": 10,
+          "totalMs": {
+            "p50": 549.5734579999998,
+            "p95": 600.3710420000007,
+            "mean": 552.9038877000003
+          },
+          "inferenceMs": {
+            "p50": 547.6291249999995,
+            "p95": 596.6602500000008,
+            "mean": 549.8647125000005
+          },
+          "tokenizationMs": {
+            "p50": 3.7107919999998558,
+            "p95": 4.012625000000298,
+            "mean": 3.039175199999863
+          },
+          "documentsPerSecond": 14.469060858441123
+        }
+      ],
+      "maxHeartbeatLagMs": 601.5106659999997,
+      "peakRss": 1326317568,
+      "steadyRss": 1203683328,
+      "releaseMs": 25.45495800000026,
+      "releasedRss": 1204666368
+    },
+    {
+      "mode": "bench",
+      "runtime": "1.3.8",
+      "threads": 4,
+      "provider": "cpu",
+      "tokenizerMs": 214.28275,
+      "sessionMs": 554.734375,
+      "loadTotalMs": 797.915792,
+      "initialRss": 42434560,
+      "tokenizerRss": 362168320,
+      "loadedRss": 1484259328,
+      "inputs": ["input_ids", "attention_mask"],
+      "outputs": ["last_hidden_state"],
+      "firstEncodeMs": 9.649000000000001,
+      "workloads": [
+        {
+          "name": "query-en",
+          "batch": 1,
+          "sequenceLength": 11,
+          "repeats": 60,
+          "totalMs": {
+            "p50": 3.341583000000014,
+            "p95": 5.1287079999999605,
+            "mean": 3.820706283333334
+          },
+          "inferenceMs": {
+            "p50": 3.2557500000000346,
+            "p95": 5.063625000000002,
+            "mean": 3.7612979333333367
+          },
+          "tokenizationMs": {
+            "p50": 0.0588750000000573,
+            "p95": 0.0873749999999518,
+            "mean": 0.05940834999999727
+          },
+          "documentsPerSecond": 261.7317128935545
+        },
+        {
+          "name": "query-zh",
+          "batch": 1,
+          "sequenceLength": 17,
+          "repeats": 60,
+          "totalMs": {
+            "p50": 3.8392499999999927,
+            "p95": 4.443624999999884,
+            "mean": 3.9146673500000135
+          },
+          "inferenceMs": {
+            "p50": 3.7905419999999594,
+            "p95": 4.395916999999827,
+            "mean": 3.8553570000000037
+          },
+          "tokenizationMs": {
+            "p50": 0.053915999999844644,
+            "p95": 0.09358399999996436,
+            "mean": 0.05931035000000975
+          },
+          "documentsPerSecond": 255.44954669009016
+        },
+        {
+          "name": "query-64",
+          "batch": 1,
+          "sequenceLength": 64,
+          "repeats": 40,
+          "totalMs": {
+            "p50": 6.648374999999987,
+            "p95": 7.172333999999864,
+            "mean": 6.724888650000014
+          },
+          "inferenceMs": {
+            "p50": 6.5717500000000655,
+            "p95": 7.094417000000021,
+            "mean": 6.651382275000003
+          },
+          "tokenizationMs": {
+            "p50": 0.07041700000013407,
+            "p95": 0.0887079999999969,
+            "mean": 0.07350637500001085
+          },
+          "documentsPerSecond": 148.70134689888107
+        },
+        {
+          "name": "document-256",
+          "batch": 1,
+          "sequenceLength": 256,
+          "repeats": 20,
+          "totalMs": {
+            "p50": 25.003582999999935,
+            "p95": 30.888541999999916,
+            "mean": 26.690720699999975
+          },
+          "inferenceMs": {
+            "p50": 24.63387499999999,
+            "p95": 30.52212499999996,
+            "mean": 26.396776999999986
+          },
+          "tokenizationMs": {
+            "p50": 0.35704099999998107,
+            "p95": 0.3900829999997768,
+            "mean": 0.29394369999998843
+          },
+          "documentsPerSecond": 37.46620450005312
+        },
+        {
+          "name": "document-512",
+          "batch": 1,
+          "sequenceLength": 512,
+          "repeats": 20,
+          "totalMs": {
+            "p50": 65.64770899999985,
+            "p95": 75.75845799999979,
+            "mean": 66.39804374999997
+          },
+          "inferenceMs": {
+            "p50": 65.38287500000024,
+            "p95": 75.19783299999972,
+            "mean": 66.07812919999999
+          },
+          "tokenizationMs": {
+            "p50": 0.2571250000000873,
+            "p95": 0.5675830000000133,
+            "mean": 0.3199145499999759
+          },
+          "documentsPerSecond": 15.060684675668632
+        },
+        {
+          "name": "batch-8x512",
+          "batch": 8,
+          "sequenceLength": 512,
+          "repeats": 10,
+          "totalMs": {
+            "p50": 577.4169999999995,
+            "p95": 610.1031670000002,
+            "mean": 578.4669832000002
+          },
+          "inferenceMs": {
+            "p50": 573.6688329999997,
+            "p95": 606.1636250000001,
+            "mean": 575.3681330999999
+          },
+          "tokenizationMs": {
+            "p50": 3.7309170000007725,
+            "p95": 4.449499999999716,
+            "mean": 3.0988501000002544
+          },
+          "documentsPerSecond": 13.829657063131062
+        }
+      ],
+      "maxHeartbeatLagMs": 620.7884579999995,
+      "peakRss": 1488551936,
+      "steadyRss": 1477476352,
+      "releaseMs": 35.46037499999875,
+      "releasedRss": 1478361088
+    }
+  ],
+  "isolatedProcessTrials": [
+    {
+      "workerReady": {
+        "type": "ready",
+        "mode": "worker",
+        "runtime": "1.3.8",
+        "threads": 4,
+        "provider": "cpu",
+        "tokenizerMs": 217.23250000000002,
+        "sessionMs": 339.88354100000004,
+        "loadTotalMs": 589.3991669999999,
+        "initialRss": 36552704,
+        "tokenizerRss": 361414656,
+        "loadedRss": 1460060160,
+        "inputs": ["input_ids", "attention_mask"],
+        "outputs": ["last_hidden_state"]
+      },
+      "readyMs": 1484.8870000000002,
+      "queryMs": {
+        "count": 40,
+        "p50": 3.5607080000002043,
+        "p95": 4.436582999999928,
+        "max": 10.604375000000118
+      },
+      "batchMs": {
+        "count": 10,
+        "p50": 572.6335420000005,
+        "p95": 644.847375,
+        "max": 644.847375
+      },
+      "healthMs": {
+        "count": 277,
+        "p50": 0.2386660000001939,
+        "p95": 0.469625000000633,
+        "max": 2.5289169999996375
+      },
+      "maxHeartbeatLagMs": 3.942957999999635,
+      "unloadMs": 125.69266699999935,
+      "exitCode": 0,
+      "parentRss": 46514176,
+      "stderr": ""
+    },
+    {
+      "workerReady": {
+        "type": "ready",
+        "mode": "worker",
+        "runtime": "1.3.8",
+        "threads": 4,
+        "provider": "cpu",
+        "tokenizerMs": 209.639334,
+        "sessionMs": 307.72708399999993,
+        "loadTotalMs": 546.812458,
+        "initialRss": 35962880,
+        "tokenizerRss": 356089856,
+        "loadedRss": 1453604864,
+        "inputs": ["input_ids", "attention_mask"],
+        "outputs": ["last_hidden_state"]
+      },
+      "readyMs": 635.64225,
+      "queryMs": {
+        "count": 40,
+        "p50": 3.5897919999999885,
+        "p95": 4.238207999999986,
+        "max": 10.790624999999977
+      },
+      "batchMs": {
+        "count": 10,
+        "p50": 575.3227919999999,
+        "p95": 697.8064999999999,
+        "max": 697.8064999999999
+      },
+      "healthMs": {
+        "count": 277,
+        "p50": 0.25012500000002547,
+        "p95": 0.5336250000000291,
+        "max": 23.42241699999977
+      },
+      "maxHeartbeatLagMs": 29.816790999999284,
+      "unloadMs": 109.56683299999986,
+      "exitCode": 0,
+      "workerMaxRss": 1464139776,
+      "parentRss": 45088768,
+      "stderr": ""
+    }
+  ],
+  "distribution": {
+    "singleBinaryOnly": "failed: missing libonnxruntime.1.dylib",
+    "bundledJsAndNativeSidecars": "passed in relocated directory with independent cwd",
+    "files": {
+      "probe": 60010800,
+      "native/onnxruntime_binding.node": 266600,
+      "native/libonnxruntime.1.dylib": 43888264
+    }
+  },
+  "limits": [
+    "CPU on one Apple M4 only",
+    "OS file cache was not cleared",
+    "Synthetic inputs; not a retrieval-quality benchmark",
+    "No Windows or GPU execution",
+    "Probe is not integrated production CLI",
+    "No hard native-hang or parent-crash cleanup test"
+  ]
+}

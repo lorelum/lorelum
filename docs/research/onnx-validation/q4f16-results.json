@@ -1,0 +1,1992 @@
+{
+  "hardware": "Apple M4 / 32 GiB / macOS 15.7.1 arm64",
+  "runtime": {
+    "bun": "1.3.8",
+    "onnxruntime-node": "1.29.0",
+    "tokenizers": "0.2.0",
+    "onnxChecker": "1.19.0"
+  },
+  "original": {
+    "repo": "onnx-community/granite-embedding-97m-multilingual-r2-ONNX",
+    "revision": "536a9f241cb3f02a9c5995a1e708c784bd274859",
+    "files": [
+      {
+        "file": "config.json",
+        "bytes": 1215,
+        "sha256": "ae74d55a56f779774cb9a8e63d3c2da9ae1af83c00229ffdff43d0b38407a0ee"
+      },
+      {
+        "file": "tokenizer_config.json",
+        "bytes": 12860,
+        "sha256": "6ed69389e30a8ecabfce2f9ebcdf0c908b34056f24d994340f2f216521c057d5"
+      },
+      {
+        "file": "tokenizer.json",
+        "bytes": 25301671,
+        "sha256": "51947676cae1f991fa51c6b9a24e14ee5460e5f0b9f692f13bb3159829d1592a"
+      },
+      {
+        "file": "special_tokens_map.json",
+        "bytes": 871,
+        "sha256": "013787ee251ff611722479197c00853b62113ad303cb0a36524231783c676c69"
+      },
+      {
+        "file": "onnx/model_q4f16.onnx",
+        "bytes": 154468150,
+        "sha256": "8a8d6fbeca35d4f363fdfd29413169e6690309614820225017853a825c63d7d9"
+      }
+    ]
+  },
+  "originalFailure": {
+    "stage": "session load",
+    "error": "Type (tensor(float16)) of output arg (/layers.0/attn/rotary_emb/Cast_1_output_0) of node (/layers.0/attn/rotary_emb/Cast_1) does not match expected type (tensor(float)).",
+    "checker": "full_check also fails with Cast inferred element type 1 vs existing 10",
+    "performance": null
+  },
+  "localExperimentalRepair": {
+    "note": "Experimental local copy: change Cast targets from FP32 to FP16 where existing output value_info declares FP16; this changes graph execution and is not an official/community artifact. No weight changes.",
+    "changes": [
+      {
+        "node": "/Cast_1",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/rotary_emb/Cast",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/rotary_emb/Cast_1",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/rotary_emb/Cast_2",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/rotary_emb/Cast_3",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/rotary_emb/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/rotary_emb/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.0/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.1/attn/rotary_emb/Cast",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.1/attn/rotary_emb/Cast_1",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.1/attn/rotary_emb/Cast_2",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.1/attn/rotary_emb/Cast_3",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.1/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.1/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.2/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.2/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.3/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.3/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.4/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.4/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.5/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.5/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.6/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.6/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.7/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.7/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.8/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.8/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.9/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.9/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.10/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.10/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.11/attn/Cast_4",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      },
+      {
+        "node": "/layers.11/attn/Cast_5",
+        "attribute": "to",
+        "before": 1,
+        "after": 10
+      }
+    ],
+    "checker": "full_check passed",
+    "bytes": 154468150,
+    "sha256": "7c51fe06af64d11a0f3108f321e4a195617cf6d1c026045e16e11322f6c7e38c"
+  },
+  "configurationCheck": {
+    "tokenizerParsedJsonEqual": true,
+    "tokenizerConfigEqual": true,
+    "modelConfigDifferences": [
+      "dtype bfloat16 -> float32",
+      "transformers_version 4.56.2 -> 4.57.6"
+    ],
+    "communityUnquantizedWeightsCompared": false
+  },
+  "performance": {
+    "method": "Fresh sequential processes FP32, repaired Q4F16, repaired Q4F16, FP32. Includes tokenization, tensor creation, inference, full output transfer and host CLS+L2. Original official FP32 ONNX baseline. Synthetic fixed-length hello workload; same 3 warmups and 60/60/40/20/20/10 repeats as CPU report. Shared desktop. RSS is process RSS, not total GPU memory.",
+    "fp32": [
+      {
+        "runtime": "1.3.8",
+        "threads": 4,
+        "provider": "webgpu+cpu",
+        "model": "fp32",
+        "tokenizerMs": 175.513542,
+        "sessionMs": 235.14662500000003,
+        "loadTotalMs": 436.65808400000003,
+        "loadedRss": 1800634368,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 6.147208999999975,
+              "p95": 6.452750000000037,
+              "mean": 6.19511878333333
+            },
+            "inferenceMs": {
+              "p50": 6.067957999999976,
+              "p95": 6.42491700000005,
+              "mean": 6.143636816666672
+            },
+            "tokenizationMs": {
+              "p50": 0.022540999999932865,
+              "p95": 0.14704200000005585,
+              "mean": 0.05148196666665778
+            },
+            "documentsPerSecond": 161.41740537571138
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 6.43445799999995,
+              "p95": 7.441125000000056,
+              "mean": 6.600656283333336
+            },
+            "inferenceMs": {
+              "p50": 6.371374999999944,
+              "p95": 7.308958000000075,
+              "mean": 6.528384799999994
+            },
+            "tokenizationMs": {
+              "p50": 0.04070799999999508,
+              "p95": 0.18470800000000054,
+              "mean": 0.07227148333334223
+            },
+            "documentsPerSecond": 151.5000868209122
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 8.378582999999935,
+              "p95": 9.234500000000025,
+              "mean": 8.590121949999991
+            },
+            "inferenceMs": {
+              "p50": 8.308166999999912,
+              "p95": 9.19770799999992,
+              "mean": 8.498837474999998
+            },
+            "tokenizationMs": {
+              "p50": 0.05012499999997999,
+              "p95": 0.18383399999993344,
+              "mean": 0.09128447499999197
+            },
+            "documentsPerSecond": 116.41278270793362
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 20.428874999999834,
+              "p95": 21.428666999999905,
+              "mean": 20.51747714999997
+            },
+            "inferenceMs": {
+              "p50": 20.271833000000015,
+              "p95": 21.259874999999965,
+              "mean": 20.35988115
+            },
+            "tokenizationMs": {
+              "p50": 0.155666999999994,
+              "p95": 0.16879199999993943,
+              "mean": 0.15759599999996682
+            },
+            "documentsPerSecond": 48.738935722416606
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 46.44450000000006,
+              "p95": 46.72287499999993,
+              "mean": 46.449050050000025
+            },
+            "inferenceMs": {
+              "p50": 46.150125000000116,
+              "p95": 46.41754200000014,
+              "mean": 46.16288545000005
+            },
+            "tokenizationMs": {
+              "p50": 0.28291699999999764,
+              "p95": 0.3085829999999987,
+              "mean": 0.28616459999998367
+            },
+            "documentsPerSecond": 21.52896558537906
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 365.0243339999997,
+              "p95": 381.94808399999965,
+              "mean": 367.54135849999983
+            },
+            "inferenceMs": {
+              "p50": 360.5005000000001,
+              "p95": 375.9872089999999,
+              "mean": 362.7426377
+            },
+            "tokenizationMs": {
+              "p50": 5.299541999999747,
+              "p95": 6.034250000000611,
+              "mean": 4.798720799999865
+            },
+            "documentsPerSecond": 21.76625790536714
+          }
+        ],
+        "steadyRss": 1880391680,
+        "maxHeartbeatLagMs": 370.5067080000008
+      },
+      {
+        "runtime": "1.3.8",
+        "threads": 4,
+        "provider": "webgpu+cpu",
+        "model": "fp32",
+        "tokenizerMs": 179.605,
+        "sessionMs": 252.88333300000002,
+        "loadTotalMs": 458.047666,
+        "loadedRss": 1797619712,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 6.315832999999998,
+              "p95": 8.891333999999915,
+              "mean": 6.916917333333326
+            },
+            "inferenceMs": {
+              "p50": 6.300166999999988,
+              "p95": 8.843124999999986,
+              "mean": 6.851195066666659
+            },
+            "tokenizationMs": {
+              "p50": 0.03187500000001364,
+              "p95": 0.187041000000022,
+              "mean": 0.06572226666666742
+            },
+            "documentsPerSecond": 144.57307378547068
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 6.305458000000044,
+              "p95": 6.503458000000137,
+              "mean": 6.3233117833333345
+            },
+            "inferenceMs": {
+              "p50": 6.210209000000077,
+              "p95": 6.476499999999987,
+              "mean": 6.276067366666658
+            },
+            "tokenizationMs": {
+              "p50": 0.01908400000002075,
+              "p95": 0.1466250000000855,
+              "mean": 0.047244416666675684
+            },
+            "documentsPerSecond": 158.14497754732724
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 8.218458999999939,
+              "p95": 8.401833000000124,
+              "mean": 8.247093674999997
+            },
+            "inferenceMs": {
+              "p50": 8.0815419999999,
+              "p95": 8.36024999999995,
+              "mean": 8.166470799999967
+            },
+            "tokenizationMs": {
+              "p50": 0.04054200000018682,
+              "p95": 0.16250000000013642,
+              "mean": 0.08062287500002867
+            },
+            "documentsPerSecond": 121.25483708659347
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 21.288541000000123,
+              "p95": 22.406124999999975,
+              "mean": 21.17388544999998
+            },
+            "inferenceMs": {
+              "p50": 21.123125000000073,
+              "p95": 22.26274999999987,
+              "mean": 21.012216749999983
+            },
+            "tokenizationMs": {
+              "p50": 0.15183400000000802,
+              "p95": 0.2627500000000964,
+              "mean": 0.1616686999999956
+            },
+            "documentsPerSecond": 47.22798762472766
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 46.703250000000025,
+              "p95": 47.686916999999994,
+              "mean": 46.74544795000001
+            },
+            "inferenceMs": {
+              "p50": 46.4030829999997,
+              "p95": 47.39629200000036,
+              "mean": 46.43997080000001
+            },
+            "tokenizationMs": {
+              "p50": 0.3002919999998994,
+              "p95": 0.33404099999961545,
+              "mean": 0.30547715000000153
+            },
+            "documentsPerSecond": 21.392457316263663
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 363.68733299999985,
+              "p95": 383.1717090000002,
+              "mean": 367.54185829999994
+            },
+            "inferenceMs": {
+              "p50": 360.171875,
+              "p95": 381.3874589999996,
+              "mean": 364.53450399999986
+            },
+            "tokenizationMs": {
+              "p50": 2.0691249999999854,
+              "p95": 6.096542000000227,
+              "mean": 3.0073543000001335
+            },
+            "documentsPerSecond": 21.766228306627685
+          }
+        ],
+        "steadyRss": 1893679104,
+        "maxHeartbeatLagMs": 374.8943339999996
+      }
+    ],
+    "q4f16Repaired": [
+      {
+        "runtime": "1.3.8",
+        "threads": 4,
+        "provider": "webgpu+cpu",
+        "model": "q4f16-castfix",
+        "tokenizerMs": 172.173375,
+        "sessionMs": 169.193875,
+        "loadTotalMs": 363.990417,
+        "loadedRss": 992198656,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 4.414875000000052,
+              "p95": 5.85775000000001,
+              "mean": 4.707170033333339
+            },
+            "inferenceMs": {
+              "p50": 4.396875000000023,
+              "p95": 5.821249999999964,
+              "mean": 4.678393583333331
+            },
+            "tokenizationMs": {
+              "p50": 0.025708000000008724,
+              "p95": 0.051667000000065855,
+              "mean": 0.028776450000008443
+            },
+            "documentsPerSecond": 212.44186908877376
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 4.314082999999982,
+              "p95": 4.61587499999996,
+              "mean": 4.394765233333332
+            },
+            "inferenceMs": {
+              "p50": 4.2988339999999425,
+              "p95": 4.594667000000072,
+              "mean": 4.377267399999999
+            },
+            "tokenizationMs": {
+              "p50": 0.014165999999931955,
+              "p95": 0.03491699999995035,
+              "mean": 0.017497833333332363
+            },
+            "documentsPerSecond": 227.54344018543222
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 5.893207999999959,
+              "p95": 6.3945410000001175,
+              "mean": 5.989226025000017
+            },
+            "inferenceMs": {
+              "p50": 5.838250000000016,
+              "p95": 6.3275000000001,
+              "mean": 5.936095825000001
+            },
+            "tokenizationMs": {
+              "p50": 0.05399999999985994,
+              "p95": 0.07704200000011951,
+              "mean": 0.053130200000015296
+            },
+            "documentsPerSecond": 166.96648211736127
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 16.018499999999904,
+              "p95": 17.09504199999992,
+              "mean": 16.198760449999988
+            },
+            "inferenceMs": {
+              "p50": 15.889332999999851,
+              "p95": 16.943583999999873,
+              "mean": 16.061697950000006
+            },
+            "tokenizationMs": {
+              "p50": 0.13412500000004002,
+              "p95": 0.1598750000000564,
+              "mean": 0.13706249999997908
+            },
+            "documentsPerSecond": 61.73311859797277
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 33.403707999999824,
+              "p95": 33.5590000000002,
+              "mean": 33.47094999999996
+            },
+            "inferenceMs": {
+              "p50": 33.140750000000025,
+              "p95": 33.311750000000075,
+              "mean": 33.201191699999995
+            },
+            "tokenizationMs": {
+              "p50": 0.26691699999992125,
+              "p95": 0.2927079999999478,
+              "mean": 0.26975829999996676
+            },
+            "documentsPerSecond": 29.8766542329991
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 250.16266700000006,
+              "p95": 252.98975000000064,
+              "mean": 250.38160420000008
+            },
+            "inferenceMs": {
+              "p50": 248.5241670000005,
+              "p95": 249.4711669999997,
+              "mean": 248.41176270000014
+            },
+            "tokenizationMs": {
+              "p50": 1.6311250000003383,
+              "p95": 4.4655830000001515,
+              "mean": 1.9698414999999385
+            },
+            "documentsPerSecond": 31.951229107110247
+          }
+        ],
+        "steadyRss": 1078263808,
+        "maxHeartbeatLagMs": 291.61037499999975
+      },
+      {
+        "runtime": "1.3.8",
+        "threads": 4,
+        "provider": "webgpu+cpu",
+        "model": "q4f16-castfix",
+        "tokenizerMs": 180.28525000000002,
+        "sessionMs": 171.922542,
+        "loadTotalMs": 376.520625,
+        "loadedRss": 1006043136,
+        "workloads": [
+          {
+            "name": "query-en",
+            "batch": 1,
+            "sequenceLength": 11,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 4.035499999999956,
+              "p95": 5.048249999999939,
+              "mean": 4.162903499999987
+            },
+            "inferenceMs": {
+              "p50": 4.002625000000023,
+              "p95": 5.008832999999981,
+              "mean": 4.139050716666662
+            },
+            "tokenizationMs": {
+              "p50": 0.02158299999996416,
+              "p95": 0.046165999999971064,
+              "mean": 0.02385278333332508
+            },
+            "documentsPerSecond": 240.2169543444865
+          },
+          {
+            "name": "query-zh",
+            "batch": 1,
+            "sequenceLength": 17,
+            "repeats": 60,
+            "totalMs": {
+              "p50": 4.3129579999999805,
+              "p95": 4.581792000000064,
+              "mean": 4.378961833333339
+            },
+            "inferenceMs": {
+              "p50": 4.294250000000034,
+              "p95": 4.570792000000097,
+              "mean": 4.358865266666664
+            },
+            "tokenizationMs": {
+              "p50": 0.015375000000062755,
+              "p95": 0.034374999999954525,
+              "mean": 0.020096566666675624
+            },
+            "documentsPerSecond": 228.36463026186811
+          },
+          {
+            "name": "query-64",
+            "batch": 1,
+            "sequenceLength": 64,
+            "repeats": 40,
+            "totalMs": {
+              "p50": 5.969333000000006,
+              "p95": 6.995208000000048,
+              "mean": 6.206340574999996
+            },
+            "inferenceMs": {
+              "p50": 5.914125000000013,
+              "p95": 6.954541000000063,
+              "mean": 6.155255199999985
+            },
+            "tokenizationMs": {
+              "p50": 0.04804199999989578,
+              "p95": 0.07554099999993014,
+              "mean": 0.05108537500001091
+            },
+            "documentsPerSecond": 161.12554377504503
+          },
+          {
+            "name": "document-256",
+            "batch": 1,
+            "sequenceLength": 256,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 15.922624999999925,
+              "p95": 16.170499999999947,
+              "mean": 16.008987449999985
+            },
+            "inferenceMs": {
+              "p50": 15.811290999999983,
+              "p95": 16.03558299999986,
+              "mean": 15.878710300000012
+            },
+            "tokenizationMs": {
+              "p50": 0.12879099999986465,
+              "p95": 0.15312500000004547,
+              "mean": 0.13027714999997214
+            },
+            "documentsPerSecond": 62.4649124826443
+          },
+          {
+            "name": "document-512",
+            "batch": 1,
+            "sequenceLength": 512,
+            "repeats": 20,
+            "totalMs": {
+              "p50": 33.365084000000024,
+              "p95": 33.51695799999993,
+              "mean": 33.37018329999999
+            },
+            "inferenceMs": {
+              "p50": 33.11200000000008,
+              "p95": 33.27279099999987,
+              "mean": 33.12056255
+            },
+            "tokenizationMs": {
+              "p50": 0.2465420000000904,
+              "p95": 0.2631250000001728,
+              "mean": 0.2496207499999855
+            },
+            "documentsPerSecond": 29.9668716533541
+          },
+          {
+            "name": "batch-8x512",
+            "batch": 8,
+            "sequenceLength": 512,
+            "repeats": 10,
+            "totalMs": {
+              "p50": 249.9680830000002,
+              "p95": 260.84466699999984,
+              "mean": 251.70070829999995
+            },
+            "inferenceMs": {
+              "p50": 248.29879200000005,
+              "p95": 259.07474999999977,
+              "mean": 249.9524666999999
+            },
+            "tokenizationMs": {
+              "p50": 1.67837499999996,
+              "p95": 2.2109590000000026,
+              "mean": 1.748241600000074
+            },
+            "documentsPerSecond": 31.78378024453101
+          }
+        ],
+        "steadyRss": 1087488000,
+        "maxHeartbeatLagMs": 250.82583300000033
+      }
+    ]
+  },
+  "sustained": {
+    "method": "Q4F16 then FP32; batch 1/8/32, 512 tokens. Pretokenized, tensors created per run, full output and host CLS/L2; 2 warmups then >=10 sec each. No utilization/power/temperature claims.",
+    "fp32": {
+      "runtime": "1.3.8",
+      "threads": 4,
+      "provider": "webgpu+cpu",
+      "model": "fp32",
+      "tokenizerMs": 187.126666,
+      "sessionMs": 332.30870899999996,
+      "loadTotalMs": 546.68325,
+      "loadedRss": 1857273856,
+      "workloads": [
+        {
+          "batch": 1,
+          "tokens": 512,
+          "repeats": 215,
+          "elapsedMs": 10025.450917,
+          "p95Ms": 49.08995899999991,
+          "documentsPerSecond": 21.445419440977748,
+          "rss": 1888731136
+        },
+        {
+          "batch": 8,
+          "tokens": 512,
+          "repeats": 28,
+          "elapsedMs": 10086.03825,
+          "p95Ms": 374.1639589999977,
+          "documentsPerSecond": 22.20891835305106,
+          "rss": 1937555456
+        },
+        {
+          "batch": 32,
+          "tokens": 512,
+          "repeats": 7,
+          "elapsedMs": 10792.756915999998,
+          "p95Ms": 1576.2054160000007,
+          "documentsPerSecond": 20.754659976444525,
+          "rss": 880099328
+        }
+      ]
+    },
+    "q4f16Repaired": {
+      "runtime": "1.3.8",
+      "threads": 4,
+      "provider": "webgpu+cpu",
+      "model": "q4f16-castfix",
+      "tokenizerMs": 180.713708,
+      "sessionMs": 170.851667,
+      "loadTotalMs": 376.674625,
+      "loadedRss": 996163584,
+      "workloads": [
+        {
+          "batch": 1,
+          "tokens": 512,
+          "repeats": 300,
+          "elapsedMs": 10001.657541999999,
+          "p95Ms": 34.871000000000095,
+          "documentsPerSecond": 29.99502819809705,
+          "rss": 1036419072
+        },
+        {
+          "batch": 8,
+          "tokens": 512,
+          "repeats": 40,
+          "elapsedMs": 10143.417875,
+          "p95Ms": 260.07704100000046,
+          "documentsPerSecond": 31.547551717127696,
+          "rss": 1134280704
+        },
+        {
+          "batch": 32,
+          "tokens": 512,
+          "repeats": 10,
+          "elapsedMs": 10212.391207999997,
+          "p95Ms": 1056.8899999999994,
+          "documentsPerSecond": 31.334483127646365,
+          "rss": 790560768
+        }
+      ]
+    }
+  },
+  "profile": {
+    "note": "parity trace provider placement evidence; traceDurationUs is not GPU kernel timing or occupancy",
+    "events": [
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "MemcpyFromHost",
+        "events": 128,
+        "traceDurationUs": 210440
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Gather",
+        "events": 8,
+        "traceDurationUs": 1212
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "LayerNormalization",
+        "events": 200,
+        "traceDurationUs": 33439
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Shape",
+        "events": 488,
+        "traceDurationUs": 1837
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Gather",
+        "events": 608,
+        "traceDurationUs": 2442
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Unsqueeze",
+        "events": 352,
+        "traceDurationUs": 1334
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Concat",
+        "events": 200,
+        "traceDurationUs": 922
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Shape",
+        "events": 24,
+        "traceDurationUs": 166
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Range",
+        "events": 16,
+        "traceDurationUs": 75
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Cast",
+        "events": 112,
+        "traceDurationUs": 825
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Reshape",
+        "events": 16,
+        "traceDurationUs": 61
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Equal",
+        "events": 16,
+        "traceDurationUs": 95
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Where",
+        "events": 16,
+        "traceDurationUs": 102
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Expand",
+        "events": 16,
+        "traceDurationUs": 632
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "MatMul",
+        "events": 208,
+        "traceDurationUs": 6424
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Concat",
+        "events": 208,
+        "traceDurationUs": 2973
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Sin",
+        "events": 16,
+        "traceDurationUs": 231
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Unsqueeze",
+        "events": 48,
+        "traceDurationUs": 220
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Transpose",
+        "events": 512,
+        "traceDurationUs": 4956
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "MatMulNBits",
+        "events": 384,
+        "traceDurationUs": 6247
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Reshape",
+        "events": 192,
+        "traceDurationUs": 814
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Split",
+        "events": 96,
+        "traceDurationUs": 7980
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Squeeze",
+        "events": 288,
+        "traceDurationUs": 1293
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Div",
+        "events": 288,
+        "traceDurationUs": 1112
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Slice",
+        "events": 576,
+        "traceDurationUs": 5174
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Neg",
+        "events": 192,
+        "traceDurationUs": 1189
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Mul",
+        "events": 672,
+        "traceDurationUs": 281673
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Cos",
+        "events": 16,
+        "traceDurationUs": 213
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Add",
+        "events": 480,
+        "traceDurationUs": 11823
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Slice",
+        "events": 96,
+        "traceDurationUs": 464
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Sqrt",
+        "events": 192,
+        "traceDurationUs": 1864
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Div",
+        "events": 96,
+        "traceDurationUs": 711
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Expand",
+        "events": 8,
+        "traceDurationUs": 1152
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Sub",
+        "events": 8,
+        "traceDurationUs": 322
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Cast",
+        "events": 16,
+        "traceDurationUs": 545
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Where",
+        "events": 16,
+        "traceDurationUs": 1060
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "Softmax",
+        "events": 96,
+        "traceDurationUs": 2027
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Add",
+        "events": 96,
+        "traceDurationUs": 373
+      },
+      {
+        "provider": "WebGpuExecutionProvider",
+        "op": "QuickGelu",
+        "events": 96,
+        "traceDurationUs": 734
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Mul",
+        "events": 96,
+        "traceDurationUs": 336
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Transpose",
+        "events": 8,
+        "traceDurationUs": 34
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Sub",
+        "events": 8,
+        "traceDurationUs": 255
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "Abs",
+        "events": 8,
+        "traceDurationUs": 626
+      },
+      {
+        "provider": "CPUExecutionProvider",
+        "op": "LessOrEqual",
+        "events": 8,
+        "traceDurationUs": 196
+      }
+    ]
+  },
+  "numericalDrift": {
+    "passesOriginalFp32Tolerance": false,
+    "checks": [
+      {
+        "name": "english-query",
+        "batch": 1,
+        "sequenceLength": 15,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.9911153841185273,
+            "maxAbs": 0.028276341983211568
+          }
+        ]
+      },
+      {
+        "name": "chinese-query",
+        "batch": 1,
+        "sequenceLength": 22,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.9896723668252708,
+            "maxAbs": 0.024539070824194306
+          }
+        ]
+      },
+      {
+        "name": "code",
+        "batch": 1,
+        "sequenceLength": 21,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.9846040163676083,
+            "maxAbs": 0.03165977768272053
+          }
+        ]
+      },
+      {
+        "name": "unicode",
+        "batch": 1,
+        "sequenceLength": 23,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.9881625392744501,
+            "maxAbs": 0.026007046995931073
+          }
+        ]
+      },
+      {
+        "name": "empty",
+        "batch": 1,
+        "sequenceLength": 2,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.989879705326863,
+            "maxAbs": 0.030486304145681986
+          }
+        ]
+      },
+      {
+        "name": "whitespace",
+        "batch": 1,
+        "sequenceLength": 4,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.9868069724317304,
+            "maxAbs": 0.0378180852105727
+          }
+        ]
+      },
+      {
+        "name": "mixed-padding",
+        "batch": 3,
+        "sequenceLength": 513,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.9911153796152053,
+            "maxAbs": 0.02827636060966306
+          },
+          {
+            "cosine": 0.9905055835830457,
+            "maxAbs": 0.026196838155771056
+          },
+          {
+            "cosine": 0.9769004364009736,
+            "maxAbs": 0.040463173613112
+          }
+        ]
+      },
+      {
+        "name": "long-context",
+        "batch": 1,
+        "sequenceLength": 1025,
+        "tokensEqual": true,
+        "comparisons": [
+          {
+            "cosine": 0.9730144966791174,
+            "maxAbs": 0.048529945633183406
+          }
+        ]
+      }
+    ]
+  },
+  "retrieval": {
+    "fixtureSha256": "c970f19f49a6c899cbed095725ed63d697e2cfb6ddfe6a0445502271db1c54fb",
+    "documents": 40,
+    "queries": 30,
+    "vectorCosine": {
+      "min": 0.9832240916988423,
+      "mean": 0.9903374480272826,
+      "max": 0.9937962626034718
+    },
+    "vectorMaxAbsoluteError": 0.035567172619770784,
+    "pairScoreAbsoluteDrift": {
+      "min": 1.2546332048946063e-5,
+      "mean": 0.006605180174452607,
+      "max": 0.029648390355264342
+    },
+    "fp32": {
+      "hitAt1": 0.8333333333333334,
+      "recallAt5": 1.0,
+      "mrrAt10": 0.9111111111111111,
+      "ndcgAt5": 0.9341239671428611
+    },
+    "q4f16": {
+      "hitAt1": 0.8333333333333334,
+      "recallAt5": 1.0,
+      "mrrAt10": 0.9111111111111111,
+      "ndcgAt5": 0.9341239671428611
+    },
+    "top1Agreement": 0.9666666666666667,
+    "meanTop5Overlap": 0.8933333333333333,
+    "queriesDetail": [
+      {
+        "id": "q01",
+        "query": "哪种隔离级别让同一事务看到稳定快照？",
+        "relevantIds": ["d02"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d02", "d01", "d24", "d26", "d08"],
+        "q4f16Top5": ["d02", "d24", "d01", "d26", "d08"]
+      },
+      {
+        "id": "q02",
+        "query": "READ COMMITTED 适合什么读取行为？",
+        "relevantIds": ["d01"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d01", "d02", "d06", "d37", "d07"],
+        "q4f16Top5": ["d01", "d37", "d06", "d02", "d20"]
+      },
+      {
+        "id": "q03",
+        "query": "Should a client retry POST after a 503?",
+        "relevantIds": ["d04"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "q4f16": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d03", "d04", "d08", "d29", "d25"],
+        "q4f16Top5": ["d03", "d04", "d08", "d30", "d25"]
+      },
+      {
+        "id": "q04",
+        "query": "GET retry with jitter after transient 5xx",
+        "relevantIds": ["d03"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d03", "d04", "d25", "d02", "d28"],
+        "q4f16Top5": ["d03", "d04", "d25", "d02", "d28"]
+      },
+      {
+        "id": "q05",
+        "query": "TTL 到期和写入后立即删除缓存分别解决什么问题？",
+        "relevantIds": ["d05", "d06"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.6,
+        "fp32Top5": ["d05", "d06", "d01", "d02", "d20"],
+        "q4f16Top5": ["d05", "d06", "d20", "d07", "d37"]
+      },
+      {
+        "id": "q06",
+        "query": "When may an at-least-once consumer acknowledge a message?",
+        "relevantIds": ["d07"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d07", "d08", "d33", "d25", "d06"],
+        "q4f16Top5": ["d07", "d08", "d33", "d06", "d25"]
+      },
+      {
+        "id": "q07",
+        "query": "Exactly-once effects need what despite ack semantics?",
+        "relevantIds": ["d08"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d08", "d11", "d07", "d24", "d06"],
+        "q4f16Top5": ["d08", "d07", "d11", "d06", "d24"]
+      },
+      {
+        "id": "q08",
+        "query": "日志里如何处理 authorization header 和 traceability？",
+        "relevantIds": ["d09", "d10"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d09", "d10", "d36", "d29", "d35"],
+        "q4f16Top5": ["d09", "d10", "d36", "d29", "d35"]
+      },
+      {
+        "id": "q09",
+        "query": "NFC normalization should happen before comparing identifiers",
+        "relevantIds": ["d11"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d11", "d12", "d32", "d31", "d20"],
+        "q4f16Top5": ["d11", "d12", "d32", "d20", "d31"]
+      },
+      {
+        "id": "q10",
+        "query": "大小写折叠何时适用，原始显示文本怎么办？",
+        "relevantIds": ["d12"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d12", "d19", "d11", "d20", "d08"],
+        "q4f16Top5": ["d12", "d19", "d20", "d11", "d08"]
+      },
+      {
+        "id": "q11",
+        "query": "How do you stop ../etc/passwd from escaping a file root?",
+        "relevantIds": ["d13"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d13", "d14", "d09", "d11", "d35"],
+        "q4f16Top5": ["d13", "d14", "d09", "d11", "d36"]
+      },
+      {
+        "id": "q12",
+        "query": "Symlink escape means which filesystem check is missing?",
+        "relevantIds": ["d14"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d14", "d13", "d06", "d11", "d29"],
+        "q4f16Top5": ["d14", "d13", "d11", "d06", "d29"]
+      },
+      {
+        "id": "q13",
+        "query": "React useEffect reads changing state but sees an old value",
+        "relevantIds": ["d15"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "q4f16": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d16", "d15", "d06", "d05", "d32"],
+        "q4f16Top5": ["d16", "d15", "d06", "d05", "d32"]
+      },
+      {
+        "id": "q14",
+        "query": "React callback increments based on previous state safely",
+        "relevantIds": ["d16"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d16", "d15", "d08", "d06", "d03"],
+        "q4f16Top5": ["d16", "d15", "d08", "d06", "d03"]
+      },
+      {
+        "id": "q15",
+        "query": "优雅停机时先停止接收还是先关闭数据库？",
+        "relevantIds": ["d17"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt5": 0.5
+        },
+        "q4f16": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt5": 0.5
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d34", "d01", "d17", "d02", "d20"],
+        "q4f16Top5": ["d34", "d01", "d17", "d20", "d02"]
+      },
+      {
+        "id": "q16",
+        "query": "What happens when graceful draining exceeds its deadline?",
+        "relevantIds": ["d18"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "q4f16": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d17", "d18", "d07", "d33", "d08"],
+        "q4f16Top5": ["d17", "d18", "d07", "d06", "d33"]
+      },
+      {
+        "id": "q17",
+        "query": "expand-contract 的第一步是什么？",
+        "relevantIds": ["d19"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d19", "d23", "d08", "d17", "d20"],
+        "q4f16Top5": ["d19", "d17", "d23", "d08", "d38"]
+      },
+      {
+        "id": "q18",
+        "query": "When is it safe to drop the old migration column?",
+        "relevantIds": ["d20"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d20", "d19", "d32", "d34", "d31"],
+        "q4f16Top5": ["d20", "d19", "d32", "d34", "d31"]
+      },
+      {
+        "id": "q19",
+        "query": "Which pagination method avoids duplicates during inserts?",
+        "relevantIds": ["d21"],
+        "fp32": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "q4f16": {
+          "hitAt1": 0,
+          "recallAt5": 1.0,
+          "mrrAt10": 0.5,
+          "ndcgAt5": 0.6309297535714575
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d22", "d21", "d04", "d02", "d03"],
+        "q4f16Top5": ["d22", "d21", "d04", "d02", "d03"]
+      },
+      {
+        "id": "q20",
+        "query": "Offset pagination under concurrent writes has what failure mode?",
+        "relevantIds": ["d22"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d22", "d37", "d21", "d06", "d01"],
+        "q4f16Top5": ["d22", "d37", "d06", "d21", "d02"]
+      },
+      {
+        "id": "q21",
+        "query": "分布式租约如何防止旧持有者释放新锁？",
+        "relevantIds": ["d23"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d23", "d08", "d24", "d07", "d17"],
+        "q4f16Top5": ["d23", "d24", "d08", "d17", "d06"]
+      },
+      {
+        "id": "q22",
+        "query": "Does an in-process mutex coordinate two separate processes?",
+        "relevantIds": ["d24"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d24", "d08", "d01", "d37", "d33"],
+        "q4f16Top5": ["d24", "d08", "d33", "d37", "d07"]
+      },
+      {
+        "id": "q23",
+        "query": "监控队列中等待处理的消息数量，应该选 counter 还是 gauge？",
+        "relevantIds": ["d26"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d26", "d25", "d34", "d02", "d07"],
+        "q4f16Top5": ["d26", "d25", "d07", "d34", "d33"]
+      },
+      {
+        "id": "q24",
+        "query": "请求总数和错误总数适合哪种 metric 类型？",
+        "relevantIds": ["d25"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d25", "d26", "d04", "d03", "d10"],
+        "q4f16Top5": ["d25", "d26", "d04", "d03", "d39"]
+      },
+      {
+        "id": "q25",
+        "query": "Python async function returns a coroutine and nothing runs",
+        "relevantIds": ["d27", "d28"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d27", "d28", "d03", "d04", "d17"],
+        "q4f16Top5": ["d27", "d28", "d17", "d03", "d04"]
+      },
+      {
+        "id": "q26",
+        "query": "What does RuntimeWarning: coroutine was never awaited mean?",
+        "relevantIds": ["d28"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d28", "d27", "d34", "d17", "d07"],
+        "q4f16Top5": ["d28", "d27", "d34", "d17", "d33"]
+      },
+      {
+        "id": "q27",
+        "query": "TLS hostname verification versus requiring a client certificate",
+        "relevantIds": ["d29", "d30"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d29", "d30", "d36", "d09", "d35"],
+        "q4f16Top5": ["d29", "d30", "d36", "d09", "d34"]
+      },
+      {
+        "id": "q28",
+        "query": "Can an optional JSON field be added without breaking old readers?",
+        "relevantIds": ["d31"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d31", "d32", "d06", "d20", "d04"],
+        "q4f16Top5": ["d31", "d32", "d20", "d06", "d12"]
+      },
+      {
+        "id": "q29",
+        "query": "Kubernetes readiness versus liveness during a database outage",
+        "relevantIds": ["d33", "d34"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": true,
+        "top5Overlap": 0.8,
+        "fp32Top5": ["d34", "d33", "d06", "d17", "d18"],
+        "q4f16Top5": ["d34", "d33", "d06", "d17", "d05"]
+      },
+      {
+        "id": "q30",
+        "query": "BM25 lexical matching versus vector cosine semantic similarity",
+        "relevantIds": ["d39", "d40"],
+        "fp32": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "q4f16": {
+          "hitAt1": 1,
+          "recallAt5": 1.0,
+          "mrrAt10": 1.0,
+          "ndcgAt5": 1.0
+        },
+        "top1Same": false,
+        "top5Overlap": 1.0,
+        "fp32Top5": ["d40", "d39", "d12", "d11", "d25"],
+        "q4f16Top5": ["d39", "d40", "d12", "d11", "d25"]
+      }
+    ]
+  },
+  "limitations": [
+    "Original downloaded artifact is not runnable in this runtime",
+    "Cast repair changes execution and is not validated for full semantic correctness or full context length",
+    "Cannot isolate quantization from export and Cast repair effects",
+    "Small synthetic retrieval set only; no production quality guarantee",
+    "No Windows, packaging, isolated worker or native fault recovery tested"
+  ]
+}

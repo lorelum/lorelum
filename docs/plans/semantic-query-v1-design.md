@@ -5,7 +5,7 @@
 - 范围：为已安装的 Practice 增加本地优先的 semantic query；不实现 Hybrid 或后续检索优化。
 - 关联 Issue：[Semantic Query v1 设计 #92](https://github.com/lorelum/lorelum/issues/92)、[后续模型评测 #85](https://github.com/lorelum/lorelum/issues/85)。
 - 前置文档：[Query 功能路线](./query-implementation-design.md)、[持久关键词 index ADR](../adr/0012-persistent-keyword-index.md)、[Query CLI 合同](../cli/query.md)。
-- 后续设计：[本地常驻后端](./local-backend-service-design.md) 承接已批准的服务基础、进程管理与 keyword HTTP 接入；模型驻留仍留待后续阶段。
+- 后续设计：[本地常驻后端](./local-backend-service-design.md) 承接已批准的服务基础、进程管理与 keyword HTTP 接入；[第二阶段模型驻留](./local-backend-stage-2-design.md) 已选定 llama.cpp + Q4_0 CPU；本篇的 semantic index 与默认检索切换仍属后续阶段。
 
 ## 结论
 
@@ -49,7 +49,7 @@ Semantic Query v1 只交付一条可验证链路：配置固定的本地 default
 
 v1 固定使用 Granite 97M：384 维、32K context、Apache-2.0。其模型卡记录的 MTEB Multilingual Retrieval 为 60.3、Code 为 60.4；这些分数仅说明它是合理的轻量候选，不是 Lorelum 的质量承诺。
 
-该模型支持 200 多种语言，并明确增强中文、英文和多种代码语言。TEI 官方支持 ModernBERT，并提供 macOS、Linux CPU 和 GPU 路线；它是首个本地 provider 的验证目标。[Granite 97M 模型卡](https://huggingface.co/ibm-granite/granite-embedding-97m-multilingual-r2) [TEI 项目](https://github.com/huggingface/text-embeddings-inference)
+本地推理路线已确定为由 Lorelum 后端管理的 llama.cpp + Q4_0 CPU，替代早期 TEI 验证目标。固定 384 维、CLS pooling 与 L2；首阶段部署单条上限为含特殊 token 的 512 tokens，不能把模型标称 32K 上下文视为已验收能力。接入合同与产物身份以[第二阶段计划](./local-backend-stage-2-design.md)为准，GPU 留待后续。
 
 具体 endpoint、Apple Silicon 兼容性、实际向量维度、数值有效性和归一化必须在实施中验证。模型比较、benchmark 和新增 Profile 已移至后续 [Issue #85](https://github.com/lorelum/lorelum/issues/85)，不阻塞 v1。
 
@@ -57,28 +57,17 @@ v1 固定使用 Granite 97M：384 维、32K context、Apache-2.0。其模型卡�
 
 ### Config 与 Profile
 
-配置只属于当前选中的 Store，建议路径为 `<store-root>/config.json`。`--store-root` 仍然由现有 resolver 决定；config 不能把命令重定向到另一个 Store。
+模型运行配置归共享 `~/.lorelum/config.yaml` 的 embedding 段，资源身份由固定 manifest 确定，不再采用早期 `<store-root>/config.json` 中保存模型 revision 的提案。index 与 Store 的绑定仍归 Engine；`--store-root` 仍由现有 resolver 决定，模型配置不能重定向 Store。
 
-Lorelum 本地后端服务固定监听 `http://127.0.0.1:26186`。`26186` 表示 `26-186`：2026 年的第 186 天，即 Lorelum 仓库创建日期 2026-07-05。该端口当前未被 IANA 分配，也未被开发机监听。它只绑定 loopback，不能监听 `0.0.0.0`、`::` 或其他网络接口。Semantic Query v1 使用该服务的 `/v1` embedding 路由；端口本身不专属于 embedding，未来本地能力可以复用此后端服务。`baseUrl` 不进入 config，也不允许用户改成常用端口或远程地址。
+Lorelum 本地后端服务固定监听 `http://127.0.0.1:26186`。`26186` 表示 `26-186`：2026 年的第 186 天，即 Lorelum 仓库创建日期 2026-07-05。它只绑定 loopback，不能监听 `0.0.0.0`、`::` 或其他网络接口。Semantic Query v1 通过后端 client 使用第二阶段定义的认证 embedding 入口；端口本身不专属于 embedding，未来本地能力可以复用此后端服务。`baseUrl` 不进入 config，也不允许用户改成常用端口或远程地址。
 
-最小 config 只记录固定 default Profile 的模型 revision；v1 不提供模型名、Profile alias、endpoint 或 `defaultProfile` 的用户选择。字段名是本设计的 Proposed 合同，实施前随对应 Issue 确认：
+运行配置、固定 GGUF 资源与 llama.cpp build 身份由[第二阶段计划](./local-backend-stage-2-design.md)统一定义；本篇不另设 modelRevision、provider 或 endpoint 配置。
 
-```json
-{
-  "schemaVersion": 1,
-  "semantic": {
-    "provider": "openai-compatible",
-    "transport": "local",
-    "modelRevision": "<fixed-revision>"
-  }
-}
-```
-
-v1 的 default Profile 不是用户可选 alias，但仍需要内部 `profileId` 作为向量空间和 index 身份。它由固定模型 `ibm-granite/granite-embedding-97m-multilingual-r2`、用户固定的 revision、document/query 输入投影、384 维、归一化、距离度量、截断规则及其版本确定性生成。固定 endpoint 不进入 `profileId`；实测维度必须为 384，否则 build 失败。index metadata 记录 `profileId` 和实测维度，禁止通过实测值改变既有身份。
+v1 的 default Profile 不是用户可选 alias，但仍需要内部 `profileId` 作为向量空间和 index 身份。它由固定模型 `ibm-granite/granite-embedding-97m-multilingual-r2`、固定源 revision、Q4_0 GGUF 摘要、经过验收的编码实现版本、document/query 输入投影、384 维、归一化、距离度量、截断规则及其版本确定性生成。固定 endpoint 不进入 `profileId`；实测维度必须为 384，否则 build 失败。index metadata 记录 `profileId` 和实测维度，禁止通过实测值改变既有身份。
 
 `transport` 在 v1 固定为 `local`；远程 provider 不在范围内。config、`show` 和错误输出不得保存或展开密钥。没有有效 local config 时，普通 semantic query 返回 `semantic.config-invalid`。固定端口没有 Lorelum 后端服务、端口被其他进程占用或该服务的 embedding 路由不符合协议时，返回 `semantic.provider-failed`；不得扫描或随机改用其他端口。
 
-建议的首批 config 命令是 `lore config show`、`lore config set-model-revision` 和 `lore config unset-model-revision`。`show` 显示固定模型、固定本地后端地址、revision、transport、profileId、维度和 index 状态，但不显示密钥。写 config 只校验并原子写入，不连接 provider、不下载模型、不构建 index，也不修改 LocalStore generation 或 effectiveRevision。
+本阶段不再沿用 `set-model-revision` / `unset-model-revision` 的旧配置提案。未来 semantic CLI 的状态输出复用已验收模型身份；写入配置、启动模型和构建 index 的职责分离，具体命令在 semantic 接入阶段对齐，不作为模型常驻阶段的附加任务。
 
 ### Index 命令
 
@@ -141,13 +130,13 @@ Semantic query 的成功 JSON 保持现有 `results` 摘要形状，并返回：
 
 建议新增以下错误码，具体命名在 CLI 设计 Issue 中冻结：
 
-| 情况 | 可见错误 |
-| --- | --- |
-| config 缺失、损坏或版本不支持 | `config.invalid` |
-| semantic index 不存在或过期 | `semantic.index-not-ready` |
-| index 与 Profile/Store 不兼容 | `semantic.index-incompatible` |
-| 本地 provider 不可用、返回非法向量 | `semantic.provider-failed` |
-| Store 无法获得稳定 snapshot | 复用 `store.busy` 或 `store.recovery-required` |
+| 情况                               | 可见错误                                       |
+| ---------------------------------- | ---------------------------------------------- |
+| config 缺失、损坏或版本不支持      | `config.invalid`                               |
+| semantic index 不存在或过期        | `semantic.index-not-ready`                     |
+| index 与 Profile/Store 不兼容      | `semantic.index-incompatible`                  |
+| 本地 provider 不可用、返回非法向量 | `semantic.provider-failed`                     |
+| Store 无法获得稳定 snapshot        | 复用 `store.busy` 或 `store.recovery-required` |
 
 所有失败保持现有单行 JSON envelope 和退出码约定。semantic query 不静默回退 keyword query。
 
@@ -237,8 +226,7 @@ interface SemanticCandidate {
 1. local config 与固定 Profile：schema、resolver、endpoint 设置、原子写入和测试；不连接 provider，也不提供模型选择。
 2. 本地 OpenAI-compatible provider：向量校验、typed error、mock 测试，以及 Granite 97M 在隔离环境中的真实连接验证。
 3. semantic index：固定 `profileId` 的全量 build/status/rebuild、staging 发布、过期检测和恢复；不做增量同步。
-4. semantic query：CLI mode、固定 default Profile、Store snapshot 校验、候选回读、JSON 协议和进程级 integration。
-只有第 4 项完成且验收通过，才能称 Semantic Query v1 已交付。是否做增量 embedding、Hybrid 或性能优化，以 v1 的构建耗时、真实查询频率和质量数据为依据另行设计。
+4. semantic query：CLI mode、固定 default Profile、Store snapshot 校验、候选回读、JSON 协议和进程级 integration。只有第 4 项完成且验收通过，才能称 Semantic Query v1 已交付。是否做增量 embedding、Hybrid 或性能优化，以 v1 的构建耗时、真实查询频率和质量数据为依据另行设计。
 
 ## 验收
 

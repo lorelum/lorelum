@@ -1,0 +1,289 @@
+{
+  "recordedAtUtc": "2026-09-10T20:10:07.733350+00:00",
+  "hardware": "Apple M4 / 32 GiB / macOS 15.7.1",
+  "method": {
+    "tokens": 512,
+    "batchSizes": [1, 8, 32],
+    "onnxMeasurementMinimumSeconds": 10,
+    "mpsMeasurementMinimumSeconds": 8,
+    "pretokenized": true,
+    "precision": "float32",
+    "mpsAttention": "sdpa",
+    "mpsCpuFallback": false
+  },
+  "telemetryLimits": [
+    "IORegistry whole-device activity; includes desktop and other applications",
+    "Not shader occupancy, GPU frequency, watts or temperature",
+    "powermetrics requires unavailable administrator authorization",
+    "Activity baseline was already about 49%; not attributed to probe"
+  ],
+  "onnxWebgpu": {
+    "results": [
+      {
+        "event": "result",
+        "provider": "webgpu",
+        "batch": 1,
+        "tokens": 512,
+        "repeats": 199,
+        "elapsedMs": 10018.4765,
+        "p50Ms": 50.19379200000003,
+        "p95Ms": 51.886625000000095,
+        "documentsPerSecond": 19.8632995745411,
+        "cpuEquivalentCores": 0.865857498393094,
+        "rss": 1261797376
+      },
+      {
+        "event": "result",
+        "provider": "webgpu",
+        "batch": 8,
+        "tokens": 512,
+        "repeats": 27,
+        "elapsedMs": 10106.015541,
+        "p50Ms": 374.93095899999935,
+        "p95Ms": 389.921875,
+        "documentsPerSecond": 21.37340865187573,
+        "cpuEquivalentCores": 0.16874226969883102,
+        "rss": 1107476480
+      },
+      {
+        "event": "result",
+        "provider": "webgpu",
+        "batch": 32,
+        "tokens": 512,
+        "repeats": 7,
+        "elapsedMs": 10840.033541,
+        "p50Ms": 1536.0053750000006,
+        "p95Ms": 1608.9777500000018,
+        "documentsPerSecond": 20.66414270332007,
+        "cpuEquivalentCores": 0.41195905742447,
+        "rss": 716963840
+      }
+    ],
+    "deviceActivity": {
+      "baseline": {
+        "samples": 15,
+        "mean": 49.06666666666667,
+        "min": 33,
+        "max": 61
+      },
+      "measuring-1": {
+        "samples": 45,
+        "mean": 98.35555555555555,
+        "min": 92,
+        "max": 99
+      },
+      "measuring-32": {
+        "samples": 46,
+        "mean": 99.30434782608695,
+        "min": 95,
+        "max": 100
+      },
+      "measuring-8": {
+        "samples": 43,
+        "mean": 99.25581395348837,
+        "min": 98,
+        "max": 100
+      },
+      "warming-32": {
+        "samples": 16,
+        "mean": 97.3125,
+        "min": 67,
+        "max": 100
+      },
+      "warming-8": {
+        "samples": 3,
+        "mean": 97.33333333333333,
+        "min": 94,
+        "max": 100
+      }
+    },
+    "exitCode": 0
+  },
+  "pytorchMps": {
+    "configuration": {
+      "device": "mps",
+      "dtype": "float32",
+      "attention_implementation_requested": "sdpa",
+      "mps_cpu_fallback": false,
+      "local_files_only": true,
+      "trust_remote_code": false,
+      "cls_pooling": true,
+      "l2_normalization": true,
+      "benchmark": {
+        "sequence_length": 512,
+        "batch_sizes": [1, 8, 32],
+        "warmup_runs": 2,
+        "minimum_measured_runs": 5,
+        "minimum_measurement_seconds": 8.0,
+        "maximum_case_seconds": 30.0
+      }
+    },
+    "versions": {
+      "torch": "2.8.0",
+      "transformers": "4.56.2"
+    },
+    "parity": {
+      "passed": true,
+      "minimumCosine": 0.9999999999995444,
+      "maximumAbsoluteError": 2.384185791015625e-7
+    },
+    "benchmarks": [
+      {
+        "batch": 1,
+        "sequence_length": 512,
+        "warmup_runs": 2,
+        "measured_runs": 255,
+        "total_measurement_seconds": 8.007177828999998,
+        "wall_time_ms": {
+          "p50": 31.57225,
+          "p95": 32.621,
+          "mean": 31.40069736862745,
+          "min": 29.1805,
+          "max": 33.437
+        },
+        "cpu_time_ms": {
+          "p50": 8.789,
+          "p95": 10.429,
+          "mean": 8.757329411764706,
+          "min": 6.654,
+          "max": 11.761
+        },
+        "documents_per_second": {
+          "p50": 31.67338406353681,
+          "p95": 33.748533668397776,
+          "mean": 31.87297260635852,
+          "min": 29.906989263390855,
+          "max": 34.26946077003478
+        }
+      },
+      {
+        "batch": 8,
+        "sequence_length": 512,
+        "warmup_runs": 2,
+        "measured_runs": 30,
+        "total_measurement_seconds": 8.185821628999998,
+        "wall_time_ms": {
+          "p50": 270.393292,
+          "p95": 284.112584,
+          "mean": 272.8607209666667,
+          "min": 266.995959,
+          "max": 284.386042
+        },
+        "cpu_time_ms": {
+          "p50": 9.107,
+          "p95": 27.714,
+          "mean": 13.211433333333334,
+          "min": 7.084,
+          "max": 27.847
+        },
+        "documents_per_second": {
+          "p50": 29.544193184663527,
+          "p95": 29.82269479711738,
+          "mean": 29.328854470255166,
+          "min": 28.130775841663848,
+          "max": 29.963000301439017
+        }
+      },
+      {
+        "batch": 32,
+        "sequence_length": 512,
+        "warmup_runs": 2,
+        "measured_runs": 8,
+        "total_measurement_seconds": 8.85035329,
+        "wall_time_ms": {
+          "p50": 1111.035166,
+          "p95": 1180.699667,
+          "mean": 1106.29416125,
+          "min": 1012.076083,
+          "max": 1180.699667
+        },
+        "cpu_time_ms": {
+          "p50": 14.506,
+          "p95": 30.424,
+          "mean": 17.545625,
+          "min": 12.416,
+          "max": 30.424
+        },
+        "documents_per_second": {
+          "p50": 28.651382787675168,
+          "p95": 31.618176278946805,
+          "mean": 28.981428724878572,
+          "min": 27.102573918147804,
+          "max": 31.618176278946805
+        }
+      }
+    ],
+    "memoryBytes": {
+      "after_model_load": {
+        "allocated_bytes": 389767680,
+        "driver_allocated_bytes": 1082621952
+      },
+      "peak": {
+        "allocated_bytes": 390087168,
+        "driver_allocated_bytes": 2685255680
+      },
+      "final": {
+        "allocated_bytes": 389767680,
+        "driver_allocated_bytes": 2584592384
+      }
+    },
+    "deviceActivity": {
+      "baseline": {
+        "samples": 19,
+        "mean": 49.21052631578947,
+        "min": 45,
+        "max": 53
+      },
+      "benchmark-1": {
+        "samples": 36,
+        "mean": 95.61111111111111,
+        "min": 75,
+        "max": 97
+      },
+      "benchmark-32": {
+        "samples": 49,
+        "mean": 99.65306122448979,
+        "min": 96,
+        "max": 100
+      },
+      "benchmark-8": {
+        "samples": 38,
+        "mean": 98.8157894736842,
+        "min": 91,
+        "max": 100
+      },
+      "complete-": {
+        "samples": 1,
+        "mean": 100,
+        "min": 100,
+        "max": 100
+      },
+      "load-model-": {
+        "samples": 4,
+        "mean": 47.75,
+        "min": 44,
+        "max": 55
+      },
+      "load-tokenizer-": {
+        "samples": 2,
+        "mean": 45.5,
+        "min": 45,
+        "max": 46
+      },
+      "parity-": {
+        "samples": 11,
+        "mean": 46.72727272727273,
+        "min": 28,
+        "max": 83
+      }
+    },
+    "exitCode": 0
+  },
+  "comparisonLimits": [
+    "MPS keeps input tensors on device and returns CLS vectors; ONNX API returns full hidden state before host pooling",
+    "Attention and operator fusion differ, so this compares execution paths, not just compute devices",
+    "Both synchronized work before recording completion; MPS explicitly uses synchronize",
+    "No claim of maximum achievable GPU throughput",
+    "PyTorch is only a diagnostic control, not an adopted product runtime"
+  ]
+}
