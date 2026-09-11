@@ -1,8 +1,7 @@
 import { open, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ResolvedEmbeddingConfig } from "../config/embedding";
-import { downloadFile, DownloadError, waitForDownloadExit } from "../download/curl";
-import { DownloadOwnerError } from "../download/owner";
+import { downloadFile, DownloadError } from "../download/file";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL } from "../modules/embedding/model";
 import type { ModelProgress } from "../modules/embedding/dto";
@@ -48,7 +47,6 @@ export async function prepareModel(
     signal.throwIfAborted();
     if (await assertPrivateFile(destination)) return verify(destination);
     const partial = `${destination}.part`;
-    await waitForDownloadExit(partial, signal);
     signal.throwIfAborted();
     if (!(await assertPrivateFile(partial))) {
       const file = await open(partial, "wx", 0o600);
@@ -84,10 +82,7 @@ export async function prepareModel(
     await rename(partial, destination);
     return destination;
   }).catch((error: unknown) => {
-    if (
-      (error instanceof DownloadOwnerError && error.reason === "owner-active") ||
-      (error instanceof Error && "code" in error && error.code === "backend.deadline-exceeded")
-    )
+    if (error instanceof Error && "code" in error && error.code === "backend.deadline-exceeded")
       throw new EmbeddingError("embedding.busy");
     throw error;
   });

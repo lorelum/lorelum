@@ -40,7 +40,7 @@ interface ModelLoading {
 
 ## 下载、恢复与超时
 
-优先复用成熟下载工具承担 HTTP/Range 与中断恢复。当前 Mac 范围选择系统 `/usr/bin/curl`，适配集中在 `download/curl.ts`；不新增第三方运行依赖。使用 `-q` 禁止读取 curlrc，限制 HTTPS 及 HTTPS 重定向，按 `.part` 实际长度续传；连接超时 30 秒、`speed-time=60/speed-limit=1`，不传 `max-time`。Lorelum 只保留固定资源身份、落盘、状态和取消适配。直接手写 HTTP 下载器会增加 Range、重定向和连接故障处理负担，本阶段不优先采用。
+下载使用 `got` npm 包，适配集中在 `download/file.ts`，不依赖系统 curl、shell 或下载子进程。got 负责 HTTP、重定向和分阶段连接超时；Lorelum 在写入前验证状态、Content-Range 和固定大小，按 `.part` 实际落盘长度续传。每次尝试在 pipeline 完全关闭后才能重试或结束取消，默认仅允许 HTTPS 及 HTTPS 重定向，禁用解压以保持模型字节身份。连接阶段默认 30 秒，连续 60 秒没有收到文件字节触发停滞；有进展的下载没有总时限。
 
 未显式指定 `modelPath` 时，在独立于 Store 和运行目录的 `cacheDirectory`（默认 `~/.lorelum/models`）中按摘要定位资源。已有完整文件验证通过便复用；显式 `modelPath` 继续表示用户管理的固定模型，只校验，不覆盖或自动下载到该路径。`model status`、`model unload` 和 backend 启动都不触发下载；网络操作只由显式 model load 开始。
 
@@ -110,7 +110,7 @@ API 文档不复制 CLI 参数表；CLI 文档链接配置说明；开发指南�
 ## 本地实施结果
 
 - 配置、HTTP 202 加载、status 进度、CLI 轮询和 stderr 进度已实现。CLI 的 model 命令归 `packages/cli/src/model/`；backend 仍按 config、modules/embedding、models、download、runtime 分工。
-- curl 承担传输和 Range；复用 SQLite 锁串行准备文件。下载 guardian 在原子持久化进程身份后才接收启动许可；崩溃恢复先等待旧 writer 退出，避免 daemon 的锁释放早于 curl 停止造成双写。取消时由 guardian 回收 curl，准备任务在确认退出前不结算，卸载仍受 service 的 deadline 约束。
+- got 在 backend 进程内传输，SQLite writer lock 串行保护准备与发布。取消时销毁 HTTP 流并等待文件 pipeline 关闭；进程崩溃后由操作系统关闭文件和 socket、释放锁，不再有独立 curl writer。下载 guardian、进程身份记录及其等待逻辑已删除。升级前仍需用旧 CLI 停止旧 daemon，避免混用两代实现。
 - 本机真实 66,345,216-byte Q4_0 文件在传输 1 MiB 后断开，第二次请求从该位置续传；大小、SHA、缓存复用和下载后 native 编码均通过。该实验使用本地服务器，不代表公开下载源已交付。
 - 512/1024/2048 三档的 token 上限及上限加一、384 维和 L2 校验通过。M4 本机每档 5 条计时样本：512/4 threads 平均 55.70 ms、RSS 581.4 MiB；1024/2 threads 平均 204.75 ms、RSS 936.1 MiB；2048/4 threads 平均 354.18 ms、RSS 1666.7 MiB。线程数不同、样本小，不能据此比较缩放效率或承诺 SLA；默认仍为 512。
 - 编译 CLI 在隔离 HOME、含空格安装目录和精简 PATH 下验证了进度、1024-token 配置、HTTP 编码、损坏 YAML 时卸载与正常停止。
@@ -156,3 +156,5 @@ initializeConfig(options?: LoadConfigOptions, initialDocument?: Readonly<Record<
 抽离后验证：全量 600 项测试、所有 workspace typecheck、lint、frozen-lockfile 安装与 CLI 编译通过；编译 CLI 在隔离 HOME 下再次验证首次初始化、只读无写入、已有 CLI section 保留、模型 load/unload。配置基础包测试允许 backend section 含无效业务字段，CLI/Store 仍可读取各自合法 section；由 backend 消费时才报该模块配置错误。
 
 默认来源接入验收：编译 CLI 在空 HOME 下首次启动初始化配置，model load 经公开 HTTPS 下载完整模型，显示进度并通过大小/SHA 校验后达到 ready；unload 后再次 load 复用缓存。602 项测试、typecheck、lint 和编译通过。
+
+下载库替换验收：got 16.0.0 在 Bun 1.3.8 源码与编译 CLI 下通过完整 HTTPS 下载及从 1 MiB partial 续传，大小/SHA 一致并达到 native ready；本地服务器覆盖 Range 错误、取消后无追加、停滞、慢速持续进展、重试与进程崩溃恢复。全量 608 项测试、typecheck、lint、冻结依赖安装和编译通过。下载层无系统 curl/shell 依赖，Windows native 与端到端验收仍未交付。

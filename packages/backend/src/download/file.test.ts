@@ -4,13 +4,10 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { processIdentity } from "../runtime/process-identity";
-import { DownloadError, downloadFile, waitForDownloadExit, type DownloadProgress } from "./curl";
-import { ownerPath, writeOwner } from "./owner";
+import { DownloadError, downloadFile, type DownloadProgress } from "./file";
 
 const directories: string[] = [];
 const transport = { protocols: "=http,https" as const, progressIntervalMs: 20 };
-const macTest = process.platform === "darwin" && process.arch === "arm64" ? test : test.skip;
 
 afterEach(async () => {
   await Promise.all(
@@ -18,7 +15,7 @@ afterEach(async () => {
   );
 });
 
-macTest("resumes with Range after the first response disconnects", async () => {
+test("resumes with Range after the first response disconnects", async () => {
   const data = Buffer.alloc(64 * 1024, "r");
   const ranges: (string | null)[] = [];
   let requests = 0;
@@ -45,7 +42,7 @@ macTest("resumes with Range after the first response disconnects", async () => {
   );
 });
 
-macTest("cancellation leaves the part resumable and no curl process behind", async () => {
+test("cancellation closes the writer and leaves the part resumable", async () => {
   const data = Buffer.alloc(128 * 1024, "c");
   const ranges: (string | null)[] = [];
   await withServer(
@@ -57,7 +54,6 @@ macTest("cancellation leaves the part resumable and no curl process behind", asy
     async (url) => {
       const destination = await temporaryPart();
       const abort = new AbortController();
-      let curlPid = 0;
       await expect(
         downloadFile(
           options(
@@ -69,13 +65,12 @@ macTest("cancellation leaves the part resumable and no curl process behind", asy
             },
             abort.signal,
           ),
-          { ...transport, onCurlSpawn: (pid) => (curlPid = pid) },
+          transport,
         ),
       ).rejects.toMatchObject({ reason: "cancelled" });
       const partialBytes = (await stat(destination)).size;
       expect(partialBytes).toBeGreaterThan(0);
       expect(partialBytes).toBeLessThan(data.length);
-      expect(processExists(curlPid)).toBeFalse();
 
       await downloadFile(options(url, destination, data.length), transport);
       expect(await readFile(destination)).toEqual(data);
@@ -84,7 +79,7 @@ macTest("cancellation leaves the part resumable and no curl process behind", asy
   );
 });
 
-macTest("a server that ignores Range preserves the part and is not retried", async () => {
+test("a server that ignores Range preserves the part and is not retried", async () => {
   const data = Buffer.from("range must be honored");
   let requests = 0;
   await withServer(
@@ -105,7 +100,7 @@ macTest("a server that ignores Range preserves the part and is not retried", asy
   );
 });
 
-macTest("404 is not retried", async () => {
+test("404 is not retried", async () => {
   let requests = 0;
   await withServer(
     () => {
@@ -121,7 +116,7 @@ macTest("404 is not retried", async () => {
   );
 });
 
-macTest("408, 429, and 5xx responses are retried", async () => {
+test("408, 429, and 5xx responses are retried", async () => {
   const data = Buffer.from("transient response recovered");
   const statuses = [408, 429, 503];
   let requests = 0;
@@ -144,7 +139,7 @@ macTest("408, 429, and 5xx responses are retried", async () => {
   );
 });
 
-macTest("a response with no transfer progress hits the stall timeout", async () => {
+test("a response with no transfer progress hits the stall timeout", async () => {
   await withServer(
     (request) => stalledResponse(request, 32),
     async (url) => {
@@ -160,7 +155,7 @@ macTest("a response with no transfer progress hits the stall timeout", async () 
   );
 });
 
-macTest("content larger than the expected byte limit is rejected", async () => {
+test("content larger than the expected byte limit is rejected", async () => {
   const data = Buffer.alloc(64, "x");
   await withServer(
     () => new Response(data, { headers: { "content-length": String(data.length) } }),
@@ -174,7 +169,7 @@ macTest("content larger than the expected byte limit is rejected", async () => {
   );
 });
 
-macTest("slow responses that keep making progress are not stopped", async () => {
+test("slow responses that keep making progress are not stopped", async () => {
   const data = Buffer.from("slow-but-live");
   await withServer(
     (request) => pacedResponse(request, data, 1, 300),
@@ -189,7 +184,7 @@ macTest("slow responses that keep making progress are not stopped", async () => 
   );
 });
 
-macTest("curl exits and stops writing when its Bun parent is killed", async () => {
+test("download stops with its process and resumes after restart", async () => {
   const data = Buffer.alloc(256 * 1024, "p");
   let requests = 0;
   await withServer(
@@ -199,7 +194,7 @@ macTest("curl exits and stops writing when its Bun parent is killed", async () =
     },
     async (url) => {
       const destination = await temporaryPart();
-      const modulePath = join(import.meta.dir, "curl.ts");
+      const modulePath = join(import.meta.dir, "file.ts");
       const childScript = `
         import { downloadFile } from ${JSON.stringify(modulePath)};
         await downloadFile({
@@ -214,7 +209,6 @@ macTest("curl exits and stops writing when its Bun parent is killed", async () =
         }, {
           protocols: "=http,https",
           progressIntervalMs: 20,
-          onCurlSpawn(pid) { console.log("curl:" + pid); },
         });
       `;
       const owner = Bun.spawn([process.execPath, "-e", childScript], {
@@ -222,55 +216,26 @@ macTest("curl exits and stops writing when its Bun parent is killed", async () =
         stdout: "pipe",
         stderr: "ignore",
       });
-      let curlPid = 0;
       try {
-        curlPid = await readCurlPid(owner.stdout);
         const progressDeadline = Date.now() + 2000;
         while ((await currentSize(destination)) === 0 && Date.now() < progressDeadline) {
           await Bun.sleep(20);
         }
         expect(await currentSize(destination)).toBeGreaterThan(0);
-        const ownerInfo = await stat(ownerPath(destination));
-        expect(ownerInfo.mode & 0o077).toBe(0);
         owner.kill("SIGKILL");
         await owner.exited;
 
-        let oldOwnerExitedBeforeNewCurl = false;
-        await downloadFile(options(url, destination, data.length), {
-          ...transport,
-          onCurlSpawn: () => {
-            oldOwnerExitedBeforeNewCurl = !processExists(curlPid);
-          },
-        });
-        expect(oldOwnerExitedBeforeNewCurl).toBeTrue();
-        expect(processExists(curlPid)).toBeFalse();
+        await downloadFile(options(url, destination, data.length), transport);
         const completed = await readFile(destination);
         expect(completed.length).toBe(data.length);
         expect(createHash("sha256").update(completed).digest("hex")).toBe(
           createHash("sha256").update(data).digest("hex"),
         );
-        expect(await stat(ownerPath(destination)).catch(() => undefined)).toBeUndefined();
       } finally {
         owner.kill("SIGKILL");
-        if (processExists(curlPid)) process.kill(curlPid, "SIGKILL");
       }
     },
   );
-});
-
-macTest("waiting for an old owner supports cancellation without killing it", async () => {
-  const destination = await temporaryPart();
-  const identity = await processIdentity(process.pid);
-  expect(identity).toBeDefined();
-  if (identity === undefined) throw new Error("current process identity is unavailable");
-  await writeOwner(destination, identity);
-  const abort = new AbortController();
-  setTimeout(() => abort.abort(), 50);
-  await expect(waitForDownloadExit(destination, abort.signal)).rejects.toMatchObject({
-    reason: "cancelled",
-  });
-  expect(processExists(process.pid)).toBeTrue();
-  expect(await stat(ownerPath(destination))).toBeDefined();
 });
 
 function options(
@@ -294,7 +259,7 @@ function options(
 }
 
 async function temporaryPart(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "lore-curl-"));
+  const directory = await mkdtemp(join(tmpdir(), "lore-download-"));
   directories.push(directory);
   return join(directory, "model.part");
 }
@@ -386,42 +351,117 @@ function stalledResponse(request: Request, bytes: number): Response {
   return new Response(body, { headers: { "content-length": String(bytes) } });
 }
 
-function processExists(pid: number): boolean {
-  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code !== "ESRCH";
-  }
-}
-
 async function currentSize(path: string): Promise<number> {
   return (await stat(path).catch(() => undefined))?.size ?? 0;
-}
-
-async function readCurlPid(stream: ReadableStream<Uint8Array>): Promise<number> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let output = "";
-  const reading = (async () => {
-    while (true) {
-      const result = await reader.read();
-      if (result.done) throw new Error("download parent exited before reporting curl pid");
-      output += decoder.decode(result.value, { stream: true });
-      const value = /(?:^|\n)curl:(\d+)(?:\n|$)/.exec(output)?.[1];
-      if (value) return Number(value);
-    }
-  })();
-  return await Promise.race([
-    reading,
-    Bun.sleep(3000).then(() => {
-      throw new Error("timed out waiting for curl pid");
-    }),
-  ]);
 }
 
 test("errors never expose the URL", () => {
   const error = new DownloadError("network");
   expect(error.message).toBe("download failed: network");
+});
+
+for (const range of ["bytes 0-19/20", "bytes 5-18/20", "bytes 5-19/21", "invalid"]) {
+  test(`invalid Content-Range preserves the partial file: ${range}`, async () => {
+    const partial = Buffer.from("first");
+    await withServer(
+      () => new Response(Buffer.alloc(15), { status: 206, headers: { "content-range": range } }),
+      async (url) => {
+        const destination = await temporaryPart();
+        await writeFile(destination, partial);
+        await expect(downloadFile(options(url, destination, 20), transport)).rejects.toMatchObject({
+          reason: "range-unsupported",
+        });
+        expect(await readFile(destination)).toEqual(partial);
+      },
+    );
+  });
+}
+
+test("chunked oversized responses never write past the byte limit", async () => {
+  await withServer(
+    () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(Buffer.alloc(64));
+            controller.close();
+          },
+        }),
+      ),
+    async (url) => {
+      const destination = await temporaryPart();
+      await expect(downloadFile(options(url, destination, 32), transport)).rejects.toMatchObject({
+        reason: "too-large",
+      });
+      expect(await currentSize(destination)).toBeLessThanOrEqual(32);
+    },
+  );
+});
+
+test("production rejects plain HTTP without making a request", async () => {
+  let requests = 0;
+  await withServer(
+    () => {
+      requests++;
+      return new Response("ignored");
+    },
+    async (url) => {
+      await expect(downloadFile(options(url, await temporaryPart(), 7))).rejects.toMatchObject({
+        reason: "invalid-url",
+      });
+      expect(requests).toBe(0);
+    },
+  );
+});
+
+test("redirected downloads retain the Range contract", async () => {
+  const data = Buffer.from("redirected range response");
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch(request) {
+      if (new URL(request.url).pathname === "/model")
+        return Response.redirect(new URL("/file", request.url).href);
+      return rangeResponse(request, data);
+    },
+  });
+  try {
+    const destination = await temporaryPart();
+    await writeFile(destination, data.subarray(0, 5));
+    await downloadFile(
+      options(`http://127.0.0.1:${server.port}/model`, destination, data.length),
+      transport,
+    );
+    expect(await readFile(destination)).toEqual(data);
+  } finally {
+    await server.stop(true);
+  }
+});
+
+test("cancelled transfers cannot append more bytes after rejection", async () => {
+  const data = Buffer.alloc(64 * 1024);
+  await withServer(
+    (request) => pacedResponse(request, data, 1024, 20),
+    async (url) => {
+      const destination = await temporaryPart();
+      const abort = new AbortController();
+      await expect(
+        downloadFile(
+          options(
+            url,
+            destination,
+            data.length,
+            (progress) => {
+              if (progress.downloadedBytes > 0) abort.abort();
+            },
+            abort.signal,
+          ),
+          transport,
+        ),
+      ).rejects.toMatchObject({ reason: "cancelled" });
+      const size = await currentSize(destination);
+      await Bun.sleep(100);
+      expect(await currentSize(destination)).toBe(size);
+    },
+  );
 });

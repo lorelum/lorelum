@@ -4,7 +4,7 @@ import { mkdtemp, realpath, rm, writeFile, readFile, stat } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveEmbeddingConfig } from "../config/embedding";
-import { DownloadError } from "../download/curl";
+import { DownloadError } from "../download/file";
 import { prepareModel } from "./prepare";
 
 const content = "model fixture";
@@ -146,32 +146,6 @@ test("two preparers cannot write the same partial file concurrently", () =>
     } finally {
       release();
       await first;
-    }
-  }));
-
-test("a complete partial file is not promoted while its previous writer is still alive", () =>
-  fixture(async (root) => {
-    const { mkdir } = await import("node:fs/promises");
-    const { processIdentity } = await import("../runtime/process-identity");
-    const { writeOwner, clearOwner } = await import("../download/owner");
-    const directory = join(root, artifact.sha256);
-    await mkdir(directory, { mode: 0o700 });
-    const partial = join(directory, "model.gguf.part");
-    await writeFile(partial, content, { mode: 0o600 });
-    const identity = (await processIdentity(process.pid))!;
-    await writeOwner(partial, identity);
-    const config = resolveEmbeddingConfig({
-      cacheDirectory: root,
-      download: { url: "https://example.test/model" },
-    });
-    try {
-      await expect(
-        prepareModel(config, AbortSignal.timeout(30), () => {}, { artifact }),
-      ).rejects.toThrow();
-      expect(await readFile(partial, "utf8")).toBe(content);
-      await expect(stat(join(directory, "model.gguf"))).rejects.toMatchObject({ code: "ENOENT" });
-    } finally {
-      await clearOwner(partial, identity);
     }
   }));
 

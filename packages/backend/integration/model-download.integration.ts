@@ -4,7 +4,7 @@ import { mkdtemp, realpath, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { prepareModel } from "../src/models/prepare";
-import { downloadFile } from "../src/download/curl";
+import { downloadFile } from "../src/download/file";
 import { resolveEmbeddingConfig } from "../src/config/embedding";
 import { DEFAULT_BACKEND_SETTINGS } from "../src/config/model";
 import { createEmbeddingService } from "../src/modules/embedding/service";
