@@ -4,7 +4,7 @@ Model 命令控制本地 embedding service，不依赖 LocalStore，也不会因
 
 ## `lore model load`
 
-显式开始模型准备和加载。HTTP 层立即接受共享任务，但 CLI 会轮询 status，直到 `ready`、`failed` 或被显式 unload。
+显式开始模型准备和加载。未指定本地模型且缓存为空时，默认从 Lorelum 的 Hugging Face 仓库下载固定版本，无需手填 URL 或登录。可通过[embedding 配置](../configuration/embedding.md)指定镜像或关闭下载。HTTP 层立即接受共享任务，但 CLI 会轮询 status，直到 `ready`、`failed` 或被显式 unload。
 
 ```sh
 lore backend start

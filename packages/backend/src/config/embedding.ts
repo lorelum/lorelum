@@ -4,6 +4,9 @@ import { homedir } from "node:os";
 import { z } from "zod";
 import { BackendError } from "../protocol/errors";
 
+export const DEFAULT_MODEL_DOWNLOAD_URL =
+  "https://huggingface.co/Lorelum/granite-embedding-97m-multilingual-r2-GGUF/resolve/7a8af1473a747268bbb3968b77d5b822a6506667/granite-q4_0.gguf";
+
 export const MAX_SERIALIZED_EMBEDDING_BYTES = 2_048;
 export const DEFAULT_EMBEDDING_SETTINGS = Object.freeze({ threads: 4, maxTokens: 512 as const });
 export const embeddingTokenLimits = [512, 1024, 2048] as const;
@@ -14,7 +17,7 @@ const sourceUrl = z.url().refine((value) => {
 });
 const downloadSchema = z.strictObject({
   enabled: z.boolean().default(true),
-  url: sourceUrl.optional(),
+  url: sourceUrl.default(DEFAULT_MODEL_DOWNLOAD_URL),
   connectTimeoutSeconds: z.int().min(1).max(300).default(30),
   stallTimeoutSeconds: z.int().min(1).max(3600).default(60),
   maxAttempts: z.int().min(1).max(10).default(3),

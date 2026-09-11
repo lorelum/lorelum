@@ -28,7 +28,10 @@ test("explicit initialization creates editable defaults and resolves all paths f
     const source = await readFile(join(homeDirectory, ".lorelum", "config.yaml"), "utf8");
     expect(source).toContain("threads: 4");
     expect(source).not.toContain(homeDirectory);
-    expect(source).not.toContain("url:");
+    const url = config.embedding?.download?.url;
+    if (!url) throw new Error("Expected initialized default model URL");
+    expect(url).toContain("/resolve/7a8af1473a747268bbb3968b77d5b822a6506667/");
+    expect(source).toContain(url);
     expect(await loadBackendConfig({ homeDirectory, environment: {} })).toEqual(config);
   }));
 

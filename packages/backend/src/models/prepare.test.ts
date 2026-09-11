@@ -89,7 +89,7 @@ test("bad checksum is never promoted or silently erased", () =>
     });
   }));
 
-test("explicit files and missing/disabled sources never trigger a transfer", () =>
+test("explicit files and disabled downloads never trigger a transfer", () =>
   fixture(async (root) => {
     const deps = {
       artifact,
@@ -98,7 +98,6 @@ test("explicit files and missing/disabled sources never trigger a transfer", () 
       },
     };
     for (const [value, code] of [
-      [{ cacheDirectory: root }, "embedding.download-unavailable"],
       [{ cacheDirectory: root, download: { enabled: false } }, "embedding.not-configured"],
       [{ modelPath: join(root, "missing") }, "embedding.resource-invalid"],
     ] as const)
@@ -174,4 +173,20 @@ test("a complete partial file is not promoted while its previous writer is still
     } finally {
       await clearOwner(partial, identity);
     }
+  }));
+
+test("missing source configuration downloads the fixed model from the default URL", () =>
+  fixture(async (root) => {
+    const config = resolveEmbeddingConfig({ cacheDirectory: root });
+    let requestedUrl: string | undefined;
+    const path = await prepareModel(config, new AbortController().signal, () => {}, {
+      artifact,
+      download: async (options) => {
+        requestedUrl = options.url;
+        await writeFile(options.destination, content);
+      },
+    });
+    expect(requestedUrl).toBe(config.download.url);
+    expect(requestedUrl).toContain("huggingface.co/Lorelum/");
+    expect(path).toBe(join(root, artifact.sha256, "model.gguf"));
   }));

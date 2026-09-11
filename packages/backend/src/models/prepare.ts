@@ -60,7 +60,7 @@ export async function prepareModel(
       try {
         await (dependencies.download ?? downloadFile)({
           ...config.download,
-          url: config.download.url!,
+          url: config.download.url,
           destination: partial,
           bytes: artifact.bytes,
           signal,

@@ -1,6 +1,6 @@
 # Embedding 配置
 
-`embedding` section 可省略。省略时不自动联网下载；显式 `model load` 在没有缓存和来源时返回 `embedding.download-unavailable`（`download.enabled: false` 时返回 `embedding.not-configured`）。
+`embedding` section 可省略。显式 `model load` 时，若没有指定本地模型且缓存为空，会从 Lorelum 的 Hugging Face 仓库下载固定 Q4_0 文件。`backend start` 和只读命令不会下载模型；`download.enabled: false` 可禁用下载，缺少缓存时返回 `embedding.not-configured`。
 
 ```yaml
 embedding:
@@ -12,6 +12,7 @@ embedding:
   maxTokens: 512
   download:
     enabled: true
+    # 可选：覆盖默认下载源的 HTTPS 镜像
     url: https://mirror.example.test/granite-q4_0.gguf
     connectTimeoutSeconds: 30
     stallTimeoutSeconds: 60
@@ -27,12 +28,20 @@ embedding:
 | `threads` | `4`；整数 1–64 | 同时设置 native `-t` 和 `-tb`，不改变 encodingId |
 | `maxTokens` | `512`；`512`/`1024`/`2048` | 同时限制 tokenizer 准入和 native `-c/-b/-ub`；三档均已完成边界与向量校验，但测量值不是性能 SLA |
 | `download.enabled` | `true` | false 时不联网；缺少完整缓存返回 `embedding.not-configured` |
-| `download.url` | 无默认值；HTTPS | 固定模型的镜像地址；必须稳定支持续传并交付固定 SHA-256，不能指定 native executable |
+| `download.url` | 下方固定版本地址；HTTPS | 固定模型的镜像地址；必须稳定支持续传并交付固定 SHA-256，不能指定 native executable |
 | `download.connectTimeoutSeconds` | `30` | 建立连接无响应的超时 |
 | `download.stallTimeoutSeconds` | `60` | 连接建立后低于 1 byte/s 的持续时间 |
 | `download.maxAttempts` | `3` | 短暂网络错误的最大尝试次数；不设置整个下载总时限 |
 
 当前固定模型身份：Q4_0、66,345,216 bytes、SHA-256 `18e8ce8ce834790618e90d26bed465cca87362076f3042eb0d8eee0732596f59`。同名但摘要不同的文件不是可接受替代品。
+
+默认下载地址固定到仓库 commit，不跟随 `main`，无需 Hugging Face 登录或 token：
+
+```text
+https://huggingface.co/Lorelum/granite-embedding-97m-multilingual-r2-GGUF/resolve/7a8af1473a747268bbb3968b77d5b822a6506667/granite-q4_0.gguf
+```
+
+已有 config.yaml 未填写 URL 时也会使用该默认值，无需删除或重新初始化配置。自定义镜像仍需交付相同大小和 SHA-256 的文件。
 
 ## 下载和恢复
 

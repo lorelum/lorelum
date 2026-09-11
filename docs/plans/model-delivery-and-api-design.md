@@ -8,9 +8,9 @@
 
 当前 `embedding/service.ts` 统一拥有模型状态与共享加载任务；`runtime/embedding-process.ts` 校验资源后启动受管 native 子进程。`model/load` HTTP 请求和 CLI 都等待加载完成，默认启动预算为 10 秒。配置只接受绝对 `modelPath`；未配置时报错。native 固定 4 线程、512 tokens，token 上限参与 `encodingId`。现有测试覆盖并发加载、加载中卸载及失败后的资源所有权。
 
-固定模型在 `native/embedding/build-config.json` 中只有文件名、大小和摘要：66,345,216 bytes，SHA-256 `18e8ce8ce834790618e90d26bed465cca87362076f3042eb0d8eee0732596f59`。它是本地生成的 Q4_0 文件，当前 manifest 没有可下载 URL。不能把同名上游 GGUF 当作相同资源。
+固定模型在 `native/embedding/build-config.json` 中只有文件名、大小和摘要：66,345,216 bytes，SHA-256 `18e8ce8ce834790618e90d26bed465cca87362076f3042eb0d8eee0732596f59`。它是本地生成的 Q4_0 文件，现已按 Owner 授权发布到 Lorelum 的 Hugging Face 组织。不能把同名上游 GGUF 当作相同资源。
 
-**Required input：**取得与上述大小和 SHA-256 完全一致、可稳定访问并支持 Range 的模型来源。允许通过 `download.url` 配置该固定文件的 HTTPS 镜像，但目前没有可写入代码的默认 URL；缺失时返回 `embedding.download-unavailable`。默认来源仍待用户提供托管地址或授权发布位置，不擅自上传模型。来源确定前可完成下载器、接口与故障测试，但不能宣称默认自动下载端到端交付完成。若只能取得不同文件，须重新验证模型及更新固定身份，不能静默替换。下载来源与 native executable 来源分别管理，不能让模型 config 选择可执行程序。
+**默认来源：**`Lorelum/granite-embedding-97m-multilingual-r2-GGUF`，固定 revision `7a8af1473a747268bbb3968b77d5b822a6506667`，文件 `granite-q4_0.gguf`。config 内置该 commit 的 HTTPS resolve 地址，允许 `download.url` 覆盖为交付相同大小、摘要且支持 Range 的镜像。已匿名完整下载验证与本地文件一致。下载来源与 native executable 来源分别管理，模型 config 不能选择可执行程序。
 
 ## 责任与最小边界
 
@@ -78,7 +78,7 @@ Lorelum config 是独立于 backend 的本地基础能力，包边界和首次�
 | `threads` | 1–64 的整数，默认 4；同时设置 native `-t/-tb` |
 | `maxTokens` | 512/1024/2048，默认 512，包含特殊 token；1024/2048 必须通过本阶段实测 |
 | `download.enabled` | 默认 true；false 时缺失文件明确报错，不联网 |
-| `download.url` | 可选 HTTPS 镜像，只能交付固定摘要资源；暂没有默认来源 |
+| `download.url` | 默认使用固定 revision 的 Hugging Face URL；可用相同摘要的 HTTPS 镜像覆盖 |
 | `download.connectTimeoutSeconds` | 默认 30；连接无响应的超时 |
 | `download.stallTimeoutSeconds` | 默认 60；低于 1 byte/s 的持续时间 |
 | `download.maxAttempts` | 默认 3；有限重试次数，不提供下载总超时 |
@@ -101,7 +101,7 @@ Lorelum config 是独立于 backend 的本地基础能力，包边界和首次�
 
 API 文档不复制 CLI 参数表；CLI 文档链接配置说明；开发指南只保留入口和开发专用步骤。新增领域时增加对应页面，文档目录无需先建立尚未实现命令的占位页。
 
-实施先落配置与文件准备边界，再接 service 进度和 HTTP/client/CLI，最后同步文档与真实资源验证。每步都在本阶段范围内；来源缺口只阻塞生产默认下载验收。
+实施先落配置与文件准备边界，再接 service 进度和 HTTP/client/CLI，最后同步文档与真实资源验证。每步都在本阶段范围内；默认来源已发布，验收使用真实 HTTPS 文件。
 
 验收覆盖：完整缓存复用、缺失下载、连接失败、慢但持续有进度、停滞、断线续传、Range 不兼容、错误摘要、权限/磁盘失败、取消后续传、重复 load、backend stop、旧回调隔离与失败所有权。用本地测试服务器和临时目录模拟网络，单元测试不访问真实 registry。另用固定真实模型验证完整下载及 512/1024/2048 CPU 编码，记录未验证范围。
 
@@ -114,7 +114,7 @@ API 文档不复制 CLI 参数表；CLI 文档链接配置说明；开发指南�
 - 本机真实 66,345,216-byte Q4_0 文件在传输 1 MiB 后断开，第二次请求从该位置续传；大小、SHA、缓存复用和下载后 native 编码均通过。该实验使用本地服务器，不代表公开下载源已交付。
 - 512/1024/2048 三档的 token 上限及上限加一、384 维和 L2 校验通过。M4 本机每档 5 条计时样本：512/4 threads 平均 55.70 ms、RSS 581.4 MiB；1024/2 threads 平均 204.75 ms、RSS 936.1 MiB；2048/4 threads 平均 354.18 ms、RSS 1666.7 MiB。线程数不同、样本小，不能据此比较缩放效率或承诺 SLA；默认仍为 512。
 - 编译 CLI 在隔离 HOME、含空格安装目录和精简 PATH 下验证了进度、1024-token 配置、HTTP 编码、损坏 YAML 时卸载与正常停止。
-- **尚缺默认模型稳定 HTTPS 来源**，因此没有启用虚构的默认 URL，也没有上传模型。配置 `download.url` 可使用固定摘要的托管文件；来源确定后仍需执行一次真实 HTTPS 下载验收。
+- **默认模型 HTTPS 来源已补齐**：Owner 授权发布到 Lorelum 组织；内置固定 commit URL，匿名完整下载后的大小与 SHA-256 一致。旧配置缺少 URL 时同样使用默认值；镜像覆盖和关闭下载保留。
 
 ## Lorelum config 的包边界与首次初始化
 
@@ -145,12 +145,14 @@ initializeConfig(options?: LoadConfigOptions, initialDocument?: Readonly<Record<
 
 移除 `loadBackendConfig` 的 `initialize` 选项及写入副作用；初始化不藏在 loader、路径解析器或 LocalStore 构造过程中。help、describe、status、stop、model status 和直接 `loadConfig` 保持只读。backend/embedding 仍在启动时生成不可变快照；迁包不引入热重载。LocalStore 默认根目录和全局 `--store-root` 的现有优先级保持，不新增 Store root 配置项。
 
-初始化只处理不存在的配置文件，写入当前模块可编辑的默认值，不固化机器绝对路径、不填写未知下载地址。先写同目录临时文件并同步，再以不覆盖目标的方式发布；并发启动只有一个创建者。已有配置的字节、注释、其他模块字段和权限保持不变；损坏配置继续明确报错，不以默认配置覆盖。文件创建为 0600，新目录为 0700；backend 运行目录和模型缓存由各自的实际使用路径创建。
+初始化只处理不存在的配置文件，写入当前模块可编辑的默认值，不固化机器绝对路径，下载地址采用已验证的固定版本。先写同目录临时文件并同步，再以不覆盖目标的方式发布；并发启动只有一个创建者。已有配置的字节、注释、其他模块字段和权限保持不变；损坏配置继续明确报错，不以默认配置覆盖。文件创建为 0600，新目录为 0700；backend 运行目录和模型缓存由各自的实际使用路径创建。
 
 迁移时将现有 shared/config 源码及测试移入新包，更新 workspace 依赖和所有 import；同一仓库内部引用一次迁完，不保留两套实现。基础包保留 `filePath`/`homeDirectory` 注入以供隔离测试；backend runtime/model cache 路径在 backend 内派生。无需新增命令、修改 CLI envelope、HTTP endpoint 或再次升级协议；前文协议 3 的原因仍是异步 model load 和状态扩展。
 
 此前初始化实现已通过空 HOME 编译 CLI、注释/权限保留与 597 项测试；这只能证明迁移前行为，不能作为新边界已经完成的证据。迁移验收补充：基础包无业务包依赖；无 backend 时 CLI 直接读取共享文档；LocalStore 默认路径与覆盖行为保持；只读命令不创建 `.lorelum`；并发初始化仅一方创建且文件完整；backend loader 单独调用不写入。重跑受影响测试、typecheck、lint 和空 HOME 编译 CLI 验收。
 
-配置生命周期独立后，用户仍可在空 HOME 显式启动并编辑默认配置。这不代替 native 资源安装或默认模型 HTTPS 来源；来源缺口继续单独报告，不扩大此次包边界调整。
+配置生命周期独立后，用户仍可在空 HOME 显式启动并编辑默认配置。默认模型已具备公开 HTTPS 来源；native 资源安装仍需单独完成。
 
 抽离后验证：全量 600 项测试、所有 workspace typecheck、lint、frozen-lockfile 安装与 CLI 编译通过；编译 CLI 在隔离 HOME 下再次验证首次初始化、只读无写入、已有 CLI section 保留、模型 load/unload。配置基础包测试允许 backend section 含无效业务字段，CLI/Store 仍可读取各自合法 section；由 backend 消费时才报该模块配置错误。
+
+默认来源接入验收：编译 CLI 在空 HOME 下首次启动初始化配置，model load 经公开 HTTPS 下载完整模型，显示进度并通过大小/SHA 校验后达到 ready；unload 后再次 load 复用缓存。602 项测试、typecheck、lint 和编译通过。

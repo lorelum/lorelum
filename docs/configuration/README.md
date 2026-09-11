@@ -24,7 +24,7 @@ Lorelum 使用共享的 `~/.lorelum/config.yaml`。每个模块只读取自己�
 
 配置文件创建为 0600，新目录为 0700。`help`、`describe`、`backend status/stop` 和 `model status` 不会为了读取默认值创建配置。基础包的根路径解析也供默认 LocalStore root 使用；显式 `--store-root` 仍只影响 Store。
 
-初始化文件不写机器绝对路径或虚构模型地址。默认模型稳定下载源尚未提供，首次 model load 仍可能返回 `embedding.download-unavailable`；初始化配置与完成模型资源分发是两件独立的交付事项。
+初始化文件不写机器绝对路径，包含固定版本的 Hugging Face 模型下载地址。未填写 URL 的已有配置也会使用默认来源；首次显式 model load 在缓存为空时下载并校验模型。安装目录仍需包含配套 native 资源。
 
 ## 包边界与直接读取
 

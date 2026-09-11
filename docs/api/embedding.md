@@ -82,7 +82,7 @@ HTTP 客户端断开、CLI 停止等待不会取消共享加载任务；显式�
 
 下载相关错误 code 为：
 
-- `embedding.download-unavailable`：没有显式 HTTPS source，且缓存中没有完整固定文件。
+- `embedding.download-unavailable`：运行配置中没有可用下载来源（防御性错误；正常配置已内置固定 Hugging Face 来源）。
 - `embedding.download-failed`：永久 HTTP、权限、空间或其他不可重试失败。
 - `embedding.download-stalled`：连接建立后超过 stall timeout 没有字节增长。
 - `embedding.download-range-unsupported`：续传所需的 Range 合同不成立。

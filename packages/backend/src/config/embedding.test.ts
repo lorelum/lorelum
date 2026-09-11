@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { resolveEmbeddingConfig } from "./embedding";
+import { DEFAULT_MODEL_DOWNLOAD_URL, resolveEmbeddingConfig } from "./embedding";
 
 test("missing embedding config is allowed", () => {
   expect(resolveEmbeddingConfig(undefined, "/home/example")).toMatchObject({
     threads: 4,
     maxTokens: 512,
     cacheDirectory: "/home/example/.lorelum/models",
-    download: { enabled: true },
+    download: { enabled: true, url: DEFAULT_MODEL_DOWNLOAD_URL },
   });
 });
 
@@ -47,4 +47,13 @@ test("runtime tuning is bounded and download has no overall timeout option", () 
     { download: { url: "https://user:password@example.test/model" } },
   ])
     expect(() => resolveEmbeddingConfig(value)).toThrow();
+});
+
+test("existing download settings inherit the pinned source and explicit mirrors override it", () => {
+  expect(resolveEmbeddingConfig({ download: { maxAttempts: 5 } }).download.url).toBe(
+    DEFAULT_MODEL_DOWNLOAD_URL,
+  );
+  expect(
+    resolveEmbeddingConfig({ download: { url: "https://example.test/mirror.gguf" } }).download.url,
+  ).toBe("https://example.test/mirror.gguf");
 });
