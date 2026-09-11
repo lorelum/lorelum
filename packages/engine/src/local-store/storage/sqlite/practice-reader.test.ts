@@ -3,16 +3,16 @@ import { expect, test } from "bun:test";
 import { LOCAL_STORE_SCHEMA_VERSION, migrateDatabase } from "./migrations";
 import { readPractice } from "./practice-reader";
 
-test("point JOIN uses both existing indexes and one statement even when absent", () => {
+test("point JOIN uses both existing indexes and one query even when absent", () => {
   const database = new Database(":memory:");
   try {
     migrateDatabase(database);
-    const prepared: string[] = [];
-    const originalPrepare = database.prepare.bind(database);
-    database.prepare = ((sql: string) => {
-      prepared.push(sql);
-      return originalPrepare(sql);
-    }) as typeof database.prepare;
+    const queries: string[] = [];
+    const originalQuery = database.query.bind(database);
+    database.query = ((sql: string) => {
+      queries.push(sql);
+      return originalQuery(sql);
+    }) as typeof database.query;
     expect(
       readPractice(
         database,
@@ -24,8 +24,8 @@ test("point JOIN uses both existing indexes and one statement even when absent",
         "example.absent",
       ),
     ).toBeUndefined();
-    expect(prepared).toHaveLength(1);
-    const plan = database.query(`EXPLAIN QUERY PLAN ${prepared[0]}`).all("example.absent");
+    expect(queries).toHaveLength(1);
+    const plan = database.query(`EXPLAIN QUERY PLAN ${queries[0]}`).all("example.absent");
     const details = plan.map((row) => String((row as { detail: unknown }).detail));
     expect(details.some((detail) => /SEARCH e USING INDEX/.test(detail))).toBe(true);
     expect(

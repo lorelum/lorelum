@@ -56,25 +56,25 @@ function seedState(database: Database, count: number, packName = "scale-pack"): 
   });
 }
 
-test("materializes Effective Practices and sources from one prepared statement", () => {
+test("materializes Effective Practices and sources with one joined query", () => {
   const database = new Database(":memory:");
   try {
     migrateDatabase(database);
     seedState(database, 25);
 
-    let prepareCalls = 0;
-    const originalPrepare = database.prepare.bind(database);
-    // Count every prepare the reader issues: one for metadata, one for the
-    // single JOINed materialization statement. An N+1 reader would prepare
-    // once per practice, blowing past this bound.
-    database.prepare = ((sql: string) => {
-      prepareCalls += 1;
-      return originalPrepare(sql);
-    }) as typeof database.prepare;
+    let queryCalls = 0;
+    const originalQuery = database.query.bind(database);
+    // Count the public query calls issued by the reader: one for metadata and
+    // one joined materialization query. An N+1 reader would call query once
+    // per practice, blowing past this bound.
+    database.query = ((sql: string) => {
+      queryCalls += 1;
+      return originalQuery(sql);
+    }) as typeof database.query;
 
     const snapshot = readEffectivePracticeSnapshot(database);
     expect(snapshot.effectivePractices).toHaveLength(25);
-    expect(prepareCalls).toBe(2);
+    expect(queryCalls).toBe(2);
   } finally {
     database.close();
   }
