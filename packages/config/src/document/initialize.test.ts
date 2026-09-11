@@ -13,7 +13,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ConfigError, initializeConfig, loadConfig, resolveLorelumPaths } from "./index";
+import { ConfigError, initializeConfig, loadConfig, resolveLorelumPaths } from "../index";
 
 async function fixture(run: (homeDirectory: string) => Promise<void>) {
   const home = await realpath(await mkdtemp(join(tmpdir(), "lorelum-config-init-")));
@@ -30,8 +30,6 @@ test("resolves one frozen path snapshot without filesystem access", async () => 
     expect(paths).toEqual({
       rootDirectory: join(home, ".lorelum"),
       configFile: join(home, ".lorelum", "config.yaml"),
-      backendRuntimeDirectory: join(home, ".lorelum", "run", "backend"),
-      modelCacheDirectory: join(home, ".lorelum", "models"),
     });
     expect(Object.isFrozen(paths)).toBe(true);
     expect(await readdir(home)).toEqual([]);

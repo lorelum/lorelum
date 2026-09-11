@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@lorelum/backend": "workspace:*",
+    "@lorelum/config": "workspace:*",
     "@lorelum/engine": "workspace:*",
     "@lorelum/format": "workspace:*",
     "@lorelum/mcp": "workspace:*",

@@ -11,7 +11,7 @@ export async function currentBuildIdentity(entrypoint: string): Promise<string> 
   } else {
     const root = await realpath(resolve(dirname(entrypoint), "../../.."));
     hash.update(root);
-    for (const name of ["backend", "cli", "engine", "format", "shared"]) {
+    for (const name of ["backend", "cli", "config", "engine", "format", "shared"]) {
       hash.update(await readFile(join(root, "packages", name, "package.json")));
       await includeDirectory(join(root, "packages", name, "src"), hash);
     }

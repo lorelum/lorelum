@@ -32,7 +32,7 @@ embedding:
   modelPath: /absolute/path/to/granite-q4_0.gguf
 ```
 
-`shared/config` 继续只读共享 YAML；backend config 校验自己负责的段并产出不可变快照。`modelPath` 必须为绝对路径；不开放模型名、量化选择、endpoint、端口、GPU、可执行文件或任意 native 参数。缺少 embedding 段不妨碍 backend 启动，`model load` 才返回未配置错误。
+`@lorelum/config` 提供只读的共享 YAML 读取入口；backend config 校验自己负责的段并产出不可变快照。`modelPath` 必须为绝对路径；不开放模型名、量化选择、endpoint、端口、GPU、可执行文件或任意 native 参数。缺少 embedding 段不妨碍 backend 启动，`model load` 才返回未配置错误。
 
 启动控制端只读一次 YAML，将有界 embedding 配置与现有 settings 一同传入 daemon；daemon、service 和 native client 不再次读取文件或 `process.env`。快照沿现有私有启动记录传递，embedding 快照序列化后最多 2048 bytes，完整记录继续遵守 4096-byte 上限；修改配置后重启 backend 生效。共享 YAML 仍受 16 KiB 上限约束。
 

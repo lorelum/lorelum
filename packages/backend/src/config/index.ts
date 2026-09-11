@@ -26,3 +26,4 @@ export {
   type ResolvedEmbeddingConfig,
   embeddingTokenLimits,
 } from "./embedding";
+export { defaultBackendConfigSections } from "./defaults";

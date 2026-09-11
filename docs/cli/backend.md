@@ -8,7 +8,7 @@
 lore backend start
 ```
 
-首次 start 会通过 config 层创建缺失的共享配置文件；已有配置不会覆盖。等待兼容且经过认证的 backend 报告 ready 后退出 `0`。重复启动复用已有实例；启动不会下载或加载模型。随后可执行 [model load](model.md)。
+首次 start 由 CLI 应用组装层调用独立 config 包创建缺失的共享配置文件；已有配置不会覆盖。等待兼容且经过认证的 backend 报告 ready 后退出 `0`。重复启动复用已有实例；启动不会下载或加载模型。随后可执行 [model load](model.md)。
 
 成功输出是单行 JSON，展开后例如：
 

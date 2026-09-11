@@ -69,7 +69,7 @@ HTTP 202 只表示接受，不表示模型已可编码。下载失败通过状�
 
 ## Config 与 CPU 验证
 
-共享 YAML 的 `embedding` 配置仍在 backend 启动时解析一次，形成不可变快照；运行模块不再次读取 YAML 或环境变量，修改后重启生效。允许省略整个 embedding section 并使用默认配置，保留显式 `modelPath` 兼容路径。
+Lorelum config 是独立于 backend 的本地基础能力，包边界和首次初始化见本文末节。共享 YAML 的 `embedding` 配置仍在 backend 启动时解析一次，形成不可变快照；运行模块不再次读取 YAML 或环境变量，修改后重启生效。允许省略整个 embedding section 并使用默认配置，保留显式 `modelPath` 兼容路径。
 
 | 配置 | 约束与用途 |
 | --- | --- |
@@ -116,12 +116,41 @@ API 文档不复制 CLI 参数表；CLI 文档链接配置说明；开发指南�
 - 编译 CLI 在隔离 HOME、含空格安装目录和精简 PATH 下验证了进度、1024-token 配置、HTTP 编码、损坏 YAML 时卸载与正常停止。
 - **尚缺默认模型稳定 HTTPS 来源**，因此没有启用虚构的默认 URL，也没有上传模型。配置 `download.url` 可使用固定摘要的托管文件；来源确定后仍需执行一次真实 HTTPS 下载验收。
 
-## 首次使用的配置初始化
+## Lorelum config 的包边界与首次初始化
 
-用户进一步要求空 HOME 安装后无需手动创建配置。`shared/config` 统一解析 `.lorelum`、config.yaml、backend 运行目录和模型缓存目录，提供独立的幂等初始化入口；普通读取仍不写文件。backend config 负责提供自己拥有的默认字段，CLI 只在显式 `backend start` 时请求初始化，不在 help、describe、status、stop 或 model status 中创建配置。
+**调整前的耦合：**此前 `shared/config` 同时提供 Lorelum 根目录和 backend/runtime/model 路径，`loadBackendConfig({ initialize: true })` 还负责创建共享配置。虽然 LocalStore 已从 shared 获取根目录，初始化仍经 backend loader 触发；CLI 自己读取配置不应要求导入 backend 或连接 daemon。
 
-初始化只处理不存在的配置文件，写入可编辑的 backend/embedding 默认值，不固化机器绝对路径、不填写未知下载地址。先写同目录临时文件并同步，再以不覆盖目标的方式发布；并发启动只有一个创建者。已有配置的字节、注释、其他模块字段和权限保持不变；损坏配置继续明确报错，不以默认配置覆盖。文件创建为 0600，新目录为 0700，模型缓存仍在首次实际使用时创建。
+**本阶段调整：**将基础能力迁到独立 workspace 包 `@lorelum/config`。它拥有 Lorelum 根路径、config 文档读取和幂等初始化，不依赖 backend、engine 或 CLI。继续复用现有 YAML 解析与原子创建实现，不新增配置注册框架；消费者自行验证各自 section，基础包只保证文档是合法、有界的映射。
 
-这项初始化解决目录与配置生命周期，不能代替 native 资源安装或提供不存在的模型托管地址。PR 要分别记录空 HOME 的已验证体验、已有配置的兼容性，以及默认模型来源尚未交付的事实。
+| 所有者 | 责任与依赖 |
+| --- | --- |
+| `packages/config/src/paths/lorelum.ts` | `resolveLorelumPaths(homeDirectory?)` 仅返回 `rootDirectory` 和 `configFile`，无文件写入 |
+| `packages/config/src/document/load.ts`、`packages/config/src/document/initialize.ts` | 有界 YAML 读取、ConfigError、显式幂等初始化；不解析 backend/CLI/Store 字段 |
+| backend config | 从基础包读取文档，验证 backend/embedding section，导出自己拥有的初始默认值；从根目录派生 `run/backend`、`models` |
+| Engine LocalStore | 直接依赖 `@lorelum/config` 获取默认根路径；不经过 backend，不读取模型配置 |
+| CLI composition | 直接读取 Lorelum config，按需要解析 CLI section；组合现有模块默认值并在已确定的命令入口执行初始化 |
 
-初始化已通过空 HOME 编译 CLI 验收：帮助/发现/status/stop 不创建 `.lorelum`；start 创建 0600 配置及默认值；重复 start、stop 保留文件；用户注释和其他模块配置不变；缺下载源明确报错；配置模型路径后能加载 1024-token 模型。全量 597 项测试、typecheck、lint 和编译通过。
+基础包保留以下已有能力，类型不引用业务包；`index.ts` 只导出接口：
+
+```ts
+interface LorelumPaths { readonly rootDirectory: string; readonly configFile: string; }
+interface LoadConfigOptions { readonly homeDirectory?: string; readonly filePath?: string; }
+resolveLorelumPaths(homeDirectory?: string): LorelumPaths;
+loadConfig(options?: LoadConfigOptions): Promise<Readonly<Record<string, unknown>>>;
+initializeConfig(options?: LoadConfigOptions, initialDocument?: Readonly<Record<string, unknown>>)
+  : Promise<{ readonly created: boolean; readonly filePath: string }>;
+```
+
+以上签名是模块合同示意。CLI 的组合顺序是：确认执行显式 `backend start` → 使用 backend 导出的 backend/embedding 默认 section 构造初始文档 → 调用基础包 `initializeConfig` → 调用纯读的 backend config loader → 启动 supervisor。默认值仍由对应模块定义，CLI 只组装，不复制数值；目前没有已定义的 CLI 默认字段，就不向初始 YAML 添加虚构字段。CLI 可独立 `loadConfig()` 并取得 `document.cli`，已有 CLI 消费者负责其校验，无需 backend HTTP。
+
+移除 `loadBackendConfig` 的 `initialize` 选项及写入副作用；初始化不藏在 loader、路径解析器或 LocalStore 构造过程中。help、describe、status、stop、model status 和直接 `loadConfig` 保持只读。backend/embedding 仍在启动时生成不可变快照；迁包不引入热重载。LocalStore 默认根目录和全局 `--store-root` 的现有优先级保持，不新增 Store root 配置项。
+
+初始化只处理不存在的配置文件，写入当前模块可编辑的默认值，不固化机器绝对路径、不填写未知下载地址。先写同目录临时文件并同步，再以不覆盖目标的方式发布；并发启动只有一个创建者。已有配置的字节、注释、其他模块字段和权限保持不变；损坏配置继续明确报错，不以默认配置覆盖。文件创建为 0600，新目录为 0700；backend 运行目录和模型缓存由各自的实际使用路径创建。
+
+迁移时将现有 shared/config 源码及测试移入新包，更新 workspace 依赖和所有 import；同一仓库内部引用一次迁完，不保留两套实现。基础包保留 `filePath`/`homeDirectory` 注入以供隔离测试；backend runtime/model cache 路径在 backend 内派生。无需新增命令、修改 CLI envelope、HTTP endpoint 或再次升级协议；前文协议 3 的原因仍是异步 model load 和状态扩展。
+
+此前初始化实现已通过空 HOME 编译 CLI、注释/权限保留与 597 项测试；这只能证明迁移前行为，不能作为新边界已经完成的证据。迁移验收补充：基础包无业务包依赖；无 backend 时 CLI 直接读取共享文档；LocalStore 默认路径与覆盖行为保持；只读命令不创建 `.lorelum`；并发初始化仅一方创建且文件完整；backend loader 单独调用不写入。重跑受影响测试、typecheck、lint 和空 HOME 编译 CLI 验收。
+
+配置生命周期独立后，用户仍可在空 HOME 显式启动并编辑默认配置。这不代替 native 资源安装或默认模型 HTTPS 来源；来源缺口继续单独报告，不扩大此次包边界调整。
+
+抽离后验证：全量 600 项测试、所有 workspace typecheck、lint、frozen-lockfile 安装与 CLI 编译通过；编译 CLI 在隔离 HOME 下再次验证首次初始化、只读无写入、已有 CLI section 保留、模型 load/unload。配置基础包测试允许 backend section 含无效业务字段，CLI/Store 仍可读取各自合法 section；由 backend 消费时才报该模块配置错误。

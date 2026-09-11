@@ -52,6 +52,7 @@
       "name": "@lorelum/backend",
       "version": "0.0.0",
       "dependencies": {
+        "@lorelum/config": "workspace:*",
         "@lorelum/engine": "workspace:*",
         "@lorelum/shared": "workspace:*",
         "elysia": "1.4.30",
@@ -66,6 +67,7 @@
       },
       "dependencies": {
         "@lorelum/backend": "workspace:*",
+        "@lorelum/config": "workspace:*",
         "@lorelum/engine": "workspace:*",
         "@lorelum/format": "workspace:*",
         "@lorelum/mcp": "workspace:*",
@@ -73,10 +75,21 @@
         "commander": "15.0.0",
       },
     },
+    "packages/config": {
+      "name": "@lorelum/config",
+      "version": "0.0.0",
+      "dependencies": {
+        "js-yaml": "4.3.1",
+      },
+      "devDependencies": {
+        "@types/js-yaml": "4.0.9",
+      },
+    },
     "packages/engine": {
       "name": "@lorelum/engine",
       "version": "0.0.0",
       "dependencies": {
+        "@lorelum/config": "workspace:*",
         "@lorelum/format": "workspace:*",
         "@lorelum/shared": "workspace:*",
       },
@@ -107,12 +120,6 @@
     "packages/shared": {
       "name": "@lorelum/shared",
       "version": "0.0.0",
-      "dependencies": {
-        "js-yaml": "4.3.1",
-      },
-      "devDependencies": {
-        "@types/js-yaml": "4.0.9",
-      },
     },
   },
   "overrides": {
@@ -318,6 +325,8 @@
     "@lorelum/backend": ["@lorelum/backend@workspace:packages/backend"],
 
     "@lorelum/cli": ["@lorelum/cli@workspace:packages/cli"],
+
+    "@lorelum/config": ["@lorelum/config@workspace:packages/config"],
 
     "@lorelum/engine": ["@lorelum/engine@workspace:packages/engine"],
 

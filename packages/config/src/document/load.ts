@@ -1,6 +1,6 @@
 import { open, type FileHandle } from "node:fs/promises";
 import { load, JSON_SCHEMA } from "js-yaml";
-import { resolveLorelumPaths } from "./paths";
+import { resolveLorelumPaths } from "../paths/lorelum";
 
 export const MAX_CONFIG_BYTES = 16_384;
 

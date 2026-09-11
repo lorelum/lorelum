@@ -51,3 +51,16 @@ for (const content of [
     }),
   );
 }
+
+test("global config treats consumer sections as data rather than validating backend fields", () =>
+  fixture(async (homeDirectory, filePath) => {
+    await mkdir(join(homeDirectory, ".lorelum"));
+    await writeFile(
+      filePath,
+      "cli:\n  example: local\nstore:\n  example: offline\nbackend:\n  requestTimeoutMs: invalid\n",
+    );
+    const config = await loadConfig({ homeDirectory });
+    expect(config.cli).toEqual({ example: "local" });
+    expect(config.store).toEqual({ example: "offline" });
+    expect(config.backend).toEqual({ requestTimeoutMs: "invalid" });
+  }));

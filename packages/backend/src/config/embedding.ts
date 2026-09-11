@@ -1,5 +1,5 @@
-import { resolveLorelumPaths } from "@lorelum/shared/config";
-import { isAbsolute } from "node:path";
+import { resolveLorelumPaths } from "@lorelum/config";
+import { isAbsolute, join } from "node:path";
 import { homedir } from "node:os";
 import { z } from "zod";
 import { BackendError } from "../protocol/errors";
@@ -45,7 +45,8 @@ export function resolveEmbeddingConfig(
   const value = {
     ...result.data,
     cacheDirectory:
-      result.data.cacheDirectory ?? resolveLorelumPaths(homeDirectory).modelCacheDirectory,
+      result.data.cacheDirectory ??
+      join(resolveLorelumPaths(homeDirectory).rootDirectory, "models"),
   };
   if (Buffer.byteLength(JSON.stringify(value), "utf8") > MAX_SERIALIZED_EMBEDDING_BYTES)
     throw new BackendError("backend.config-invalid");

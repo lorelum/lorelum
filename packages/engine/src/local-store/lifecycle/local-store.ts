@@ -1,4 +1,4 @@
-import { resolveLorelumPaths } from "@lorelum/shared/config";
+import { resolveLorelumPaths } from "@lorelum/config";
 
 import type { ValidationIssue } from "@lorelum/format";
 

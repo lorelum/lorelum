@@ -1,9 +1,10 @@
 import {
   loadConfig,
-  initializeConfig,
   resolveLorelumPaths,
   ConfigError,
-} from "@lorelum/shared/config";
+  type LoadConfigOptions,
+} from "@lorelum/config";
+import { join } from "node:path";
 import { homedir } from "node:os";
 import { BackendError } from "../protocol/errors";
 import {
@@ -23,7 +24,7 @@ const environmentKeys = {
 } as const;
 
 export function defaultRuntimeDirectory(homeDirectory = homedir()): string {
-  return resolveLorelumPaths(homeDirectory).backendRuntimeDirectory;
+  return join(resolveLorelumPaths(homeDirectory).rootDirectory, "run", "backend");
 }
 
 /** Pure resolver for already-read sources; each source must be valid on its own. */
@@ -40,17 +41,13 @@ export function resolveBackendSettings(...sources: readonly unknown[]): BackendS
   return Object.freeze(resolved.data);
 }
 
-export interface LoadBackendConfigOptions {
-  /** Only explicit start initializes the shared config; read-only callers leave this false. */
-  readonly initialize?: boolean;
-  readonly homeDirectory?: string;
-  readonly filePath?: string;
+export interface LoadBackendConfigOptions extends LoadConfigOptions {
   readonly environment?: Environment;
   /** Dependency injection, not an additional public CLI surface. */
   readonly overrides?: Partial<BackendSettings>;
 }
 
-/** Defaults < YAML < named environment < injection. Writes only when initialize is requested. */
+/** Defaults < YAML < named environment < injection. Read-only; validates only this consumer's sections. */
 export async function loadBackendConfig(
   options: LoadBackendConfigOptions = {},
 ): Promise<BackendConfig> {
@@ -65,13 +62,6 @@ export async function loadBackendConfig(
   }
   let document: Readonly<Record<string, unknown>>;
   try {
-    if (options.initialize) {
-      const { threads, maxTokens, download } = resolveEmbeddingConfig(undefined, homeDirectory);
-      await initializeConfig(options, {
-        backend: DEFAULT_BACKEND_SETTINGS,
-        embedding: { threads, maxTokens, download },
-      });
-    }
     document = await loadConfig(options);
   } catch (error) {
     if (error instanceof ConfigError) throw new BackendError("backend.config-invalid");

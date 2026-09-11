@@ -4,7 +4,7 @@ import { dirname, isAbsolute, parse, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { dump } from "js-yaml";
 import { ConfigError, MAX_CONFIG_BYTES, type LoadConfigOptions } from "./load";
-import { resolveLorelumPaths } from "./paths";
+import { resolveLorelumPaths } from "../paths/lorelum";
 
 const INITIAL_COMMENT = "# Lorelum shared configuration. Edit sections as needed.\n";
 

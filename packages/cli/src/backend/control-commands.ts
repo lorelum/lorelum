@@ -1,7 +1,14 @@
+import { ConfigError } from "@lorelum/config";
+import { initializeApplicationConfig } from "../config/initialize";
 import { lifecycleCommand } from "./common";
 import { loadBackendConfig } from "@lorelum/backend/config";
 import type { BackendSupervisor } from "@lorelum/backend/control";
-import { backendErrorCodes, statusSchema, type BackendStatus } from "@lorelum/backend/protocol";
+import {
+  BackendError,
+  backendErrorCodes,
+  statusSchema,
+  type BackendStatus,
+} from "@lorelum/backend/protocol";
 
 import type { JsonSchema, JsonValue } from "../output/protocol";
 import type { CommandDefinition } from "../registry";
@@ -41,8 +48,16 @@ export async function createProcessBackendSupervisor(
   const command = isCompiledEntrypoint(entrypoint)
     ? [process.execPath, "--internal-backend-serve"]
     : [process.execPath, entrypoint, "--internal-backend-serve"];
+  if (options.initialize) {
+    try {
+      await initializeApplicationConfig();
+    } catch (error) {
+      if (error instanceof ConfigError) throw new BackendError("backend.config-invalid");
+      throw error;
+    }
+  }
   return createBackendSupervisor({
-    config: await loadBackendConfig(options),
+    config: await loadBackendConfig(),
     buildIdentity: await currentBuildIdentity(entrypoint),
     command,
   });
