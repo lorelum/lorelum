@@ -31,3 +31,24 @@ test("invalid private launch is rejected", () => {
     HOME: "/tmp/home",
   });
 });
+
+test("platform environment keeps the required Windows values", () => {
+  expect(
+    platformEnvironment({
+      SystemRoot: "C:\\Windows",
+      WINDIR: "C:\\Windows",
+      TEMP: "C:\\Temp",
+      TMP: "C:\\Temp",
+      USERPROFILE: "C:\\Users\\test",
+      LOCALAPPDATA: "C:\\Users\\test\\AppData\\Local",
+      API_TOKEN: "private",
+    }),
+  ).toEqual({
+    SystemRoot: "C:\\Windows",
+    WINDIR: "C:\\Windows",
+    TEMP: "C:\\Temp",
+    TMP: "C:\\Temp",
+    USERPROFILE: "C:\\Users\\test",
+    LOCALAPPDATA: "C:\\Users\\test\\AppData\\Local",
+  });
+});

@@ -20,6 +20,7 @@ import {
   createBackendCommands,
   createProcessBackendSupervisor,
 } from "./backend/control-commands.js";
+import { createModelCommands, createProcessBackendClient } from "./backend/model-commands.js";
 import { createLocalizationCommands } from "./localization/index.js";
 
 export interface CommandOption {
@@ -255,6 +256,7 @@ export const commandRegistry = snapshotCommandDefinitions([
   createQueryCommand({ queryService: sharedQueryService, storageRoot: sharedStorageRoot }),
   createListCommand({ list: sharedListService, storageRoot: sharedStorageRoot }),
   ...createBackendCommands({ createSupervisor: createProcessBackendSupervisor }),
+  ...createModelCommands({ createClient: createProcessBackendClient }),
   ...createLocalizationCommands(),
 ]);
 

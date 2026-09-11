@@ -5,6 +5,9 @@
 ```sh
 lore backend start
 lore backend status
+lore model load
+lore model status
+lore model unload
 lore backend stop
 lore describe backend.start
 ```
@@ -22,7 +25,7 @@ The successful protocol envelope contains one of these status values:
 }
 ```
 
-`instanceId` and `buildIdentity` are included when an instance exists. The first backend stage always reports `model: "unloaded"`; loading an embedding model is a later stage. These commands do not read a LocalStore, so the global `--store-root` option has no effect on them.
+`instanceId` and `buildIdentity` are included when an instance exists. `model` reports the resident embedding service separately from backend lifecycle state. `lore model load` and `lore model unload` require an already running backend; `lore model status` is read-only and none of the model commands starts the backend. These commands do not read a LocalStore, so the global `--store-root` option has no effect on them.
 
 ## Configuration
 
@@ -33,9 +36,12 @@ backend:
   startupTimeoutMs: 10000
   requestTimeoutMs: 5000
   shutdownTimeoutMs: 5000
+
+embedding:
+  modelPath: /absolute/path/to/granite-q4_0.gguf
 ```
 
-These are also the defaults. Each value must be an integer from 1 to 120000. Environment variables override individual file values:
+The backend timeout values shown above are also the defaults. Each timeout must be an integer from 1 to 120000. There is no default model path. Environment variables override individual file values:
 
 | Setting                   | Environment variable                  |
 | ------------------------- | ------------------------------------- |
@@ -45,7 +51,7 @@ These are also the defaults. Each value must be an integer from 1 to 120000. Env
 
 Each control invocation reads the configuration. The running daemon keeps its startup settings until it is stopped and restarted; repeated `start` does not reload them. Invalid YAML, unknown keys within `backend`, and invalid backend values fail with `backend.config-invalid`, even if another source overrides the invalid value. A missing or empty file uses defaults and is not created automatically. Other top-level sections remain available to their owning modules. The former experimental `backend.json` is no longer read; move its values under `backend` in `config.yaml`.
 
-The listening address remains fixed. The runtime directory and private launch handshake are separate from this user configuration.
+The embedding section is optional. `modelPath` must be an absolute path; unknown embedding keys and serialized embedding snapshots over 2048 UTF-8 bytes are rejected. The listening address remains fixed. The runtime directory and private launch handshake are separate from this user configuration.
 
 ## Errors and exit codes
 
@@ -64,8 +70,18 @@ Failures return the standard CLI envelope with exit code `2`. Callers should bra
 | `backend.state-invalid`     | Local lifecycle state cannot be safely recovered.                  |
 | `backend.failed`            | The backend operation failed without a more specific public cause. |
 
-Control requests contain no Store paths or query text; the client authenticates using the private runtime credential. They neither start a model runtime nor change query behavior.
+Model commands may also return `embedding.not-configured`, `embedding.resource-invalid`, `embedding.not-loaded`, `embedding.busy`, `embedding.input-invalid`, `embedding.input-too-long`, `embedding.deadline-exceeded`, or `embedding.failed`.
+
+Backend lifecycle requests contain no Store paths or query text; the client authenticates using the private runtime credential. They neither start a model runtime nor change query behavior.
 
 ## Implementation scope
 
-This stage provides a resident keyword-query endpoint and process control. Existing CLI commands still execute through their original Engine path; reducing full CLI startup cost is separate work. No model is loaded. The process supervisor currently targets macOS/Linux; other platforms are not verified.
+This stage provides a resident keyword-query endpoint, process control, and explicit embedding-model lifecycle commands. Existing CLI query commands still execute through their original Engine path; reducing full CLI startup cost is separate work. The embedding artifact currently targets macOS arm64 only. Windows native artifacts, process identity/private ACL support, and end-to-end acceptance remain pending; Linux embedding is outside this stage. Unsupported embedding platforms fail explicitly rather than launching an unverified executable.
+
+## Build and upgrade
+
+Build the native package with `bun scripts/native/build-embedding.ts`, then build the CLI with `bun run build:cli`. Keep `dist/lore` next to the complete `dist/native/darwin-arm64/` directory, including its manifest and license notices. Native resources are verified against the artifact pinned in the CLI; rebuilding with a different toolchain requires reviewing and repinning that artifact. Models are not downloaded automatically.
+
+This change uses control/business protocol version 2. Before upgrading, use the **old CLI** to stop the old daemon; then install the new CLI/native resources and start the backend again. A new client rejects an old control protocol and cannot be assumed to stop it.
+
+After loading, authenticated backend clients can encode one to eight texts through `/internal/v1/embeddings`. Each input may contain at most 512 tokens including special tokens. Inputs are preserved, overlong text is rejected, and a concurrent encoding request returns busy. Query and document currently share the fixed 384-dimensional CLS/L2 encoding. Semantic index/query adoption remains a later stage.

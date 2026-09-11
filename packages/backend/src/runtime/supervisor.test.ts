@@ -203,3 +203,26 @@ test(
     }),
   20_000,
 );
+
+test(
+  "daemon launch record retains the resolved embedding snapshot",
+  async () =>
+    fixture(async (directory, port, command) => {
+      const controller = createBackendSupervisor({
+        buildIdentity: "integration-build",
+        command,
+        runtimeDirectory: directory,
+        baseUrl: `http://127.0.0.1:${port}`,
+        config: {
+          runtimeDirectory: directory,
+          settings: { startupTimeoutMs: 10_000, requestTimeoutMs: 5_000, shutdownTimeoutMs: 5_000 },
+          embedding: { modelPath: "/models/granite.gguf" },
+        },
+      });
+      await controller.start();
+      expect((await readRecord(directory))?.embedding).toEqual({
+        modelPath: "/models/granite.gguf",
+      });
+    }),
+  20_000,
+);

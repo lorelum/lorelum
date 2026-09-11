@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { EmbeddingConfig } from "./embedding";
 
 const timeout = z.number().int().min(1).max(120_000);
 export const backendSettingsSchema = z.strictObject({
@@ -15,5 +16,6 @@ export const DEFAULT_BACKEND_SETTINGS: BackendSettings = Object.freeze({
 export interface BackendConfig {
   readonly runtimeDirectory: string;
   readonly settings: BackendSettings;
+  readonly embedding?: EmbeddingConfig;
 }
 export type Environment = Readonly<Record<string, string | undefined>>;

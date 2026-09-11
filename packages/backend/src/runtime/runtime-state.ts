@@ -3,18 +3,33 @@ import { lstat, mkdir, open, rename, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { backendSettingsSchema } from "../config/model";
+import { embeddingConfigSchema } from "../config/embedding";
 import { BackendError } from "../protocol/errors";
 
-export const runtimeRecordSchema = z.strictObject({
-  instanceId: z.string().regex(/^[a-f0-9-]{36}$/),
-  secret: z.string().regex(/^[a-f0-9]{64}$/),
-  buildIdentity: z.string().min(1).max(128),
-  controlVersion: z.number().int(),
-  businessVersion: z.number().int(),
-  pid: z.number().int().min(1),
-  startedAt: z.string().min(1),
-  settings: backendSettingsSchema.optional(),
-});
+const MAX_RUNTIME_RECORD_BYTES = 4_096;
+
+export const runtimeRecordSchema = z
+  .strictObject({
+    instanceId: z.string().regex(/^[a-f0-9-]{36}$/),
+    secret: z.string().regex(/^[a-f0-9]{64}$/),
+    buildIdentity: z.string().min(1).max(128),
+    controlVersion: z.number().int(),
+    businessVersion: z.number().int(),
+    pid: z.number().int().min(1),
+    startedAt: z.string().min(1),
+    settings: backendSettingsSchema.optional(),
+    modelProcess: z
+      .strictObject({
+        pid: z.int().positive(),
+        startedAt: z.string().min(1),
+        nativeBuild: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .optional(),
+    embedding: embeddingConfigSchema.optional(),
+  })
+  .refine(
+    (record) => Buffer.byteLength(JSON.stringify(record), "utf8") <= MAX_RUNTIME_RECORD_BYTES,
+  );
 export type RuntimeRecord = z.infer<typeof runtimeRecordSchema>;
 export function statePath(directory: string): string {
   return join(directory, "instance.json");
@@ -95,9 +110,14 @@ export async function readRecord(directory: string): Promise<RuntimeRecord | und
   if (file === undefined) return undefined;
   try {
     const info = await file.stat();
-    if (info.size > 4096 || info.uid !== process.getuid?.() || (info.mode & 0o077) !== 0)
+    if (
+      info.size > MAX_RUNTIME_RECORD_BYTES ||
+      info.uid !== process.getuid?.() ||
+      (info.mode & 0o077) !== 0
+    )
       throw new BackendError("backend.state-invalid");
-    const raw: unknown = JSON.parse(await file.readFile("utf8"));
+    const rawText = await file.readFile("utf8");
+    const raw: unknown = JSON.parse(rawText);
     const result = runtimeRecordSchema.safeParse(raw);
     if (!result.success) throw new BackendError("backend.state-invalid");
     return result.data;
@@ -109,10 +129,13 @@ export async function readRecord(directory: string): Promise<RuntimeRecord | und
   }
 }
 export async function writeRecord(directory: string, record: RuntimeRecord): Promise<void> {
+  const serialized = JSON.stringify(record);
+  if (!runtimeRecordSchema.safeParse(record).success)
+    throw new BackendError("backend.state-invalid");
   const temporary = join(directory, `${record.instanceId}.tmp`);
   const file = await open(temporary, "wx", 0o600);
   try {
-    await file.writeFile(JSON.stringify(record));
+    await file.writeFile(serialized);
     await file.sync();
   } finally {
     await file.close();

@@ -5,6 +5,7 @@ export interface BackendServiceOptions {
   readonly identity: InstanceIdentity;
   readonly secret: string;
   readonly isReady?: () => boolean;
+  readonly modelState?: () => BackendStatus["model"];
   readonly onStop: () => void | Promise<void>;
   readonly onStopFailure?: (error: unknown) => void;
 }
@@ -20,7 +21,7 @@ export function createBackendService(options: BackendServiceOptions) {
   const available = () => !stopping && (options.isReady?.() ?? true);
   const status = (): BackendStatus => ({
     state: stopping ? "stopping" : available() ? "ready" : "starting",
-    model: "unloaded",
+    model: options.modelState?.() ?? "unloaded",
     instanceId,
     buildIdentity,
   });

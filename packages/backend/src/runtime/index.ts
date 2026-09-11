@@ -4,4 +4,6 @@ export {
   type BackendSupervisorOptions,
 } from "./supervisor";
 export { defaultRuntimeDirectory } from "../config/load";
-export { currentBuildIdentity } from "./build-identity";
+export { currentBuildIdentity, isCompiledEntrypoint } from "./build-identity";
+export { isSameProcess } from "./process-identity";
+export { readRecord, type RuntimeRecord } from "./runtime-state";

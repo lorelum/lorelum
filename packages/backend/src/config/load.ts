@@ -9,6 +9,7 @@ import {
   type BackendSettings,
   type Environment,
 } from "./model";
+import { resolveEmbeddingConfig } from "./embedding";
 
 const settingsSource = backendSettingsSchema.partial();
 const environmentKeys = {
@@ -64,8 +65,10 @@ export async function loadBackendConfig(
     throw error;
   }
   const fromFile = document.backend;
+  const embedding = resolveEmbeddingConfig(document.embedding);
   return Object.freeze({
     runtimeDirectory: defaultRuntimeDirectory(homeDirectory),
     settings: resolveBackendSettings(fromFile, fromEnvironment, options.overrides),
+    ...(embedding === undefined ? {} : { embedding }),
   });
 }

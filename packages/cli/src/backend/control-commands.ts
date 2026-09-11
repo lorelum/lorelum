@@ -1,15 +1,10 @@
+import { lifecycleCommand } from "./common";
 import { loadBackendConfig } from "@lorelum/backend/config";
 import type { BackendSupervisor } from "@lorelum/backend/control";
-import {
-  BackendError,
-  backendErrorCodes,
-  statusSchema,
-  type BackendStatus,
-} from "@lorelum/backend/protocol";
+import { backendErrorCodes, statusSchema, type BackendStatus } from "@lorelum/backend/protocol";
 
-import type { JsonSchema, JsonValue } from "../output/protocol.js";
-import type { CommandDefinition } from "../registry.js";
-import { CliError, frameworkErrorCodes } from "../runtime/errors.js";
+import type { JsonSchema, JsonValue } from "../output/protocol";
+import type { CommandDefinition } from "../registry";
 
 export interface BackendCommandServices {
   readonly createSupervisor: () => Promise<BackendSupervisor>;
@@ -27,7 +22,7 @@ const backendStatusResultSchema: JsonSchema = {
     .map(([name]) => name),
   properties: {
     state: { enum: statusShape.state.options },
-    model: { const: "unloaded" },
+    model: { enum: statusShape.model.options },
     instanceId: { type: "string" },
     buildIdentity: { type: "string" },
   },
@@ -38,10 +33,10 @@ const backendStatusResultSchema: JsonSchema = {
  * The lifecycle module owns process spawning and never loads on ordinary metadata reads.
  */
 export async function createProcessBackendSupervisor(): Promise<BackendSupervisor> {
-  const { createBackendSupervisor, currentBuildIdentity } =
+  const { createBackendSupervisor, currentBuildIdentity, isCompiledEntrypoint } =
     await import("@lorelum/backend/control");
   const entrypoint = Bun.main;
-  const command = isCompiledCliEntrypoint(entrypoint)
+  const command = isCompiledEntrypoint(entrypoint)
     ? [process.execPath, "--internal-backend-serve"]
     : [process.execPath, entrypoint, "--internal-backend-serve"];
   return createBackendSupervisor({
@@ -49,10 +44,6 @@ export async function createProcessBackendSupervisor(): Promise<BackendSuperviso
     buildIdentity: await currentBuildIdentity(entrypoint),
     command,
   });
-}
-
-function isCompiledCliEntrypoint(entrypoint: string): boolean {
-  return entrypoint.includes("/$bunfs/") || entrypoint.includes("\\$bunfs\\");
 }
 
 function toResult(status: BackendStatus): JsonValue {
@@ -64,60 +55,23 @@ function toResult(status: BackendStatus): JsonValue {
   };
 }
 
-async function execute(
-  services: BackendCommandServices,
-  operation: (supervisor: BackendSupervisor) => Promise<BackendStatus>,
-): Promise<{ data: JsonValue }> {
-  try {
-    return { data: toResult(await operation(await services.createSupervisor())) };
-  } catch (error) {
-    if (error instanceof BackendError) {
-      throw new CliError(error.code, error.message);
-    }
-    throw error;
-  }
-}
-
-function definition(
-  name: "backend.start" | "backend.status" | "backend.stop",
-  summary: string,
-  services: BackendCommandServices,
-  operation: (supervisor: BackendSupervisor) => Promise<BackendStatus>,
-): CommandDefinition {
-  return {
-    name,
-    summary,
-    positionals: [],
-    options: [],
-    resultSchema: backendStatusResultSchema,
-    errorCodes: [...frameworkErrorCodes, ...backendErrorCodes],
-    exitCodes: [0, 2],
-    handler: () => execute(services, operation),
-  };
-}
-
 /** Control commands share the CLI registry but have no LocalStore dependency. */
 export function createBackendCommands(
   services: BackendCommandServices,
 ): readonly CommandDefinition[] {
-  return [
-    definition(
-      "backend.start",
-      "Start the local backend and wait for it to become ready.",
-      services,
-      (supervisor) => supervisor.start(),
-    ),
-    definition(
-      "backend.status",
-      "Report the current local backend status without starting it.",
-      services,
-      (supervisor) => supervisor.status(),
-    ),
-    definition(
-      "backend.stop",
-      "Stop the local backend and wait for it to exit.",
-      services,
-      (supervisor) => supervisor.stop(),
-    ),
-  ];
+  return (
+    [
+      ["start", "Start the local backend and wait for it to become ready."],
+      ["status", "Report the current local backend status without starting it."],
+      ["stop", "Stop the local backend and wait for it to exit."],
+    ] as const
+  ).map(([operation, summary]) =>
+    lifecycleCommand({
+      name: `backend.${operation}`,
+      summary,
+      resultSchema: backendStatusResultSchema,
+      errorCodes: backendErrorCodes,
+      execute: async () => toResult(await (await services.createSupervisor())[operation]()),
+    }),
+  );
 }

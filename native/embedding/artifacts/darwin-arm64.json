@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "buildIdentity": "06bb48a643816d3fc3506d35a68abe30f380632a587d6a7c948622a2b1e8cd18",
+  "recipeIdentity": "c4798b76f2bb6c5cf3184af93e480bbf7b9bb976023a8cfe3008b59bef47e4f5",
+  "platform": "darwin",
+  "arch": "arm64",
+  "executable": "llama-server",
+  "source": {
+    "tag": "b10901",
+    "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
+    "archiveSha256": "b4220cefe053c18fb2d5c27a859c0aaab3106a5644bcbbbb2bdd67699dfe4b79"
+  },
+  "patchSha256": "f58b3db4c77ae0297679153d893f08dabc1b1759edead5c5b4cd9eef19bab03f",
+  "toolchain": {
+    "cmake": "cmake version 3.31.6",
+    "compiler": "Apple clang version 17.0.0 (clang-1700.4.4.1)"
+  },
+  "cmakeFlags": [
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_OSX_ARCHITECTURES=arm64",
+    "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.3",
+    "-DLLAMA_BUILD_NUMBER=10901",
+    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.f58b3db4",
+    "-DBUILD_SHARED_LIBS=OFF",
+    "-DLLAMA_BUILD_TESTS=OFF",
+    "-DLLAMA_BUILD_EXAMPLES=OFF",
+    "-DLLAMA_BUILD_TOOLS=ON",
+    "-DLLAMA_BUILD_SERVER=ON",
+    "-DLLAMA_BUILD_APP=OFF",
+    "-DLLAMA_BUILD_UI=OFF",
+    "-DLLAMA_USE_PREBUILT_UI=OFF",
+    "-DLLAMA_OPENSSL=OFF",
+    "-DLLAMA_SUBPROCESS=OFF",
+    "-DGGML_METAL=OFF",
+    "-DGGML_CUDA=OFF",
+    "-DGGML_VULKAN=OFF",
+    "-DGGML_OPENCL=OFF",
+    "-DGGML_RPC=OFF",
+    "-DGGML_NATIVE=OFF",
+    "-DGGML_CPU_ARM_ARCH=armv8.4-a+dotprod+fp16"
+  ],
+  "model": {
+    "fileName": "granite-q4_0.gguf",
+    "bytes": 66345216,
+    "sha256": "18e8ce8ce834790618e90d26bed465cca87362076f3042eb0d8eee0732596f59"
+  },
+  "files": [
+    {
+      "path": "llama-server",
+      "bytes": 12575520,
+      "sha256": "13af30986b823fad2951b166c2a77c8e914a2a796a5c36efe7294912802b306c"
+    },
+    {
+      "path": "LICENSE.llama.cpp",
+      "bytes": 1078,
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+    },
+    {
+      "path": "LICENSE.cpp-httplib",
+      "bytes": 1075,
+      "sha256": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b"
+    },
+    {
+      "path": "LICENSE.nlohmann-json",
+      "bytes": 1075,
+      "sha256": "c0d068392ea65358b798b8c165103560f06e9e3b38c4ab4e2d8810a7b931af86"
+    },
+    {
+      "path": "LICENSE.rotate-bits",
+      "bytes": 1088,
+      "sha256": "ca0b44aec101afb6b46f4c39b23369fa06a64fb9c0add37c2689d702156fee55"
+    },
+    {
+      "path": "LICENSE.sha256",
+      "bytes": 41,
+      "sha256": "b81d0022ca6367918c67b57e9647d3513ee58809fd4b0ef0b3492f1356bced25"
+    },
+    {
+      "path": "LICENSE.xxhash",
+      "bytes": 1389,
+      "sha256": "6ffedbc0f7878612d2b23589f1ff2ab15633e1df7963a5d9fc750ec5500c7e7a"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.txt",
+      "bytes": 634,
+      "sha256": "6582d4fb7712326c65f62d3a7c7f9291a7b8649df4e0bbc2c3f97ae2782d9668"
+    }
+  ],
+  "licenses": [
+    "LICENSE.llama.cpp",
+    "LICENSE.cpp-httplib",
+    "LICENSE.nlohmann-json",
+    "LICENSE.rotate-bits",
+    "LICENSE.sha256",
+    "LICENSE.xxhash",
+    "THIRD_PARTY_NOTICES.txt"
+  ],
+  "dynamicDependencies": [
+    "/usr/lib/libSystem.B.dylib",
+    "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate",
+    "/usr/lib/libc++.1.dylib"
+  ]
+}

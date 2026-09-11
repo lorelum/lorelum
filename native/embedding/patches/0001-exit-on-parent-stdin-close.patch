@@ -1,0 +1,41 @@
+diff --git a/tools/server/main.cpp b/tools/server/main.cpp
+index 7f17c56..eb8289b 100644
+--- a/tools/server/main.cpp
++++ b/tools/server/main.cpp
+@@ -1,5 +1,36 @@
++#include <cstdio>
++#include <cstdlib>
++#include <thread>
++
++#if defined(_WIN32)
++#include <io.h>
++#else
++#include <unistd.h>
++#endif
++
+ int llama_server(int argc, char ** argv);
+ 
++static void start_parent_liveness_watcher() {
++    std::thread([]() {
++        char buffer[1];
++
++        while (true) {
++#if defined(_WIN32)
++            const int result = ::_read(::_fileno(stdin), buffer, sizeof(buffer));
++#else
++            const ssize_t result = ::read(STDIN_FILENO, buffer, sizeof(buffer));
++#endif
++            if (result <= 0) {
++                // stdin is a pipe owned by the Lorelum daemon. EOF or a read
++                // failure means that owner is gone, so bypass cleanup and
++                // locks that may be held by a stalled inference thread.
++                std::_Exit(EXIT_SUCCESS);
++            }
++        }
++    }).detach();
++}
++
+ int main(int argc, char ** argv) {
++    start_parent_liveness_watcher();
+     return llama_server(argc, argv);
+ }

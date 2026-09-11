@@ -55,6 +55,29 @@ test("cleanup cannot delete a replacement instance record", async () =>
     await removeRecord(directory, previous.instanceId);
     expect((await readRecord(directory))?.instanceId).toBe(replacement.instanceId);
   }));
+
+test("runtime records carry the optional embedding snapshot", async () =>
+  fixture(async (directory) => {
+    const value = { ...(await record()), embedding: { modelPath: "/models/granite.gguf" } };
+    await writeRecord(directory, value);
+    expect((await readRecord(directory))?.embedding).toEqual(value.embedding);
+  }));
+
+test("runtime record writes reject serialized records over 4096 UTF-8 bytes", async () =>
+  fixture(async (directory) => {
+    const value = { ...(await record()), embedding: { modelPath: `/${"模型".repeat(1_000)}` } };
+    await expect(writeRecord(directory, value)).rejects.toMatchObject({
+      code: "backend.state-invalid",
+    });
+  }));
+
+test("runtime record rejects embedding snapshots over 2048 UTF-8 bytes", async () =>
+  fixture(async (directory) => {
+    const value = { ...(await record()), embedding: { modelPath: `/${"模型".repeat(700)}` } };
+    await expect(writeRecord(directory, value)).rejects.toMatchObject({
+      code: "backend.state-invalid",
+    });
+  }));
 test("runtime directory permissions are checked without silently repairing them", async () =>
   fixture(async (directory) => {
     await chmod(directory, 0o755);

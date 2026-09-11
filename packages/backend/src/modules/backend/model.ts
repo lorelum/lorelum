@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { modelStates } from "../embedding/model";
 
 export const identitySchema = z.strictObject({
   instanceId: z.string().min(1).max(128),
@@ -11,7 +12,7 @@ export type BackendIdentity = z.infer<typeof identitySchema>;
 export const backendStatusStates = ["starting", "ready", "stopping", "stopped"] as const;
 export const statusSchema = z.strictObject({
   state: z.enum(backendStatusStates),
-  model: z.literal("unloaded"),
+  model: z.enum(modelStates),
   instanceId: z.string().optional(),
   buildIdentity: z.string().optional(),
 });

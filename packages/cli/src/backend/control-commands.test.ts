@@ -3,14 +3,11 @@ import { expect, test } from "bun:test";
 
 import { BackendError, type BackendStatus } from "@lorelum/backend/protocol";
 
-import { run } from "../main.js";
-import {
-  validateJsonSchema,
-  validateProtocolSchema,
-} from "../output/protocol-schema.test-helper.js";
-import { protocolResponseSchema } from "../output/protocol.js";
-import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
-import { createBackendCommands, type BackendCommandServices } from "./control-commands.js";
+import { run } from "../main";
+import { validateJsonSchema, validateProtocolSchema } from "../output/protocol-schema.test-helper";
+import { protocolResponseSchema } from "../output/protocol";
+import { describeCommand, snapshotCommandDefinitions } from "../registry";
+import { createBackendCommands, type BackendCommandServices } from "./control-commands";
 
 class MemoryWriter {
   value = "";

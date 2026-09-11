@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 /** Source identity binds checkout + production source; compiled identity binds executable bytes. */
 export async function currentBuildIdentity(entrypoint: string): Promise<string> {
   const hash = createHash("sha256");
-  if (entrypoint.includes("/$bunfs/") || entrypoint.startsWith("B:/~BUN/")) {
+  if (isCompiledEntrypoint(entrypoint)) {
     hash.update(await readFile(process.execPath));
   } else {
     const root = await realpath(resolve(dirname(entrypoint), "../../.."));
@@ -16,6 +16,7 @@ export async function currentBuildIdentity(entrypoint: string): Promise<string> 
       await includeDirectory(join(root, "packages", name, "src"), hash);
     }
     hash.update(await readFile(join(root, "bun.lock")));
+    await includeDirectory(join(root, "native", "embedding"), hash);
   }
   return hash.digest("hex");
 }
@@ -31,4 +32,10 @@ async function includeDirectory(path: string, hash: ReturnType<typeof createHash
       hash.update(await readFile(file));
     }
   }
+}
+
+/** Bun has used both virtual-root forms; normalize separators for Windows builds. */
+export function isCompiledEntrypoint(entrypoint: string): boolean {
+  const normalized = entrypoint.replaceAll("\\", "/");
+  return normalized.includes("/$bunfs/") || /^[A-Za-z]:\/~BUN\//.test(normalized);
 }

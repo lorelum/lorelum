@@ -1,3 +1,5 @@
+import { embeddingController } from "./modules/embedding/controller";
+import type { EmbeddingService } from "./modules/embedding/service";
 import type { QueryService } from "@lorelum/engine";
 import { Elysia } from "elysia";
 import { backendController } from "./modules/backend/controller";
@@ -8,6 +10,7 @@ import { BACKEND_HOST, BACKEND_PORT } from "./protocol/constants";
 
 export interface CreateBackendAppOptions {
   readonly backend: BackendService;
+  readonly embedding?: EmbeddingService;
   readonly queryService: QueryService;
   /** Internal test injection; production always uses the fixed IPv4 endpoint. */
   readonly host?: string;
@@ -35,5 +38,8 @@ export function createBackendApp(options: CreateBackendAppOptions) {
         : reject(500, "backend.failed");
     })
     .use(backendController(backend))
+    .use(
+      options.embedding ? embeddingController(options.embedding, backend.available) : new Elysia(),
+    )
     .use(queryController(options.queryService, backend.available));
 }

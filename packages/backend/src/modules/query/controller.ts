@@ -1,3 +1,4 @@
+import { BACKEND_ROUTES } from "../../protocol/constants";
 import {
   InvalidQueryRequestError,
   KeywordIndexError,
@@ -14,13 +15,13 @@ import { queryRequestSchema, queryResultSchema, type BackendQueryResult } from "
 
 /** QueryService already owns the use case; this controller only adapts transport. */
 export function queryController(service: QueryService, available: () => boolean) {
-  return new Elysia({ prefix: "/internal/v1", normalize: false })
+  return new Elysia({ normalize: false })
     .onBeforeHandle(({ request }) => {
       if (!available()) return reject(503, "backend.busy");
       return requireJson(request);
     })
     .post(
-      "/query",
+      BACKEND_ROUTES.query,
       async ({ body }) => {
         try {
           const query = {

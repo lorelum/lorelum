@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { backendErrorBody, type BackendErrorCode } from "../protocol/errors";
-import { BACKEND_HOST, MAX_BODY_BYTES } from "../protocol/constants";
+import { BACKEND_HOST, BACKEND_ROUTES, MAX_BODY_BYTES } from "../protocol/constants";
 
 export function reject(status: number, code: BackendErrorCode): Response {
   return Response.json(backendErrorBody(code), { status });
@@ -17,7 +17,7 @@ export function localBoundary(port: number, authenticate: (credential: string) =
       if (request.headers.has("origin")) return reject(403, "backend.unauthorized");
       if (request.headers.get("host") !== authority) return reject(400, "backend.invalid-request");
       const publicIdentity =
-        request.method === "GET" && new URL(request.url).pathname === "/internal/v1/identity";
+        request.method === "GET" && new URL(request.url).pathname === BACKEND_ROUTES.identity;
       if (publicIdentity) {
         if (request.headers.has("authorization") || request.headers.has("cookie"))
           return reject(401, "backend.unauthorized");

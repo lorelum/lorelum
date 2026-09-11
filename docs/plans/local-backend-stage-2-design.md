@@ -1,6 +1,6 @@
 # 本地后端第二阶段：llama.cpp Q4_0 CPU 常驻接入
 
-状态：**选型已确认，接入设计 Proposed，尚未开始产品实现。** 用户确定使用 llama.cpp + Granite 97M R2 Q4_0 CPU，框架与量化调研结束；GPU 后续单独考虑。本阶段一个实施 Issue、一个 PR，不拆成依赖 PR。
+状态：**Owner 已授权实施；macOS arm64 首批接入已实现，Windows 与最终跨平台交付尚未完成。** 用户确定使用 llama.cpp + Granite 97M R2 Q4_0 CPU，框架与量化调研结束；GPU 后续单独考虑。Mac 首批实施关联 #101，使用一个 PR，不拆成依赖 PR。
 
 ## 交付目标与边界
 
@@ -113,7 +113,7 @@ Windows 任务同时处理现有 `processIdentity` 的 ps 依赖、POSIX uid/mod
 
 ## 实施任务与验收
 
-以下按顺序在同一 Issue 执行，前置失败只暂停依赖步骤，不重开框架选型；全部为待实施任务。
+以下为本阶段完整验收范围，前置失败只暂停依赖步骤，不重开框架选型。当前进展见本节后的实施记录；不能将 Mac 首批通过等同于全部任务完成。
 
 | Task | 交付内容 | 完成标准 |
 | --- | --- | --- |
@@ -129,3 +129,13 @@ Windows 任务同时处理现有 `processIdentity` 的 ps 依赖、POSIX uid/mod
 现有 M4 Q4_0 约 21 条/秒、负载后 626–627 MiB 只是回归参考；正式 native 补丁与 Elysia 接入后重新采样，不能把这组数字写成所有平台 SLA。模型质量的大规模评测留在既有后续任务，不重新成为框架选型阶段。
 
 完成本阶段后，用户得到可显式管理、可重复编码、可正常和异常回收的 CPU 模型服务。下一阶段再让 semantic index/query 消费此编码入口；GPU 不进入本阶段依赖或验收。
+
+## 2026-09-11 实施记录
+
+- T1–T4 的 Mac 路径已落地：固定 CPU native 构建与父进程管道，config 快照，分层 embedding 模块，私有认证连接，model CLI 与协议版本 2。
+- 资源加载会核对受信 manifest、文件大小和 SHA-256；加载期间及编码前后检查文件是否被替换或修改。private runtime record 记录模型子进程身份和 native build，不保存 native 凭证。
+- 私有连接增加每次启动独立的 model alias；它只传给自建 native，客户端核对响应中的 alias，不将它写进编码请求，避免仅以通用健康响应认领服务。
+- Mac 真进程验证覆盖复用、超时回收、模型崩溃后显式重载、daemon SIGKILL 后回收、干净重启；独立 native 测试覆盖加载前、编码期间和主线程永久阻塞时的父进程死亡。
+- 编译版 CLI 已在包含空格的迁移目录、精简 PATH 下实际加载/卸载；backend 不在时 model status 不创建运行目录；daemon 运行中 YAML 被改坏时 model unload 仍使用既有快照完成卸载。
+- T5 **未完成**：当前只打包并选择 macOS arm64 资源。Windows 的 native 构建、进程身份/私有 ACL 实现和整链路验收仍缺少 Windows 运行环境；环境变量白名单已准备，但不能因此声明 Windows 支持。Linux/其他架构仍不在本阶段。
+- T6 已完成本地 Mac 验证；验证命令和 CR 结论记录在实施 PR。Windows 与正式分发验收仍未完成，未发布或修改 release workflow。

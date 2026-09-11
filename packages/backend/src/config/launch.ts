@@ -35,7 +35,21 @@ export function consumeDaemonLaunch(environment: NodeJS.ProcessEnv = process.env
 /** Select only platform values required by child processes; never retain unrelated credentials. */
 export function platformEnvironment(environment: Environment = process.env): NodeJS.ProcessEnv {
   const selected: NodeJS.ProcessEnv = {};
-  for (const key of ["HOME", "PATH", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TZ"]) {
+  for (const key of [
+    "HOME",
+    "PATH",
+    "TMPDIR",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TZ",
+    "SystemRoot",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "LOCALAPPDATA",
+  ]) {
     if (environment[key] !== undefined) selected[key] = environment[key];
   }
   return selected;

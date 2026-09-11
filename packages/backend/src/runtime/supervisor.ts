@@ -5,6 +5,7 @@ import { createConnection } from "node:net";
 import {
   defaultRuntimeDirectory,
   resolveBackendSettings,
+  resolveEmbeddingConfig,
   daemonEnvironment,
   type BackendConfig,
 } from "../config";
@@ -48,6 +49,7 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
   )
     throw new BackendError("backend.invalid-request");
   const settings = resolveBackendSettings(options.config?.settings);
+  const embedding = resolveEmbeddingConfig(options.config?.embedding);
   const timeoutMs = options.timeoutMs ?? settings.startupTimeoutMs;
   const client = (record: RuntimeRecord) =>
     createBackendClient({
@@ -139,6 +141,7 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
       const record: RuntimeRecord = {
         ...process,
         settings,
+        ...(embedding === undefined ? {} : { embedding }),
         instanceId,
         secret: randomBytes(32).toString("hex"),
         buildIdentity: options.buildIdentity,

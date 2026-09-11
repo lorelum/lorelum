@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "project": "ggml-org/llama.cpp",
+    "tag": "b10901",
+    "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
+    "archiveUrl": "https://github.com/ggml-org/llama.cpp/archive/28ff0958291ce3465fabd7bd679d4b0edd742bd9.tar.gz",
+    "archiveBytes": 37374036,
+    "archiveSha256": "b4220cefe053c18fb2d5c27a859c0aaab3106a5644bcbbbb2bdd67699dfe4b79"
+  },
+  "patch": {
+    "path": "patches/0001-exit-on-parent-stdin-close.patch",
+    "sha256": "f58b3db4c77ae0297679153d893f08dabc1b1759edead5c5b4cd9eef19bab03f"
+  },
+  "cmake": {
+    "version": "3.31.6",
+    "darwinUniversalUrl": "https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-macos-universal.tar.gz",
+    "darwinUniversalSha256": "330b9514f5112e5ed4fb08b8b05803b776fd9b539a6ae12927d14dcc0ee2ba8d"
+  },
+  "cmakeFlags": [
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_OSX_ARCHITECTURES=arm64",
+    "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.3",
+    "-DLLAMA_BUILD_NUMBER=@BUILD_NUMBER@",
+    "-DLLAMA_BUILD_COMMIT=@BUILD_COMMIT@",
+    "-DBUILD_SHARED_LIBS=OFF",
+    "-DLLAMA_BUILD_TESTS=OFF",
+    "-DLLAMA_BUILD_EXAMPLES=OFF",
+    "-DLLAMA_BUILD_TOOLS=ON",
+    "-DLLAMA_BUILD_SERVER=ON",
+    "-DLLAMA_BUILD_APP=OFF",
+    "-DLLAMA_BUILD_UI=OFF",
+    "-DLLAMA_USE_PREBUILT_UI=OFF",
+    "-DLLAMA_OPENSSL=OFF",
+    "-DLLAMA_SUBPROCESS=OFF",
+    "-DGGML_METAL=OFF",
+    "-DGGML_CUDA=OFF",
+    "-DGGML_VULKAN=OFF",
+    "-DGGML_OPENCL=OFF",
+    "-DGGML_RPC=OFF",
+    "-DGGML_NATIVE=OFF",
+    "-DGGML_CPU_ARM_ARCH=armv8.4-a+dotprod+fp16"
+  ],
+  "model": {
+    "fileName": "granite-q4_0.gguf",
+    "bytes": 66345216,
+    "sha256": "18e8ce8ce834790618e90d26bed465cca87362076f3042eb0d8eee0732596f59"
+  }
+}

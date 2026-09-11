@@ -1,12 +1,13 @@
+import { BACKEND_ROUTES } from "../../protocol/constants";
 import { Elysia } from "elysia";
 import { identityQuerySchema, identitySchema, statusSchema } from "./model";
 import type { BackendService } from "./service";
 
 export function backendController(service: BackendService) {
   const controls = new Elysia({ normalize: false })
-    .get("/status", () => service.status(), { response: { 200: statusSchema } })
+    .get(BACKEND_ROUTES.status, () => service.status(), { response: { 200: statusSchema } })
     .post(
-      "/stop",
+      BACKEND_ROUTES.stop,
       () => {
         const result = service.beginStop();
         // Schedule shutdown after the HTTP response; the service makes it idempotent.
@@ -18,9 +19,9 @@ export function backendController(service: BackendService) {
       { response: { 200: statusSchema } },
     );
 
-  return new Elysia({ prefix: "/internal/v1", normalize: false })
+  return new Elysia({ normalize: false })
     .get(
-      "/identity",
+      BACKEND_ROUTES.identity,
       ({ query }) => {
         return service.identify(query.nonce);
       },

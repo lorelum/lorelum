@@ -24,6 +24,22 @@ test("absent config uses defaults without creating files", () =>
     expect(Object.isFrozen(config.settings)).toBe(true);
   }));
 
+test("loads and freezes the optional embedding snapshot from shared config", () =>
+  fixture(async (homeDirectory, filePath) => {
+    await writeFile(filePath, "embedding:\n  modelPath: /models/granite.gguf\n");
+    const config = await loadBackendConfig({ homeDirectory, filePath, environment: {} });
+    expect(config.embedding).toEqual({ modelPath: "/models/granite.gguf" });
+    expect(Object.isFrozen(config.embedding)).toBe(true);
+  }));
+
+test("rejects invalid embedding config", () =>
+  fixture(async (homeDirectory, filePath) => {
+    await writeFile(filePath, "embedding:\n  modelPath: relative.gguf\n");
+    await expect(
+      loadBackendConfig({ homeDirectory, filePath, environment: {} }),
+    ).rejects.toMatchObject({ code: "backend.config-invalid" });
+  }));
+
 test("file, environment and explicit values override defaults in order", () =>
   fixture(async (homeDirectory, filePath) => {
     await writeFile(filePath, "backend:\n  startupTimeoutMs: 2000\n  requestTimeoutMs: 3000\n");
