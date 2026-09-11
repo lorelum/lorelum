@@ -1,11 +1,16 @@
+import { DEFAULT_EMBEDDING_SETTINGS } from "../config/embedding";
 import { EMBEDDING_MODEL } from "../modules/embedding/model";
 import { BACKEND_HOST } from "../protocol/constants";
 
-const CPU_THREADS = 4;
-const tokenLimit = String(EMBEDDING_MODEL.maxTokens);
-
 /** Production and explicit native tests use the same fixed CPU encoding recipe. */
-export function llamaArguments(modelPath: string, port: number, alias: string): string[] {
+export function llamaArguments(
+  modelPath: string,
+  port: number,
+  alias: string,
+  options: { threads?: number | undefined; maxTokens?: number | undefined } = {},
+): string[] {
+  const tokenLimit = String(options.maxTokens ?? EMBEDDING_MODEL.maxTokens);
+  const threads = String(options.threads ?? DEFAULT_EMBEDDING_SETTINGS.threads);
   return [
     "-m",
     modelPath,
@@ -26,9 +31,9 @@ export function llamaArguments(modelPath: string, port: number, alias: string): 
     "-ngl",
     "0",
     "-t",
-    String(CPU_THREADS),
+    threads,
     "-tb",
-    String(CPU_THREADS),
+    threads,
     "-c",
     tokenLimit,
     "-b",

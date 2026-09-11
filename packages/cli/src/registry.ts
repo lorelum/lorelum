@@ -20,7 +20,7 @@ import {
   createBackendCommands,
   createProcessBackendSupervisor,
 } from "./backend/control-commands.js";
-import { createModelCommands, createProcessBackendClient } from "./backend/model-commands.js";
+import { createModelCommands, createProcessBackendClient } from "./model/commands";
 import { createLocalizationCommands } from "./localization/index.js";
 
 export interface CommandOption {

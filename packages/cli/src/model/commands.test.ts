@@ -10,7 +10,7 @@ import { run } from "../main";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper";
 import { protocolResponseSchema } from "../output/protocol";
 import { describeCommand, snapshotCommandDefinitions } from "../registry";
-import { createModelCommands, type ModelCommandServices } from "./model-commands";
+import { createModelCommands, type ModelCommandServices } from "./commands";
 
 class MemoryWriter {
   value = "";
@@ -24,6 +24,8 @@ const ready: ModelStatus = {
   encodingId: ENCODING_ID,
   device: "cpu",
   dimensions: EMBEDDING_MODEL.dimensions,
+  threads: 4,
+  maxTokens: 512,
 };
 
 function fakeClient(calls: string[]): BackendClient {

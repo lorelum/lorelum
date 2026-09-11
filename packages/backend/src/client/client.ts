@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Model loading polls one shared operation without a transfer deadline. */
 import type { z } from "zod";
 import { readBoundedJson } from "../http/read-json";
 import { randomBytes } from "node:crypto";
@@ -31,6 +32,7 @@ import {
   modelStatusSchema,
   type ModelStatus,
 } from "../modules/embedding/dto";
+import { embeddingEncodingId } from "../modules/embedding/model";
 import type { EmbeddingResult } from "../modules/embedding/model";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
 import type { QueryRequest, QueryResult, StorageRoot } from "@lorelum/engine";
@@ -43,8 +45,6 @@ export interface CreateBackendClientOptions {
   readonly buildIdentity: string;
   /** Timeout for ordinary control and embedding requests. */
   readonly timeoutMs?: number;
-  /** Timeout budget for loading the embedding model. */
-  readonly startupTimeoutMs?: number;
   /** Timeout budget for unloading the embedding model. */
   readonly shutdownTimeoutMs?: number;
 }
@@ -53,7 +53,7 @@ export interface BackendClient {
   identity(): Promise<BackendIdentity>;
   status(): Promise<BackendStatus>;
   stop(): Promise<BackendStatus>;
-  loadModel(): Promise<ModelStatus>;
+  loadModel(options?: { onProgress?: (status: ModelStatus) => void }): Promise<ModelStatus>;
   statusModel(): Promise<ModelStatus>;
   unloadModel(): Promise<ModelStatus>;
   embed(kind: "query" | "document", inputs: readonly string[]): Promise<EmbeddingResult>;
@@ -102,12 +102,12 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
   if (options.secret.length === 0) throw new TypeError("Backend secret must not be empty");
   if (options.buildIdentity.length === 0) throw new TypeError("Build identity must not be empty");
   const timeoutMs = options.timeoutMs ?? DEFAULT_BACKEND_SETTINGS.requestTimeoutMs;
-  const startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_BACKEND_SETTINGS.startupTimeoutMs;
   const shutdownTimeoutMs = options.shutdownTimeoutMs ?? DEFAULT_BACKEND_SETTINGS.shutdownTimeoutMs;
-  for (const timeout of [timeoutMs, startupTimeoutMs, shutdownTimeoutMs]) {
+  for (const timeout of [timeoutMs, shutdownTimeoutMs]) {
     if (!Number.isInteger(timeout) || timeout < 1)
       throw new TypeError("Timeout must be a positive integer");
   }
+  let expectedEncodingId: string | undefined;
   const baseUrl = validatedLoopbackUrl(options.baseUrl ?? BACKEND_URL);
 
   const send = async (
@@ -211,27 +211,44 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     return result;
   };
 
+  async function modelRequest(
+    path: string,
+    requestOptions: { payload?: unknown; timeout?: number } = {},
+  ) {
+    const result = await request(path, modelStatusSchema, requestOptions);
+    if (result.encodingId !== embeddingEncodingId(result.maxTokens))
+      throw new BackendError("backend.incompatible");
+    expectedEncodingId = result.encodingId;
+    return result;
+  }
+
   return Object.freeze({
     identity: identify,
     status: () => control(BACKEND_ROUTES.status),
     stop: () => control(BACKEND_ROUTES.stop, "POST"),
-    loadModel: () =>
-      request(BACKEND_ROUTES.modelLoad, modelStatusSchema, {
-        payload: {},
-        timeout: startupTimeoutMs,
-      }),
-    statusModel: () => request(BACKEND_ROUTES.modelStatus, modelStatusSchema),
+    async loadModel({ onProgress } = {}) {
+      let result = await modelRequest(BACKEND_ROUTES.modelLoad, { payload: {} });
+      // Loading may include hours of useful transfer. Only each HTTP call has a deadline.
+      while (result.state === "loading") {
+        onProgress?.(result);
+        await Bun.sleep(250);
+        result = await modelRequest(BACKEND_ROUTES.modelStatus);
+      }
+      if (result.state === "failed") throw new EmbeddingError(result.error ?? "embedding.failed");
+      if (result.state !== "ready") throw new EmbeddingError("embedding.not-loaded");
+      return result;
+    },
+    statusModel: () => modelRequest(BACKEND_ROUTES.modelStatus),
     unloadModel: () =>
-      request(BACKEND_ROUTES.modelUnload, modelStatusSchema, {
-        payload: {},
-        timeout: shutdownTimeoutMs,
-      }),
+      modelRequest(BACKEND_ROUTES.modelUnload, { payload: {}, timeout: shutdownTimeoutMs }),
     async embed(kind, inputs) {
       const payload = { kind, inputs };
       if (!embeddingRequestSchema.safeParse(payload).success)
         throw new EmbeddingError("embedding.input-invalid");
+      if (!expectedEncodingId) await modelRequest(BACKEND_ROUTES.modelStatus);
       const result = await request(BACKEND_ROUTES.embeddings, embeddingResultSchema, { payload });
-      if (result.vectors.length !== inputs.length) throw new BackendError("backend.failed");
+      if (result.vectors.length !== inputs.length || result.encodingId !== expectedEncodingId)
+        throw new BackendError("backend.failed");
       return result;
     },
     async query(root, query) {

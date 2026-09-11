@@ -128,7 +128,10 @@ export async function readRecord(directory: string): Promise<RuntimeRecord | und
     await file.close();
   }
 }
-export async function writeRecord(directory: string, record: RuntimeRecord): Promise<void> {
+export async function writeRecord(
+  directory: string,
+  record: z.input<typeof runtimeRecordSchema>,
+): Promise<void> {
   const serialized = JSON.stringify(record);
   if (!runtimeRecordSchema.safeParse(record).success)
     throw new BackendError("backend.state-invalid");

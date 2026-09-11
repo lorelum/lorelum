@@ -220,7 +220,7 @@ test(
         },
       });
       await controller.start();
-      expect((await readRecord(directory))?.embedding).toEqual({
+      expect((await readRecord(directory))?.embedding).toMatchObject({
         modelPath: "/models/granite.gguf",
       });
     }),

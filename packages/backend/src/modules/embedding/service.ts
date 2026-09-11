@@ -1,11 +1,12 @@
 /* eslint-disable no-await-in-loop -- Native single-slot encoding is intentionally sequential. */
+import { DEFAULT_EMBEDDING_SETTINGS } from "../../config/embedding";
 import { waitForSettlement } from "../../lifecycle/deadline";
 import type { BackendSettings } from "../../config/model";
-import { embeddingRequestSchema, type ModelStatus } from "./dto";
+import { embeddingRequestSchema, type ModelProgress, type ModelStatus } from "./dto";
 import { EmbeddingError, embeddingFailure, type EmbeddingErrorCode } from "./errors";
 import {
   EMBEDDING_MODEL,
-  ENCODING_ID,
+  embeddingEncodingId,
   type EmbeddingRuntime,
   type EmbeddingResult,
   type ModelState,
@@ -14,10 +15,20 @@ import {
 const SHUTDOWN_DRAIN_RESERVE_MS = 200;
 
 export interface EmbeddingServiceOptions {
-  readonly createRuntime: () => EmbeddingRuntime;
+  readonly createRuntime: (modelPath?: string) => EmbeddingRuntime;
+  readonly prepareModel?: (
+    signal: AbortSignal,
+    progress: (value: ModelProgress) => void,
+  ) => Promise<string>;
+  readonly threads?: number;
+  readonly maxTokens?: ModelStatus["maxTokens"];
   readonly settings: BackendSettings;
 }
 export function createEmbeddingService(options: EmbeddingServiceOptions) {
+  const threads = options.threads ?? DEFAULT_EMBEDDING_SETTINGS.threads;
+  const maxTokens = options.maxTokens ?? EMBEDDING_MODEL.maxTokens;
+  const encodingId = embeddingEncodingId(maxTokens);
+  let progress: ModelProgress | undefined;
   let state: ModelState = "unloaded";
   let failure: EmbeddingErrorCode | undefined;
   let runtime: EmbeddingRuntime | undefined;
@@ -28,7 +39,10 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
   let unloadDeadline: number | undefined;
   const status = (): ModelStatus => ({
     state,
-    encodingId: ENCODING_ID,
+    encodingId,
+    threads,
+    maxTokens,
+    ...(progress ? { progress } : {}),
     device: "cpu",
     dimensions: EMBEDDING_MODEL.dimensions,
     ...(failure ? { error: failure } : {}),
@@ -38,6 +52,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     if (runtime === handle) runtime = undefined;
   }
   async function recover(error: EmbeddingError, handle?: EmbeddingRuntime): Promise<never> {
+    progress = undefined;
     if (state !== "unloading") {
       state = "failed";
       failure = error.code;
@@ -58,6 +73,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     if (state === "ready") return Promise.resolve(status());
     if (runtime || inflight) return Promise.reject(new EmbeddingError("embedding.busy"));
     state = "loading";
+    progress = { phase: "resolving" };
     failure = undefined;
     startup = new AbortController();
     const signal = startup.signal;
@@ -65,12 +81,18 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
       let handle: EmbeddingRuntime | undefined;
       try {
         signal.throwIfAborted();
-        handle = options.createRuntime();
+        const modelPath = await options.prepareModel?.(signal, (value) => {
+          if (state === "loading" && !signal.aborted) progress = value;
+        });
+        signal.throwIfAborted();
+        progress = { phase: "starting" };
+        handle = options.createRuntime(modelPath);
         runtime = handle;
         await handle.start(signal, Date.now() + options.settings.startupTimeoutMs);
         signal.throwIfAborted();
         if (state !== "loading") throw new EmbeddingError("embedding.busy");
         state = "ready";
+        progress = undefined;
         const active = handle;
         void handle.exited.then(() => {
           if (runtime === active && state === "ready") {
@@ -93,6 +115,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
   ): Promise<ModelStatus> {
     if (unloading) return unloading;
     state = "unloading";
+    progress = undefined;
     unloadDeadline = deadline;
     startup?.abort();
     unloading = Promise.resolve().then(async () => {
@@ -131,14 +154,14 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     const work = async () => {
       try {
         for (const text of inputs) {
-          if ((await handle.tokenize(text, signal)).length > EMBEDDING_MODEL.maxTokens)
+          if ((await handle.tokenize(text, signal)).length > maxTokens)
             throw new EmbeddingError("embedding.input-too-long");
         }
         const vectors: number[][] = [];
         for (const text of inputs) vectors.push(await handle.encode(text, signal));
         signal.throwIfAborted();
         if (runtime !== handle) throw new EmbeddingError("embedding.not-loaded");
-        return { encodingId: ENCODING_ID, vectors };
+        return { encodingId, vectors };
       } catch (error) {
         const visible = signal.aborted
           ? new EmbeddingError("embedding.deadline-exceeded")
@@ -154,6 +177,13 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
       inflight = undefined;
     }
   }
-  return { status, load, unload, embed };
+  function beginLoad(): ModelStatus {
+    if (state === "unloading" || (!loading && state !== "ready" && (runtime || inflight)))
+      throw new EmbeddingError("embedding.busy");
+    // HTTP accepts immediately; the shared task owns its error/status until completion.
+    void load().catch(() => {});
+    return status();
+  }
+  return { status, beginLoad, load, unload, embed };
 }
 export type EmbeddingService = ReturnType<typeof createEmbeddingService>;

@@ -1,6 +1,10 @@
-import { loadConfig, ConfigError } from "@lorelum/shared/config";
+import {
+  loadConfig,
+  initializeConfig,
+  resolveLorelumPaths,
+  ConfigError,
+} from "@lorelum/shared/config";
 import { homedir } from "node:os";
-import { join } from "node:path";
 import { BackendError } from "../protocol/errors";
 import {
   backendSettingsSchema,
@@ -19,7 +23,7 @@ const environmentKeys = {
 } as const;
 
 export function defaultRuntimeDirectory(homeDirectory = homedir()): string {
-  return join(homeDirectory, ".lorelum", "run", "backend");
+  return resolveLorelumPaths(homeDirectory).backendRuntimeDirectory;
 }
 
 /** Pure resolver for already-read sources; each source must be valid on its own. */
@@ -37,6 +41,8 @@ export function resolveBackendSettings(...sources: readonly unknown[]): BackendS
 }
 
 export interface LoadBackendConfigOptions {
+  /** Only explicit start initializes the shared config; read-only callers leave this false. */
+  readonly initialize?: boolean;
   readonly homeDirectory?: string;
   readonly filePath?: string;
   readonly environment?: Environment;
@@ -44,7 +50,7 @@ export interface LoadBackendConfigOptions {
   readonly overrides?: Partial<BackendSettings>;
 }
 
-/** Defaults < shared YAML file < named environment values < explicit injection. No writes. */
+/** Defaults < YAML < named environment < injection. Writes only when initialize is requested. */
 export async function loadBackendConfig(
   options: LoadBackendConfigOptions = {},
 ): Promise<BackendConfig> {
@@ -59,13 +65,20 @@ export async function loadBackendConfig(
   }
   let document: Readonly<Record<string, unknown>>;
   try {
+    if (options.initialize) {
+      const { threads, maxTokens, download } = resolveEmbeddingConfig(undefined, homeDirectory);
+      await initializeConfig(options, {
+        backend: DEFAULT_BACKEND_SETTINGS,
+        embedding: { threads, maxTokens, download },
+      });
+    }
     document = await loadConfig(options);
   } catch (error) {
     if (error instanceof ConfigError) throw new BackendError("backend.config-invalid");
     throw error;
   }
   const fromFile = document.backend;
-  const embedding = resolveEmbeddingConfig(document.embedding);
+  const embedding = resolveEmbeddingConfig(document.embedding, homeDirectory);
   return Object.freeze({
     runtimeDirectory: defaultRuntimeDirectory(homeDirectory),
     settings: resolveBackendSettings(fromFile, fromEnvironment, options.overrides),

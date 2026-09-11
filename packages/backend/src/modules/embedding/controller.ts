@@ -11,7 +11,12 @@ import {
 import { EmbeddingError } from "./errors";
 import type { EmbeddingService } from "./service";
 
-const modelResponses = { 200: modelStatusSchema, 400: errorSchema, 503: errorSchema };
+const modelResponses = {
+  200: modelStatusSchema,
+  202: modelStatusSchema,
+  400: errorSchema,
+  503: errorSchema,
+};
 const modelMutation = { body: emptyModelRequestSchema, response: modelResponses };
 
 export function embeddingController(service: EmbeddingService, available: () => boolean) {
@@ -23,7 +28,15 @@ export function embeddingController(service: EmbeddingService, available: () => 
     .get(BACKEND_ROUTES.modelStatus, () => service.status(), {
       response: modelResponses,
     })
-    .post(BACKEND_ROUTES.modelLoad, () => invoke(() => service.load()), modelMutation)
+    .post(
+      BACKEND_ROUTES.modelLoad,
+      () =>
+        invoke(async () => {
+          const result = service.beginLoad();
+          return status(result.state === "ready" ? 200 : 202, result);
+        }),
+      modelMutation,
+    )
     .post(BACKEND_ROUTES.modelUnload, () => invoke(() => service.unload()), modelMutation)
     .post(
       BACKEND_ROUTES.embeddings,

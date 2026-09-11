@@ -1,7 +1,8 @@
 import { open, type FileHandle } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { load, JSON_SCHEMA } from "js-yaml";
+import { resolveLorelumPaths } from "./paths";
+
+export const MAX_CONFIG_BYTES = 16_384;
 
 export class ConfigError extends Error {
   constructor() {
@@ -19,8 +20,7 @@ export interface LoadConfigOptions {
 export async function loadConfig(
   options: LoadConfigOptions = {},
 ): Promise<Readonly<Record<string, unknown>>> {
-  const path =
-    options.filePath ?? join(options.homeDirectory ?? homedir(), ".lorelum", "config.yaml");
+  const path = options.filePath ?? resolveLorelumPaths(options.homeDirectory).configFile;
   let file: FileHandle;
   try {
     file = await open(path, "r");
@@ -31,7 +31,7 @@ export async function loadConfig(
   }
   try {
     const info = await file.stat();
-    if (!info.isFile() || info.size > 16_384) throw new ConfigError();
+    if (!info.isFile() || info.size > MAX_CONFIG_BYTES) throw new ConfigError();
     const source = await file.readFile("utf8");
     if (source.split(/\r?\n/).every((line) => /^\s*(#.*)?$/.test(line))) return Object.freeze({});
     const document: unknown = load(source, { schema: JSON_SCHEMA });

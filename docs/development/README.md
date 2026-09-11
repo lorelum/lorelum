@@ -4,6 +4,9 @@ This is the index for day-to-day development topics that do not belong in the pr
 
 ## Topics
 
+- [Local backend API](../api/README.md)
+- [CLI command index](../cli/README.md)
+- [Backend configuration](../configuration/README.md)
 - [Environment and dependencies](../../CONTRIBUTING.md#development-environment)
 - [Tests and CI](../../CONTRIBUTING.md#testing--ci)
 - [Issues, branches, and PRs](../../CONTRIBUTING.md#development-workflow)

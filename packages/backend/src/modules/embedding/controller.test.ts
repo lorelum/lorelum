@@ -47,9 +47,13 @@ test("embedding endpoints share authentication and private error mapping", async
   const f = fixture();
   expect((await f.request("/model/status", "GET", undefined, false)).status).toBe(401);
   expect((await f.request("/model/status")).status).toBe(200);
-  const failed = await f.request("/model/load", "POST", {});
-  expect(failed.status).toBe(503);
-  expect(await failed.json()).toMatchObject({ error: { code: "embedding.not-configured" } });
+  const accepted = await f.request("/model/load", "POST", {});
+  expect(accepted.status).toBe(202);
+  await Bun.sleep(0);
+  expect(await (await f.request("/model/status")).json()).toMatchObject({
+    state: "failed",
+    error: "embedding.not-configured",
+  });
   expect(await (await f.request("/status")).json()).toMatchObject({
     state: "ready",
     model: "failed",

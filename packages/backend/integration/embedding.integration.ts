@@ -55,7 +55,6 @@ const client = createBackendClient({
   secret: "integration-only",
   buildIdentity: identity.buildIdentity,
   baseUrl: `http://127.0.0.1:${app.server!.port}`,
-  startupTimeoutMs: 15_000,
 });
 const times: number[] = [];
 try {

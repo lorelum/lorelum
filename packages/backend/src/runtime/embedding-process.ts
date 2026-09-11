@@ -19,7 +19,7 @@ const FORCE_KILL_WAIT_MS = 100;
 
 /** This object owns a single lifetime, including failed startup and bounded bind retries. */
 export function createEmbeddingProcess(
-  config: EmbeddingConfig | undefined,
+  config: Pick<EmbeddingConfig, "modelPath" | "threads" | "maxTokens"> | undefined,
   recordProcess?: (
     identity: (ProcessIdentity & { nativeBuild: string }) | undefined,
   ) => Promise<void>,
@@ -55,7 +55,7 @@ export function createEmbeddingProcess(
     return startTask;
   }
   async function launch(signal: AbortSignal, deadline: number) {
-    if (!config) throw new EmbeddingError("embedding.not-configured");
+    if (!config?.modelPath) throw new EmbeddingError("embedding.not-configured");
     resources = await resolveEmbeddingResources(config.modelPath, signal);
     for (let attempt = 0; attempt < MAX_BIND_ATTEMPTS; attempt++) {
       signal.throwIfAborted();
@@ -65,11 +65,15 @@ export function createEmbeddingProcess(
       const alias = randomBytes(32).toString("hex");
       await resources.assertUnchanged();
       signal.throwIfAborted();
-      const owned = spawn(resources.executable, llamaArguments(config.modelPath, port, alias), {
-        stdio: ["pipe", "ignore", "ignore"],
-        env: { ...platformEnvironment(), LLAMA_API_KEY: secret },
-        windowsHide: true,
-      });
+      const owned = spawn(
+        resources.executable,
+        llamaArguments(config.modelPath, port, alias, config),
+        {
+          stdio: ["pipe", "ignore", "ignore"],
+          env: { ...platformEnvironment(), LLAMA_API_KEY: secret },
+          windowsHide: true,
+        },
+      );
       child = owned;
       completion = new Promise<void>((resolve) => {
         owned.once("close", () => {

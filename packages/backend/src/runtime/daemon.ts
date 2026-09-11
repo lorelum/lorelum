@@ -1,3 +1,4 @@
+import { prepareModel } from "../models/prepare";
 import { createEmbeddingService } from "../modules/embedding/service";
 import { createEmbeddingProcess } from "./embedding-process";
 import { consumeDaemonLaunch, resolveBackendSettings, resolveEmbeddingConfig } from "../config";
@@ -28,18 +29,24 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
   const embeddingConfig = resolveEmbeddingConfig(record.embedding);
   const embedding = createEmbeddingService({
     settings,
-    createRuntime: () =>
-      createEmbeddingProcess(embeddingConfig, async (modelProcess) => {
-        const current = await readRecord(directory);
-        if (!current || current.instanceId !== instanceId)
-          throw new BackendError("backend.state-invalid");
-        const withoutModel = { ...current };
-        delete withoutModel.modelProcess;
-        await writeRecord(
-          directory,
-          modelProcess ? { ...withoutModel, modelProcess } : withoutModel,
-        );
-      }),
+    threads: embeddingConfig.threads,
+    maxTokens: embeddingConfig.maxTokens,
+    prepareModel: (signal, progress) => prepareModel(embeddingConfig, signal, progress),
+    createRuntime: (modelPath) =>
+      createEmbeddingProcess(
+        { modelPath, threads: embeddingConfig.threads, maxTokens: embeddingConfig.maxTokens },
+        async (modelProcess) => {
+          const current = await readRecord(directory);
+          if (!current || current.instanceId !== instanceId)
+            throw new BackendError("backend.state-invalid");
+          const withoutModel = { ...current };
+          delete withoutModel.modelProcess;
+          await writeRecord(
+            directory,
+            modelProcess ? { ...withoutModel, modelProcess } : withoutModel,
+          );
+        },
+      ),
   });
   let ready = false;
   const backend = createBackendService({

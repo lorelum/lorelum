@@ -1,3 +1,4 @@
+import { DEFAULT_EMBEDDING_SETTINGS } from "../../config/embedding";
 import buildConfig from "../../../../../native/embedding/build-config.json";
 import { createHash } from "node:crypto";
 
@@ -7,21 +8,25 @@ export const EMBEDDING_MODEL = Object.freeze({
   sha256: buildConfig.model.sha256,
   bytes: buildConfig.model.bytes,
   dimensions: 384,
-  maxTokens: 512,
+  maxTokens: DEFAULT_EMBEDDING_SETTINGS.maxTokens,
   maxInputs: 8,
 });
-export const ENCODING_ID = createHash("sha256")
-  .update(
-    JSON.stringify({
-      ...EMBEDDING_MODEL,
-      implementation: 1,
-      pooling: "cls",
-      normalization: "l2",
-      prefix: "",
-      specialTokens: true,
-    }),
-  )
-  .digest("hex");
+export function embeddingEncodingId(maxTokens: number = EMBEDDING_MODEL.maxTokens): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        ...EMBEDDING_MODEL,
+        maxTokens,
+        implementation: 1,
+        pooling: "cls",
+        normalization: "l2",
+        prefix: "",
+        specialTokens: true,
+      }),
+    )
+    .digest("hex");
+}
+export const ENCODING_ID = embeddingEncodingId();
 export type ModelState = (typeof modelStates)[number];
 export interface EmbeddingResult {
   readonly encodingId: string;

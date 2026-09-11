@@ -60,7 +60,7 @@ test("runtime records carry the optional embedding snapshot", async () =>
   fixture(async (directory) => {
     const value = { ...(await record()), embedding: { modelPath: "/models/granite.gguf" } };
     await writeRecord(directory, value);
-    expect((await readRecord(directory))?.embedding).toEqual(value.embedding);
+    expect((await readRecord(directory))?.embedding).toMatchObject(value.embedding);
   }));
 
 test("runtime record writes reject serialized records over 4096 UTF-8 bytes", async () =>

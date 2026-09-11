@@ -7,7 +7,7 @@ import type { JsonSchema, JsonValue } from "../output/protocol";
 import type { CommandDefinition } from "../registry";
 
 export interface BackendCommandServices {
-  readonly createSupervisor: () => Promise<BackendSupervisor>;
+  readonly createSupervisor: (options?: { initialize?: boolean }) => Promise<BackendSupervisor>;
 }
 
 // Translate the Zod status contract into the smaller JSON schema dialect used
@@ -32,7 +32,9 @@ const backendStatusResultSchema: JsonSchema = {
  * Creates the process-specific supervisor only for a backend control request.
  * The lifecycle module owns process spawning and never loads on ordinary metadata reads.
  */
-export async function createProcessBackendSupervisor(): Promise<BackendSupervisor> {
+export async function createProcessBackendSupervisor(
+  options: { initialize?: boolean } = {},
+): Promise<BackendSupervisor> {
   const { createBackendSupervisor, currentBuildIdentity, isCompiledEntrypoint } =
     await import("@lorelum/backend/control");
   const entrypoint = Bun.main;
@@ -40,7 +42,7 @@ export async function createProcessBackendSupervisor(): Promise<BackendSuperviso
     ? [process.execPath, "--internal-backend-serve"]
     : [process.execPath, entrypoint, "--internal-backend-serve"];
   return createBackendSupervisor({
-    config: await loadBackendConfig(),
+    config: await loadBackendConfig(options),
     buildIdentity: await currentBuildIdentity(entrypoint),
     command,
   });
@@ -71,7 +73,12 @@ export function createBackendCommands(
       summary,
       resultSchema: backendStatusResultSchema,
       errorCodes: backendErrorCodes,
-      execute: async () => toResult(await (await services.createSupervisor())[operation]()),
+      execute: async () =>
+        toResult(
+          await (
+            await services.createSupervisor({ initialize: operation === "start" })
+          )[operation](),
+        ),
     }),
   );
 }

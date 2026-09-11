@@ -1,5 +1,11 @@
-import { lifecycleCommand } from "./common";
-import { defaultRuntimeDirectory, resolveBackendSettings } from "@lorelum/backend/config";
+import { createModelProgressReporter } from "./progress";
+import type { OutputWriter } from "../output/protocol";
+import { lifecycleCommand } from "../backend/common";
+import {
+  defaultRuntimeDirectory,
+  resolveBackendSettings,
+  embeddingTokenLimits,
+} from "@lorelum/backend/config";
 import type { BackendClient } from "@lorelum/backend/client";
 import { BACKEND_URL } from "@lorelum/backend/protocol";
 import {
@@ -14,15 +20,29 @@ import type { CommandDefinition } from "../registry";
 
 export interface ModelCommandServices {
   readonly createClient: () => Promise<BackendClient>;
+  readonly progressWriter?: OutputWriter;
 }
 
 const modelStatusResultSchema: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["state", "encodingId", "device", "dimensions"],
+  required: ["state", "encodingId", "device", "dimensions", "threads", "maxTokens"],
   properties: {
     state: { enum: modelStatusSchema.shape.state.options },
-    encodingId: { const: modelStatusSchema.shape.encodingId.value },
+    encodingId: { type: "string" },
+    threads: { type: "integer" },
+    maxTokens: { enum: embeddingTokenLimits },
+    progress: {
+      type: "object",
+      additionalProperties: false,
+      required: ["phase"],
+      properties: {
+        phase: { enum: ["resolving", "downloading", "verifying", "starting"] },
+        downloadedBytes: { type: "integer" },
+        totalBytes: { type: "integer" },
+        attempt: { type: "integer" },
+      },
+    },
     device: { const: modelStatusSchema.shape.device.value },
     dimensions: { const: modelStatusSchema.shape.dimensions.value },
     error: { enum: embeddingErrorCodes },
@@ -47,7 +67,6 @@ export async function createProcessBackendClient(): Promise<BackendClient> {
     buildIdentity: await currentBuildIdentity(Bun.main),
     baseUrl: BACKEND_URL,
     timeoutMs: settings.requestTimeoutMs,
-    startupTimeoutMs: settings.startupTimeoutMs,
     shutdownTimeoutMs: settings.shutdownTimeoutMs,
   });
 }
@@ -58,6 +77,9 @@ function toResult(status: ModelStatus): JsonValue {
     encodingId: status.encodingId,
     device: status.device,
     dimensions: status.dimensions,
+    threads: status.threads,
+    maxTokens: status.maxTokens,
+    ...(status.progress ? { progress: status.progress } : {}),
     ...(status.error === undefined ? {} : { error: status.error }),
   };
 }
@@ -75,7 +97,16 @@ export function createModelCommands(services: ModelCommandServices): readonly Co
       summary,
       resultSchema: modelStatusResultSchema,
       errorCodes: [...backendErrorCodes, ...embeddingErrorCodes],
-      execute: async () => toResult(await (await services.createClient())[operation]()),
+      execute: async () => {
+        const client = await services.createClient();
+        return toResult(
+          operation === "loadModel"
+            ? await client.loadModel({
+                onProgress: createModelProgressReporter(services.progressWriter ?? process.stderr),
+              })
+            : await client[operation](),
+        );
+      },
     }),
   );
 }

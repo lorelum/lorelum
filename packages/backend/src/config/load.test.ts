@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readdir, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadBackendConfig, resolveBackendSettings } from "./load";
 import { DEFAULT_BACKEND_SETTINGS } from "./model";
 
 async function fixture(run: (homeDirectory: string, filePath: string) => Promise<void>) {
-  const home = await mkdtemp(join(tmpdir(), "lorelum-config-"));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "lorelum-config-")));
   try {
     await run(home, join(home, "config.yaml"));
   } finally {
@@ -28,7 +28,7 @@ test("loads and freezes the optional embedding snapshot from shared config", () 
   fixture(async (homeDirectory, filePath) => {
     await writeFile(filePath, "embedding:\n  modelPath: /models/granite.gguf\n");
     const config = await loadBackendConfig({ homeDirectory, filePath, environment: {} });
-    expect(config.embedding).toEqual({ modelPath: "/models/granite.gguf" });
+    expect(config.embedding).toMatchObject({ modelPath: "/models/granite.gguf" });
     expect(Object.isFrozen(config.embedding)).toBe(true);
   }));
 
@@ -122,4 +122,41 @@ test("backend reads only its section from shared config", () =>
     await expect(
       loadBackendConfig({ homeDirectory, filePath, environment: {} }),
     ).rejects.toMatchObject({ code: "backend.config-invalid" });
+  }));
+
+test("explicit initialization creates editable defaults and resolves all paths from the supplied home", () =>
+  fixture(async (homeDirectory) => {
+    const config = await loadBackendConfig({ homeDirectory, environment: {}, initialize: true });
+    expect(config.embedding).toMatchObject({
+      threads: 4,
+      maxTokens: 512,
+      cacheDirectory: join(homeDirectory, ".lorelum", "models"),
+    });
+    const { readFile } = await import("node:fs/promises");
+    const source = await readFile(join(homeDirectory, ".lorelum", "config.yaml"), "utf8");
+    expect(source).toContain("threads: 4");
+    expect(source).not.toContain(homeDirectory);
+    expect(source).not.toContain("url:");
+    expect(await loadBackendConfig({ homeDirectory, environment: {} })).toEqual(config);
+  }));
+
+test("initialization does not overwrite other modules, user comments, or invalid configuration", () =>
+  fixture(async (homeDirectory, filePath) => {
+    const { readFile } = await import("node:fs/promises");
+    const source =
+      "# owner comment\nquery:\n  profile: custom\nbackend:\n  requestTimeoutMs: 2000\n";
+    await writeFile(filePath, source);
+    const config = await loadBackendConfig({
+      homeDirectory,
+      filePath,
+      environment: {},
+      initialize: true,
+    });
+    expect(config.settings.requestTimeoutMs).toBe(2000);
+    expect(await readFile(filePath, "utf8")).toBe(source);
+    await writeFile(filePath, "broken: [");
+    await expect(
+      loadBackendConfig({ homeDirectory, filePath, environment: {}, initialize: true }),
+    ).rejects.toMatchObject({ code: "backend.config-invalid" });
+    expect(await readFile(filePath, "utf8")).toBe("broken: [");
   }));

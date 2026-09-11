@@ -198,3 +198,61 @@ test("unload cannot report success while an old request can still return a vecto
   await expect(request).rejects.toMatchObject({ code: "embedding.not-loaded" });
   expect((await f.service.unload()).state).toBe("unloaded");
 });
+
+test("file preparation shares one task, reports progress, and cancels before native start", async () => {
+  const entered = deferred<void>();
+  let preparations = 0;
+  const service = createEmbeddingService({
+    settings: { ...DEFAULT_BACKEND_SETTINGS, startupTimeoutMs: 1 },
+    prepareModel: (signal, progress) =>
+      new Promise((_, reject) => {
+        preparations++;
+        progress({ phase: "downloading", downloadedBytes: 5, totalBytes: 10, attempt: 1 });
+        signal.addEventListener(
+          "abort",
+          () => {
+            progress({ phase: "downloading", downloadedBytes: 10, totalBytes: 10 });
+            reject(signal.reason);
+          },
+          { once: true },
+        );
+        entered.resolve();
+      }),
+    createRuntime: () => {
+      throw new Error("cancelled preparation must never start native");
+    },
+  });
+  expect(service.beginLoad().state).toBe("loading");
+  await entered.promise;
+  expect(service.beginLoad().progress).toMatchObject({ downloadedBytes: 5 });
+  await Bun.sleep(10);
+  expect(service.status().state).toBe("loading");
+  expect(preparations).toBe(1);
+  expect((await service.unload()).state).toBe("unloaded");
+  expect(service.status().progress).toBeUndefined();
+});
+
+test("configured token limit controls admission and identity, threads do not", async () => {
+  const make = (threads: number, maxTokens: 512 | 1024) =>
+    createEmbeddingService({
+      settings: DEFAULT_BACKEND_SETTINGS,
+      threads,
+      maxTokens,
+      createRuntime: () => ({
+        start: async () => {},
+        stop: async () => {},
+        exited: new Promise(() => {}),
+        tokenize: async (text) => Array(Number(text)).fill(1),
+        encode: async () => [1, ...Array<number>(383).fill(0)],
+      }),
+    });
+  const service = make(2, 1024);
+  await service.load();
+  expect((await service.embed("document", ["1024"])).vectors).toHaveLength(1);
+  await expect(service.embed("document", ["1025"])).rejects.toMatchObject({
+    code: "embedding.input-too-long",
+  });
+  expect(service.status().encodingId).toBe(make(8, 1024).status().encodingId);
+  expect(service.status().encodingId).not.toBe(make(2, 512).status().encodingId);
+  await service.unload();
+});

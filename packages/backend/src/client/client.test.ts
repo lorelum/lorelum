@@ -3,13 +3,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { QueryService } from "@lorelum/engine";
 
 import { createBackendApp } from "../app";
-import type { EmbeddingService } from "../modules/embedding/service";
+import { createEmbeddingService, type EmbeddingService } from "../modules/embedding/service";
 import { createBackendService } from "../modules/backend/service";
 import type { InstanceIdentity } from "../protocol/identity";
 import { BackendRemoteError } from "../protocol/errors";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL, ENCODING_ID } from "../modules/embedding/model";
 import { BUSINESS_VERSION, CONTROL_VERSION } from "../protocol/constants";
+import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
 import { createBackendClient } from "./client";
 
 const identity = Object.freeze({
@@ -163,9 +164,14 @@ describe("createBackendClient", () => {
         encodingId: ENCODING_ID,
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
+        threads: 4,
+        maxTokens: 512,
       }),
-      async load() {
+      beginLoad() {
         calls.push("load");
+        return this.status();
+      },
+      async load() {
         return this.status();
       },
       async unload() {
@@ -193,34 +199,31 @@ describe("createBackendClient", () => {
     expect(calls).toEqual(["load", "unload", "query:1"]);
   });
 
-  test("uses startup timeout for model load and maps embedding errors", async () => {
-    const { url } = runningApp(undefined, identity, {
-      status: () => ({
-        state: "unloaded",
-        encodingId: ENCODING_ID,
-        device: "cpu",
-        dimensions: EMBEDDING_MODEL.dimensions,
-      }),
-      async load() {
-        await Bun.sleep(100);
-        throw new EmbeddingError("embedding.failed");
+  test("load polls asynchronous preparation beyond the native startup budget and maps failure", async () => {
+    const phases: string[] = [];
+    const embedding = createEmbeddingService({
+      settings: { ...DEFAULT_BACKEND_SETTINGS, startupTimeoutMs: 10 },
+      prepareModel: async (_, progress) => {
+        progress({ phase: "downloading", downloadedBytes: 10, totalBytes: 100 });
+        await Bun.sleep(300);
+        throw new EmbeddingError("embedding.download-failed");
       },
-      async unload() {
-        throw new EmbeddingError("embedding.not-loaded");
-      },
-      async embed() {
-        throw new EmbeddingError("embedding.not-loaded");
+      createRuntime: () => {
+        throw new Error("download must finish first");
       },
     });
+    const { url } = runningApp(undefined, identity, embedding);
     const client = createBackendClient({
       identity,
       secret,
       buildIdentity: identity.buildIdentity,
       baseUrl: url,
-      timeoutMs: 1_000,
-      startupTimeoutMs: 10,
+      timeoutMs: 1000,
     });
-    await expect(client.loadModel()).rejects.toMatchObject({ code: "backend.deadline-exceeded" });
+    await expect(
+      client.loadModel({ onProgress: (value) => phases.push(value.progress!.phase) }),
+    ).rejects.toMatchObject({ code: "embedding.download-failed" });
+    expect(phases).toContain("downloading");
     await expect(client.embed("query", Array(9).fill("x"))).rejects.toMatchObject({
       code: "embedding.input-invalid",
     });
@@ -233,7 +236,12 @@ describe("createBackendClient", () => {
         encodingId: ENCODING_ID,
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
+        threads: 4,
+        maxTokens: 512,
       }),
+      beginLoad() {
+        return this.status();
+      },
       async load() {
         return this.status();
       },
@@ -278,18 +286,27 @@ describe("createBackendClient", () => {
         encodingId: ENCODING_ID,
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
+        threads: 4,
+        maxTokens: 512,
       }),
+      beginLoad() {
+        return this.status();
+      },
       load: async () => ({
         state: "ready",
         encodingId: ENCODING_ID,
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
+        threads: 4,
+        maxTokens: 512,
       }),
       unload: async () => ({
         state: "unloaded",
         encodingId: ENCODING_ID,
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
+        threads: 4,
+        maxTokens: 512,
       }),
       embed: async () => ({ encodingId: ENCODING_ID, vectors: [[1, ...Array(383).fill(0)]] }),
     });
@@ -305,8 +322,8 @@ describe("createBackendClient", () => {
   });
 });
 
-test("protocol version 2 does not control a version 1 daemon", async () => {
-  const oldIdentity = { ...identity, controlVersion: 1, businessVersion: 1 };
+test("protocol version 3 does not control a version 2 daemon", async () => {
+  const oldIdentity = { ...identity, controlVersion: 2, businessVersion: 2 };
   const { url } = runningApp(undefined, oldIdentity);
   const client = createBackendClient({
     identity: oldIdentity,

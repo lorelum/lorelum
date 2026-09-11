@@ -23,4 +23,6 @@ export {
   MAX_SERIALIZED_EMBEDDING_BYTES,
   resolveEmbeddingConfig,
   type EmbeddingConfig,
+  type ResolvedEmbeddingConfig,
+  embeddingTokenLimits,
 } from "./embedding";

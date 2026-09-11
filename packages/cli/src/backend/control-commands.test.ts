@@ -125,3 +125,23 @@ test("discovery's supported schema accepts starting and rejects unknown states",
     validateJsonSchema({ ...ready, state: "arbitrary" }, definition!.resultSchema).length,
   ).toBeGreaterThan(0);
 });
+
+test("only backend start asks the config layer to initialize files", async () => {
+  const initialization: (boolean | undefined)[] = [];
+  const definitions = createBackendCommands({
+    createSupervisor: async (options) => {
+      initialization.push(options?.initialize);
+      return { start: async () => ready, status: async () => ready, stop: async () => ready };
+    },
+  });
+  for (const command of ["start", "status", "stop"]) {
+    expect(
+      // eslint-disable-next-line no-await-in-loop
+      await run(["backend", command], {
+        registry: snapshotCommandDefinitions(definitions),
+        stdout: new MemoryWriter(),
+      }),
+    ).toBe(0);
+  }
+  expect(initialization).toEqual([true, false, false]);
+});

@@ -1,5 +1,9 @@
 export const embeddingErrorCodes = [
   "embedding.not-configured",
+  "embedding.download-unavailable",
+  "embedding.download-failed",
+  "embedding.download-stalled",
+  "embedding.download-range-unsupported",
   "embedding.resource-invalid",
   "embedding.not-loaded",
   "embedding.busy",
@@ -10,6 +14,14 @@ export const embeddingErrorCodes = [
 ] as const;
 export type EmbeddingErrorCode = (typeof embeddingErrorCodes)[number];
 const messages: Record<EmbeddingErrorCode, string> = {
+  "embedding.download-unavailable":
+    "No download source is configured for the fixed model. Configure embedding.download.url or modelPath.",
+  "embedding.download-failed":
+    "The model download failed. Partial data was retained; load again to resume.",
+  "embedding.download-stalled":
+    "The model download stopped making progress. Partial data was retained; load again to resume.",
+  "embedding.download-range-unsupported":
+    "The server cannot resume this partial download. Use a Range-capable mirror; partial data was retained.",
   "embedding.not-configured":
     "Configure embedding.modelPath and restart the backend before loading the model.",
   "embedding.resource-invalid":
@@ -17,7 +29,8 @@ const messages: Record<EmbeddingErrorCode, string> = {
   "embedding.not-loaded": "Load the embedding model before encoding text.",
   "embedding.busy": "The embedding model is busy.",
   "embedding.input-invalid": "Provide one to eight nonblank texts.",
-  "embedding.input-too-long": "Each text must contain at most 512 tokens including special tokens.",
+  "embedding.input-too-long":
+    "Each text must fit the configured maxTokens limit including special tokens.",
   "embedding.deadline-exceeded": "The embedding operation exceeded its deadline.",
   "embedding.failed": "The embedding runtime failed; explicitly load it again after cleanup.",
 };
