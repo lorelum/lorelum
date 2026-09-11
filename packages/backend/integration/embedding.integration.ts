@@ -11,7 +11,7 @@ import { DEFAULT_BACKEND_SETTINGS } from "../src/config/model";
 import { createBackendService } from "../src/modules/backend/service";
 import { createEmbeddingService } from "../src/modules/embedding/service";
 import { createEmbeddingProcess } from "../src/runtime/embedding-process";
-import { BUSINESS_VERSION, CONTROL_VERSION } from "../src/protocol/constants";
+import { PROTOCOL_VERSION } from "../src/protocol/constants";
 
 const modelPath = process.argv[2];
 if (!modelPath) throw new Error("Usage: embedding.integration.ts <fixed-Q4_0-model-path>");
@@ -28,8 +28,7 @@ const embedding = createEmbeddingService({
 const identity = {
   instanceId: "integration",
   buildIdentity: "integration",
-  controlVersion: CONTROL_VERSION,
-  businessVersion: BUSINESS_VERSION,
+  protocolVersion: PROTOCOL_VERSION,
 };
 const backend = createBackendService({
   identity,

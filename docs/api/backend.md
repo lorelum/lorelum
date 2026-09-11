@@ -12,13 +12,12 @@
 {
   "instanceId": "3c6c8d9e-3b52-4e66-a8f5-0a4b8c2e4f7b",
   "buildIdentity": "…",
-  "controlVersion": 3,
-  "businessVersion": 3,
+  "protocolVersion": 1,
   "proof": "…"
 }
 ```
 
-客户端必须用 runtime secret 重算 proof，并检查 instance、build 和 control version。身份不匹配时不得继续请求。
+客户端必须用 runtime secret 重算 proof，并检查 instance、build 和 protocolVersion。身份不匹配时不得继续请求。
 
 ## Status
 

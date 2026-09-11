@@ -4,8 +4,7 @@ import { modelStates } from "../embedding/model";
 export const identitySchema = z.strictObject({
   instanceId: z.string().min(1).max(128),
   buildIdentity: z.string().min(1).max(128),
-  controlVersion: z.int(),
-  businessVersion: z.int(),
+  protocolVersion: z.int(),
   proof: z.string().regex(/^[a-f0-9]{64}$/),
 });
 export type BackendIdentity = z.infer<typeof identitySchema>;

@@ -9,8 +9,7 @@ export function identityProof(secret: string, nonce: string, identity: InstanceI
         nonce,
         identity.instanceId,
         identity.buildIdentity,
-        identity.controlVersion,
-        identity.businessVersion,
+        identity.protocolVersion,
       ]),
     )
     .digest("hex");

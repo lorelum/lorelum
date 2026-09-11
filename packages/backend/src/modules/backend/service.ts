@@ -14,8 +14,8 @@ export interface BackendServiceOptions {
 export function createBackendService(options: BackendServiceOptions) {
   if (!options.secret) throw new TypeError("Backend secret must not be empty");
   // Select public fields explicitly: structural types may carry private runtime fields.
-  const { instanceId, buildIdentity, controlVersion, businessVersion } = options.identity;
-  const identity = Object.freeze({ instanceId, buildIdentity, controlVersion, businessVersion });
+  const { instanceId, buildIdentity, protocolVersion } = options.identity;
+  const identity = Object.freeze({ instanceId, buildIdentity, protocolVersion });
   let stopping = false;
   let shutdown: Promise<void> | undefined;
   const available = () => !stopping && (options.isReady?.() ?? true);

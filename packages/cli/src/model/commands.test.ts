@@ -33,8 +33,7 @@ function fakeClient(calls: string[]): BackendClient {
     identity: async () => ({
       instanceId: "instance",
       buildIdentity: "build",
-      controlVersion: 2,
-      businessVersion: 2,
+      protocolVersion: 1,
       proof: "a".repeat(64),
     }),
     status: async () => ({ state: "ready", model: "unloaded" }),

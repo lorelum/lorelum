@@ -10,7 +10,7 @@ import {
   type BackendConfig,
 } from "../config";
 import { createBackendClient } from "../client";
-import { BACKEND_URL, BUSINESS_VERSION, CONTROL_VERSION } from "../protocol/constants";
+import { BACKEND_URL, PROTOCOL_VERSION } from "../protocol/constants";
 import { BackendError } from "../protocol/errors";
 import type { BackendStatus } from "../modules/backend/model";
 import { isSameProcess, processIdentity } from "./process-identity";
@@ -75,8 +75,6 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
         const previous = await readRecord(directory);
         if (previous !== undefined && (await isSameProcess(previous))) {
           const current = await client(previous).status();
-          if (previous.buildIdentity !== options.buildIdentity)
-            throw new BackendError("backend.incompatible");
           if (current.state !== "ready") throw new BackendError("backend.busy");
           return current;
         }
@@ -145,8 +143,7 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
         instanceId,
         secret: randomBytes(32).toString("hex"),
         buildIdentity: options.buildIdentity,
-        controlVersion: CONTROL_VERSION,
-        businessVersion: BUSINESS_VERSION,
+        protocolVersion: PROTOCOL_VERSION,
       };
       await writeRecord(directory, record);
       // Child cannot bind until its durable ownership record is published.

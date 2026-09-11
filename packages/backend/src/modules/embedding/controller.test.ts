@@ -13,7 +13,7 @@ function fixture() {
     },
   });
   const backend = createBackendService({
-    identity: { instanceId: "test", buildIdentity: "test", controlVersion: 2, businessVersion: 2 },
+    identity: { instanceId: "test", buildIdentity: "test", protocolVersion: 1 },
     secret: "test",
     onStop() {},
     modelState: () => embedding.status().state,

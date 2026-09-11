@@ -9,15 +9,14 @@ import type { InstanceIdentity } from "../protocol/identity";
 import { BackendRemoteError } from "../protocol/errors";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL, ENCODING_ID } from "../modules/embedding/model";
-import { BUSINESS_VERSION, CONTROL_VERSION } from "../protocol/constants";
+import { PROTOCOL_VERSION } from "../protocol/constants";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
 import { createBackendClient } from "./client";
 
 const identity = Object.freeze({
   instanceId: "test-instance",
   buildIdentity: "test-build",
-  controlVersion: CONTROL_VERSION,
-  businessVersion: BUSINESS_VERSION,
+  protocolVersion: PROTOCOL_VERSION,
 });
 const secret = "a secret used only by tests";
 const apps: Array<ReturnType<typeof createBackendApp>> = [];
@@ -76,20 +75,7 @@ describe("createBackendClient", () => {
     ]);
   });
 
-  test("allows a compatible control client to stop an older build", async () => {
-    const { url } = runningApp();
-    const client = createBackendClient({
-      identity,
-      secret,
-      buildIdentity: "newer-build",
-      baseUrl: url,
-    });
-
-    await expect(client.status()).resolves.toMatchObject({ state: "ready" });
-    await expect(client.stop()).resolves.toMatchObject({ state: "stopping" });
-  });
-
-  test("does not send a query to a service with a different business build", async () => {
+  test("does not send a query to a service with a different build", async () => {
     const { url } = runningApp();
     const client = createBackendClient({
       identity,
@@ -98,22 +84,6 @@ describe("createBackendClient", () => {
       baseUrl: url,
     });
 
-    await expect(
-      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search" }),
-    ).rejects.toEqual(expect.objectContaining({ code: "backend.incompatible" }));
-  });
-
-  test("allows control operations but rejects queries against an older business protocol", async () => {
-    const { url } = runningApp(undefined, { ...identity, businessVersion: 0 });
-    const client = createBackendClient({
-      identity,
-      secret,
-      buildIdentity: "test-build",
-      baseUrl: url,
-    });
-
-    await expect(client.status()).resolves.toMatchObject({ state: "ready" });
-    await expect(client.stop()).resolves.toMatchObject({ state: "stopping" });
     await expect(
       client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search" }),
     ).rejects.toEqual(expect.objectContaining({ code: "backend.incompatible" }));
@@ -264,21 +234,6 @@ describe("createBackendClient", () => {
     await expect(client.unloadModel()).rejects.toMatchObject({ code: "backend.deadline-exceeded" });
   });
 
-  test("requires the current business protocol for model operations", async () => {
-    const { url } = runningApp(undefined, { ...identity, businessVersion: BUSINESS_VERSION - 1 });
-    const client = createBackendClient({
-      identity: { ...identity, businessVersion: BUSINESS_VERSION - 1 },
-      secret,
-      buildIdentity: identity.buildIdentity,
-      baseUrl: url,
-    });
-    await expect(client.statusModel()).rejects.toEqual(
-      expect.objectContaining({
-        code: "backend.incompatible",
-      }),
-    );
-  });
-
   test("rejects an embedding response whose vector count differs from the input count", async () => {
     const { url } = runningApp(undefined, identity, {
       status: () => ({
@@ -322,11 +277,11 @@ describe("createBackendClient", () => {
   });
 });
 
-test("protocol version 3 does not control a version 2 daemon", async () => {
-  const oldIdentity = { ...identity, controlVersion: 2, businessVersion: 2 };
-  const { url } = runningApp(undefined, oldIdentity);
+test("rejects a mismatched protocol before sending control or model requests", async () => {
+  const mismatchedIdentity = { ...identity, protocolVersion: PROTOCOL_VERSION + 1 };
+  const { url } = runningApp(undefined, mismatchedIdentity);
   const client = createBackendClient({
-    identity: oldIdentity,
+    identity: mismatchedIdentity,
     secret,
     buildIdentity: "test-build",
     baseUrl: url,

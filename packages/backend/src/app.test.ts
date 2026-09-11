@@ -13,8 +13,7 @@ import { createBackendService } from "./modules/backend/service";
 const identity = Object.freeze({
   instanceId: "test-instance",
   buildIdentity: "test-build",
-  controlVersion: 1,
-  businessVersion: 1,
+  protocolVersion: 1,
 });
 const secret = "a secret used only by tests";
 

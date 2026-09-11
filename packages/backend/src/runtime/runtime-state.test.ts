@@ -27,8 +27,7 @@ async function record(): Promise<RuntimeRecord> {
     instanceId: randomUUID(),
     secret: randomBytes(32).toString("hex"),
     buildIdentity: "test",
-    controlVersion: 1,
-    businessVersion: 1,
+    protocolVersion: 1,
   };
 }
 test("private state rejects malformed, permissive and redirected files", async () =>

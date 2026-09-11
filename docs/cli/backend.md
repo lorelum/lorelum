@@ -51,20 +51,18 @@ lore backend stop
 
 失败退出 `2`，输出 `ok:false` 的 [CLI envelope](README.md)。常见错误：
 
-| code                                                    | 处理                                   |
-| ------------------------------------------------------- | -------------------------------------- |
-| `backend.port-conflict`                                 | 固定端口属于未验证的服务，检查占用     |
-| `backend.incompatible`                                  | 使用旧 CLI 停止旧 daemon，再启动新版本 |
-| `backend.config-invalid`                                | 修正 YAML、未知字段或越界值            |
-| `backend.state-invalid`                                 | 私有运行记录或权限无法安全使用         |
-| `backend.deadline-exceeded`                             | 操作未在配置预算内达到目标状态         |
-| `backend.unauthorized`                                  | 身份或认证校验失败                     |
-| `backend.unavailable`、`backend.busy`、`backend.failed` | 查看服务状态，按错误原因恢复           |
+| code | 处理 |
+| --- | --- |
+| `backend.port-conflict` | 固定端口属于未验证的服务，检查占用 |
+| `backend.incompatible` | 客户端与后台 build 或协议不匹配，检查是否混用了不同工作目录的程序 |
+| `backend.config-invalid` | 修正 YAML、未知字段或越界值 |
+| `backend.state-invalid` | 私有运行记录或权限无法安全使用 |
+| `backend.deadline-exceeded` | 操作未在配置预算内达到目标状态 |
+| `backend.unauthorized` | 身份或认证校验失败 |
+| `backend.unavailable`、`backend.busy`、`backend.failed` | 查看服务状态，按错误原因恢复 |
 
-## 构建、升级与支持范围
+## 构建与支持范围
 
 从源码构建：`bun scripts/native/build-embedding.ts`，然后 `bun run build:cli`。安装时将 `dist/lore` 与完整的 `dist/native/darwin-arm64/` 一起保留，不能仅复制 CLI。native manifest 和许可证说明见 [native 构建说明](../../native/embedding/README.md)。
-
-升级内部协议 2 → 3 时，先用旧 CLI 停止旧 daemon，再安装新 CLI/native 资源并启动。不要假定新客户端可以停止旧控制协议。
 
 当前 embedding 支持 macOS arm64，已在 M4 验证。Windows native、进程身份/ACL 和端到端验收尚未完成；Linux embedding 不在当前交付范围。普通 `lore query` 仍走原有 Engine 路径，semantic index/query 接入另行实施。

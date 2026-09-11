@@ -101,13 +101,13 @@ backend stop 将相同 deadline 传给模型卸载和 HTTP 关闭，不分别重
 
 这项支持以固定 llama.cpp 源码上的小范围补丁交付，不新增常驻 Bun guardian 或通用进程平台；补丁、构建参数和依赖必须进入 native build 身份。首个实施任务证明父进程在启动中或编码中被强制终止、native 编码不响应时仍会退出；之前官方二进制的正常退出实验不能代替该验收。最终补丁构建须重跑 tokenizer、Q4_0 向量和资源回归，不能沿用原归档 SHA 宣称已验证。
 
-## CLI、兼容与分发
+## CLI 与分发
 
 新增 `lore model load/status/unload`，沿用现有命令 registry、发现 schema、单行 JSON envelope 和错误退出约定。三个命令都不隐式启动 backend；用户先执行 `lore backend start`。backend 未运行时返回 `backend.unavailable`，status/unload 不创建运行目录。命令不依赖 LocalStore，`--store-root` 不改变模型来源。
 
 `ModelStatus` 给出状态、固定 encodingId、CPU/384 维等必要信息；失败只返回允许的错误码，不输出私有端口、PID、路径或凭证。`backend.status.model` 扩为模型状态枚举，保持 backend 状态与模型状态分开；模型失败时 backend 仍可 ready。固定新增错误涵盖未配置、资源不匹配、未加载、busy、输入超限、执行超时和 native 失败，CLI/HTTP/client 使用同一映射。
 
-现有 client 严格校验 controlVersion，状态扩展也影响 CLI discovery schema。本阶段同步升级控制与业务协议版本并覆盖旧/新组合；升级流程明确为旧 CLI 停旧 daemon → 安装新版本 → 新 CLI 启动，不能假定新 CLI 能停旧协议。具体 CLI 和协议变更在同一个实施 Issue 对齐，不新建互相依赖的 PR。
+CLI、BackendClient、DTO 和 discovery schema 按最终合同一起实现。当前尚未发布 release，内部协议统一为 version 1，不维护开发中间版本兼容或设计升级流程；所有请求一致校验实例、build 和协议。
 
 安装资源采用 CLI/控制服务加平台 native 目录的布局；native 程序、库、许可证和 manifest 配套，GGUF 外置且由显式路径引用。构建可复现地取得固定资源，开发/验收无需把用户数据送出；模型下载器、资源自动更新器不在本阶段。接入允许新增必要的构建脚本，release/publish workflow 的变更仍遵守仓库单独授权边界。
 
@@ -122,7 +122,7 @@ Windows 任务同时处理现有 `processIdentity` 的 ps 依赖、POSIX uid/mod
 | T1 固定 native 与退出保证 | Q4_0 manifest、固定 CPU native 构建、父进程存活管道补丁 | CPU-only、父进程在加载/编码中强制退出、native 不响应时的回收；补丁构建数值回归通过，资源 hash 可复核 |
 | T2 config 与模型进程 | 配置快照、受信资源解析、私有端点与认证、service 状态和准入 | 缺配置/错资源/端口竞争、并发 load、加载中 unload、崩溃/超时和 PID 复用；失败后可显式重试且无遗留进程 |
 | T3 编码入口与分层 | DTO、controller/service/native client、token 上限与向量校验 | 空白、特殊 token、512/513 边界、多条排序、超大/损坏响应；推理期间控制接口响应；无隐式截断或代理请求 |
-| T4 CLI 与协议升级 | model 命令、BackendClient、状态 schema/发现输出、错误与升级说明 | 不启动型命令无副作用；旧/新客户端和 daemon 不兼容有明确结果；keyword 和 Store resolver 行为保持 |
+| T4 CLI 与协议 | model 命令、BackendClient、状态 schema/发现输出、错误与调用说明 | 不启动型命令无副作用；错误实例、build 和协议均拒绝请求；keyword 和 Store resolver 行为保持 |
 | T5 平台与分发 | Mac/Windows native 资源、进程身份和私有文件平台实现、安装布局 | 无关 cwd/精简 PATH、含空格路径、缺库/错架构/错版本、权限拒绝；两个系统完整链路实测，未测试平台不标支持 |
 | T6 交付验收 | 正式产物端到端、文档、Issue checklist 和一个 PR | 连续加载/编码/卸载及失败恢复，无残留；固定样本复测、性能与 RSS 抽样、控制响应；相关测试/lint/typecheck 通过 |
 

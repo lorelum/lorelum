@@ -53,8 +53,7 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     identity: {
       instanceId: record.instanceId,
       buildIdentity: record.buildIdentity,
-      controlVersion: record.controlVersion,
-      businessVersion: record.businessVersion,
+      protocolVersion: record.protocolVersion,
     },
     secret: record.secret,
     isReady: () => ready,

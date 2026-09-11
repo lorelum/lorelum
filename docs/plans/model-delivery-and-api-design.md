@@ -65,11 +65,11 @@ HTTP 202 只表示接受，不表示模型已可编码。下载失败通过状�
 
 业务状态仍为 `unloaded/loading/ready/unloading/failed`，phase 只是 loading 的细分。重复 load 加入同一任务，不启动第二个下载。unload 先改为 unloading 并 abort，确认准备任务和自建进程结束后才能 unloaded；过期进度或完成回调不能覆盖新状态。清理失败时保持 failed 和资源所有权，阻止新 load。backend stop 复用相同卸载路径与同一 shutdown deadline。
 
-异步 load、status 字段和动态编码身份影响严格客户端校验，因此控制和业务协议同步从 2 升至 3，路由前缀暂保留 `/internal/v1`。旧 CLI 先停旧 daemon，再安装并启动新版本；不能假定新客户端可接管旧实例。同步更新 DTO、client、CLI discovery schema 和错误映射，覆盖新旧版本拒绝行为。
+异步 load、status 字段和动态编码身份按最终合同同步更新 DTO、client、CLI discovery schema 和错误映射。当前尚未发布 release，内部协议统一为 version 1，与 `/internal/v1` 路由一致，不将开发中间实现视作需要兼容的历史版本。身份、build 和协议校验对所有请求一致。
 
 ## Config 与 CPU 验证
 
-Lorelum config 是独立于 backend 的本地基础能力，包边界和首次初始化见本文末节。共享 YAML 的 `embedding` 配置仍在 backend 启动时解析一次，形成不可变快照；运行模块不再次读取 YAML 或环境变量，修改后重启生效。允许省略整个 embedding section 并使用默认配置，保留显式 `modelPath` 兼容路径。
+Lorelum config 是独立于 backend 的本地基础能力，包边界和首次初始化见本文末节。共享 YAML 的 `embedding` 配置仍在 backend 启动时解析一次，形成不可变快照；运行模块不再次读取 YAML 或环境变量，修改后重启生效。允许省略整个 embedding section 并使用默认配置，允许通过显式 `modelPath` 使用用户管理的模型文件。
 
 | 配置 | 约束与用途 |
 | --- | --- |
@@ -110,11 +110,11 @@ API 文档不复制 CLI 参数表；CLI 文档链接配置说明；开发指南�
 ## 本地实施结果
 
 - 配置、HTTP 202 加载、status 进度、CLI 轮询和 stderr 进度已实现。CLI 的 model 命令归 `packages/cli/src/model/`；backend 仍按 config、modules/embedding、models、download、runtime 分工。
-- got 在 backend 进程内传输，SQLite writer lock 串行保护准备与发布。取消时销毁 HTTP 流并等待文件 pipeline 关闭；进程崩溃后由操作系统关闭文件和 socket、释放锁，不再有独立 curl writer。下载 guardian、进程身份记录及其等待逻辑已删除。升级前仍需用旧 CLI 停止旧 daemon，避免混用两代实现。
+- got 在 backend 进程内传输，SQLite writer lock 串行保护准备与发布。取消时销毁 HTTP 流并等待文件 pipeline 关闭；进程崩溃后由操作系统关闭文件和 socket、释放锁，不再有独立 curl writer。下载 guardian、进程身份记录及其等待逻辑已删除。
 - 本机真实 66,345,216-byte Q4_0 文件在传输 1 MiB 后断开，第二次请求从该位置续传；大小、SHA、缓存复用和下载后 native 编码均通过。该实验使用本地服务器，不代表公开下载源已交付。
 - 512/1024/2048 三档的 token 上限及上限加一、384 维和 L2 校验通过。M4 本机每档 5 条计时样本：512/4 threads 平均 55.70 ms、RSS 581.4 MiB；1024/2 threads 平均 204.75 ms、RSS 936.1 MiB；2048/4 threads 平均 354.18 ms、RSS 1666.7 MiB。线程数不同、样本小，不能据此比较缩放效率或承诺 SLA；默认仍为 512。
 - 编译 CLI 在隔离 HOME、含空格安装目录和精简 PATH 下验证了进度、1024-token 配置、HTTP 编码、损坏 YAML 时卸载与正常停止。
-- **默认模型 HTTPS 来源已补齐**：Owner 授权发布到 Lorelum 组织；内置固定 commit URL，匿名完整下载后的大小与 SHA-256 一致。旧配置缺少 URL 时同样使用默认值；镜像覆盖和关闭下载保留。
+- **默认模型 HTTPS 来源已补齐**：Owner 授权发布到 Lorelum 组织；内置固定 commit URL，匿名完整下载后的大小与 SHA-256 一致。配置缺少 URL 时同样使用默认值；镜像覆盖和关闭下载保留。
 
 ## Lorelum config 的包边界与首次初始化
 
@@ -147,7 +147,7 @@ initializeConfig(options?: LoadConfigOptions, initialDocument?: Readonly<Record<
 
 初始化只处理不存在的配置文件，写入当前模块可编辑的默认值，不固化机器绝对路径，下载地址采用已验证的固定版本。先写同目录临时文件并同步，再以不覆盖目标的方式发布；并发启动只有一个创建者。已有配置的字节、注释、其他模块字段和权限保持不变；损坏配置继续明确报错，不以默认配置覆盖。文件创建为 0600，新目录为 0700；backend 运行目录和模型缓存由各自的实际使用路径创建。
 
-迁移时将现有 shared/config 源码及测试移入新包，更新 workspace 依赖和所有 import；同一仓库内部引用一次迁完，不保留两套实现。基础包保留 `filePath`/`homeDirectory` 注入以供隔离测试；backend runtime/model cache 路径在 backend 内派生。无需新增命令、修改 CLI envelope、HTTP endpoint 或再次升级协议；前文协议 3 的原因仍是异步 model load 和状态扩展。
+迁移时将现有 shared/config 源码及测试移入新包，更新 workspace 依赖和所有 import；同一仓库内部引用一次迁完，不保留两套实现。基础包保留 `filePath`/`homeDirectory` 注入以供隔离测试；backend runtime/model cache 路径在 backend 内派生。配置迁包不新增命令或修改 CLI envelope、HTTP endpoint。
 
 此前初始化实现已通过空 HOME 编译 CLI、注释/权限保留与 597 项测试；这只能证明迁移前行为，不能作为新边界已经完成的证据。迁移验收补充：基础包无业务包依赖；无 backend 时 CLI 直接读取共享文档；LocalStore 默认路径与覆盖行为保持；只读命令不创建 `.lorelum`；并发初始化仅一方创建且文件完整；backend loader 单独调用不写入。重跑受影响测试、typecheck、lint 和空 HOME 编译 CLI 验收。
 

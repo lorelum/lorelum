@@ -9,7 +9,7 @@ test("concurrent stop calls share one shutdown and close admission without HTTP"
     complete = resolve;
   });
   const service = createBackendService({
-    identity: { instanceId: "test", buildIdentity: "test", controlVersion: 1, businessVersion: 1 },
+    identity: { instanceId: "test", buildIdentity: "test", protocolVersion: 1 },
     secret: "test-only",
     isReady: () => ready,
     onStop: () => {

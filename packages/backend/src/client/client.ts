@@ -6,8 +6,7 @@ import { randomBytes } from "node:crypto";
 import {
   BACKEND_URL,
   BACKEND_ROUTES,
-  BUSINESS_VERSION,
-  CONTROL_VERSION,
+  PROTOCOL_VERSION,
   MAX_RESPONSE_BYTES,
 } from "../protocol/constants";
 import {
@@ -150,23 +149,12 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     if (
       identity.instanceId !== options.identity.instanceId ||
       identity.buildIdentity !== options.identity.buildIdentity ||
-      identity.controlVersion !== CONTROL_VERSION
+      identity.buildIdentity !== options.buildIdentity ||
+      identity.protocolVersion !== PROTOCOL_VERSION
     ) {
       throw new BackendError("backend.incompatible");
     }
     return parsed.data;
-  };
-
-  const authorized = async (strictBusinessBuild: boolean): Promise<Record<string, string>> => {
-    const identity = await identify();
-    if (
-      strictBusinessBuild &&
-      (identity.buildIdentity !== options.buildIdentity ||
-        identity.businessVersion !== BUSINESS_VERSION)
-    ) {
-      throw new BackendError("backend.incompatible");
-    }
-    return { authorization: `Bearer ${options.secret}` };
   };
 
   // One authenticated JSON request path; endpoint methods only supply their contract.
@@ -177,15 +165,14 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       payload,
       method = "GET",
       timeout = timeoutMs,
-      business = true,
     }: {
       payload?: unknown;
       method?: "GET" | "POST";
       timeout?: number;
-      business?: boolean;
     } = {},
   ): Promise<T> => {
-    const headers = await authorized(business);
+    await identify();
+    const headers: Record<string, string> = { authorization: `Bearer ${options.secret}` };
     const init: RequestInit = { method, headers };
     if (payload !== undefined) {
       init.method = "POST";
@@ -200,7 +187,6 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
 
   const control = async (path: string, method: "GET" | "POST" = "GET"): Promise<BackendStatus> => {
     const result = await request(path, statusSchema, {
-      business: false,
       method,
     });
     if (

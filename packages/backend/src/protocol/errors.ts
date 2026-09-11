@@ -17,7 +17,7 @@ export type BackendErrorCode = (typeof backendErrorCodes)[number];
 const messages: Record<BackendErrorCode, string> = {
   "backend.unavailable": "The local backend is not running.",
   "backend.port-conflict": "The local backend address is occupied by an unverified service.",
-  "backend.incompatible": "The backend version differs; explicitly stop and restart it.",
+  "backend.incompatible": "The backend does not match this client build or protocol.",
   "backend.unauthorized": "The local backend could not authenticate this request.",
   "backend.invalid-request": "The backend request is invalid.",
   "backend.busy": "The local backend is busy or stopping.",
