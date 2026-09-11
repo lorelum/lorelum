@@ -13,8 +13,10 @@
     "lint": "oxlint .",
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
-    "typecheck": "bun run --filter '*' typecheck",
+    "typecheck": "bun run --filter '*' typecheck && tsc --noEmit -p scripts/release/tsconfig.json",
     "build:cli": "bun build --compile packages/cli/src/main.ts --outfile dist/lore",
+    "build:release-staging": "bun scripts/release/build.ts",
+    "build:release": "bun scripts/release/package.ts",
     "build:site": "bun run --filter @lorelum/site build",
     "deploy:site": "cd apps/site && npx wrangler deploy",
     "versions:site": "cd apps/site && npx wrangler versions upload"

@@ -1,9 +1,33 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { verifyResource } from "./embedding-resources";
+import { resolveEmbeddingResourceRoot, verifyResource } from "./embedding-resources";
+
+test("compiled resource lookup resolves the executable symlink before finding native files", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "lore-resource-root-"));
+  try {
+    const installed = join(directory, "installed");
+    const bin = join(directory, "bin");
+    await mkdir(installed, { recursive: true });
+    await mkdir(bin);
+    const executable = join(installed, "lore");
+    const link = join(bin, "lore");
+    await writeFile(executable, "fixture");
+    await symlink(executable, link);
+
+    await expect(resolveEmbeddingResourceRoot(true, link, directory)).resolves.toBe(
+      await realpath(installed),
+    );
+    const sourceDirectory = join(directory, "packages", "backend", "src", "runtime");
+    await expect(resolveEmbeddingResourceRoot(false, link, sourceDirectory)).resolves.toBe(
+      join(directory, "dist"),
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("resource verification rejects wrong content and detects replacement after hashing", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lore-resource-"));

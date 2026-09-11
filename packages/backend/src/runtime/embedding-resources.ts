@@ -2,10 +2,10 @@ import { isDeepStrictEqual } from "node:util";
 import { isCompiledEntrypoint } from "./build-identity";
 /* eslint-disable no-await-in-loop -- Digest reads must be bounded and ordered. */
 import { constants } from "node:fs";
-import { lstat, open, readFile } from "node:fs/promises";
+import { lstat, open, readFile, realpath } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
-import expectedMac from "../../../../native/embedding/artifacts/darwin-arm64.json";
+import { expectedEmbeddingManifest } from "./expected-embedding-manifest";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL } from "../modules/embedding/model";
 
@@ -23,17 +23,22 @@ export async function resolveEmbeddingResources(
   signal: AbortSignal,
 ): Promise<EmbeddingResources> {
   try {
-    if (process.platform !== expectedMac.platform || process.arch !== expectedMac.arch)
+    if (
+      process.platform !== expectedEmbeddingManifest.platform ||
+      process.arch !== expectedEmbeddingManifest.arch
+    )
       throw new EmbeddingError("embedding.resource-invalid");
-    const expected = expectedMac;
+    const expected = expectedEmbeddingManifest;
     if (
       expected.model.sha256 !== EMBEDDING_MODEL.sha256 ||
       expected.model.bytes !== EMBEDDING_MODEL.bytes
     )
       throw new EmbeddingError("embedding.resource-invalid");
-    const root = isCompiledEntrypoint(Bun.main)
-      ? dirname(process.execPath)
-      : resolve(import.meta.dir, "../../../..", "dist");
+    const root = await resolveEmbeddingResourceRoot(
+      isCompiledEntrypoint(Bun.main),
+      process.execPath,
+      import.meta.dir,
+    );
     const directory = join(root, "native", `${process.platform}-${process.arch}`);
     const manifestPath = join(directory, "manifest.json");
     const info = await lstat(manifestPath);
@@ -67,6 +72,18 @@ export async function resolveEmbeddingResources(
       : new EmbeddingError("embedding.resource-invalid");
   }
 }
+
+/** Resolve the release directory through a user-facing symlink before locating native files. */
+export async function resolveEmbeddingResourceRoot(
+  compiledEntrypoint: boolean,
+  executablePath: string,
+  sourceDirectory: string,
+): Promise<string> {
+  return compiledEntrypoint
+    ? dirname(await realpath(executablePath))
+    : resolve(sourceDirectory, "../../../..", "dist");
+}
+
 export async function verifyResource(
   path: string,
   bytes: number,
