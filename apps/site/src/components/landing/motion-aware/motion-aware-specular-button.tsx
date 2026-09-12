@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SpecularButton, type SpecularButtonProps } from '@/components/react-bits';
+import { SpecularButton, type SpecularButtonProps } from '@/vendor/react-bits';
 import { useCanvasEffectsEnabled } from '../motion/use-canvas-effects';
 
 export type MotionAwareSpecularButtonProps = Omit<SpecularButtonProps, 'enableFx'>;

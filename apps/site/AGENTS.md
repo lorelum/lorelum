@@ -19,27 +19,36 @@ bun run lint
 
 ## File placement
 
-- Landing composition and sections: `src/components/landing/`.
-- Navigation and its feature-only hooks/CSS: `src/components/navigation/`.
-  Do not put navbar implementation or styles in `landing-shell.tsx` or
-  `styles/landing.css`.
-- Shared landing animation primitives: `landing/motion/`; gates: `landing/gates/`;
-  ambient effects: `landing/effects/`.
-- User-facing copy: `src/lib/translations.ts`, with both `en` and `zh` values.
-- Page-level landing styles: `src/styles/landing.css`; component styles stay
-  with their component. Only change `app.css` for global imports or theme tokens.
-- Vendored React Bits components: `src/components/react-bits/`, through its
-  barrel, with `THIRD_PARTY_NOTICE.md` updated when required.
-- Docs: `content/docs/`; routes are added under `src/routes/`.
-  `src/routeTree.gen.ts` is generated—never edit it.
+- Framework document/provider composition belongs in `src/app/`; route files
+  stay thin and only wire TanStack URL, head, loader, and response contracts.
+- Product-owned code belongs in `src/features/<feature>/`; stable site-wide
+  brand, config, i18n, utilities, UI, and runtime integrations belong in
+  `src/shared/`. Shared code must not import a feature.
+- Landing navigation belongs in `src/features/landing/navigation/`. The legacy
+  Landing implementation remains in `src/components/landing/` until its visual
+  rewrite; do not expand that exception or move its old CSS merely for symmetry.
+- Vendored React Bits source belongs in `src/vendor/react-bits/`. Vendor code
+  may import external packages only; keep provenance and Aurora's direct lazy
+  import boundary intact.
+- Use Tailwind utilities and semantic tokens for ordinary layout and states.
+  Add CSS only for complex animation, material/filter effects, pseudo-elements,
+  upstream adaptation, or selector relationships that utilities cannot express
+  clearly. Do not put feature styles in `styles/app.css`.
+- The current handwritten locale catalog is a temporary compatibility layer in
+  `src/shared/i18n/legacy-translations.ts`. Do not redesign or replace i18n as
+  part of a directory-only migration.
+- Docs source stays in `content/docs/`; `src/routeTree.gen.ts` is generated and
+  must never be edited.
 
 ## Runtime rules
 
 - Keep SSR safe: access `window`, `document`, `matchMedia`, and `localStorage`
   only in effects, event handlers, or other client-only callbacks.
-- Use `landing/motion/gsap-client.ts` for GSAP. Register plugins, create work
-  inside `gsap.context`, and return `ctx.revert()`. Use ScrollTrigger for
-  viewport behavior under ScrollSmoother.
+- Lorelum-owned GSAP choreography uses `shared/motion/gsap-client.ts`. Keep
+  vendored React Bits self-contained; its client-only upstream registration is
+  the narrow exception. Create site-owned work inside `gsap.context` and return
+  `ctx.revert()`. Under ScrollSmoother, use ScrollTrigger rather than raw
+  window-scroll calculations.
 - Canvas/WebGL and per-frame effects must be capability-gated and must not add
   another ambient background layer. `effects/page-background.tsx` owns that layer.
 - The current product decision does not use `prefers-reduced-motion`; do not

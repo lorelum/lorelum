@@ -1,11 +1,11 @@
 import { useEffect, useState, type RefObject } from 'react';
-import { TextType } from '@/components/react-bits';
-import { gsap, registerGsapPlugins, ScrollTrigger } from '../motion/gsap-client';
+import { TextType } from '@/vendor/react-bits';
+import { gsap, registerGsapPlugins, ScrollTrigger } from '@/shared/motion/gsap-client';
 
 /**
  * Motion-aware wrapper around the vendored `react-bits/text-type` base.
  *
- * NOT the base component: `@/components/react-bits/text-type` is the upstream
+ * NOT the base component: `@/vendor/react-bits/text-type` is the upstream
  * copy; this file is the landing's accessibility gate on top of it. Keep this
  * name distinct (`motion-aware-*`) so a reader never confuses the plain
  * vendored component with the safe-to-use landing one.

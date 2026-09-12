@@ -7,7 +7,7 @@ license header; this file records provenance for review.
 
 - Source: <https://reactbits.dev> · <https://github.com/DavidHDev/react-bits>
 - License: **MIT + Commons Clause** (<https://reactbits.dev/LICENSE.md>)
-- Vendored into `apps/site/src/components/react-bits/` (TypeScript + Tailwind variants):
+- Vendored into `apps/site/src/vendor/react-bits/` (TypeScript + Tailwind variants):
 - Snapshot date: **2026-08-25** (files fetched on this date; `git log` per file may show later
   first-commit dates when a file landed in a later commit, but the vendored content matches this
   upstream snapshot). Re-diff against upstream to pick up fixes.
@@ -44,7 +44,7 @@ Notes:
 - `SpecularButton` was vendored on **2026-09-07** from the JS + CSS variant and ported
   to TypeScript; it adds one local prop, `enableFx`, so the `motion-aware-*` wrapper
   can skip the WebGL canvas for touch users. Its component CSS lives in
-  `apps/site/src/styles/app.css` (upstream class names kept verbatim).
+  `apps/site/src/styles/vendor.css` (upstream class names kept verbatim).
 - `ParticleText` was vendored on **2026-09-07** and **removed the same day** when the
   hero word switched to `WarpText`; the vendored file (and its site budget module)
   are gone from the tree.
@@ -60,8 +60,8 @@ Notes:
   the hero is offscreen or the tab is hidden. It pulls in the `ogl` runtime
   dependency (MIT).
 - Because `Aurora` must stay in its own lazy chunk, it alone is imported directly
-  from `@/components/react-bits/aurora`; every other vendored component is imported
-  through the `@/components/react-bits` barrel (`src/components/react-bits/index.ts`)
+  from `@/vendor/react-bits/aurora`; every other vendored component is imported
+  through the `@/vendor/react-bits` barrel (`src/vendor/react-bits/index.ts`)
   so a future upgrade/swap touches one place.
 - Two upstream components fetched in the original snapshot (`BlurText`,
   `GradientText`) are **not vendored** — they had no consumers in this site, and
@@ -98,6 +98,6 @@ Notes:
 - Used for the landing page's ScrollSmoother smooth scroll, ScrollTrigger scrub
   parallax + hero exit, SplitText word/char reveals, the custom dot+ring cursor,
   the panel scale reveal, and the terminal's GSAP sine float. Registered once in
-  `apps/site/src/components/landing/motion/gsap-client.ts`, ships with the landing chunk,
-  with no motion-preference gating (removed with the rest of the landing's
+  `apps/site/src/shared/motion/gsap-client.ts`, then consumed by Landing. The site has
+  no motion-preference gating (removed with the rest of the landing's
   reduced-motion machinery on 2026-09-07).

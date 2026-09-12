@@ -1,80 +1,41 @@
-import { createFileRoute, notFound } from '@tanstack/react-router';
-import { DocsLayout } from 'fumadocs-ui/layouts/docs';
-import { createServerFn } from '@tanstack/react-start';
-import { docs, source } from '@/lib/source';
-import {
-  DocsBody,
-  DocsDescription,
-  DocsPage,
-  DocsTitle,
-  MarkdownCopyButton,
-  ViewOptionsPopover,
-} from 'fumadocs-ui/layouts/docs/page';
-import { baseOptions } from '@/components/docs-layout-options';
-import { encodeMarkdownUrl, gitConfig } from '@/lib/shared';
-import { useFumadocsLoader } from 'fumadocs-core/source/client';
-import { Suspense, use } from 'react';
-import { useMDXComponents } from '@/components/mdx';
+import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { preloadDocsPage } from "@/features/docs/content/client";
+import { DocsScreen } from "@/features/docs";
+import { loadDocsPage } from "@/features/docs/server/load-doc-page";
 
-export const Route = createFileRoute('/$lang/docs/$')({
+export const Route = createFileRoute("/$lang/docs/$")({
   component: Page,
   loader: async ({ params }) => {
-    const slugs = params._splat?.split('/') ?? [];
+    const slugs = params._splat?.split("/") ?? [];
     const data = await serverLoader({ data: { slugs, lang: params.lang } });
-    await docs.getPage(data.path)?.preload();
+    await preloadDocsPage(data.path);
     return data;
+  },
+  head: ({ loaderData }) => {
+    const title = loaderData ? `${loaderData.title} | Lorelum` : "Docs | Lorelum";
+    const description = loaderData?.description;
+
+    return {
+      meta: [
+        { title },
+        ...(description ? [{ name: "description", content: description }] : []),
+      ],
+    };
   },
 });
 
 const serverLoader = createServerFn({
-  method: 'GET',
+  method: "GET",
 })
   .validator((params: { slugs: string[]; lang?: string }) => params)
-  .handler(async ({ data: { slugs, lang } }) => {
-    const page = source.getPage(slugs, lang);
-    if (!page) throw notFound();
-
-    return {
-      path: page.path,
-      markdownUrl: encodeMarkdownUrl(page.slugs, page.locale),
-      pageTree: await source.serializePageTree(source.getPageTree(lang)),
-    };
+  .handler(async ({ data }) => {
+    const pageData = await loadDocsPage(data);
+    if (!pageData) throw notFound();
+    return pageData;
   });
-
-function Content({ path, markdownUrl }: { path: string; markdownUrl: string }) {
-  const page = docs.getPage(path);
-  if (!page) throw new Error(`unknown page: ${path}`);
-
-  const { toc } = use(page.load());
-  const MDX = page.body;
-
-  return (
-    <DocsPage toc={toc}>
-      <DocsTitle>{page.title}</DocsTitle>
-      <DocsDescription>{page.description}</DocsDescription>
-      <div className="flex flex-row gap-2 items-center border-b -mt-4 pb-6">
-        <MarkdownCopyButton markdownUrl={markdownUrl} />
-        <ViewOptionsPopover
-          markdownUrl={markdownUrl}
-          githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${path}`}
-        />
-      </div>
-      <DocsBody>
-        <MDX components={useMDXComponents()} />
-      </DocsBody>
-    </DocsPage>
-  );
-}
 
 function Page() {
   const { lang } = Route.useParams();
-  const { path, pageTree, markdownUrl } = useFumadocsLoader(Route.useLoaderData());
-
-  return (
-    <DocsLayout {...baseOptions(lang)} tree={pageTree}>
-      <Suspense>
-        <Content path={path} markdownUrl={markdownUrl} />
-      </Suspense>
-    </DocsLayout>
-  );
+  return <DocsScreen lang={lang} pageData={Route.useLoaderData()} />;
 }

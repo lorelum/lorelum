@@ -1,18 +1,18 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { source } from '@/lib/source';
-import { i18n } from '@/lib/i18n';
-import { siteUrl } from '@/lib/meta';
+import { createFileRoute } from "@tanstack/react-router";
+import { source } from "@/features/docs/server/source";
+import { i18n } from "@/shared/i18n/config";
+import { siteUrl } from "@/shared/config/site";
 
-const URLSET_NS = 'http://www.sitemaps.org/schemas/sitemap/0.9';
+const URLSET_NS = "http://www.sitemaps.org/schemas/sitemap/0.9";
 
 /** XML-escape a string for use inside a `<loc>`/`<lastmod>` element. */
 function esc(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 /**
@@ -27,7 +27,7 @@ function canonicalFor(path: string): string {
   return `${siteUrl}${path}`;
 }
 
-export const Route = createFileRoute('/sitemap.xml')({
+export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
@@ -60,12 +60,12 @@ ${[...urls]
     <lastmod>${today}</lastmod>
   </url>`,
   )
-  .join('\n')}
+  .join("\n")}
 </urlset>
 `;
 
         return new Response(body, {
-          headers: { 'content-type': 'application/xml; charset=utf-8' },
+          headers: { "content-type": "application/xml; charset=utf-8" },
         });
       },
     },

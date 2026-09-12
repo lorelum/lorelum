@@ -1,6 +1,6 @@
 import { useRef } from 'react';
-import { CountUp } from '@/components/react-bits';
-import { getStrings, type LandingStrings } from '@/lib/translations';
+import { CountUp } from '@/vendor/react-bits';
+import { getStrings, type LandingStrings } from '@/shared/i18n/legacy-translations';
 import { Reveal } from '../motion/reveal';
 import { SectionHeading } from './section-heading';
 import { usePauseOffscreen } from '../motion/use-viewport-anim';

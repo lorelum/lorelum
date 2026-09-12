@@ -1,8 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { LandingPage } from '@/components/landing/landing-page';
-import { LandingShell } from '@/components/landing/landing-shell';
-import { i18n } from '@/lib/i18n';
-import { landingHead } from '@/lib/meta';
+import { LandingScreen, landingHead } from '@/features/landing';
+import { i18n } from '@/shared/i18n/config';
 
 export const Route = createFileRoute('/')({
   head: () => landingHead(i18n.defaultLanguage),
@@ -10,9 +8,5 @@ export const Route = createFileRoute('/')({
 });
 
 function Home() {
-  return (
-    <LandingShell lang={i18n.defaultLanguage}>
-      <LandingPage lang={i18n.defaultLanguage} />
-    </LandingShell>
-  );
+  return <LandingScreen lang={i18n.defaultLanguage} />;
 }

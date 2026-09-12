@@ -1,8 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRight, Star } from 'lucide-react';
-import { ScrollFloat } from '@/components/react-bits';
-import { gitConfig } from '@/lib/shared';
-import { getStrings } from '@/lib/translations';
+import { ScrollFloat } from '@/vendor/react-bits';
+import { gitConfig } from '@/shared/config/git';
+import { getStrings } from '@/shared/i18n/legacy-translations';
 import { GsapScaleUp } from '../motion/gsap-scale-up';
 import { MotionAwareAntigravity } from '../motion-aware/motion-aware-antigravity';
 import { MotionAwareSpecularButton } from '../motion-aware/motion-aware-specular-button';

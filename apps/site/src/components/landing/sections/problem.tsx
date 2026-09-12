@@ -1,6 +1,6 @@
 import { Archive, EyeOff, ShieldAlert } from 'lucide-react';
-import { SpotlightCard } from '@/components/react-bits';
-import { getStrings } from '@/lib/translations';
+import { SpotlightCard } from '@/vendor/react-bits';
+import { getStrings } from '@/shared/i18n/legacy-translations';
 import { Reveal } from '../motion/reveal';
 import { ScrollParallax } from '../motion/scroll-parallax';
 import { SectionHeading } from './section-heading';
