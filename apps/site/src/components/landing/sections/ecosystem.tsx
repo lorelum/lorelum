@@ -1,5 +1,5 @@
-import { LogoLoop, type LogoItem } from '@/components/react-bits';
-import { getStrings } from '@/lib/translations';
+import { LogoLoop, type LogoItem } from '@/vendor/react-bits';
+import { getStrings } from '@/shared/i18n/legacy-translations';
 import { Reveal } from '../motion/reveal';
 import { SectionHeading } from './section-heading';
 

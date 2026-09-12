@@ -21,14 +21,16 @@ bun run --filter @lorelum/site build      # static + Cloudflare Worker output in
 - `/llms.txt`, `/llms-full.txt` — LLM-friendly content export
 - `/api/search` — built-in ZBSearch endpoint
 
-Content is wired to Fumadocs via `src/lib/source.ts`; i18n config lives in
-`src/lib/i18n.ts`.
+Content is owned by the Docs feature: the server-side Fumadocs source lives in
+`src/features/docs/server/source.ts`, while browser MDX loading lives in
+`src/features/docs/content/client.ts`. The shared locale configuration is in
+`src/shared/i18n/config.ts`.
 
 ## Deployment
 
-The site is deployed to **Cloudflare Workers** (project `lorelum`) with
-Git-integrated **Workers Builds** plus manual `wrangler deploy` direct
-uploads. `wrangler.jsonc` points `main` at
+The site is deployed to **Cloudflare Workers** (project `lorelum`). Production
+deployment is deliberately manual: run the GitHub Actions **Deploy site**
+workflow for a verified ref. `wrangler.jsonc` points `main` at
 `@tanstack/react-start/server-entry`.
 
 Local verification:
@@ -38,13 +40,14 @@ bun run --filter @lorelum/site build
 cd apps/site && npx wrangler dev --port 8788
 ```
 
-Deploy:
+Release through Actions:
 
 ```bash
-bun run build:site && bun run deploy:site   # manual direct upload, no build quota
-git push origin main                        # or: GitHub Actions auto-deploy (path-filtered)
+# GitHub → Actions → Deploy site → Run workflow
+# Choose a verified commit or branch ref.
 ```
 
-See `docs/development/site-deploy.md` for the full deployment workflow (path
-filtering, secrets, release), and `docs/research/tanstack-fumadocs-spike.md` for
-the spike conclusion and risks.
+`bun run build:site && bun run deploy:site` performs an immediate production
+upload and is reserved for an explicitly authorized emergency release. See
+`docs/development/site-deploy.md` for the complete workflow and
+`docs/research/tanstack-fumadocs-spike.md` for the spike conclusion and risks.

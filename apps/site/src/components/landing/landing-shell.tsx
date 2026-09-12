@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { LandingNavbar } from '@/components/navigation/landing-navbar';
+import { LandingNavbar } from '@/features/landing/navigation/landing-navbar';
 import { PageBackground } from './effects/page-background';
 import { FpsProbe } from './fps-probe';
 import {

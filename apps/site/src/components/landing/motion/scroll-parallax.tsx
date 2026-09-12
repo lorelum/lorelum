@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { gsap, registerGsapPlugins } from './gsap-client';
-import { cn } from '@/lib/cn';
+import { gsap, registerGsapPlugins } from '@/shared/motion/gsap-client';
+import { cn } from '@/shared/lib/cn';
 
 /**
  * Scroll-linked vertical parallax wrapper, driven by a ScrollTrigger scrub.

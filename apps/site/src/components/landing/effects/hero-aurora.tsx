@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { shouldRenderWebglAurora } from '../gates/aurora-gate';
-import { gsap, registerGsapPlugins, ScrollTrigger } from '../motion/gsap-client';
+import { gsap, registerGsapPlugins, ScrollTrigger } from '@/shared/motion/gsap-client';
 import { detectWebglRenderer, type WebglCapability } from '../gates/webgl-renderer';
 
 /**
@@ -18,14 +18,14 @@ import { detectWebglRenderer, type WebglCapability } from '../gates/webgl-render
  * instead of starting only after the settle timer, which used to make the
  * aurora appear seconds after a refresh (timer + full chunk round-trip + idle
  * wait, all serial). The chunk is imported directly from
- * `@/components/react-bits/aurora`, NOT through the barrel: `React.lazy` must
+ * `@/vendor/react-bits/aurora`, NOT through the barrel: `React.lazy` must
  * resolve to the component's own module, and the barrel would pull every
  * vendored component into this chunk and defeat the lazy-load.
  */
-type AuroraModule = typeof import('@/components/react-bits/aurora');
+type AuroraModule = typeof import('@/vendor/react-bits/aurora');
 let auroraChunkPromise: Promise<AuroraModule> | null = null;
 const loadAuroraChunk = () =>
-  (auroraChunkPromise ??= import('@/components/react-bits/aurora'));
+  (auroraChunkPromise ??= import('@/vendor/react-bits/aurora'));
 
 const Aurora = lazy(loadAuroraChunk);
 
@@ -148,4 +148,3 @@ export function HeroAurora() {
     </div>
   );
 }
-

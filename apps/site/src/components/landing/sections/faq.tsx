@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import { getStrings } from '@/lib/translations';
+import { getStrings } from '@/shared/i18n/legacy-translations';
 import { Reveal } from '../motion/reveal';
 import { SectionHeading } from './section-heading';
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { gsap, registerGsapPlugins, SplitText } from './gsap-client';
-import { cn } from '@/lib/cn';
+import { gsap, registerGsapPlugins, SplitText } from '@/shared/motion/gsap-client';
+import { cn } from '@/shared/lib/cn';
 
 const HAS_CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
 

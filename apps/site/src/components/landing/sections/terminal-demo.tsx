@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getStrings, type LandingStrings } from '@/lib/translations';
+import { getStrings, type LandingStrings } from '@/shared/i18n/legacy-translations';
 
 /**
  * A fixed-height terminal demo that replays a *real* Lorelum CLI transcript.

@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react';
-import { gsap, registerGsapPlugins, ScrollTrigger } from './gsap-client';
+import { gsap, registerGsapPlugins, ScrollTrigger } from '@/shared/motion/gsap-client';
 
 interface Target {
   ref: RefObject<HTMLElement | null>;

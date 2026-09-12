@@ -1,5 +1,5 @@
 import { useLayoutEffect, type ReactNode } from 'react';
-import { registerGsapPlugins, ScrollSmoother } from './gsap-client';
+import { registerGsapPlugins, ScrollSmoother } from '@/shared/motion/gsap-client';
 
 export const SMOOTH_WRAPPER_ID = 'smooth-wrapper';
 export const SMOOTH_CONTENT_ID = 'smooth-content';

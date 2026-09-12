@@ -1,0 +1,96 @@
+/* Static landing navbar surface. Kept next to the component so navigation
+   styling cannot leak into page-level landing styles. */
+.landing-navbar {
+  display: flow-root;
+  pointer-events: none;
+}
+
+.landing-navbar__panel {
+  position: relative;
+  margin-top: 0;
+  margin-inline: auto;
+  width: 100%;
+  height: 3.5rem;
+  overflow: hidden;
+  pointer-events: auto;
+  border-radius: 0;
+}
+
+.landing-navbar__surface {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--color-fd-background) 84%, transparent);
+  backdrop-filter: blur(16px) saturate(1.08);
+}
+
+.landing-navbar__content {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-navbar__link {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  color: var(--color-fd-foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  transition:
+    color 160ms ease-out,
+    background-color 160ms ease-out;
+}
+
+.landing-navbar__link:hover {
+  background: color-mix(in oklab, var(--color-fd-primary) 9%, transparent);
+  color: var(--color-fd-primary);
+}
+
+.landing-navbar__github-link {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding-inline: 0.625rem;
+  color: var(--color-fd-foreground);
+  cursor: pointer;
+  transition:
+    color 160ms ease-out,
+    background-color 160ms ease-out;
+}
+
+.landing-navbar__github-link:hover {
+  background: color-mix(in oklab, var(--color-fd-primary) 9%, transparent);
+  color: var(--color-fd-primary);
+}
+
+.landing-navbar__github-stars {
+  border-left-color: color-mix(in oklab, currentColor 60%, transparent);
+}
+
+.landing-navbar__github-link > svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.dark .landing-navbar__surface {
+  background: color-mix(in oklab, var(--color-fd-background) 90%, transparent);
+}
+
+.dark .landing-navbar__link:hover,
+.dark .landing-navbar__github-link:hover {
+  background: color-mix(in oklab, var(--color-fd-primary) 16%, transparent);
+  color: color-mix(in oklab, var(--color-fd-foreground) 72%, var(--color-fd-muted-foreground));
+}
+
+.dark .landing-navbar__github-stars {
+  border-left-color: color-mix(in oklab, currentColor 60%, transparent);
+}
