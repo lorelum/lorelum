@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  resolveEmbeddingNativeArtifact,
+  trustedEmbeddingManifestPath,
+} from "../../packages/backend/src/runtime/native/embedding/catalog";
 import { compileReleaseCli } from "./compile-cli";
 import type { NativeArtifactManifest } from "./native-manifest";
 
@@ -57,6 +61,42 @@ test("release compiler embeds its supplied manifest and disables cwd dotenv disc
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout.trim()).toBe(`${manifest.buildIdentity}:unset`);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("release compiler replaces the embedding catalog's trusted manifest", async () => {
+  const artifact = resolveEmbeddingNativeArtifact("darwin", "arm64");
+  if (artifact === undefined) throw new Error("darwin-arm64 artifact is required");
+  const directory = await mkdtemp(join(tmpdir(), "lore-release-catalog-"));
+  const releaseManifest = { ...manifest, buildIdentity: digest("catalog-release-build") };
+  try {
+    const entrypoint = join(directory, "entry.ts");
+    const executable = join(directory, "fixture");
+    await writeFile(
+      entrypoint,
+      [
+        `import manifest from ${JSON.stringify(trustedEmbeddingManifestPath(artifact))};`,
+        "console.log(manifest.buildIdentity);",
+      ].join("\n"),
+    );
+
+    await compileReleaseCli({
+      nativeManifest: releaseManifest,
+      outfile: executable,
+      entrypoint,
+      artifact,
+    });
+    const child = Bun.spawn([executable], { stdout: "pipe", stderr: "pipe" });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(stdout.trim()).toBe(releaseManifest.buildIdentity);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

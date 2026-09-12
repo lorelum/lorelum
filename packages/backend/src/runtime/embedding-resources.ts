@@ -4,15 +4,17 @@ import { isCompiledEntrypoint } from "./build-identity";
 import { constants } from "node:fs";
 import { lstat, open, readFile, realpath } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { dirname, join, resolve } from "node:path";
-import expectedEmbeddingManifest from "./native-artifacts/darwin-arm64.json";
+import { dirname, join } from "node:path";
+import {
+  developmentEmbeddingArtifactDirectory,
+  installedEmbeddingArtifactDirectory,
+  resolveEmbeddingNativeArtifact,
+} from "./native/embedding/catalog";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL } from "../modules/embedding/model";
 
 const MAX_MANIFEST_BYTES = 16_384;
 const HASH_CHUNK_BYTES = 256 * 1024;
-// Source runs use the repository's current native build output; release binaries use their own directory.
-const developmentDistributionRoot = resolve(import.meta.dir, "../../../..", "dist");
 
 export interface EmbeddingResources {
   readonly executable: string;
@@ -25,12 +27,9 @@ export async function resolveEmbeddingResources(
   signal: AbortSignal,
 ): Promise<EmbeddingResources> {
   try {
-    if (
-      process.platform !== expectedEmbeddingManifest.platform ||
-      process.arch !== expectedEmbeddingManifest.arch
-    )
-      throw new EmbeddingError("embedding.resource-invalid");
-    const expected = expectedEmbeddingManifest;
+    const artifact = resolveEmbeddingNativeArtifact(process.platform, process.arch);
+    if (artifact === undefined) throw new EmbeddingError("embedding.resource-invalid");
+    const expected = artifact.manifest;
     if (
       expected.model.sha256 !== EMBEDDING_MODEL.sha256 ||
       expected.model.bytes !== EMBEDDING_MODEL.bytes
@@ -38,8 +37,11 @@ export async function resolveEmbeddingResources(
       throw new EmbeddingError("embedding.resource-invalid");
     const root = isCompiledEntrypoint(Bun.main)
       ? await resolveCompiledEmbeddingResourceRoot(process.execPath)
-      : developmentDistributionRoot;
-    const directory = join(root, "native", `${process.platform}-${process.arch}`);
+      : undefined;
+    const directory =
+      root === undefined
+        ? developmentEmbeddingArtifactDirectory(artifact)
+        : installedEmbeddingArtifactDirectory(root, artifact);
     const manifestPath = join(directory, "manifest.json");
     const info = await lstat(manifestPath);
     if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_MANIFEST_BYTES)

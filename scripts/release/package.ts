@@ -5,7 +5,6 @@ import { renderThirdPartyNotices, collectBundledPackageNotices } from "./notices
 import { readNativeArtifactManifest, sha256File } from "./native-manifest";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
-const target = "darwin-arm64";
 const versionPattern =
   /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
@@ -20,6 +19,7 @@ export interface ReleaseArchive {
 export async function buildReleaseArchive(): Promise<ReleaseArchive> {
   const version = await readCliVersion();
   const staging = await buildReleaseStaging();
+  const target = staging.artifact.id;
   const name = `lore-${version}-${target}`;
   const packageDirectory = join(repositoryRoot, "dist/release/package");
   await rm(packageDirectory, { recursive: true, force: true });

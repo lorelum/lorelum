@@ -8,8 +8,8 @@
 
 ## 已确认的现状
 
-- [`build:cli`](../../package.json) 用 Bun compile 生成 `dist/lore`，当前本机构建约 60 MB；它没有把 `dist/native` 自动带入产物。仓库和 CI 已锁定 Bun 1.4.2；它的 compiled executable 默认自动读取当前目录的 `.env` 和 `bunfig.toml`，而现有 backend 会读取指定的 `LORELUM_BACKEND_*` 环境变量。这会让用户所在目录意外影响 Lorelum 配置。
-- [`build-embedding.ts`](../../scripts/native/build-embedding.ts) 独立构建带父进程退出补丁的 CPU-only `llama-server`，输出到 `dist/native/darwin-arm64/`，同时生成许可证、第三方声明和 manifest。当前 native 可执行文件约 12.6 MB；这些是未压缩的本机参考值，发布包大小必须实测。
+- [`build:cli`](../../package.json) 用 Bun compile 生成 `dist/lore`，当前本机构建约 60 MB；它不携带 native runtime，因此不能作为 embedding 的发行构建。仓库和 CI 已锁定 Bun 1.4.2；它的 compiled executable 默认自动读取当前目录的 `.env` 和 `bunfig.toml`，而现有 backend 会读取指定的 `LORELUM_BACKEND_*` 环境变量。这会让用户所在目录意外影响 Lorelum 配置。
+- [`build-embedding.ts`](../../scripts/native/build-embedding.ts) 独立构建带父进程退出补丁的 CPU-only `llama-server`，输出到 `packages/backend/.artifacts/native/embedding/darwin-arm64/`，同时生成许可证、第三方声明和 manifest。当前 native 可执行文件约 12.6 MB；这些是未压缩的本机参考值，发布包大小必须实测。
 - [`embedding-resources.ts`](../../packages/backend/src/runtime/embedding-resources.ts) 在编译模式下从 `process.execPath` 所在目录寻找 `native/<platform>-<arch>`，要求磁盘 manifest 与 CLI 编入的固定 manifest 完全相等，再验证文件大小、SHA-256 和使用前未被替换。当前只接受 darwin-arm64。
 - [`模型交付方案`](./model-delivery-and-api-design.md) 已实现进程内 got 下载：固定 Hugging Face revision 的 Q4_0 模型为 66,345,216 bytes，支持续传和摘要校验。安装器无须再次实现模型下载。
 - [`@lorelum/config`](../../packages/config/src/paths/lorelum.ts) 已独立管理 `~/.lorelum/config.yaml`。运行状态、模型缓存和 Store 不属于安装包。

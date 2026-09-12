@@ -32,6 +32,7 @@ dist/
 build/
 out/
 .cache/
+.artifacts/
 
 # ────────────────────────────────────────────────────────────
 # Bun / TypeScript (toolchain locked)

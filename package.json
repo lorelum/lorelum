@@ -14,6 +14,7 @@
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
     "typecheck": "bun run --filter '*' typecheck && tsc --noEmit -p scripts/release/tsconfig.json",
+    "build:native": "bun scripts/native/build-embedding.ts",
     "build:cli": "bun build --compile packages/cli/src/main.ts --outfile dist/lore",
     "build:release-staging": "bun scripts/release/build.ts",
     "build:release": "bun scripts/release/package.ts",

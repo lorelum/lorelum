@@ -1,22 +1,25 @@
 import { chmod, mkdir, realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import {
+  resolveEmbeddingNativeArtifact,
+  trustedEmbeddingManifestPath,
+  type EmbeddingNativeArtifact,
+} from "../../packages/backend/src/runtime/native/embedding/catalog";
 import type { NativeArtifactManifest } from "./native-manifest";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 const defaultEntrypoint = join(repositoryRoot, "packages/cli/src/main.ts");
-const defaultManifestArtifact = join(
-  repositoryRoot,
-  "packages/backend/src/runtime/native-artifacts/darwin-arm64.json",
-);
 
 export interface CompileReleaseCliOptions {
   readonly nativeManifest: NativeArtifactManifest;
   readonly outfile: string;
+  /** Native artifact whose checked-in manifest Bun replaces for this release. */
+  readonly artifact?: EmbeddingNativeArtifact;
   /** Test-only alternate entrypoint; release builds always use the CLI entrypoint. */
   readonly entrypoint?: string;
   /** Test-only alternate JSON artifact whose contents receive the trusted manifest. */
   readonly manifestArtifact?: string;
-  /** Test-only current-platform target; production builds are darwin-arm64 only. */
+  /** Test-only compilation target; production derives this from the native artifact. */
   readonly target?: Bun.Build.CompileTarget;
 }
 
@@ -28,13 +31,16 @@ export interface CompiledReleaseCli {
 export async function compileReleaseCli(
   options: CompileReleaseCliOptions,
 ): Promise<CompiledReleaseCli> {
-  const manifestArtifact = await realpath(options.manifestArtifact ?? defaultManifestArtifact);
+  const artifact = options.artifact ?? currentEmbeddingNativeArtifact();
+  const manifestArtifact = await realpath(
+    options.manifestArtifact ?? trustedEmbeddingManifestPath(artifact),
+  );
   await mkdir(dirname(options.outfile), { recursive: true });
   const result = await Bun.build({
     entrypoints: [options.entrypoint ?? defaultEntrypoint],
     target: "bun",
     compile: {
-      target: options.target ?? "bun-darwin-arm64",
+      target: options.target ?? artifact.compileTarget,
       outfile: options.outfile,
       autoloadDotenv: false,
       autoloadBunfig: false,
@@ -51,6 +57,15 @@ export async function compileReleaseCli(
   return Object.freeze({
     bundledInputs: Object.freeze(Object.keys(result.metafile.inputs).sort()),
   });
+}
+
+function currentEmbeddingNativeArtifact(): EmbeddingNativeArtifact {
+  const artifact = resolveEmbeddingNativeArtifact(process.platform, process.arch);
+  if (artifact === undefined)
+    throw new Error(
+      `release compilation currently supports darwin-arm64, got ${process.platform}-${process.arch}`,
+    );
+  return artifact;
 }
 
 function manifestOverridePlugin(manifestArtifact: string, manifest: NativeArtifactManifest) {

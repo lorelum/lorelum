@@ -63,6 +63,6 @@ lore backend stop
 
 ## 构建与支持范围
 
-从源码构建：`bun scripts/native/build-embedding.ts`，然后 `bun run build:cli`。安装时将 `dist/lore` 与完整的 `dist/native/darwin-arm64/` 一起保留，不能仅复制 CLI。native manifest 和许可证说明见 [native 构建说明](../../native/embedding/README.md)。
+源码开发先执行 `bun run build:native`；native candidate 位于 `packages/backend/.artifacts/native/embedding/darwin-arm64/`，由源码 backend 直接校验和启动。可安装的编译版必须通过 `bun run build:release` 生成，并保留 archive 内完整的 `native/darwin-arm64/` 目录，不能仅复制 `lore`。`bun run build:cli` 只生成通用 CLI binary，不携带配套 native runtime，不能作为 embedding 的发行构建。native manifest 和许可证说明见 [native 构建说明](../../native/embedding/README.md)。
 
 当前 embedding 支持 macOS arm64，已在 M4 验证。Windows native、进程身份/ACL 和端到端验收尚未完成；Linux embedding 不在当前交付范围。普通 `lore query` 仍走原有 Engine 路径，semantic index/query 接入另行实施。

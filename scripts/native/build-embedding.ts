@@ -1,4 +1,8 @@
 import config from "../../native/embedding/build-config.json";
+import {
+  developmentEmbeddingArtifactDirectory,
+  resolveEmbeddingNativeArtifact,
+} from "../../packages/backend/src/runtime/native/embedding/catalog";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -106,7 +110,8 @@ function copyArtifact(source: string, destination: string): void {
   chmodSync(destination, statSync(source).mode);
 }
 
-if (process.platform !== "darwin" || process.arch !== "arm64") {
+const artifact = resolveEmbeddingNativeArtifact(process.platform, process.arch);
+if (artifact === undefined) {
   throw new Error(
     `this validated build recipe currently supports darwin-arm64, got ${process.platform}-${process.arch}`,
   );
@@ -169,8 +174,7 @@ if (!existsSync(builtExecutable)) {
   throw new Error(`build completed without ${builtExecutable}`);
 }
 
-const targetName = `${process.platform}-${process.arch}`;
-const outputRoot = join(repositoryRoot, "dist/native", targetName);
+const outputRoot = developmentEmbeddingArtifactDirectory(artifact);
 rmSync(outputRoot, { recursive: true, force: true });
 mkdirSync(outputRoot, { recursive: true });
 

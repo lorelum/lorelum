@@ -1,5 +1,9 @@
 import buildConfig from "../../native/embedding/build-config.json";
 import { llamaArguments } from "../../packages/backend/src/runtime/llama-options";
+import {
+  developmentEmbeddingArtifactDirectory,
+  resolveEmbeddingNativeArtifact,
+} from "../../packages/backend/src/runtime/native/embedding/catalog";
 /* eslint-disable no-await-in-loop -- Lifecycle states and process exits must be observed sequentially. */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
@@ -8,7 +12,12 @@ import { join, resolve } from "node:path";
 type TestMode = "startup" | "encoding" | "stalled-main";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
-const executable = join(repositoryRoot, "dist/native/darwin-arm64/llama-server");
+const artifact = resolveEmbeddingNativeArtifact(process.platform, process.arch);
+if (artifact === undefined)
+  throw new Error(
+    `native lifecycle tests currently support darwin-arm64, got ${process.platform}-${process.arch}`,
+  );
+const executable = join(developmentEmbeddingArtifactDirectory(artifact), "llama-server");
 const model = join(repositoryRoot, ".cache/embedding-validation", buildConfig.model.fileName);
 const harness = join(repositoryRoot, ".cache/native-liveness/stalled-llama-server");
 
