@@ -20,9 +20,6 @@ function fixture(overrides: Partial<EmbeddingRuntime> = {}) {
     async start() {
       starts++;
     },
-    async tokenize(text) {
-      return Array.from({ length: text === "long" ? 513 : 512 }, () => 1);
-    },
     async encode(text) {
       encoded.push(text);
       return [1, ...Array<number>(383).fill(0)];
@@ -52,16 +49,12 @@ test("concurrent load shares one task and ready load reuses the process", async 
   expect(f.service.status().state).toBe("unloaded");
 });
 
-test("512 accepted, entire batch validated before encode, original text and order preserved", async () => {
+test("passes input to the runtime unchanged and preserves order", async () => {
   const f = fixture();
+  const longInput = "token ".repeat(3_000);
   await f.service.load();
-  await expect(f.service.embed("query", ["valid", "long"])).rejects.toMatchObject({
-    code: "embedding.input-too-long",
-  });
-  expect(f.encoded).toEqual([]);
-  expect(f.service.status().state).toBe("ready");
-  const result = await f.service.embed("document", ["  source\n", "second"]);
-  expect(f.encoded).toEqual(["  source\n", "second"]);
+  const result = await f.service.embed("document", ["  source\n", longInput]);
+  expect(f.encoded).toEqual(["  source\n", longInput]);
   expect(result.vectors).toHaveLength(2);
   await f.service.unload();
 });
@@ -232,27 +225,20 @@ test("file preparation shares one task, reports progress, and cancels before nat
   expect(service.status().progress).toBeUndefined();
 });
 
-test("configured token limit controls admission and identity, threads do not", async () => {
-  const make = (threads: number, maxTokens: 512 | 1024) =>
+test("thread setting does not affect encoding identity", async () => {
+  const make = (threads: number) =>
     createEmbeddingService({
       settings: DEFAULT_BACKEND_SETTINGS,
       threads,
-      maxTokens,
       createRuntime: () => ({
         start: async () => {},
         stop: async () => {},
         exited: new Promise(() => {}),
-        tokenize: async (text) => Array(Number(text)).fill(1),
         encode: async () => [1, ...Array<number>(383).fill(0)],
       }),
     });
-  const service = make(2, 1024);
+  const service = make(2);
   await service.load();
-  expect((await service.embed("document", ["1024"])).vectors).toHaveLength(1);
-  await expect(service.embed("document", ["1025"])).rejects.toMatchObject({
-    code: "embedding.input-too-long",
-  });
-  expect(service.status().encodingId).toBe(make(8, 1024).status().encodingId);
-  expect(service.status().encodingId).not.toBe(make(2, 512).status().encodingId);
+  expect(service.status().encodingId).toBe(make(8).status().encodingId);
   await service.unload();
 });

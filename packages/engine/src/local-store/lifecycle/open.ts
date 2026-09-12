@@ -49,6 +49,7 @@ import { readEffectiveRevisionLog } from "../storage/sqlite/revision-log";
 import { InvalidPracticeIdError, StoreSnapshotChangedError } from "./errors";
 
 import { runStoreRecovery } from "./recovery";
+import { withStoreMutation } from "./mutation";
 
 /* eslint-disable no-await-in-loop -- consistency and recovery retries are intentionally sequential */
 
@@ -393,6 +394,27 @@ export async function readSnapshotIdentity(rootPath: string): Promise<StoreSnaps
     snapshot.manifest,
     snapshot.metadata,
   );
+}
+
+/**
+ * Hold the Store mutation lock only while publishing already-prepared derived
+ * state. The callback runs once after recovery and identity verification; it
+ * must not start another Store mutation or perform long-running work.
+ */
+export async function withSnapshotFence<T>(
+  rootPath: string,
+  expected: StoreSnapshotIdentity,
+  publish: () => Promise<T>,
+): Promise<T> {
+  return withStoreMutation(rootPath, async ({ recovery }) => {
+    const current = snapshotIdentity(
+      await resolvedRootBinding(rootPath),
+      recovery.manifest,
+      recovery.metadata,
+    );
+    if (!identitiesEqual(current, expected)) throw new StoreSnapshotChangedError();
+    return publish();
+  });
 }
 
 /** Read one full effective corpus and the identity that produced it. */

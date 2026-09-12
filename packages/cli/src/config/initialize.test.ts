@@ -21,7 +21,6 @@ test("explicit initialization creates editable defaults and resolves all paths f
     const config = await loadBackendConfig({ homeDirectory, environment: {} });
     expect(config.embedding).toMatchObject({
       threads: 4,
-      maxTokens: 512,
       cacheDirectory: join(homeDirectory, ".lorelum", "models"),
     });
     const { readFile } = await import("node:fs/promises");

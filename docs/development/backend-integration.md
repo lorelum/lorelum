@@ -8,15 +8,13 @@
 bun packages/backend/integration/embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/daemon-embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/model-download.integration.ts /absolute/path/to/granite-q4_0.gguf
-bun packages/backend/integration/model-settings.integration.ts /absolute/path/to/granite-q4_0.gguf
 ```
 
 | 入口 | Review 时关注的场景 |
 | --- | --- |
-| `embedding.integration.ts` | HTTP 认证调用、token 边界、占用编码槽时的控制响应与 busy 拒绝、重复加载/卸载 |
+| `embedding.integration.ts` | HTTP 认证调用、占用编码槽时的控制响应与 busy 拒绝、重复加载/卸载 |
 | `daemon-embedding.integration.ts` | 常驻进程复用、native 无响应回收、native 崩溃、daemon 崩溃后的子进程回收和重启 |
 | `model-download.integration.ts` | 本地传输在 1 MiB 后断开，按真实落盘偏移续传，校验后编码并复用缓存 |
-| `model-settings.integration.ts` | 512/1024/2048 token 配置、线程数、encodingId、上限与上限加一、384 维和 L2 范数 |
 
 每个入口先组装环境，再调用命名场景，最后清理自己拥有的资源。`integration/support/` 只放重复的 native fixture、进程等待/RSS 采样、断流服务器和冻结参考比较，不包含业务实现。
 
@@ -30,7 +28,7 @@ HTTP 脚本可额外接收参考目录，包含 `q4-reference.json`、`fixtures.
 bun packages/backend/integration/embedding.integration.ts /absolute/path/to/granite-q4_0.gguf /absolute/path/to/reference-directory
 ```
 
-参考文件先做结构校验，再比较固定向量、Top1/nDCG@5 和 tokenizer。缺失 fixture ID、维度不匹配、空相关标签会明确报错。未提供参考目录时不会执行这一场景；不能将普通 HTTP 验收当作参考回归通过。
+参考文件先做结构校验，再比较固定向量、Top1 和 nDCG@5。缺失 fixture ID、维度不匹配、空相关标签会明确报错。未提供参考目录时不会执行这一场景；不能将普通 HTTP 验收当作参考回归通过。
 
 ## 如何读输出
 

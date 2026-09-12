@@ -252,8 +252,7 @@ We actively welcome contributions made with AI coding assistants. A few rules to
 1. **Read [AGENTS.md](./AGENTS.md)** before letting the agent write code — it contains repo-specific commands, layout, and boundaries the agent must respect.
 2. **You are responsible for merged behavior.** "The AI wrote it" is never a defense for bugs, broken tests, or license issues. Use evidence-based review: approve the architecture, public contracts, security boundaries, acceptance evidence, and residual risks. "Reviewed every line" is not an acceptance criterion.
 3. **Disclose AI assistance and its review evidence.** In the PR description, check the "AI-assisted" box, briefly note which parts used AI, and link or summarize the AI code review. This helps reviewers focus.
-4. **No large AI-generated dump PRs.** Keep PRs focused and reviewable. If an agent produces a 1000-line diff, break it into smaller PRs.
-5. **Tests still apply.** AI-generated code must pass the same lint, type-check, and test gates as hand-written code.
+4. **Tests still apply.** AI-generated code must pass the same lint, type-check, and test gates as hand-written code.
 
 ## Knowledge-pack contributions
 

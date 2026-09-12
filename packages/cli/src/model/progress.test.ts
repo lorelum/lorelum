@@ -15,7 +15,6 @@ test("CLI progress reports changed percentage and attempts without flooding outp
     dimensions: 384,
     device: "cpu",
     threads: 4,
-    maxTokens: 512,
     progress: { phase: "downloading", downloadedBytes: 10, totalBytes: 100, attempt: 1 },
   };
   report(status);

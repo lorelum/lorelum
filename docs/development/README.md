@@ -15,6 +15,7 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [Discover installed Packs with `lore list`](../cli/list.md)
 - [Read an installed Practice with `lore get`](../cli/get.md)
 - [Query installed Practices with `lore query`](../cli/query.md)
+- [Manage a Store semantic index with `lore index`](../cli/index.md)
 - [LocalStore Engine API](#localstore-engine-api)
 - [QueryService Engine API](#queryservice-engine-api)
 - [Point-read performance benchmark](./local-store-point-read-benchmark.md)
@@ -22,10 +23,10 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [Keyword query quality and performance baseline](./keyword-query-benchmark.md)
 - [Site deployment workflow](./site-deploy.md)
 
-## Proposed plans
+## Design records and remaining plans
 
 - [Query phased implementation roadmap (Chinese)](../plans/query-roadmap.md) - keyword retrieval, configuration, embedding profiles, and derived indexes. The keyword query foundation is implemented; later phases remain proposed.
-- [Local resident backend design (Chinese)](../plans/local-backend-service-design.md) - approved first-stage service lifecycle, shared configuration, and Store isolation; model residency remains deferred.
+- [Local resident backend design (Chinese)](../plans/local-backend-service-design.md) - the historical first-stage lifecycle and Store-isolation design. For current commands and model behavior, use the CLI documents above.
 
 ## Local CLI and multiple worktrees
 
@@ -35,11 +36,44 @@ The CLI's discoverable global option is:
 --store-root <path>
 ```
 
-When omitted, the Store remains `~/.lorelum`. A relative path is resolved from the calling process's current working directory. `install`, `list`, `get`, and `query` consume LocalStore; do not infer support for other commands from this guide.
+When omitted, the Store remains `~/.lorelum`. A relative path is resolved from the calling process's current working directory. `install`, `list`, `get`, `query`, and `index` use LocalStore; backend and model lifecycle commands do not. Do not infer support for other commands from this guide.
 
-### Source-level CLI helper
+### Normal development workflow
 
-`lore-dev` is a developer convenience, not a CLI requirement. Configure an equivalent helper with the initialization mechanism for the developer's shell; do not assume every developer uses zsh. The following is a zsh example, which can be added to `~/.zshrc` or pasted into one zsh session:
+All commands in this section start in the **target worktree**. The normal source path is the current worktree's TypeScript entrypoint, `bun packages/cli/src/main.ts ...`. `lore-dev` is an optional human shortcut for that same command; it is not a requirement for Agents or automation. The globally installed `lore` remains a stable command for the primary checkout and is not a worktree-validation tool.
+
+Use an isolated Store by default when validating a worktree. This applies even to a command that is mostly a read: opening a Store can recover state and query/index features can update derived state. Omit `--store-root` only when the task explicitly calls for the developer's real shared Packs and indexes.
+
+| What is being checked | Required route | Do not use |
+| --- | --- | --- |
+| TypeScript CLI or keyword behavior | `bun packages/cli/src/main.ts ...`; a human may use `lore-dev ...` instead | Global `lore` or an executable produced by another worktree. |
+| Backend lifecycle only | `bun packages/cli/src/main.ts backend start/status/stop` | `build:native`; no model runtime is needed just to control the Backend. |
+| Source-level model, embedding, or semantic index behavior | `bun run build:native`, then `bun packages/cli/src/main.ts backend start`, `bun packages/cli/src/main.ts model load`, and `bun packages/cli/src/main.ts --store-root <isolated-root> index build` | `build:cli`; it has no native embedding runtime. Backend and model startup are explicit in the current product. |
+| Compiled non-embedding behavior | `bun run build:cli` followed by `./dist/lore ...` | That binary for a model, embedding, or semantic-index check. |
+| Runnable compiled embedding candidate | `bun run build:release-staging` followed by `./dist/release/darwin-arm64/lore ...` | `build:release` unless archive validation is the purpose. |
+| Final archive/package | `bun run build:release` | Treating the archive command as the normal development build. |
+
+For example, a source-level semantic-index check against a worktree-local Store is:
+
+```zsh
+bun run build:native
+bun packages/cli/src/main.ts backend start
+bun packages/cli/src/main.ts model load
+bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-store)" index build
+bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-store)" index status
+```
+
+The Backend and model are user-level resources; the explicit Store root selects only Pack data and its derived index. Stop a test Backend with `bun packages/cli/src/main.ts backend stop` when the check is complete.
+
+### Source entrypoint and human helper
+
+Agents and automation can always use the direct source command below from the target worktree:
+
+```sh
+bun packages/cli/src/main.ts --help
+```
+
+`lore-dev` is only a developer convenience for people who prefer a shorter command. Configure an equivalent helper with the initialization mechanism for the developer's shell; do not assume every developer uses zsh. The following is a zsh example, which can be added to `~/.zshrc` or pasted into one zsh session:
 
 ```zsh
 lore-dev() {
@@ -72,16 +106,29 @@ lore-dev --store-root "$(git rev-parse --path-format=absolute --git-path lorelum
 
 The `ld` alias above is optional and specific to the zsh example.
 
-### Agent setup check
+### Calling the human helper from non-interactive shells
 
-Before an Agent exercises the current worktree's CLI source, it should check whether a `lore-dev` helper is available. If not, the Agent must ask the developer whether they want to configure one and which shell they use; it must not assume zsh or modify a shell startup file without explicit developer approval. Once configured, Agents should use the helper instead of rebuilding or repointing global `lore` for ordinary source-level CLI checks, passing `--store-root` only when isolation is required.
+The helper can already be correctly configured in a developer's `~/.zshrc` while a command runner cannot see it: non-interactive zsh does not load `.zshrc`. A human or automation that intentionally needs this convenience wrapper may invoke it through interactive zsh; Agents do not need to do this because they should call the source entrypoint directly.
 
-Use the source function while iterating. To check compiled behavior for the same checkout, run:
+For a developer who uses the zsh setup above, verify and invoke the existing function through interactive zsh:
 
 ```zsh
-bun run build:cli
-./dist/lore --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/store)" install pack-creator --pack-version 0.1.0
+zsh -ic 'whence -w lore-dev'
+zsh -ic 'lore-dev --store-root /absolute/path/to/isolated-store list'
 ```
+
+The command inherits the caller's current worktree, so `lore-dev` still anchors `packages/cli/src/main.ts` to that worktree. Use the developer's documented interactive-shell equivalent for shells other than zsh; do not guess a shell or persist a new helper. A failed helper lookup is never a reason for an Agent to change shell configuration.
+
+### Compiled checks
+
+Use the source function while iterating. `bun run build:cli` produces `dist/lore` without the native embedding runtime, so it is suitable only for non-embedding compiled checks such as keyword benchmarks. For a runnable compiled embedding check in the same checkout, build release staging instead:
+
+```zsh
+bun run build:release-staging
+./dist/release/darwin-arm64/lore --store-root /absolute/path/to/isolated-store index status
+```
+
+`build:release-staging` creates an unpacked local artifact and does not publish anything. `build:release` is for archive/package validation. Do not use a global `lore` or a binary built from a different worktree to validate current source changes.
 
 The globally available `lore` command should be a stable link into the primary checkout, such as `packages/cli/src/main.ts`. Do not repoint that link between worktrees, and do not point it at a Codex or temporary worktree. Use `lore-dev` when the current branch's source is what you need to exercise.
 
@@ -109,7 +156,7 @@ This remains a CPU-only build. macOS uses the pinned CMake download and an ARMv8
 
 ### Store isolation rules
 
-Any manual Store-writing workflow (for example, future `uninstall` or `reindex` commands) must pass an explicitly isolated `--store-root`. These commands are not implemented merely because they are named here; the rule is a forward-looking safety constraint. `get` also needs an isolated root during development: its point-read path can initialize or recover the selected Store.
+Any worktree-validation command that can open or change a Store must pass an explicitly isolated `--store-root`, unless the task explicitly calls for the developer's real shared Store. This includes point reads and queries: they can initialize, recover, or update derived state.
 
 Automated tests should continue to use temporary directories for Store data. They must not write to `~/.lorelum` or to a developer's shared Store.
 

@@ -53,8 +53,7 @@ try {
   const loadMs = performance.now() - started;
   const readyRssMiB = await readRssMiB(fixture.process);
 
-  if (process.argv[3]) await verifyReferences(client, fixture.runtime, resolve(process.argv[3]));
-  await verifyTokenBoundary(client);
+  if (process.argv[3]) await verifyReferences(client, resolve(process.argv[3]));
   const samples = await sampleEncoding(client);
   const statusWhileBusyMs = await verifyBusyAdmission(client);
   const workloadRssMiB = await readRssMiB(fixture.process);
@@ -76,21 +75,7 @@ try {
 }
 
 type Client = ReturnType<typeof createBackendClient>;
-function boundaryText() {
-  return "hello ".repeat(509);
-}
-
-async function verifyTokenBoundary(client: Client) {
-  assertUnitVector((await client.embed("document", [boundaryText()])).vectors[0]);
-  await assert.rejects(client.embed("document", ["hello ".repeat(510)]), {
-    code: "embedding.input-too-long",
-  });
-  assert.equal(
-    (await client.statusModel()).state,
-    "ready",
-    "Over-limit input must not unload the model",
-  );
-}
+const sampleText = "semantic index integration sample";
 
 /** Observations only; functional acceptance does not assert a machine-specific performance target. */
 async function sampleEncoding(client: Client) {
@@ -98,7 +83,7 @@ async function sampleEncoding(client: Client) {
   const sampleCount = 20;
   for (let index = 0; index < sampleCount; index++) {
     const started = performance.now();
-    const result = await client.embed("document", [boundaryText()]);
+    const result = await client.embed("document", [sampleText]);
     times.push(performance.now() - started);
     assert.equal(result.vectors.length, 1);
     assertUnitVector(result.vectors[0]);
@@ -121,7 +106,7 @@ async function verifyBusyAdmission(client: Client) {
     entered = true;
     await gate;
   };
-  const batch = client.embed("document", Array<string>(8).fill(boundaryText()));
+  const batch = client.embed("document", Array<string>(8).fill("busy"));
   // Observe settlement immediately so a request failure cannot become an unhandled rejection.
   const settled = batch.then(
     (result) => ({ result }),

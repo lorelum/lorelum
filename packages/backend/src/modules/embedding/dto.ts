@@ -1,4 +1,3 @@
-import { embeddingTokenLimits } from "../../config/embedding";
 import { z } from "zod";
 import { EMBEDDING_MODEL, modelStates } from "./model";
 import { embeddingErrorCodes } from "./errors";
@@ -19,7 +18,6 @@ export const modelStatusSchema = z.strictObject({
   dimensions: z.literal(EMBEDDING_MODEL.dimensions),
   error: z.enum(embeddingErrorCodes).optional(),
   threads: z.int().min(1).max(64),
-  maxTokens: z.literal(embeddingTokenLimits),
   progress: modelProgressSchema.optional(),
 });
 export type ModelStatus = z.infer<typeof modelStatusSchema>;

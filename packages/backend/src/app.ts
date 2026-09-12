@@ -5,12 +5,15 @@ import { Elysia } from "elysia";
 import { backendController } from "./modules/backend/controller";
 import type { BackendService } from "./modules/backend/service";
 import { queryController } from "./modules/query/controller";
+import { indexController } from "./modules/index/controller";
+import type { IndexOperationService } from "./modules/index/operation-service";
 import { localBoundary, reject } from "./plugins/local-auth";
 import { BACKEND_HOST, BACKEND_PORT } from "./protocol/constants";
 
 export interface CreateBackendAppOptions {
   readonly backend: BackendService;
   readonly embedding?: EmbeddingService;
+  readonly indexOperations?: IndexOperationService;
   readonly queryService: QueryService;
   /** Internal test injection; production always uses the fixed IPv4 endpoint. */
   readonly host?: string;
@@ -40,6 +43,11 @@ export function createBackendApp(options: CreateBackendAppOptions) {
     .use(backendController(backend))
     .use(
       options.embedding ? embeddingController(options.embedding, backend.available) : new Elysia(),
+    )
+    .use(
+      options.indexOperations
+        ? indexController(options.indexOperations, backend.available)
+        : new Elysia(),
     )
     .use(queryController(options.queryService, backend.available));
 }

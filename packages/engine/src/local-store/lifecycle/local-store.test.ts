@@ -10,6 +10,7 @@ import {
   defaultStorageRoot,
   StoreCounterExhaustedError,
   StoreRecoveryRequiredError,
+  StoreSnapshotChangedError,
   type StorageRoot,
 } from "../index";
 import { createPackCandidate, type PackCandidate } from "../model";
@@ -225,6 +226,25 @@ test("install is idempotent for the same artifact digest", async () => {
     expect(again.idempotent).toBe(true);
     expect(again.generation).toBe(1); // no state change
     expect(again.effectiveRevision).toBe(1);
+  });
+});
+
+test("snapshot fence runs only when the expected Store identity is still current", async () => {
+  await withRoot(async (root) => {
+    const store = createLocalStore();
+    await store.install(root, candidate("platform", platform));
+    const expected = await store.readSnapshotIdentity(root);
+    let publications = 0;
+    await store.withSnapshotFence(root, expected, async () => {
+      publications++;
+    });
+    await store.install(root, candidate("extra", { "extra.api": "Use an extra API.\n" }));
+    await expect(
+      store.withSnapshotFence(root, expected, async () => {
+        publications++;
+      }),
+    ).rejects.toBeInstanceOf(StoreSnapshotChangedError);
+    expect(publications).toBe(1);
   });
 });
 

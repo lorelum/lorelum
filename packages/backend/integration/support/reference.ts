@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { z } from "zod";
 import frozen from "../../../../docs/research/onnx-validation/quantization-fixture.json";
 import type { BackendClient } from "../../src/client/client";
-import type { EmbeddingRuntime } from "../../src/modules/embedding/model";
 import { assertUnitVector } from "./native";
 
 const vectorReference = z.object({
@@ -16,24 +15,7 @@ const vectorReference = z.object({
     }),
   ),
 });
-const textFixtures = z.object({
-  cases: z.array(z.object({ name: z.string(), texts: z.array(z.string()) })),
-});
-const tokenizerReference = z.object({
-  cases: z.array(
-    z.object({
-      name: z.string(),
-      input_ids: z.array(z.array(z.int())),
-      attention_mask: z.array(z.array(z.literal([0, 1]))),
-    }),
-  ),
-});
-
-export async function verifyReferences(
-  client: BackendClient,
-  runtime: EmbeddingRuntime,
-  root: string,
-) {
+export async function verifyReferences(client: BackendClient, root: string) {
   const baseline = vectorReference.parse(
     JSON.parse(await readFile(join(root, "q4-reference.json"), "utf8")),
   );
@@ -56,7 +38,6 @@ export async function verifyReferences(
   assert(minCosine > 0.999, "Frozen vector cosine fell below 0.999");
   assert(current.hits >= reference.hits, "Frozen top-1 retrieval regressed");
   assert(current.ndcg5 + 1e-12 >= reference.ndcg5, "Frozen nDCG@5 regressed");
-  const tokenizerChecks = await verifyTokenizer(runtime, root);
   const report = {
     scenario: "frozen-reference",
     status: "passed",
@@ -64,7 +45,6 @@ export async function verifyReferences(
     current,
     minCosine,
     referenceChecks: measured.size,
-    tokenizerChecks,
     changedTop1: currentRanks.filter((rank, index) => rank[0] !== previousRanks[index]?.[0]).length,
     changedTop5: currentRanks.filter(
       (rank, index) => JSON.stringify(rank) !== JSON.stringify(previousRanks[index]),
@@ -124,35 +104,4 @@ function retrievalMetrics(ranks: string[][]) {
     ndcg += dcg / ideal;
   }
   return { hits, ndcg5: ndcg / ranks.length };
-}
-async function verifyTokenizer(runtime: EmbeddingRuntime, root: string): Promise<number> {
-  const fixtures = textFixtures.parse(
-    JSON.parse(await readFile(join(root, "fixtures.json"), "utf8")),
-  );
-  const baseline = tokenizerReference.parse(
-    JSON.parse(await readFile(join(root, "fp32-reference.json"), "utf8")),
-  );
-  let checks = 0;
-  for (const fixture of fixtures.cases) {
-    const reference = baseline.cases.find((entry) => entry.name === fixture.name);
-    assert(reference, `Missing tokenizer reference: ${fixture.name}`);
-    for (const [index, text] of fixture.texts.entries()) {
-      const ids: number[] | undefined = reference.input_ids[index];
-      const mask: (0 | 1)[] | undefined = reference.attention_mask[index];
-      assert(
-        ids && mask && ids.length === mask.length,
-        `Invalid token/mask pair: ${fixture.name}[${index}]`,
-      );
-      const tokens: number[] = ids.filter((_, at) => mask[at] === 1);
-      if (tokens.length <= 512) {
-        assert.deepEqual(
-          await runtime.tokenize(text, AbortSignal.timeout(1000)),
-          tokens,
-          `Tokenizer fixture: ${fixture.name}[${index}]`,
-        );
-        checks++;
-      }
-    }
-  }
-  return checks;
 }

@@ -2,11 +2,18 @@ import { prepareModel } from "../models/prepare";
 import { createEmbeddingService } from "../modules/embedding/service";
 import { createEmbeddingProcess } from "./embedding-process";
 import { consumeDaemonLaunch, resolveBackendSettings, resolveEmbeddingConfig } from "../config";
-import { createLocalStore, createQueryService } from "@lorelum/engine";
+import {
+  createEmbeddingProfile,
+  createLocalStore,
+  createQueryService,
+  createSemanticIndexService,
+} from "@lorelum/engine";
 import { BACKEND_HOST, MAX_BODY_BYTES } from "../protocol/constants";
 import { BackendError } from "../protocol/errors";
 import { createBackendApp } from "../app";
 import { createBackendService } from "../modules/backend/service";
+import { createEmbeddingAdapter } from "../modules/index/embedding-adapter";
+import { createIndexOperationService } from "../modules/index/operation-service";
 import { isSameProcess } from "./process-identity";
 import { readRecord, removeRecord, writeRecord } from "./runtime-state";
 import { logEvent } from "./log";
@@ -30,11 +37,10 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
   const embedding = createEmbeddingService({
     settings,
     threads: embeddingConfig.threads,
-    maxTokens: embeddingConfig.maxTokens,
     prepareModel: (signal, progress) => prepareModel(embeddingConfig, signal, progress),
     createRuntime: (modelPath) =>
       createEmbeddingProcess(
-        { modelPath, threads: embeddingConfig.threads, maxTokens: embeddingConfig.maxTokens },
+        { modelPath, threads: embeddingConfig.threads },
         async (modelProcess) => {
           const current = await readRecord(directory);
           if (!current || current.instanceId !== instanceId)
@@ -63,11 +69,23 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
       process.exitCode = 1;
     },
   });
+  const store = createLocalStore();
+  const model = embedding.status();
+  const semanticIndex = createSemanticIndexService({
+    store,
+    profile: createEmbeddingProfile({
+      encodingId: model.encodingId,
+      dimensions: model.dimensions,
+    }),
+    embedding: createEmbeddingAdapter(embedding),
+  });
+  const indexOperations = createIndexOperationService(semanticIndex);
   const app = createBackendApp({
     backend,
     embedding,
     port,
-    queryService: createQueryService({ store: createLocalStore() }),
+    queryService: createQueryService({ store }),
+    indexOperations,
   });
   const signalHandler = () => {
     void backend.stop();
@@ -78,6 +96,14 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
       void app.stop(true);
     }, settings.shutdownTimeoutMs);
     try {
+      try {
+        await indexOperations.waitForIdle(deadline);
+      } catch (error) {
+        // Stop the native runtime, then wait for Engine to clean staging and release its writer lock.
+        await embedding.unload(Date.now() + settings.shutdownTimeoutMs).catch(() => {});
+        await indexOperations.waitForIdle();
+        throw error;
+      }
       await embedding.unload(deadline);
       await app.stop(false);
       await logEvent(directory, "stopped");

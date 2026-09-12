@@ -103,7 +103,7 @@ native manifest 的结构、文件摘要和动态依赖校验应从 `scripts/rel
 
 源码模式允许本机 Xcode 更新后生成不同 binary；它不会接受来自其他 recipe、不同 target、错误模型、损坏文件或意外动态链接库的 candidate。若 native recipe 本身变化，`recipeIdentity` 变化，开发者仍需显式审查并更新受追踪 manifest；这保留 recipe 变更的代码审查边界。
 
-`build:cli` 继续是无 native sidecar 的通用 CLI 编译命令，适用于不使用 embedding 的开发和 benchmark。需要可安装的 embedding binary 时只能使用 `build:release`；需要开发态 embedding 时使用 source CLI 加 `build:native`，不要求先做 release build。
+`build:cli` 继续是无 native sidecar 的通用 CLI 编译命令，适用于不使用 embedding 的开发和 benchmark。需要本地运行一个 compiled embedding candidate 时使用 `build:release-staging`；需要可安装的最终 archive 时才使用 `build:release`。开发态 embedding 继续使用 source CLI 加 `build:native`，不要求先做 release build。
 
 ## 代码组织
 

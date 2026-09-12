@@ -4,7 +4,9 @@
 - Issue：#95（服务基础）、#96（进程管理）、#97（Query 接入）。
 - 相关设计：[Semantic Query v1](./semantic-query-v1-design.md)。
 
-## 当前范围
+> 历史范围说明：本文记录 B1–B3 的设计边界，不是当前 CLI 支持面的完整说明。其中“本轮不加载 embedding 模型”等表述仅描述当时第一阶段的范围。当前 Backend、model 和 semantic index 的实际行为以 [CLI 文档](../cli/README.md) 为准。
+
+## 第一阶段范围（历史记录）
 
 使用 **Elysia + Bun + TypeScript** 建立常驻服务，固定监听 `127.0.0.1:26186`。提供 `lore backend start/status/stop`，并允许本地客户端通过 HTTP 调用现有 keyword QueryService。不同 Store 共用服务，每个请求明确传入自己的绝对 Store root。
 

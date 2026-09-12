@@ -54,8 +54,7 @@ async function invoke<T>(operation: () => Promise<T>) {
   } catch (error) {
     if (!(error instanceof EmbeddingError)) throw error;
     const code = error.code;
-    const httpStatus =
-      code === "embedding.input-invalid" || code === "embedding.input-too-long" ? 400 : 503;
+    const httpStatus = code === "embedding.input-invalid" ? 400 : 503;
     return status(httpStatus, { error: { code, message: error.message } });
   }
 }

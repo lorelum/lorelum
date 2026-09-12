@@ -1,11 +1,7 @@
 import { createModelProgressReporter } from "./progress";
 import type { OutputWriter } from "../output/protocol";
 import { lifecycleCommand } from "../backend/common";
-import {
-  defaultRuntimeDirectory,
-  resolveBackendSettings,
-  embeddingTokenLimits,
-} from "@lorelum/backend/config";
+import { defaultRuntimeDirectory, resolveBackendSettings } from "@lorelum/backend/config";
 import type { BackendClient } from "@lorelum/backend/client";
 import { BACKEND_URL } from "@lorelum/backend/protocol";
 import {
@@ -26,12 +22,11 @@ export interface ModelCommandServices {
 const modelStatusResultSchema: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["state", "encodingId", "device", "dimensions", "threads", "maxTokens"],
+  required: ["state", "encodingId", "device", "dimensions", "threads"],
   properties: {
     state: { enum: modelStatusSchema.shape.state.options },
     encodingId: { type: "string" },
     threads: { type: "integer" },
-    maxTokens: { enum: embeddingTokenLimits },
     progress: {
       type: "object",
       additionalProperties: false,
@@ -78,7 +73,6 @@ function toResult(status: ModelStatus): JsonValue {
     device: status.device,
     dimensions: status.dimensions,
     threads: status.threads,
-    maxTokens: status.maxTokens,
     ...(status.progress ? { progress: status.progress } : {}),
     ...(status.error === undefined ? {} : { error: status.error }),
   };

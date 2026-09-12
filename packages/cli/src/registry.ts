@@ -21,6 +21,7 @@ import {
   createProcessBackendSupervisor,
 } from "./backend/control-commands.js";
 import { createModelCommands, createProcessBackendClient } from "./model/commands";
+import { createIndexCommands } from "./index/index-commands";
 import { createLocalizationCommands } from "./localization/index.js";
 
 export interface CommandOption {
@@ -257,6 +258,10 @@ export const commandRegistry = snapshotCommandDefinitions([
   createListCommand({ list: sharedListService, storageRoot: sharedStorageRoot }),
   ...createBackendCommands({ createSupervisor: createProcessBackendSupervisor }),
   ...createModelCommands({ createClient: createProcessBackendClient }),
+  ...createIndexCommands({
+    createClient: createProcessBackendClient,
+    storageRoot: sharedStorageRoot,
+  }),
   ...createLocalizationCommands(),
 ]);
 

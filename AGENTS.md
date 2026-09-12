@@ -14,7 +14,7 @@ For local CLI work, including isolated Store roots and multi-worktree usage, see
 
 ## Layout
 
-The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, `packages/format`, `packages/mcp`, `packages/shared`). Repo-root `package.json` declares `workspaces: ["packages/*"]`.
+The source tree is a Bun workspace monorepo (`packages/backend`, `packages/cli`, `packages/config`, `packages/engine`, `packages/format`, `packages/mcp`, `packages/shared`). Repo-root `package.json` declares `workspaces: ["packages/*"]`. `backend` hosts long-lived local capabilities; `config` is the shared configuration foundation.
 
 **The product contract to be aware of:**
 
@@ -27,6 +27,17 @@ The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, 
 - Keep its front matter compatible with Google DESIGN.md and run `bun run design:lint` after edits.
 - Reusable Web components and production tokens belong to `packages/ui`; page composition, routes, copy, data, and page-specific motion stay with the consuming app.
 - Follow `packages/ui/AGENTS.md` for shadcn changes and `apps/site/AGENTS.md` for site integration and visual verification.
+
+### Service boundaries and dependency direction
+
+Keep package dependencies and runtime routes distinct when designing or changing retrieval.
+
+- **Engine owns retrieval semantics and Store-derived data.** LocalStore snapshots, canonical Practice reads, keyword and semantic indexes, ranking, candidate validation, and result assembly belong in `@lorelum/engine`. Engine must not import `@lorelum/backend`, Elysia, CLI code, or a model runtime.
+- **Backend is the local, long-lived host for cold-start-expensive capabilities.** It owns model download/load/unload, process lifecycle, authentication, and the execution lifetime of Backend-hosted Engine use cases. It may depend on Engine and compose an Engine service with an in-process runtime adapter, but its controllers must not reimplement retrieval, Store, index, or ranking rules.
+- **CLI is the composition and protocol boundary.** It parses commands, resolves `--store-root`, chooses the execution route, and renders the JSON envelope. It may depend on both Engine and Backend; neither Engine nor Backend may depend on CLI.
+- **Runtime routes are intentional:** keyword query stays `CLI → Engine` so it remains zero-config and offline. Semantic query and semantic index operations use `CLI → Backend client → Backend daemon → Engine semantic use case`; the daemon reuses its ready local runtime. Do not introduce a `CLI → Engine → Backend client` semantic path.
+- **Scope data correctly:** model configuration and runtime state are user-level Backend concerns; each Store root owns its canonical Pack data and derived indexes. `--store-root` selects Store/index data only, never a model, model cache, backend address, or runtime directory.
+- When adding a Backend endpoint, treat it as an adapter over an Engine use case. Define the Engine contract and error semantics first, then keep HTTP DTO/controller code in `packages/backend/src/modules/<feature>/` and client/CLI adapters thin.
 
 ## Commands
 
@@ -41,11 +52,18 @@ The source tree is a Bun workspace monorepo (`packages/cli`, `packages/engine`, 
 
 Precise scripts live in each `packages/*/package.json`; the above is what the root delegates to. Keep CI green on whatever it runs.
 
+### Current-worktree CLI verification
+
+- Run every source-level CLI check from the target worktree. Agents and automation should invoke the source entrypoint directly: `bun packages/cli/src/main.ts ...`. `lore-dev` is an optional human convenience that wraps the same entrypoint; it is not an Agent prerequisite. Do not inspect, redefine, or edit a human's shell startup files to use it. Do not use global `lore` or a binary from another worktree to validate source changes.
+- Use an isolated `--store-root` by default for worktree validation, including commands that mainly read: Store opening, recovery, and derived indexes can write state. Omit it only when the task explicitly requires checking the developer's real shared Store.
+- `backend start/status/stop` and keyword checks do not require a native candidate. Before source-level validation that loads a model or uses embedding/semantic index features, run `bun run build:native`, then explicitly start the Backend and load the model. These commands do not currently start either service implicitly.
+- Choose compiled checks by purpose: `bun run build:cli` only for non-embedding behavior; `bun run build:release-staging` for a runnable compiled embedding candidate; `bun run build:release` only when validating the final archive. See [the development guide](./docs/development/README.md#normal-development-workflow) for commands and rationale.
+
 ### LocalStore CLI constraint
 
 - Every LocalStore-consuming CLI command must use the shared Store-root resolver; do not call `defaultStorageRoot` directly when honoring the global override.
 - When manually writing Store data from a branch or worktree, use an isolated Store root. Never point it at another worktree's or the user's default Store.
-- Before exercising the current worktree's CLI source, check whether a `lore-dev` helper is available. If not, ask the developer whether they want to configure one and which shell they use; do not assume zsh or modify a shell startup file without explicit developer approval. Use that helper instead of rebuilding or repointing global `lore` for ordinary source-level CLI checks, passing `--store-root` only when isolation is required.
+- `lore-dev` is documented only as a human convenience. An Agent must call the source entrypoint directly and must not use a failed helper lookup as a reason to inspect, redefine, or edit shell configuration. See [the development guide](./docs/development/README.md#source-entrypoint-and-human-helper) for the equivalent human workflow.
 
 ## Code style
 

@@ -4,8 +4,6 @@ import { z } from "zod";
 import { embeddingVectorSchema } from "../modules/embedding/dto";
 import { EmbeddingError } from "../modules/embedding/errors";
 
-const MAX_TOKEN_RESPONSE_BYTES = 1_048_576;
-const tokensSchema = z.object({ tokens: z.array(z.int().nonnegative()) });
 const resultSchema = z.object({
   model: z.string(),
   data: z.array(z.object({ index: z.literal(0), embedding: embeddingVectorSchema })).length(1),
@@ -47,18 +45,6 @@ export function createLlamaClient(port: number, secret: string, expectedAlias: s
     }
   }
   return {
-    async tokenize(text: string, signal: AbortSignal): Promise<number[]> {
-      const result = tokensSchema.safeParse(
-        await send(
-          "/tokenize",
-          { content: text, add_special: true, parse_special: true },
-          signal,
-          MAX_TOKEN_RESPONSE_BYTES,
-        ),
-      );
-      if (!result.success) throw new EmbeddingError("embedding.failed");
-      return result.data.tokens;
-    },
     async encode(text: string, signal: AbortSignal): Promise<number[]> {
       const result = resultSchema.safeParse(
         await send("/v1/embeddings", { input: [text], encoding_format: "float" }, signal),

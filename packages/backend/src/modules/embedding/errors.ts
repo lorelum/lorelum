@@ -8,7 +8,6 @@ export const embeddingErrorCodes = [
   "embedding.not-loaded",
   "embedding.busy",
   "embedding.input-invalid",
-  "embedding.input-too-long",
   "embedding.deadline-exceeded",
   "embedding.failed",
 ] as const;
@@ -29,8 +28,6 @@ const messages: Record<EmbeddingErrorCode, string> = {
   "embedding.not-loaded": "Load the embedding model before encoding text.",
   "embedding.busy": "The embedding model is busy.",
   "embedding.input-invalid": "Provide one to eight nonblank texts.",
-  "embedding.input-too-long":
-    "Each text must fit the configured maxTokens limit including special tokens.",
   "embedding.deadline-exceeded": "The embedding operation exceeded its deadline.",
   "embedding.failed": "The embedding runtime failed; explicitly load it again after cleanup.",
 };

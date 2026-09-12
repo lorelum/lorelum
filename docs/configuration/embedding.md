@@ -9,7 +9,6 @@ embedding:
   # 默认 ~/.lorelum/models；必须是绝对路径
   cacheDirectory: /models/lorelum-cache
   threads: 4
-  maxTokens: 512
   download:
     enabled: true
     # 可选：覆盖默认下载源的 HTTPS 镜像
@@ -26,7 +25,6 @@ embedding:
 | `modelPath` | 无；绝对路径 | 使用用户管理的固定文件，只验证大小和 SHA-256，不覆盖、不自动下载到该路径 |
 | `cacheDirectory` | `~/.lorelum/models`；绝对路径 | 未指定 `modelPath` 时按固定摘要缓存模型；独立于 Store 和 runtime directory |
 | `threads` | `4`；整数 1–64 | 同时设置 native `-t` 和 `-tb`，不改变 encodingId |
-| `maxTokens` | `512`；`512`/`1024`/`2048` | 同时限制 tokenizer 准入和 native `-c/-b/-ub`；三档均已完成边界与向量校验，但测量值不是性能 SLA |
 | `download.enabled` | `true` | false 时不联网；缺少完整缓存返回 `embedding.not-configured` |
 | `download.url` | 下方固定版本地址；HTTPS | 固定模型的镜像地址；必须稳定支持续传并交付固定 SHA-256，不能指定 native executable |
 | `download.connectTimeoutSeconds` | `30` | DNS、TCP 和 TLS 各连接阶段的超时 |
@@ -49,7 +47,7 @@ https://huggingface.co/Lorelum/granite-embedding-97m-multilingual-r2-GGUF/resolv
 
 不支持 Range、远端偏移不匹配、来源变更或摘要失败都要明确报错，不自动删除 `.part` 并从零重试。只有确认数据损坏或决定放弃不兼容的续传时，先执行 `model unload`，再手动删除对应 `${cacheDirectory}/${sha256}/model.gguf.part`，不要清理 cache directory 下其他文件。权限、磁盘空间和永久 HTTP 错误不循环重试。下载使用随 CLI 打包的 got npm 包，无需安装 curl。下载没有总超时；DNS、TCP、TLS 各连接阶段默认上限 30 秒，连续无文件字节进展默认上限 60 秒。取消会等待文件流关闭，再允许下次续传。
 
-参考验证（每档 5 条计时样本，非性能 SLA）：512/4 threads 平均 55.70 ms、RSS 581.4 MiB；1024/2 threads 平均 204.75 ms、RSS 936.1 MiB；2048/4 threads 平均 354.18 ms、RSS 1666.7 MiB。每档 maxTokens 与 `maxTokens + 1` 边界、384 维和 L2 范数均通过。
+native 固定以 2048 context 初始化；该参数不暴露为 config 字段，也不作为 Lorelum 的输入 token 上限。
 
 ## 生效与隐私
 

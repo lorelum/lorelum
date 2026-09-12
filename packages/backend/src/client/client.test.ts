@@ -5,6 +5,7 @@ import type { QueryService } from "@lorelum/engine";
 import { createBackendApp } from "../app";
 import { createEmbeddingService, type EmbeddingService } from "../modules/embedding/service";
 import { createBackendService } from "../modules/backend/service";
+import type { IndexOperationService } from "../modules/index/operation-service";
 import type { InstanceIdentity } from "../protocol/identity";
 import { BackendRemoteError } from "../protocol/errors";
 import { EmbeddingError } from "../modules/embedding/errors";
@@ -29,6 +30,7 @@ function runningApp(
   queryService?: QueryService,
   backendIdentity: InstanceIdentity = identity,
   embedding?: EmbeddingService,
+  indexOperations?: IndexOperationService,
 ): {
   readonly app: ReturnType<typeof createBackendApp>;
   readonly url: string;
@@ -36,6 +38,7 @@ function runningApp(
   const app = createBackendApp({
     backend: createBackendService({ identity: backendIdentity, secret, onStop: () => undefined }),
     ...(embedding === undefined ? {} : { embedding }),
+    ...(indexOperations === undefined ? {} : { indexOperations }),
     queryService: queryService ?? {
       async query() {
         return { mode: "keyword", results: [] } as const;
@@ -135,7 +138,6 @@ describe("createBackendClient", () => {
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
         threads: 4,
-        maxTokens: 512,
       }),
       beginLoad() {
         calls.push("load");
@@ -207,7 +209,6 @@ describe("createBackendClient", () => {
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
         threads: 4,
-        maxTokens: 512,
       }),
       beginLoad() {
         return this.status();
@@ -242,7 +243,6 @@ describe("createBackendClient", () => {
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
         threads: 4,
-        maxTokens: 512,
       }),
       beginLoad() {
         return this.status();
@@ -253,7 +253,6 @@ describe("createBackendClient", () => {
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
         threads: 4,
-        maxTokens: 512,
       }),
       unload: async () => ({
         state: "unloaded",
@@ -261,7 +260,6 @@ describe("createBackendClient", () => {
         device: "cpu",
         dimensions: EMBEDDING_MODEL.dimensions,
         threads: 4,
-        maxTokens: 512,
       }),
       embed: async () => ({ encodingId: ENCODING_ID, vectors: [[1, ...Array(383).fill(0)]] }),
     });
@@ -273,6 +271,42 @@ describe("createBackendClient", () => {
     });
     await expect(client.embed("query", ["hello", "world"])).rejects.toMatchObject({
       code: "backend.failed",
+    });
+  });
+
+  test("uses the authenticated semantic index operation contract", async () => {
+    const operationId = "0f8fad5b-d9cb-469f-a165-70867728950e";
+    const indexOperations: IndexOperationService = {
+      status: async () => ({ state: "missing", profileId: "a".repeat(64) }),
+      build: () => ({ operationId, state: "building" }),
+      rebuild: () => ({ operationId, state: "building" }),
+      operation: () => ({
+        operationId,
+        state: "ready",
+        index: { state: "ready", profileId: "a".repeat(64), vectorCount: 1 },
+      }),
+      waitForIdle: async () => undefined,
+    };
+    const { url } = runningApp(undefined, identity, undefined, indexOperations);
+    const client = createBackendClient({
+      identity,
+      secret,
+      buildIdentity: identity.buildIdentity,
+      baseUrl: url,
+    });
+
+    await expect(
+      client.indexStatus({ rootPath: "/tmp/lorelum-index-client" }),
+    ).resolves.toMatchObject({
+      state: "missing",
+    });
+    await expect(client.buildIndex({ rootPath: "/tmp/lorelum-index-client" })).resolves.toEqual({
+      operationId,
+      state: "building",
+    });
+    await expect(client.indexOperation(operationId)).resolves.toMatchObject({
+      state: "ready",
+      index: { vectorCount: 1 },
     });
   });
 });

@@ -144,7 +144,9 @@ async function owner(mode: TestMode): Promise<never> {
     const request = fetch(`http://127.0.0.1:${port}/v1/embeddings`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ input: "hello ".repeat(509) }),
+      body: JSON.stringify({
+        input: "hello ".repeat(1_000),
+      }),
     }).then(
       (value) => {
         response = value;

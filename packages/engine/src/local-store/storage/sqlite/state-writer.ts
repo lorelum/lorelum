@@ -28,6 +28,8 @@ export interface DerivedStoreState {
     | undefined;
   /** Persisted indexing history; independent of the consumable hook outbox. */
   revisionLogDelta?: RevisionDelta | undefined;
+  /** Recovery rebuild invalidates every prior derived-index checkpoint. */
+  clearRevisionLog?: boolean | undefined;
 }
 
 export interface IncrementalDerivedStoreState extends DerivedStoreState {
@@ -117,6 +119,10 @@ function writeRevisionRecords(
   state: DerivedStoreState,
   metrics?: MutationMetricsObserver,
 ): void {
+  if (state.clearRevisionLog === true) {
+    const result = database.query("DELETE FROM effective_revision_log").run();
+    metrics?.recordWrite("effective_revision_log", result.changes);
+  }
   if (state.revisionNotification?.supersedesPending === true) {
     database.exec("DELETE FROM effective_revision_outbox");
   }

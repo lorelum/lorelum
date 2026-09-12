@@ -14,6 +14,7 @@ import {
   readEffectivePracticesAtSnapshot,
   readEffectivePractices as readEffectivePracticesFromStore,
   readSnapshotIdentity,
+  withSnapshotFence,
   type EffectivePracticeChangeSnapshot,
   type EffectivePracticeSnapshot,
   type StoreSnapshotIdentity,
@@ -91,6 +92,12 @@ export interface LocalStore {
     expected: StoreSnapshotIdentity,
     ids: readonly string[],
   ): Promise<readonly EffectivePractice[]>;
+  /** Publish prepared derived state only if this Store identity remains current. */
+  withSnapshotFence<T>(
+    root: StorageRoot,
+    expected: StoreSnapshotIdentity,
+    publish: () => Promise<T>,
+  ): Promise<T>;
   /** Post-commit vector seam (default no-op). */
   onEffectiveRevisionAdvanced?: EffectiveRevisionHook | undefined;
 }
@@ -174,6 +181,9 @@ export function createLocalStore(
       ids: readonly string[],
     ): Promise<readonly EffectivePractice[]> {
       return readEffectivePracticesAtSnapshot(root.rootPath, expected, ids);
+    },
+    withSnapshotFence(root, expected, publish) {
+      return withSnapshotFence(root.rootPath, expected, publish);
     },
   };
   return Object.freeze(store);

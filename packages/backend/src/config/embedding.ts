@@ -8,8 +8,7 @@ export const DEFAULT_MODEL_DOWNLOAD_URL =
   "https://huggingface.co/Lorelum/granite-embedding-97m-multilingual-r2-GGUF/resolve/7a8af1473a747268bbb3968b77d5b822a6506667/granite-q4_0.gguf";
 
 export const MAX_SERIALIZED_EMBEDDING_BYTES = 2_048;
-export const DEFAULT_EMBEDDING_SETTINGS = Object.freeze({ threads: 4, maxTokens: 512 as const });
-export const embeddingTokenLimits = [512, 1024, 2048] as const;
+export const DEFAULT_EMBEDDING_SETTINGS = Object.freeze({ threads: 4 });
 const absolutePath = z.string().min(1).refine(isAbsolute);
 const sourceUrl = z.url().refine((value) => {
   const url = new URL(value);
@@ -27,7 +26,6 @@ export const embeddingConfigSchema = z
     modelPath: absolutePath.optional(),
     cacheDirectory: absolutePath.optional(),
     threads: z.int().min(1).max(64).default(DEFAULT_EMBEDDING_SETTINGS.threads),
-    maxTokens: z.literal(embeddingTokenLimits).default(DEFAULT_EMBEDDING_SETTINGS.maxTokens),
     download: downloadSchema.prefault({}),
   })
   .refine(

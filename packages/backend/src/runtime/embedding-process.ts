@@ -19,7 +19,7 @@ const FORCE_KILL_WAIT_MS = 100;
 
 /** This object owns a single lifetime, including failed startup and bounded bind retries. */
 export function createEmbeddingProcess(
-  config: Pick<EmbeddingConfig, "modelPath" | "threads" | "maxTokens"> | undefined,
+  config: Pick<EmbeddingConfig, "modelPath" | "threads"> | undefined,
   recordProcess?: (
     identity: (ProcessIdentity & { nativeBuild: string }) | undefined,
   ) => Promise<void>,
@@ -106,8 +106,6 @@ export function createEmbeddingProcess(
             ),
           ]);
           // Native /health is unauthenticated; it cannot establish this process's readiness.
-          const tokens = await candidate.tokenize("hello", probeSignal);
-          if (tokens.length === 0) throw new EmbeddingError("embedding.failed");
           await candidate.encode("hello", probeSignal);
           await resources.assertUnchanged();
           signal.throwIfAborted();
@@ -160,7 +158,6 @@ export function createEmbeddingProcess(
     start,
     stop,
     exited,
-    tokenize: async (text, signal) => (await checkedClient()).tokenize(text, signal),
     encode: async (text, signal) => {
       const vector = await (await checkedClient()).encode(text, signal);
       await resources!.assertUnchanged();

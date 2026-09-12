@@ -5,8 +5,8 @@ import type { BackendSettings } from "../../config/model";
 import { embeddingRequestSchema, type ModelProgress, type ModelStatus } from "./dto";
 import { EmbeddingError, embeddingFailure, type EmbeddingErrorCode } from "./errors";
 import {
+  ENCODING_ID,
   EMBEDDING_MODEL,
-  embeddingEncodingId,
   type EmbeddingRuntime,
   type EmbeddingResult,
   type ModelState,
@@ -21,13 +21,11 @@ export interface EmbeddingServiceOptions {
     progress: (value: ModelProgress) => void,
   ) => Promise<string>;
   readonly threads?: number;
-  readonly maxTokens?: ModelStatus["maxTokens"];
   readonly settings: BackendSettings;
 }
 export function createEmbeddingService(options: EmbeddingServiceOptions) {
   const threads = options.threads ?? DEFAULT_EMBEDDING_SETTINGS.threads;
-  const maxTokens = options.maxTokens ?? EMBEDDING_MODEL.maxTokens;
-  const encodingId = embeddingEncodingId(maxTokens);
+  const encodingId = ENCODING_ID;
   let progress: ModelProgress | undefined;
   let state: ModelState = "unloaded";
   let failure: EmbeddingErrorCode | undefined;
@@ -41,7 +39,6 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     state,
     encodingId,
     threads,
-    maxTokens,
     ...(progress ? { progress } : {}),
     device: "cpu",
     dimensions: EMBEDDING_MODEL.dimensions,
@@ -153,10 +150,6 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     const signal = AbortSignal.timeout(options.settings.requestTimeoutMs);
     const work = async () => {
       try {
-        for (const text of inputs) {
-          if ((await handle.tokenize(text, signal)).length > maxTokens)
-            throw new EmbeddingError("embedding.input-too-long");
-        }
         const vectors: number[][] = [];
         for (const text of inputs) vectors.push(await handle.encode(text, signal));
         signal.throwIfAborted();
@@ -166,7 +159,6 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
         const visible = signal.aborted
           ? new EmbeddingError("embedding.deadline-exceeded")
           : embeddingFailure(error);
-        if (visible.code === "embedding.input-too-long") throw visible;
         return recover(visible, handle);
       }
     };

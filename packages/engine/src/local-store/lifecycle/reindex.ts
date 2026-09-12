@@ -267,9 +267,10 @@ export async function reindexStore(
       // trusted, and no uninstalled pack is revived.
       const effectivePractices = mergeSources(sources);
 
-      // Reindex is the recovery signal for a missed vector notification. Emit
-      // every current Practice so a consumer can rebuild even when SQLite's
-      // before/after Effective Practice sets are identical.
+      // Reindex is a recovery boundary, not a normal revision delta. The
+      // outbox still notifies hooks of the complete current corpus, while the
+      // retained index history is deliberately cleared so every derived-index
+      // checkpoint from before recovery must take its existing full path.
       const delta = diffEffectivePractices([], effectivePractices);
       const targetManifest = withFreshRevision(manifest);
       const shouldQueueNotification =
@@ -285,7 +286,7 @@ export async function reindexStore(
         revisionNotification: !shouldQueueNotification
           ? undefined
           : { delta, supersedesPending: true },
-        revisionLogDelta: delta,
+        clearRevisionLog: true,
       } as const;
       try {
         writeDerivedState(database, derivedState);

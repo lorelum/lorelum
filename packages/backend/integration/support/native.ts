@@ -5,7 +5,6 @@ import { createEmbeddingService } from "../../src/modules/embedding/service";
 import type { EmbeddingRuntime } from "../../src/modules/embedding/model";
 import type { ProcessIdentity } from "../../src/runtime/process-identity";
 import { createEmbeddingProcess } from "../../src/runtime/embedding-process";
-import type { ResolvedEmbeddingConfig } from "../../src/config/embedding";
 
 /**
  * Baseline CPU targets encode full batches sequentially and can exceed the 5 s product
@@ -24,7 +23,6 @@ export function createNativeFixture(
   modelPath: string,
   options: {
     threads?: number;
-    maxTokens?: ResolvedEmbeddingConfig["maxTokens"];
     beforeEncode?: () => Promise<void> | void;
   } = {},
 ) {
@@ -32,7 +30,6 @@ export function createNativeFixture(
   let process: ProcessIdentity | undefined;
   const runtimeSettings = {
     ...(options.threads === undefined ? {} : { threads: options.threads }),
-    ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
   };
   const service = createEmbeddingService({
     settings: {

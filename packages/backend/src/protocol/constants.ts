@@ -15,4 +15,8 @@ export const BACKEND_ROUTES = {
   modelStatus: `${INTERNAL_API_PREFIX}/model/status`,
   modelUnload: `${INTERNAL_API_PREFIX}/model/unload`,
   embeddings: `${INTERNAL_API_PREFIX}/embeddings`,
+  indexStatus: `${INTERNAL_API_PREFIX}/index/status`,
+  indexBuild: `${INTERNAL_API_PREFIX}/index/build`,
+  indexRebuild: `${INTERNAL_API_PREFIX}/index/rebuild`,
+  indexOperation: `${INTERNAL_API_PREFIX}/index/operations/:operationId`,
 } as const;

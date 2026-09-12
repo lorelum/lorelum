@@ -23,7 +23,7 @@
 | 量化来源 | 已校验 F16 GGUF；`--pure --token-embedding-type q4_0 ... Q4_0 4`，不再次量化 Q8/Q4 文件 |
 | native 基线 | llama.cpp `b10901`，commit `28ff0958291ce3465fabd7bd679d4b0edd742bd9`；生命周期补丁另记 build 身份 |
 | 编码 | GGUF 内置 tokenizer；384 维；CLS + L2；query/document 均无额外前缀，保留原文 |
-| CPU 设置 | `--device none --no-op-offload -ngl 0`，threads/threads-batch=4，context/batch/ubatch=512，parallel=1 |
+| CPU 设置 | `--device none --no-op-offload -ngl 0`，threads/threads-batch=4，context/batch/ubatch=2048，parallel=1 |
 
 `~/.lorelum/config.yaml` 只增加当前需要的模型路径：
 
@@ -38,7 +38,7 @@ embedding:
 
 native 程序与配套库来自安装目录中的受信 manifest，按 OS/架构解析，不从 PATH、用户配置或 Store 查找。manifest 固定资源摘要、native build 和 GGUF 身份；`load` 前校验文件类型、大小及摘要，读写过程中资源改变则失败，不能只相信文件名。status 不读取或哈希模型文件。
 
-从模型源 revision、GGUF 摘要、编码实现版本、CLS/L2、无前缀规则和 token 上限生成固定 `encodingId`。它不包含机器路径、端口或 PID；未来 index 必须绑定它，不能混用旧 FP32/Q8 向量。本阶段只返回编码身份，不创建 profile/index 配置。
+从模型源 revision、GGUF 摘要、编码实现版本、CLS/L2 和无前缀规则生成固定 `encodingId`。它不包含机器路径、端口或 PID；未来 index 必须绑定它，不能混用旧 FP32/Q8 向量。本阶段只返回编码身份，不创建 profile/index 配置。native 固定以 2048 context 初始化，但 Lorelum 不将其作为配置或输入上限。
 
 ## 分层与调用合同
 
@@ -79,9 +79,9 @@ interface EmbeddingResult {
 | `POST /internal/v1/model/unload`，body `{}` | 停止准入并等待实际进程退出后返回状态 |
 | `POST /internal/v1/embeddings` | body `{ kind, inputs }`；返回 `{ encodingId, vectors }` |
 
-每次最多 8 条输入，每条含特殊 token 最多 512；空批、纯空白、超限明确拒绝，不 trim 后再编码、不静默截断。先持有唯一准入名额，用同一 native tokenizer 检查全部文本，再提交编码；即使 native 会截断，Lorelum 也不能依赖这种行为。8 条文本在当前 single-slot 配置下顺序执行，这是服务合同，不宣称真正模型 batching。
+每次最多 8 条输入，每条必须非空；Lorelum 不按 token 数配置或拒绝输入，也不 trim 或静默截断。先持有唯一准入名额，再按统一 native tokenizer/编码路径处理全部文本。8 条文本在当前 single-slot 配置下顺序执行，这是服务合同，不宣称真正模型 batching。
 
-公共请求维持 64 KiB、响应维持 256 KiB 上限。私有 tokenize 响应可独立给到 1 MiB，覆盖有界长输入的 token 列表，再把超 512 归为输入错误。所有流式读取、解析和 native 响应均有截止时间及大小限制；向量验证数量、index 唯一完整、384 维、有限值和 L2 范数，不把 native 任意 JSON 转发给调用方。
+公共请求维持 64 KiB、响应维持 256 KiB 上限。所有流式读取、解析和 native 响应均有截止时间及大小限制；向量验证数量、index 唯一完整、384 维、有限值和 L2 范数，不把 native 任意 JSON 转发给调用方。
 
 ## 私有进程、认证与生命周期
 
@@ -121,7 +121,7 @@ Windows 任务同时处理现有 `processIdentity` 的 ps 依赖、POSIX uid/mod
 | --- | --- | --- |
 | T1 固定 native 与退出保证 | Q4_0 manifest、固定 CPU native 构建、父进程存活管道补丁 | CPU-only、父进程在加载/编码中强制退出、native 不响应时的回收；补丁构建数值回归通过，资源 hash 可复核 |
 | T2 config 与模型进程 | 配置快照、受信资源解析、私有端点与认证、service 状态和准入 | 缺配置/错资源/端口竞争、并发 load、加载中 unload、崩溃/超时和 PID 复用；失败后可显式重试且无遗留进程 |
-| T3 编码入口与分层 | DTO、controller/service/native client、token 上限与向量校验 | 空白、特殊 token、512/513 边界、多条排序、超大/损坏响应；推理期间控制接口响应；无隐式截断或代理请求 |
+| T3 编码入口与分层 | DTO、controller/service/native client、统一编码与向量校验 | 空白、特殊 token、多条排序、超大/损坏响应；推理期间控制接口响应；无隐式截断或代理请求 |
 | T4 CLI 与协议 | model 命令、BackendClient、状态 schema/发现输出、错误与调用说明 | 不启动型命令无副作用；错误实例、build 和协议均拒绝请求；keyword 和 Store resolver 行为保持 |
 | T5 平台与分发 | Mac/Windows native 资源、进程身份和私有文件平台实现、安装布局 | 无关 cwd/精简 PATH、含空格路径、缺库/错架构/错版本、权限拒绝；两个系统完整链路实测，未测试平台不标支持 |
 | T6 交付验收 | 正式产物端到端、文档、Issue checklist 和一个 PR | 连续加载/编码/卸载及失败恢复，无残留；固定样本复测、性能与 RSS 抽样、控制响应；相关测试/lint/typecheck 通过 |

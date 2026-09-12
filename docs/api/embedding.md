@@ -13,7 +13,6 @@
   "device": "cpu",
   "dimensions": 384,
   "threads": 4,
-  "maxTokens": 512,
   "progress": {
     "phase": "downloading",
     "downloadedBytes": 33554432,
@@ -23,9 +22,9 @@
 }
 ```
 
-`state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`。`device` 固定为 `cpu`，`dimensions` 固定为 `384`。`threads` 是实际 native 配置，`maxTokens` 是实际 tokenizer/native context 上限；允许值为 `512`、`1024`、`2048`。三档已在目标 Mac/native 构建上完成 5 条样本的边界和向量校验：512/4 threads 平均 55.70 ms、RSS 581.4 MiB；1024/2 threads 平均 204.75 ms、RSS 936.1 MiB；2048/4 threads 平均 354.18 ms、RSS 1666.7 MiB。这些是验证样本，不是性能 SLA。
+`state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`。`device` 固定为 `cpu`，`dimensions` 固定为 `384`。`threads` 是实际 native 配置；native 以固定的 2048 context 初始化，但 Lorelum 不把它作为用户可配置或输入准入上限。
 
-`progress` 只在加载期间出现，`phase` 为 `resolving`、`downloading`、`verifying` 或 `starting`。字节字段是数值；未知总大小时可以省略 `totalBytes`。状态响应不包含 URL、凭据、缓存路径或私有端口。`encodingId` 绑定模型身份、实现、pooling、normalization、特殊 token 规则和 `maxTokens`；threads 与下载策略不改变它。
+`progress` 只在加载期间出现，`phase` 为 `resolving`、`downloading`、`verifying` 或 `starting`。字节字段是数值；未知总大小时可以省略 `totalBytes`。状态响应不包含 URL、凭据、缓存路径或私有端口。`encodingId` 绑定模型身份、实现、pooling、normalization 和特殊 token 规则；threads、native 初始化参数与下载策略不改变它。
 
 ## Load
 
@@ -62,7 +61,7 @@ HTTP 客户端断开、CLI 停止等待不会取消共享加载任务；显式�
 }
 ```
 
-`kind` 为 `query` 或 `document`；一次最多 8 条，每条必须非空。所有输入先用同一个 native tokenizer 检查特殊 token，超过实际 `maxTokens` 时整批拒绝，不 trim、不截断、不部分返回。
+`kind` 为 `query` 或 `document`；一次最多 8 条，每条必须非空。输入使用同一个 native tokenizer 和编码路径处理；Lorelum 不按 token 数配置或拒绝输入，也不做 trim 或静默截断。
 
 成功 `200`（示意，向量数必须与输入数相同；每行省略 383 个数值）：
 
@@ -91,7 +90,7 @@ HTTP 客户端断开、CLI 停止等待不会取消共享加载任务；显式�
 
 ## HTTP 错误映射
 
-- `400`：JSON、字段、空白输入或 maxTokens 校验失败（`backend.invalid-request`、`embedding.input-invalid`、`embedding.input-too-long`）。
+- `400`：JSON、字段或空白输入校验失败（`backend.invalid-request`、`embedding.input-invalid`）。
 - `401`：缺少或错误的 Bearer credential（`backend.unauthorized`）。
 - `403`：请求带 `Origin`（`backend.unauthorized`）。
 - `503`：模型 busy、未加载、下载/资源/native 失败或 backend 尚未可用；HTTP body 中返回对应稳定 error code。

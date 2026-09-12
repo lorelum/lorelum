@@ -25,7 +25,6 @@ const ready: ModelStatus = {
   device: "cpu",
   dimensions: EMBEDDING_MODEL.dimensions,
   threads: 4,
-  maxTokens: 512,
 };
 
 function fakeClient(calls: string[]): BackendClient {
@@ -52,6 +51,22 @@ function fakeClient(calls: string[]): BackendClient {
     },
     embed: async () => ({ encodingId: ENCODING_ID, vectors: [] }),
     query: async () => ({ mode: "keyword", results: [] }),
+    indexStatus: async () => ({ state: "missing", profileId: "a".repeat(64) }),
+    buildIndex: async () => ({
+      operationId: crypto.randomUUID(),
+      state: "ready",
+      index: { state: "ready", profileId: "a".repeat(64) },
+    }),
+    rebuildIndex: async () => ({
+      operationId: crypto.randomUUID(),
+      state: "ready",
+      index: { state: "ready", profileId: "a".repeat(64) },
+    }),
+    indexOperation: async () => ({
+      operationId: crypto.randomUUID(),
+      state: "ready",
+      index: { state: "ready", profileId: "a".repeat(64) },
+    }),
   };
 }
 

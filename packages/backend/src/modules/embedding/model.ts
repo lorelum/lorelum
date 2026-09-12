@@ -1,6 +1,4 @@
-import { DEFAULT_EMBEDDING_SETTINGS } from "../../config/embedding";
 import buildConfig from "../../../../../native/embedding/build-config.json";
-import { createHash } from "node:crypto";
 
 export const modelStates = ["unloaded", "loading", "ready", "unloading", "failed"] as const;
 export const EMBEDDING_MODEL = Object.freeze({
@@ -8,25 +6,13 @@ export const EMBEDDING_MODEL = Object.freeze({
   sha256: buildConfig.model.sha256,
   bytes: buildConfig.model.bytes,
   dimensions: 384,
-  maxTokens: DEFAULT_EMBEDDING_SETTINGS.maxTokens,
   maxInputs: 8,
 });
-export function embeddingEncodingId(maxTokens: number = EMBEDDING_MODEL.maxTokens): string {
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        ...EMBEDDING_MODEL,
-        maxTokens,
-        implementation: 1,
-        pooling: "cls",
-        normalization: "l2",
-        prefix: "",
-        specialTokens: true,
-      }),
-    )
-    .digest("hex");
-}
-export const ENCODING_ID = embeddingEncodingId();
+/**
+ * Fixed identity for the pinned model and encoding recipe. Keep this value when changing an
+ * operational setting so existing semantic indexes retain their Profile directory.
+ */
+export const ENCODING_ID = "ed34b3105cb6c3ab217fdb7b7c926c05808bd47474468c2f74a5110a590a42de";
 export type ModelState = (typeof modelStates)[number];
 export interface EmbeddingResult {
   readonly encodingId: string;
@@ -36,7 +22,6 @@ export interface EmbeddingResult {
 /** The service owns admission/state; this handle owns one native process lifetime. */
 export interface EmbeddingRuntime {
   start(signal: AbortSignal, deadline: number): Promise<void>;
-  tokenize(text: string, signal: AbortSignal): Promise<number[]>;
   encode(text: string, signal: AbortSignal): Promise<number[]>;
   stop(deadline: number): Promise<void>;
   readonly exited: Promise<void>;

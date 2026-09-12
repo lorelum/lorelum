@@ -160,6 +160,18 @@ test("reindex rebuilds a store whose SQLite was deleted", async () => {
   });
 });
 
+test("reindex creates a retained-history gap for derived index checkpoints", async () => {
+  await withRoot(async (root) => {
+    const store = createLocalStore();
+    const installed = await store.install(root, candidate("platform", platform));
+    const reindexed = await store.reindex(root);
+    expect(reindexed.effectiveRevision).toBeGreaterThan(installed.effectiveRevision);
+    await expect(
+      store.readEffectivePracticeChanges(root, installed.effectiveRevision),
+    ).resolves.toBeUndefined();
+  });
+});
+
 test("reindex restores derived state from the manifest and sealed artifacts", async () => {
   await withRoot(async (root) => {
     const store = createLocalStore();

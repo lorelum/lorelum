@@ -31,7 +31,15 @@ import {
   modelStatusSchema,
   type ModelStatus,
 } from "../modules/embedding/dto";
-import { embeddingEncodingId } from "../modules/embedding/model";
+import {
+  indexMutationSchema,
+  indexOperationParamsSchema,
+  indexOperationSchema,
+  indexStatusSchema,
+  type IndexOperation,
+  type IndexStatus,
+} from "../modules/index/model";
+import { ENCODING_ID } from "../modules/embedding/model";
 import type { EmbeddingResult } from "../modules/embedding/model";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
 import type { QueryRequest, QueryResult, StorageRoot } from "@lorelum/engine";
@@ -57,6 +65,10 @@ export interface BackendClient {
   unloadModel(): Promise<ModelStatus>;
   embed(kind: "query" | "document", inputs: readonly string[]): Promise<EmbeddingResult>;
   query(root: StorageRoot, request: QueryRequest): Promise<QueryResult>;
+  indexStatus(root: StorageRoot): Promise<IndexStatus>;
+  buildIndex(root: StorageRoot): Promise<IndexOperation>;
+  rebuildIndex(root: StorageRoot): Promise<IndexOperation>;
+  indexOperation(operationId: string): Promise<IndexOperation>;
 }
 
 function validatedLoopbackUrl(value: string): URL {
@@ -202,8 +214,7 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     requestOptions: { payload?: unknown; timeout?: number } = {},
   ) {
     const result = await request(path, modelStatusSchema, requestOptions);
-    if (result.encodingId !== embeddingEncodingId(result.maxTokens))
-      throw new BackendError("backend.incompatible");
+    if (result.encodingId !== ENCODING_ID) throw new BackendError("backend.incompatible");
     expectedEncodingId = result.encodingId;
     return result;
   }
@@ -242,6 +253,36 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       if (!queryRequestSchema.safeParse(payload).success)
         throw new BackendRemoteError("usage.invalid");
       return request(BACKEND_ROUTES.query, queryResultSchema, { payload });
+    },
+    async indexStatus(root) {
+      const payload = { storageRoot: root.rootPath };
+      if (!indexMutationSchema.safeParse(payload).success)
+        throw new BackendError("backend.invalid-request");
+      return request(
+        `${BACKEND_ROUTES.indexStatus}?storageRoot=${encodeURIComponent(root.rootPath)}`,
+        indexStatusSchema,
+      );
+    },
+    async buildIndex(root) {
+      const payload = { storageRoot: root.rootPath };
+      if (!indexMutationSchema.safeParse(payload).success)
+        throw new BackendError("backend.invalid-request");
+      return request(BACKEND_ROUTES.indexBuild, indexOperationSchema, { payload });
+    },
+    async rebuildIndex(root) {
+      const payload = { storageRoot: root.rootPath };
+      if (!indexMutationSchema.safeParse(payload).success)
+        throw new BackendError("backend.invalid-request");
+      return request(BACKEND_ROUTES.indexRebuild, indexOperationSchema, { payload });
+    },
+    indexOperation(operationId) {
+      if (!indexOperationParamsSchema.safeParse({ operationId }).success) {
+        return Promise.reject(new BackendError("backend.invalid-request"));
+      }
+      return request(
+        BACKEND_ROUTES.indexOperation.replace(":operationId", operationId),
+        indexOperationSchema,
+      );
     },
   } satisfies BackendClient);
 }
