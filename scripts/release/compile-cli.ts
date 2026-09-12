@@ -1,7 +1,6 @@
 import { chmod, mkdir, realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
-  resolveEmbeddingNativeArtifact,
   trustedEmbeddingManifestPath,
   type EmbeddingNativeArtifact,
 } from "../../packages/backend/src/runtime/native/embedding/catalog";
@@ -14,7 +13,7 @@ export interface CompileReleaseCliOptions {
   readonly nativeManifest: NativeArtifactManifest;
   readonly outfile: string;
   /** Native artifact whose checked-in manifest Bun replaces for this release. */
-  readonly artifact?: EmbeddingNativeArtifact;
+  readonly artifact: EmbeddingNativeArtifact;
   /** Test-only alternate entrypoint; release builds always use the CLI entrypoint. */
   readonly entrypoint?: string;
   /** Test-only alternate JSON artifact whose contents receive the trusted manifest. */
@@ -31,16 +30,15 @@ export interface CompiledReleaseCli {
 export async function compileReleaseCli(
   options: CompileReleaseCliOptions,
 ): Promise<CompiledReleaseCli> {
-  const artifact = options.artifact ?? currentEmbeddingNativeArtifact();
   const manifestArtifact = await realpath(
-    options.manifestArtifact ?? trustedEmbeddingManifestPath(artifact),
+    options.manifestArtifact ?? trustedEmbeddingManifestPath(options.artifact),
   );
   await mkdir(dirname(options.outfile), { recursive: true });
   const result = await Bun.build({
     entrypoints: [options.entrypoint ?? defaultEntrypoint],
     target: "bun",
     compile: {
-      target: options.target ?? artifact.compileTarget,
+      target: options.target ?? options.artifact.compileTarget,
       outfile: options.outfile,
       autoloadDotenv: false,
       autoloadBunfig: false,
@@ -57,15 +55,6 @@ export async function compileReleaseCli(
   return Object.freeze({
     bundledInputs: Object.freeze(Object.keys(result.metafile.inputs).sort()),
   });
-}
-
-function currentEmbeddingNativeArtifact(): EmbeddingNativeArtifact {
-  const artifact = resolveEmbeddingNativeArtifact(process.platform, process.arch);
-  if (artifact === undefined)
-    throw new Error(
-      `release compilation currently supports darwin-arm64, got ${process.platform}-${process.arch}`,
-    );
-  return artifact;
 }
 
 function manifestOverridePlugin(manifestArtifact: string, manifest: NativeArtifactManifest) {

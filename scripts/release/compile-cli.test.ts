@@ -11,6 +11,8 @@ import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/
 import { compileReleaseCli } from "./compile-cli";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+const artifact = resolveEmbeddingNativeArtifact("darwin", "arm64");
+if (artifact === undefined) throw new Error("darwin-arm64 artifact is required");
 
 const manifest: NativeArtifactManifest = {
   schemaVersion: 1,
@@ -50,6 +52,7 @@ test("release compiler embeds its supplied manifest and disables cwd dotenv disc
       outfile: executable,
       entrypoint,
       manifestArtifact,
+      artifact,
       target: `bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget,
     });
     const child = Bun.spawn([executable], { cwd: directory, stdout: "pipe", stderr: "pipe" });
@@ -67,8 +70,6 @@ test("release compiler embeds its supplied manifest and disables cwd dotenv disc
 });
 
 test("release compiler replaces the embedding catalog's trusted manifest", async () => {
-  const artifact = resolveEmbeddingNativeArtifact("darwin", "arm64");
-  if (artifact === undefined) throw new Error("darwin-arm64 artifact is required");
   const directory = await mkdtemp(join(tmpdir(), "lore-release-catalog-"));
   const releaseManifest = { ...manifest, buildIdentity: digest("catalog-release-build") };
   try {
@@ -87,6 +88,7 @@ test("release compiler replaces the embedding catalog's trusted manifest", async
       outfile: executable,
       entrypoint,
       artifact,
+      target: `bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget,
     });
     const child = Bun.spawn([executable], { stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr, exitCode] = await Promise.all([
