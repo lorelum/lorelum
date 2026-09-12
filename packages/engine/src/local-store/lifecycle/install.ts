@@ -85,186 +85,190 @@ export async function installOrUpgrade(
   diagnostics: readonly ValidationIssue[] = [],
   metrics?: MutationMetricsObserver,
 ): Promise<InstallResult> {
-  const committed = await withStoreMutation(rootPath, async ({ database, recovery }) => {
-    // `recovery.manifest` is the converged, tuple-validated manifest (fresh
-    // store → empty manifest), so install never re-reads or re-guesses it.
-    const active = recovery.manifest;
-    const existingEntry = active.packs.find((pack) => pack.packName === candidate.pack.name);
+  const committed = await withStoreMutation(
+    rootPath,
+    async ({ database, recovery }) => {
+      // `recovery.manifest` is the converged, tuple-validated manifest (fresh
+      // store → empty manifest), so install never re-reads or re-guesses it.
+      const active = recovery.manifest;
+      const existingEntry = active.packs.find((pack) => pack.packName === candidate.pack.name);
 
-    // Stage the immutable snapshot and compute its artifact digest before any
-    // manifest or SQLite state changes. The staging dir is cleaned up on
-    // every non-success path.
-    const stagingPath = join(rootPath, "staging", crypto.randomUUID());
-    let artifactDigest: string;
-    try {
-      await writeSnapshotFromCandidate(stagingPath, candidate);
-      const projection: SnapshotProjection = createProjection(
-        candidate.pack,
-        candidate.sources,
-        candidate.decisions,
-      );
-      artifactDigest = await sealSnapshot(stagingPath, projection);
-    } catch (error) {
-      await rm(stagingPath, { recursive: true, force: true });
-      throw error;
-    }
-
-    // Same digest already active → idempotent success, no state change.
-    if (existingEntry !== undefined && existingEntry.artifactDigest === artifactDigest) {
-      await rm(stagingPath, { recursive: true, force: true });
-      return Object.freeze({
-        generation: recovery.manifest.generation,
-        effectiveRevision: recovery.manifest.effectiveRevision,
-        delta: diffEffectivePractices([], []),
-        diagnostics,
-        cleanupPending: false,
-        artifactDigest,
-        idempotent: true,
-      });
-    }
-    // install is only for not-yet-active packs; a different digest requires
-    // the explicit upgrade flow (ADR 0007 §7).
-    if (mode === "install" && existingEntry !== undefined) {
-      await rm(stagingPath, { recursive: true, force: true });
-      throw new UpgradeRequiredError(
-        candidate.pack.name,
-        existingEntry.artifactDigest,
-        artifactDigest,
-      );
-    }
-    // upgrade replaces an active pack's sources; upgrading a pack that was
-    // never installed is the same class of error as uninstalling one that
-    // isn't there (ADR 0007 §7 — never silent success).
-    if (mode === "upgrade" && existingEntry === undefined) {
-      await rm(stagingPath, { recursive: true, force: true });
-      throw new PackNotInstalledError(candidate.pack.name);
-    }
-
-    const previousPackPracticeIds =
-      mode === "upgrade" ? readPracticeIdsForPack(database, candidate.pack.name) : [];
-    const affectedPracticeIds = [
-      ...new Set([
-        ...candidate.sources.map((source) => source.practiceId),
-        ...previousPackPracticeIds,
-      ]),
-    ].sort(compareCodeUnits);
-    const effectivePractices =
-      recovery.metadata === undefined
-        ? []
-        : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
-    if (metrics !== undefined) {
-      metrics.recordRead("effective_practices", effectivePractices.length);
-      const sourceRows = effectivePractices.reduce(
-        (count, practice) => count + practice.sources.length,
-        0,
-      );
-      metrics.recordRead("practice_sources", sourceRows);
-      metrics.recordMaterialization(effectivePractices.length, sourceRows);
-      if (mode === "upgrade") {
-        // The ID lookup is a separate SELECT from the bounded joined
-        // materialization above and is part of the mutation's logical reads.
-        metrics.recordRead("practice_sources", previousPackPracticeIds.length);
-      }
-    }
-
-    const entry = entryForCandidate(candidate, artifactDigest);
-    let reconciled: ReturnType<typeof reconcileEffectivePractices>;
-    let targetManifest: InstalledPacksManifest;
-    try {
-      const targetGeneration = nextStoreCounter(active.generation, "generation");
-      reconciled = reconcileEffectivePractices(
-        activeSources(effectivePractices),
-        candidate,
-        mode === "upgrade" ? candidate.pack.name : undefined,
-      );
-      targetManifest = withPackEntry(
-        active,
-        entry,
-        mode === "upgrade",
-        targetGeneration,
-        reconciled.advancesEffectiveRevision
-          ? nextStoreCounter(active.effectiveRevision, "effectiveRevision")
-          : active.effectiveRevision,
-      );
-    } catch (error) {
-      await rm(stagingPath, { recursive: true, force: true });
-      throw error;
-    }
-    const advances = reconciled.advancesEffectiveRevision;
-
-    // Persist the journal before publishing the target manifest so recovery
-    // can compare the (generation, effectiveRevision) tuple (ADR 0007 §8).
-    const journal = createOperationJournalRecord(mode, active, targetManifest);
-    await writeOperationJournal(rootPath, journal);
-
-    try {
-      const promotion = await promoteArtifact(
-        rootPath,
-        entry.storageKey,
-        artifactDigest,
-        stagingPath,
-        {
-          replaceCorruptTarget: {
-            activeReferences: active.packs.map(({ storageKey, artifactDigest: digest }) => ({
-              storageKey,
-              artifactDigest: digest,
-            })),
-          },
-        },
-      );
-      if (!promotion.stagedSnapshotConsumed) {
-        await rm(stagingPath, { recursive: true, force: true });
-      }
-      await writeManifest(rootPath, targetManifest);
-      applyIncrementalDerivedState(
-        database,
-        {
-          generation: targetManifest.generation,
-          effectiveRevision: targetManifest.effectiveRevision,
-          activePacks: targetManifest.packs,
-          effectivePractices: reconciled.effectivePractices,
-          affectedPracticeIds,
-          activePackMutation: { kind: "upsert", entry },
-          revisionNotification:
-            advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
-          revisionLogDelta: advances ? reconciled.delta : undefined,
-        },
-        metrics,
-      );
-    } catch (error) {
-      await rm(stagingPath, { recursive: true, force: true });
-      throw error;
-    }
-
-    // The mutation has committed. Hook delivery happens after withStoreMutation
-    // releases the commit lock, so a hook may safely start another mutation.
-    await clearOperationJournal(rootPath, journal.operationId);
-
-    // Post-commit GC: an upgrade leaves the previous digest's artifact
-    // unreferenced. Cleanup failure is retryable and never turns the
-    // committed mutation into a reported failure (ADR 0007 §3.3).
-    let cleanupPending = false;
-    if (mode === "upgrade" && existingEntry !== undefined) {
+      // Stage the immutable snapshot and compute its artifact digest before any
+      // manifest or SQLite state changes. The staging dir is cleaned up on
+      // every non-success path.
+      const stagingPath = join(rootPath, "staging", crypto.randomUUID());
+      let artifactDigest: string;
       try {
-        await rm(artifactPath(rootPath, entry.storageKey, existingEntry.artifactDigest), {
-          recursive: true,
-          force: true,
-        });
-      } catch {
-        cleanupPending = true;
+        await writeSnapshotFromCandidate(stagingPath, candidate);
+        const projection: SnapshotProjection = createProjection(
+          candidate.pack,
+          candidate.sources,
+          candidate.decisions,
+        );
+        artifactDigest = await sealSnapshot(stagingPath, projection);
+      } catch (error) {
+        await rm(stagingPath, { recursive: true, force: true });
+        throw error;
       }
-    }
 
-    return Object.freeze({
-      generation: targetManifest.generation,
-      effectiveRevision: targetManifest.effectiveRevision,
-      delta: reconciled.delta,
-      diagnostics,
-      cleanupPending,
-      artifactDigest,
-      idempotent: false,
-    });
-  }, { metrics });
+      // Same digest already active → idempotent success, no state change.
+      if (existingEntry !== undefined && existingEntry.artifactDigest === artifactDigest) {
+        await rm(stagingPath, { recursive: true, force: true });
+        return Object.freeze({
+          generation: recovery.manifest.generation,
+          effectiveRevision: recovery.manifest.effectiveRevision,
+          delta: diffEffectivePractices([], []),
+          diagnostics,
+          cleanupPending: false,
+          artifactDigest,
+          idempotent: true,
+        });
+      }
+      // install is only for not-yet-active packs; a different digest requires
+      // the explicit upgrade flow (ADR 0007 §7).
+      if (mode === "install" && existingEntry !== undefined) {
+        await rm(stagingPath, { recursive: true, force: true });
+        throw new UpgradeRequiredError(
+          candidate.pack.name,
+          existingEntry.artifactDigest,
+          artifactDigest,
+        );
+      }
+      // upgrade replaces an active pack's sources; upgrading a pack that was
+      // never installed is the same class of error as uninstalling one that
+      // isn't there (ADR 0007 §7 — never silent success).
+      if (mode === "upgrade" && existingEntry === undefined) {
+        await rm(stagingPath, { recursive: true, force: true });
+        throw new PackNotInstalledError(candidate.pack.name);
+      }
+
+      const previousPackPracticeIds =
+        mode === "upgrade" ? readPracticeIdsForPack(database, candidate.pack.name) : [];
+      const affectedPracticeIds = [
+        ...new Set([
+          ...candidate.sources.map((source) => source.practiceId),
+          ...previousPackPracticeIds,
+        ]),
+      ].sort(compareCodeUnits);
+      const effectivePractices =
+        recovery.metadata === undefined
+          ? []
+          : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
+      if (metrics !== undefined) {
+        metrics.recordRead("effective_practices", effectivePractices.length);
+        const sourceRows = effectivePractices.reduce(
+          (count, practice) => count + practice.sources.length,
+          0,
+        );
+        metrics.recordRead("practice_sources", sourceRows);
+        metrics.recordMaterialization(effectivePractices.length, sourceRows);
+        if (mode === "upgrade") {
+          // The ID lookup is a separate SELECT from the bounded joined
+          // materialization above and is part of the mutation's logical reads.
+          metrics.recordRead("practice_sources", previousPackPracticeIds.length);
+        }
+      }
+
+      const entry = entryForCandidate(candidate, artifactDigest);
+      let reconciled: ReturnType<typeof reconcileEffectivePractices>;
+      let targetManifest: InstalledPacksManifest;
+      try {
+        const targetGeneration = nextStoreCounter(active.generation, "generation");
+        reconciled = reconcileEffectivePractices(
+          activeSources(effectivePractices),
+          candidate,
+          mode === "upgrade" ? candidate.pack.name : undefined,
+        );
+        targetManifest = withPackEntry(
+          active,
+          entry,
+          mode === "upgrade",
+          targetGeneration,
+          reconciled.advancesEffectiveRevision
+            ? nextStoreCounter(active.effectiveRevision, "effectiveRevision")
+            : active.effectiveRevision,
+        );
+      } catch (error) {
+        await rm(stagingPath, { recursive: true, force: true });
+        throw error;
+      }
+      const advances = reconciled.advancesEffectiveRevision;
+
+      // Persist the journal before publishing the target manifest so recovery
+      // can compare the (generation, effectiveRevision) tuple (ADR 0007 §8).
+      const journal = createOperationJournalRecord(mode, active, targetManifest);
+      await writeOperationJournal(rootPath, journal);
+
+      try {
+        const promotion = await promoteArtifact(
+          rootPath,
+          entry.storageKey,
+          artifactDigest,
+          stagingPath,
+          {
+            replaceCorruptTarget: {
+              activeReferences: active.packs.map(({ storageKey, artifactDigest: digest }) => ({
+                storageKey,
+                artifactDigest: digest,
+              })),
+            },
+          },
+        );
+        if (!promotion.stagedSnapshotConsumed) {
+          await rm(stagingPath, { recursive: true, force: true });
+        }
+        await writeManifest(rootPath, targetManifest);
+        applyIncrementalDerivedState(
+          database,
+          {
+            generation: targetManifest.generation,
+            effectiveRevision: targetManifest.effectiveRevision,
+            activePacks: targetManifest.packs,
+            effectivePractices: reconciled.effectivePractices,
+            affectedPracticeIds,
+            activePackMutation: { kind: "upsert", entry },
+            revisionNotification:
+              advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
+            revisionLogDelta: advances ? reconciled.delta : undefined,
+          },
+          metrics,
+        );
+      } catch (error) {
+        await rm(stagingPath, { recursive: true, force: true });
+        throw error;
+      }
+
+      // The mutation has committed. Hook delivery happens after withStoreMutation
+      // releases the commit lock, so a hook may safely start another mutation.
+      await clearOperationJournal(rootPath, journal.operationId);
+
+      // Post-commit GC: an upgrade leaves the previous digest's artifact
+      // unreferenced. Cleanup failure is retryable and never turns the
+      // committed mutation into a reported failure (ADR 0007 §3.3).
+      let cleanupPending = false;
+      if (mode === "upgrade" && existingEntry !== undefined) {
+        try {
+          await rm(artifactPath(rootPath, entry.storageKey, existingEntry.artifactDigest), {
+            recursive: true,
+            force: true,
+          });
+        } catch {
+          cleanupPending = true;
+        }
+      }
+
+      return Object.freeze({
+        generation: targetManifest.generation,
+        effectiveRevision: targetManifest.effectiveRevision,
+        delta: reconciled.delta,
+        diagnostics,
+        cleanupPending,
+        artifactDigest,
+        idempotent: false,
+      });
+    },
+    { metrics },
+  );
   const notificationPending = await deliverRevisionNotifications(
     rootPath,
     hook,

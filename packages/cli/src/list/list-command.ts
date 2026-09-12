@@ -69,9 +69,7 @@ const resultSchema: JsonSchema = {
   ],
 };
 
-export function createListCommand(
-  services: ListCommandServices,
-): CommandDefinition {
+export function createListCommand(services: ListCommandServices): CommandDefinition {
   return {
     name: "list",
     summary: "List installed Packs and their Practice catalogs from the LocalStore.",

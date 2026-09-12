@@ -45,75 +45,79 @@ export async function uninstallPack(
   hook: EffectiveRevisionHook | undefined,
   metrics?: MutationMetricsObserver,
 ): Promise<UninstallResult> {
-  const committed = await withStoreMutation(rootPath, async ({ database, recovery }) => {
-    const active = recovery.manifest;
-    const entry = active.packs.find((pack) => pack.packName === packName);
-    if (entry === undefined) throw new PackNotInstalledError(packName);
+  const committed = await withStoreMutation(
+    rootPath,
+    async ({ database, recovery }) => {
+      const active = recovery.manifest;
+      const entry = active.packs.find((pack) => pack.packName === packName);
+      if (entry === undefined) throw new PackNotInstalledError(packName);
 
-    const affectedPracticeIds = readPracticeIdsForPack(database, packName);
-    const effectivePractices =
-      recovery.metadata === undefined
-        ? []
-        : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
-    metrics?.recordRead("practice_sources", affectedPracticeIds.length);
-    metrics?.recordRead("effective_practices", effectivePractices.length);
-    const sourceRows = effectivePractices.reduce(
-      (count, practice) => count + practice.sources.length,
-      0,
-    );
-    metrics?.recordRead("practice_sources", sourceRows);
-    metrics?.recordMaterialization(effectivePractices.length, sourceRows);
-    const reconciled = removePackSources(activeSources(effectivePractices), packName);
+      const affectedPracticeIds = readPracticeIdsForPack(database, packName);
+      const effectivePractices =
+        recovery.metadata === undefined
+          ? []
+          : materializeEffectivePracticesByIds(database, recovery.metadata, affectedPracticeIds);
+      metrics?.recordRead("practice_sources", affectedPracticeIds.length);
+      metrics?.recordRead("effective_practices", effectivePractices.length);
+      const sourceRows = effectivePractices.reduce(
+        (count, practice) => count + practice.sources.length,
+        0,
+      );
+      metrics?.recordRead("practice_sources", sourceRows);
+      metrics?.recordMaterialization(effectivePractices.length, sourceRows);
+      const reconciled = removePackSources(activeSources(effectivePractices), packName);
 
-    const advances = reconciled.advancesEffectiveRevision;
-    const targetManifest = withoutPack(
-      active,
-      packName,
-      advances
-        ? nextStoreCounter(active.effectiveRevision, "effectiveRevision")
-        : active.effectiveRevision,
-    );
+      const advances = reconciled.advancesEffectiveRevision;
+      const targetManifest = withoutPack(
+        active,
+        packName,
+        advances
+          ? nextStoreCounter(active.effectiveRevision, "effectiveRevision")
+          : active.effectiveRevision,
+      );
 
-    const journal = createOperationJournalRecord("uninstall", active, targetManifest);
-    await writeOperationJournal(rootPath, journal);
-    await writeManifest(rootPath, targetManifest);
-    applyIncrementalDerivedState(
-      database,
-      {
+      const journal = createOperationJournalRecord("uninstall", active, targetManifest);
+      await writeOperationJournal(rootPath, journal);
+      await writeManifest(rootPath, targetManifest);
+      applyIncrementalDerivedState(
+        database,
+        {
+          generation: targetManifest.generation,
+          effectiveRevision: targetManifest.effectiveRevision,
+          activePacks: targetManifest.packs,
+          effectivePractices: reconciled.effectivePractices,
+          affectedPracticeIds,
+          activePackMutation: { kind: "remove", packName },
+          revisionNotification:
+            advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
+          revisionLogDelta: advances ? reconciled.delta : undefined,
+        },
+        metrics,
+      );
+
+      await clearOperationJournal(rootPath, journal.operationId);
+
+      // Post-commit GC: the removed pack's artifact is no longer referenced.
+      let cleanupPending = false;
+      try {
+        await rm(artifactPath(rootPath, entry.storageKey, entry.artifactDigest), {
+          recursive: true,
+          force: true,
+        });
+      } catch {
+        cleanupPending = true;
+      }
+
+      return Object.freeze({
         generation: targetManifest.generation,
         effectiveRevision: targetManifest.effectiveRevision,
-        activePacks: targetManifest.packs,
-        effectivePractices: reconciled.effectivePractices,
-        affectedPracticeIds,
-        activePackMutation: { kind: "remove", packName },
-        revisionNotification:
-          advances && hook !== undefined ? { delta: reconciled.delta } : undefined,
-        revisionLogDelta: advances ? reconciled.delta : undefined,
-      },
-      metrics,
-    );
-
-    await clearOperationJournal(rootPath, journal.operationId);
-
-    // Post-commit GC: the removed pack's artifact is no longer referenced.
-    let cleanupPending = false;
-    try {
-      await rm(artifactPath(rootPath, entry.storageKey, entry.artifactDigest), {
-        recursive: true,
-        force: true,
+        delta: reconciled.delta,
+        diagnostics: Object.freeze([]),
+        cleanupPending,
       });
-    } catch {
-      cleanupPending = true;
-    }
-
-    return Object.freeze({
-      generation: targetManifest.generation,
-      effectiveRevision: targetManifest.effectiveRevision,
-      delta: reconciled.delta,
-      diagnostics: Object.freeze([]),
-      cleanupPending,
-    });
-  }, { metrics });
+    },
+    { metrics },
+  );
   const notificationPending = await deliverRevisionNotifications(
     rootPath,
     hook,
