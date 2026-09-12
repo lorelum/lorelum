@@ -12,7 +12,7 @@
     "test:integration": "bun packages/cli/integration/process.integration.ts",
     "lint": "oxlint .",
     "fmt": "oxfmt --write .",
-    "fmt:check": "oxfmt --check .",
+    "fmt:check": "oxfmt --check . '!**/*.md' '!**/*.mdx'",
     "design:lint": "designmd lint DESIGN.md",
     "typecheck": "bun run --filter '*' typecheck && tsc --noEmit -p scripts/release/tsconfig.json",
     "build:native": "bun scripts/native/build-embedding.ts",

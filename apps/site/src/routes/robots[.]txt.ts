@@ -1,7 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { siteUrl } from '@/shared/config/site';
+import { createFileRoute } from "@tanstack/react-router";
+import { siteUrl } from "@/shared/config/site";
 
-export const Route = createFileRoute('/robots.txt')({
+export const Route = createFileRoute("/robots.txt")({
   server: {
     handlers: {
       GET() {
@@ -11,7 +11,7 @@ Allow: /
 Sitemap: ${siteUrl}/sitemap.xml
 `;
         return new Response(body, {
-          headers: { 'content-type': 'text/plain; charset=utf-8' },
+          headers: { "content-type": "text/plain; charset=utf-8" },
         });
       },
     },

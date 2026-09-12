@@ -1,8 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { LandingScreen, landingHead } from '@/features/landing';
-import { i18n } from '@/shared/i18n/config';
+import { createFileRoute } from "@tanstack/react-router";
+import { LandingScreen, landingHead } from "@/features/landing";
+import { i18n } from "@/shared/i18n/config";
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   head: () => landingHead(i18n.defaultLanguage),
   component: Home,
 });

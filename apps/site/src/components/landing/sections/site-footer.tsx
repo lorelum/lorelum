@@ -1,7 +1,7 @@
-import { Link } from '@tanstack/react-router';
-import { BrandLockup } from '@/shared/ui/brand-lockup';
-import { gitConfig } from '@/shared/config/git';
-import { getStrings } from '@/shared/i18n/legacy-translations';
+import { Link } from "@tanstack/react-router";
+import { BrandLockup } from "@/shared/ui/brand-lockup";
+import { gitConfig } from "@/shared/config/git";
+import { getStrings } from "@/shared/i18n/legacy-translations";
 
 export function SiteFooter({ lang }: { lang: string }) {
   const t = getStrings(lang);
@@ -18,7 +18,7 @@ export function SiteFooter({ lang }: { lang: string }) {
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <Link
             to="/$lang/docs/$"
-            params={{ lang, _splat: '' }}
+            params={{ lang, _splat: "" }}
             className="transition-colors hover:text-fd-foreground"
           >
             {t.footerDocs}

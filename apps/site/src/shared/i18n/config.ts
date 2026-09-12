@@ -1,4 +1,4 @@
-import { defineI18n } from 'fumadocs-core/i18n';
+import { defineI18n } from "fumadocs-core/i18n";
 
 /**
  * Locales supported by the docs site.
@@ -6,6 +6,6 @@ import { defineI18n } from 'fumadocs-core/i18n';
  * Content files use the dot parser: `index.mdx` (en) and `index.zh.mdx` (zh).
  */
 export const i18n = defineI18n({
-  defaultLanguage: 'en',
-  languages: ['en', 'zh'],
+  defaultLanguage: "en",
+  languages: ["en", "zh"],
 });

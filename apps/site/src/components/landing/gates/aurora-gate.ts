@@ -9,7 +9,7 @@
  * and can't silently drift.
  */
 
-import type { WebglCapability } from './webgl-renderer';
+import type { WebglCapability } from "./webgl-renderer";
 
 export interface AuroraGateInput {
   /** Client-only — always false during SSR so we never render on the server. */
@@ -42,7 +42,7 @@ export function shouldRenderWebglAurora(input: AuroraGateInput): boolean {
     input.dark &&
     !input.touch &&
     input.webgl &&
-    input.hardwareWebgl !== 'software' &&
+    input.hardwareWebgl !== "software" &&
     input.inView &&
     input.viewportWidth >= AURORA_MIN_WIDTH
   );

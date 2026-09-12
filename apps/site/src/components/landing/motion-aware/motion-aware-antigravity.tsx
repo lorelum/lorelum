@@ -1,5 +1,5 @@
-import Antigravity from '../effects/antigravity';
-import { useCanvasEffectsEnabled } from '../motion/use-canvas-effects';
+import Antigravity from "../effects/antigravity";
+import { useCanvasEffectsEnabled } from "../motion/use-canvas-effects";
 
 /**
  * Motion-aware gate for the particle ring on the CTA card — Lorelum's own

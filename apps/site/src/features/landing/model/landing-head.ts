@@ -1,5 +1,5 @@
-import { i18n } from '@/shared/i18n/config';
-import { siteUrl } from '@/shared/config/site';
+import { i18n } from "@/shared/i18n/config";
+import { siteUrl } from "@/shared/config/site";
 
 /**
  * Site-wide SEO metadata for the marketing/landing surface, keyed by locale.
@@ -15,7 +15,7 @@ import { siteUrl } from '@/shared/config/site';
  * different origin by setting `SITE_URL` (or `CF_PAGES_URL`) at build time.
  */
 
-export { siteUrl } from '@/shared/config/site';
+export { siteUrl } from "@/shared/config/site";
 
 export interface LandingMeta {
   title: string;
@@ -32,16 +32,16 @@ export interface LandingMeta {
  *  the default language's entry via `getLandingMeta`. */
 const landingMeta: Record<string, LandingMeta> = {
   en: {
-    title: 'Lorelum — the right Practice for the right task and moment',
+    title: "Lorelum — the right Practice for the right task and moment",
     description:
-      'Lorelum keeps your team\u2019s engineering Practices structured and retrievable, and injects the right one into your AI coding agent\u2019s context exactly when the task needs it.',
-    ogLocale: 'en_US',
+      "Lorelum keeps your team\u2019s engineering Practices structured and retrievable, and injects the right one into your AI coding agent\u2019s context exactly when the task needs it.",
+    ogLocale: "en_US",
   },
   zh: {
-    title: 'Lorelum —— 在正确的任务与关键时刻，检索正确的工程 Practice',
+    title: "Lorelum —— 在正确的任务与关键时刻，检索正确的工程 Practice",
     description:
-      'Lorelum 让团队的工程 Practice 保持结构化、可检索，并在任务最需要的那一刻，把正确的那条注入 AI 编码智能体的上下文。',
-    ogLocale: 'zh_CN',
+      "Lorelum 让团队的工程 Practice 保持结构化、可检索，并在任务最需要的那一刻，把正确的那条注入 AI 编码智能体的上下文。",
+    ogLocale: "zh_CN",
   },
 };
 
@@ -64,30 +64,30 @@ export function landingHead(lang: string): {
 } {
   const meta = getLandingMeta(lang);
   const isDefault = lang === i18n.defaultLanguage;
-  const path = isDefault ? '/' : `/${lang}`;
-  const canonical = `${siteUrl}${path === '/' ? '' : path}`;
+  const path = isDefault ? "/" : `/${lang}`;
+  const canonical = `${siteUrl}${path === "/" ? "" : path}`;
   const title = meta.title;
 
   return {
     meta: [
       { title },
-      { name: 'description', content: meta.description },
-      { property: 'og:site_name', content: 'Lorelum' },
-      { property: 'og:type', content: 'website' },
-      { property: 'og:locale', content: meta.ogLocale },
-      { property: 'og:title', content: meta.ogTitle ?? title },
+      { name: "description", content: meta.description },
+      { property: "og:site_name", content: "Lorelum" },
+      { property: "og:type", content: "website" },
+      { property: "og:locale", content: meta.ogLocale },
+      { property: "og:title", content: meta.ogTitle ?? title },
       {
-        property: 'og:description',
+        property: "og:description",
         content: meta.ogDescription ?? meta.description,
       },
-      { property: 'og:url', content: canonical },
-      { name: 'twitter:card', content: 'summary' },
-      { name: 'twitter:title', content: meta.ogTitle ?? title },
+      { property: "og:url", content: canonical },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: meta.ogTitle ?? title },
       {
-        name: 'twitter:description',
+        name: "twitter:description",
         content: meta.ogDescription ?? meta.description,
       },
     ],
-    links: [{ rel: 'canonical', href: canonical }],
+    links: [{ rel: "canonical", href: canonical }],
   };
 }

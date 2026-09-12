@@ -1,25 +1,25 @@
-import { useRef } from 'react';
-import { CountUp } from '@/vendor/react-bits';
-import { getStrings, type LandingStrings } from '@/shared/i18n/legacy-translations';
-import { Reveal } from '../motion/reveal';
-import { SectionHeading } from './section-heading';
-import { usePauseOffscreen } from '../motion/use-viewport-anim';
+import { useRef } from "react";
+import { CountUp } from "@/vendor/react-bits";
+import { getStrings, type LandingStrings } from "@/shared/i18n/legacy-translations";
+import { Reveal } from "../motion/reveal";
+import { SectionHeading } from "./section-heading";
+import { usePauseOffscreen } from "../motion/use-viewport-anim";
 
 const STATS: Array<{
   value: number;
   suffix: string;
   labelKey: keyof LandingStrings;
 }> = [
-  { value: 1, suffix: '', labelKey: 'stats1Label' },
-  { value: 2, suffix: '', labelKey: 'stats2Label' },
-  { value: 100, suffix: '%', labelKey: 'stats3Label' },
+  { value: 1, suffix: "", labelKey: "stats1Label" },
+  { value: 2, suffix: "", labelKey: "stats2Label" },
+  { value: 100, suffix: "%", labelKey: "stats3Label" },
 ];
 
 export function Stats({ lang }: { lang: string }) {
   const t = getStrings(lang);
   const sectionRef = useRef<HTMLElement>(null);
   // Pause the gradient-number sweep once this section scrolls out of view.
-  usePauseOffscreen({ ref: sectionRef, selector: '.landing-gradient-text' });
+  usePauseOffscreen({ ref: sectionRef, selector: ".landing-gradient-text" });
 
   return (
     <section ref={sectionRef} className="relative mx-auto w-full max-w-6xl px-4 py-24 sm:py-32">

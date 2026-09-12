@@ -14,8 +14,8 @@
  *     on prop changes.
  * See apps/site/THIRD_PARTY_NOTICE.md.
  */
-import { useEffect, useRef } from 'react';
-import { Renderer, Program, Mesh, Color, Triangle } from 'ogl';
+import { useEffect, useRef } from "react";
+import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 
 const VERT = `#version 300 es
 in vec2 position;
@@ -151,7 +151,7 @@ const MAX_HEIGHT = 640;
 
 export default function Aurora(props: AuroraProps) {
   const {
-    colorStops = ['#6366f1', '#a855f7', '#22d3ee'],
+    colorStops = ["#6366f1", "#a855f7", "#22d3ee"],
     amplitude = 1.0,
     blend = 0.6,
     lightMode = false,
@@ -195,10 +195,10 @@ export default function Aurora(props: AuroraProps) {
       gl.clearColor(0, 0, 0, 0);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.canvas.style.backgroundColor = 'transparent';
+      gl.canvas.style.backgroundColor = "transparent";
       // Site adaptation: fade the canvas in over ~1s (see .landing-aurora-canvas
       // in app.css) so the first compiled frame doesn't pop in abruptly.
-      gl.canvas.className = 'landing-aurora-canvas';
+      gl.canvas.className = "landing-aurora-canvas";
 
       function resize() {
         if (!canvasHost || !gl || !program) return;
@@ -209,15 +209,15 @@ export default function Aurora(props: AuroraProps) {
         // resolution. Stretch it back to fill the hero so a capped buffer never
         // leaves a black gap on wide/tall viewports — the backing is still
         // low-res (cheap), it just scales to cover.
-        gl.canvas.style.width = '100%';
-        gl.canvas.style.height = '100%';
-        gl.canvas.style.display = 'block';
+        gl.canvas.style.width = "100%";
+        gl.canvas.style.height = "100%";
+        gl.canvas.style.display = "block";
         if (program) {
           program.uniforms.uResolution.value = [gl.canvas.width, gl.canvas.height];
         }
       }
       resizeHandler = resize;
-      window.addEventListener('resize', resize);
+      window.addEventListener("resize", resize);
 
       const geometry = new Triangle(gl);
       if (geometry.attributes.uv) {
@@ -288,17 +288,19 @@ export default function Aurora(props: AuroraProps) {
     // serial chunk download). 400ms keeps the compile spike out of the first
     // frames without adding a noticeable delay.
     const scheduleIdle =
-      typeof (window as { requestIdleCallback?: unknown }).requestIdleCallback === 'function'
-        ? (window as {
-            requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number;
-          }).requestIdleCallback(init, { timeout: 400 })
+      typeof (window as { requestIdleCallback?: unknown }).requestIdleCallback === "function"
+        ? (
+            window as {
+              requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number;
+            }
+          ).requestIdleCallback(init, { timeout: 400 })
         : (setTimeout(init, 0) as unknown as number);
 
     return () => {
       cancelled = true;
       running = false;
       cancelAnimationFrame(animateId);
-      if (typeof (window as { cancelIdleCallback?: unknown }).cancelIdleCallback === 'function') {
+      if (typeof (window as { cancelIdleCallback?: unknown }).cancelIdleCallback === "function") {
         (window as { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(
           scheduleIdle as number,
         );
@@ -306,12 +308,12 @@ export default function Aurora(props: AuroraProps) {
         clearTimeout(scheduleIdle as unknown as ReturnType<typeof setTimeout>);
       }
       controlsRef.current = null;
-      if (resizeHandler) window.removeEventListener('resize', resizeHandler);
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
       const gl = renderer?.gl;
       if (gl && gl.canvas.parentNode === canvasHost) {
         canvasHost.removeChild(gl.canvas);
       }
-      gl?.getExtension('WEBGL_lose_context')?.loseContext();
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, [amplitude, blend, colorStops, lightMode]);
 
@@ -326,5 +328,3 @@ export default function Aurora(props: AuroraProps) {
 
   return <div ref={ctnDom} className="pointer-events-none h-full w-full" />;
 }
-
-

@@ -1,14 +1,14 @@
-import { Link, useParams } from '@tanstack/react-router';
-import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { getStrings } from '@/shared/i18n/legacy-translations';
-import { BrandLockup } from '@/shared/ui/brand-lockup';
+import { Link, useParams } from "@tanstack/react-router";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
+import { getStrings } from "@/shared/i18n/legacy-translations";
+import { BrandLockup } from "@/shared/ui/brand-lockup";
 
 /**
  * Global 404. Lives under the home layout so the nav stays usable on
  * unknown routes; the lang param (when present) keeps i18n links coherent.
  */
 export function NotFound() {
-  const { lang = 'en' } = useParams({ strict: false });
+  const { lang = "en" } = useParams({ strict: false });
   const t = getStrings(lang);
 
   return (

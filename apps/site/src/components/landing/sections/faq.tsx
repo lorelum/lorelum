@@ -1,7 +1,7 @@
-import { ChevronDown } from 'lucide-react';
-import { getStrings } from '@/shared/i18n/legacy-translations';
-import { Reveal } from '../motion/reveal';
-import { SectionHeading } from './section-heading';
+import { ChevronDown } from "lucide-react";
+import { getStrings } from "@/shared/i18n/legacy-translations";
+import { Reveal } from "../motion/reveal";
+import { SectionHeading } from "./section-heading";
 
 export function Faq({ lang }: { lang: string }) {
   const t = getStrings(lang);
@@ -25,9 +25,7 @@ export function Faq({ lang }: { lang: string }) {
               </summary>
               <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
                 <div className="overflow-hidden">
-                  <p className="pt-3 text-sm leading-relaxed text-fd-muted-foreground">
-                    {faq.a}
-                  </p>
+                  <p className="pt-3 text-sm leading-relaxed text-fd-muted-foreground">{faq.a}</p>
                 </div>
               </div>
             </details>

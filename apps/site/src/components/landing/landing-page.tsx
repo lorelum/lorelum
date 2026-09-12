@@ -1,11 +1,11 @@
-import { Cta } from './sections/cta';
-import { Ecosystem } from './sections/ecosystem';
-import { Faq } from './sections/faq';
-import { Features } from './sections/features';
-import { Hero } from './sections/hero';
-import { Problem } from './sections/problem';
-import { SiteFooter } from './sections/site-footer';
-import { Stats } from './sections/stats';
+import { Cta } from "./sections/cta";
+import { Ecosystem } from "./sections/ecosystem";
+import { Faq } from "./sections/faq";
+import { Features } from "./sections/features";
+import { Hero } from "./sections/hero";
+import { Problem } from "./sections/problem";
+import { SiteFooter } from "./sections/site-footer";
+import { Stats } from "./sections/stats";
 
 /**
  * Full landing page composition. `lang` drives every string via the shared

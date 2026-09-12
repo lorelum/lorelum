@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from "lucide-react";
 
 /** Accent colors for a card, tuned per section (see features/problem). */
 export interface AccentTint {
@@ -24,13 +24,13 @@ export function TintedIcon({
   tint: AccentTint;
   /** Entrance animation delay in ms — use i * 90/100 for card staggers. */
   delayMs: number;
-  size: 'md' | 'sm';
+  size: "md" | "sm";
 }) {
   const tile =
-    size === 'md'
-      ? 'size-10 rounded-xl text-fd-foreground ring-fd-border/60'
-      : 'size-9 rounded-lg text-fd-muted-foreground ring-fd-border/50';
-  const glyph = size === 'md' ? 'size-5' : 'size-4';
+    size === "md"
+      ? "size-10 rounded-xl text-fd-foreground ring-fd-border/60"
+      : "size-9 rounded-lg text-fd-muted-foreground ring-fd-border/50";
+  const glyph = size === "md" ? "size-5" : "size-4";
 
   return (
     <div

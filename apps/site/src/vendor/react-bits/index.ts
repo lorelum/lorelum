@@ -15,12 +15,12 @@
  * or on touch devices.
  */
 
-export { default as Aurora } from './aurora';
-export { default as CountUp } from './count-up';
-export { default as DecryptedText } from './decrypted-text';
-export { default as LogoLoop, type LogoItem, type LogoLoopProps } from './logo-loop';
-export { default as ScrollFloat } from './scroll-float';
-export { default as SpecularButton, type SpecularButtonProps } from './specular-button';
-export { default as SpotlightCard } from './spotlight-card';
-export { default as TextType } from './text-type';
-export { default as VariableProximity } from './variable-proximity';
+export { default as Aurora } from "./aurora";
+export { default as CountUp } from "./count-up";
+export { default as DecryptedText } from "./decrypted-text";
+export { default as LogoLoop, type LogoItem, type LogoLoopProps } from "./logo-loop";
+export { default as ScrollFloat } from "./scroll-float";
+export { default as SpecularButton, type SpecularButtonProps } from "./specular-button";
+export { default as SpotlightCard } from "./spotlight-card";
+export { default as TextType } from "./text-type";
+export { default as VariableProximity } from "./variable-proximity";

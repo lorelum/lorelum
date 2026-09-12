@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { getStrings, type LandingStrings } from '@/shared/i18n/legacy-translations';
+import { useEffect, useRef, useState } from "react";
+import { getStrings, type LandingStrings } from "@/shared/i18n/legacy-translations";
 
 /**
  * A fixed-height terminal demo that replays a *real* Lorelum CLI transcript.
@@ -38,13 +38,13 @@ interface TranscriptLine {
 }
 
 type LineSpan =
-  | { t: 'prompt' }
-  | { t: 'plain'; text: string }
-  | { t: 'key'; text: string }
-  | { t: 'string'; text: string }
-  | { t: 'number'; text: string }
-  | { t: 'punct'; text: string }
-  | { t: 'dim'; text: string };
+  | { t: "prompt" }
+  | { t: "plain"; text: string }
+  | { t: "key"; text: string }
+  | { t: "string"; text: string }
+  | { t: "number"; text: string }
+  | { t: "punct"; text: string }
+  | { t: "dim"; text: string };
 
 interface DemoCommand {
   /** The command typed after the `$` prompt, without the leading `$ `. */
@@ -53,11 +53,11 @@ interface DemoCommand {
   readonly lines: readonly TranscriptLine[];
 }
 
-const K = (text: string): LineSpan => ({ t: 'key', text });
-const S = (text: string): LineSpan => ({ t: 'string', text });
-const N = (text: string): LineSpan => ({ t: 'number', text });
-const P = (text: string): LineSpan => ({ t: 'punct', text });
-const D = (text: string): LineSpan => ({ t: 'dim', text });
+const K = (text: string): LineSpan => ({ t: "key", text });
+const S = (text: string): LineSpan => ({ t: "string", text });
+const N = (text: string): LineSpan => ({ t: "number", text });
+const P = (text: string): LineSpan => ({ t: "punct", text });
+const D = (text: string): LineSpan => ({ t: "dim", text });
 const LINE = (key: string, spans: LineSpan[]): TranscriptLine => ({ key, spans });
 
 /**
@@ -70,41 +70,118 @@ const LINE = (key: string, spans: LineSpan[]): TranscriptLine => ({ key, spans }
 function buildCommands(t: LandingStrings): readonly DemoCommand[] {
   return [
     {
-      command: 'lore install agentic-coding',
+      command: "lore install agentic-coding",
       lines: [
-        LINE('i0', [P('{')]),
-        LINE('i1', [D('  '), K('"protocolVersion"'), P(': '), N('1'), P(',  '), K('"toolVersion"'), P(': '), S('"0.0.0"'), P(',')]),
-        LINE('i2', [D('  '), K('"command"'), P(': '), S('"install"'), P(',  '), K('"ok"'), P(': '), N('true'), P(',')]),
-        LINE('i3', [D('  '), K('"registry"'), P(': '), S('"lorelum/lorelum-packs"'), P(',')]),
-        LINE('i4', [D('  '), K('"pack"'), P(': '), S('"agentic-coding@0.3.0"'), P(',')]),
-        LINE('i5', [D('  '), K('"generation"'), P(': '), N('1'), P(',  '), K('"idempotent"'), P(': '), N('false'), P(',')]),
-        LINE('i6', [D('  '), K('"delta"'), P(': { '), K('"added"'), P(': '), N(t.installAddedCount), P(' practices, '), K('"changed"'), P(': '), N('0'), P(' }')]),
-        LINE('i7', [D('  '), K('"artifactDigest"'), P(': '), S('"797bf9bb…b5ef"')]),
-        LINE('i8', [P('}')]),
+        LINE("i0", [P("{")]),
+        LINE("i1", [
+          D("  "),
+          K('"protocolVersion"'),
+          P(": "),
+          N("1"),
+          P(",  "),
+          K('"toolVersion"'),
+          P(": "),
+          S('"0.0.0"'),
+          P(","),
+        ]),
+        LINE("i2", [
+          D("  "),
+          K('"command"'),
+          P(": "),
+          S('"install"'),
+          P(",  "),
+          K('"ok"'),
+          P(": "),
+          N("true"),
+          P(","),
+        ]),
+        LINE("i3", [D("  "), K('"registry"'), P(": "), S('"lorelum/lorelum-packs"'), P(",")]),
+        LINE("i4", [D("  "), K('"pack"'), P(": "), S('"agentic-coding@0.3.0"'), P(",")]),
+        LINE("i5", [
+          D("  "),
+          K('"generation"'),
+          P(": "),
+          N("1"),
+          P(",  "),
+          K('"idempotent"'),
+          P(": "),
+          N("false"),
+          P(","),
+        ]),
+        LINE("i6", [
+          D("  "),
+          K('"delta"'),
+          P(": { "),
+          K('"added"'),
+          P(": "),
+          N(t.installAddedCount),
+          P(" practices, "),
+          K('"changed"'),
+          P(": "),
+          N("0"),
+          P(" }"),
+        ]),
+        LINE("i7", [D("  "), K('"artifactDigest"'), P(": "), S('"797bf9bb…b5ef"')]),
+        LINE("i8", [P("}")]),
       ],
     },
     {
-      command: 'lore get agentic-coding.verification.bind-evidence-to-artifact-state',
+      command: "lore get agentic-coding.verification.bind-evidence-to-artifact-state",
       lines: [
-        LINE('g0', [P('{'), D('  '), K('"command"'), P(': '), S('"get"'), P(',  '), K('"ok"'), P(': '), N('true'), P(',')]),
-        LINE('g1', [D('  '), K('"id"'), P(': '), S('"…verification.bind-evidence-to-artifact-state"'), P(',')]),
-        LINE('g2', [D('  '), K('"title"'), P(': '), S(`"${t.getTitle}"`), P(',')]),
-        LINE('g3', [D('  '), K('"stage"'), P(': '), S('"verification"'), P(',  '), K('"severity"'), P(': '), S('"warn"'), P(',')]),
-        LINE('g4', [D('  '), K('"applies_when"'), P(': '), S(`"${t.appliesWhen}"`), P(',')]),
-        LINE('g5', [D('  '), K('"anti_patterns"'), P(': ['), S(`"${t.antiPattern}"`), P('],')]),
-        LINE('g6', [D('  '), K('"sources"'), P(': [{ '), K('"packName"'), P(': '), S('"agentic-coding"'), P(' }]')]),
-        LINE('g7', [P('}')]),
+        LINE("g0", [
+          P("{"),
+          D("  "),
+          K('"command"'),
+          P(": "),
+          S('"get"'),
+          P(",  "),
+          K('"ok"'),
+          P(": "),
+          N("true"),
+          P(","),
+        ]),
+        LINE("g1", [
+          D("  "),
+          K('"id"'),
+          P(": "),
+          S('"…verification.bind-evidence-to-artifact-state"'),
+          P(","),
+        ]),
+        LINE("g2", [D("  "), K('"title"'), P(": "), S(`"${t.getTitle}"`), P(",")]),
+        LINE("g3", [
+          D("  "),
+          K('"stage"'),
+          P(": "),
+          S('"verification"'),
+          P(",  "),
+          K('"severity"'),
+          P(": "),
+          S('"warn"'),
+          P(","),
+        ]),
+        LINE("g4", [D("  "), K('"applies_when"'), P(": "), S(`"${t.appliesWhen}"`), P(",")]),
+        LINE("g5", [D("  "), K('"anti_patterns"'), P(": ["), S(`"${t.antiPattern}"`), P("],")]),
+        LINE("g6", [
+          D("  "),
+          K('"sources"'),
+          P(": [{ "),
+          K('"packName"'),
+          P(": "),
+          S('"agentic-coding"'),
+          P(" }]"),
+        ]),
+        LINE("g7", [P("}")]),
       ],
     },
   ];
 }
 
-export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
+export function TerminalDemo({ locale = "en" }: { locale?: string }) {
   const t = getStrings(locale);
   const commands = buildCommands(t);
 
   // phase: 'typing' | 'output' | 'paused'
-  const [phase, setPhase] = useState<'typing' | 'output' | 'paused'>('typing');
+  const [phase, setPhase] = useState<"typing" | "output" | "paused">("typing");
   const [commandIndex, setCommandIndex] = useState(0);
   /** Number of output lines of the current command currently visible. */
   const [lineCount, setLineCount] = useState(0);
@@ -116,10 +193,9 @@ export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setVisible(entry.isIntersecting),
-      { threshold: 0.05 },
-    );
+    const io = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+      threshold: 0.05,
+    });
     io.observe(el);
     return () => io.disconnect();
   }, []);
@@ -128,7 +204,7 @@ export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
 
   // Phase 1: type the command into the DOM directly — no React renders here.
   useEffect(() => {
-    if (!visible || phase !== 'typing') return;
+    if (!visible || phase !== "typing") return;
     const el = commandRef.current;
     if (!el) return;
     let count = 0;
@@ -137,7 +213,7 @@ export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
       count = Math.min(count + 2, current.command.length);
       el.textContent = current.command.slice(0, count);
       if (count >= current.command.length) {
-        timer = window.setTimeout(() => setPhase('output'), COMMAND_PAUSE);
+        timer = window.setTimeout(() => setPhase("output"), COMMAND_PAUSE);
       } else {
         timer = window.setTimeout(tick, TYPE_SPEED);
       }
@@ -148,7 +224,7 @@ export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
 
   // Phase 2: reveal output lines one at a time.
   useEffect(() => {
-    if (!visible || phase !== 'output') return;
+    if (!visible || phase !== "output") return;
     if (lineCount < current.lines.length) {
       const id = window.setTimeout(() => setLineCount((c) => c + 1), LINE_DELAY);
       return () => window.clearTimeout(id);
@@ -157,12 +233,12 @@ export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
     const id = window.setTimeout(
       () => {
         if (isLastCommand) {
-          setPhase('paused');
+          setPhase("paused");
         } else {
           setCommandIndex((i) => i + 1);
           setLineCount(0);
-          if (commandRef.current) commandRef.current.textContent = '';
-          setPhase('typing');
+          if (commandRef.current) commandRef.current.textContent = "";
+          setPhase("typing");
         }
       },
       isLastCommand ? REPLAY_DELAY : LINE_DELAY,
@@ -172,45 +248,45 @@ export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
 
   // Phase 3: reset everything and replay.
   useEffect(() => {
-    if (!visible || phase !== 'paused') return;
+    if (!visible || phase !== "paused") return;
     setCommandIndex(0);
     setLineCount(0);
-    if (commandRef.current) commandRef.current.textContent = '';
-    setPhase('typing');
+    if (commandRef.current) commandRef.current.textContent = "";
+    setPhase("typing");
   }, [visible, phase]);
 
   // Completed commands stay rendered while the next one types.
   const doneCommands = commands.slice(0, commandIndex);
-  const showCursor = phase === 'typing';
-  const currentLines = phase !== 'typing' ? current.lines.slice(0, lineCount) : [];
+  const showCursor = phase === "typing";
+  const currentLines = phase !== "typing" ? current.lines.slice(0, lineCount) : [];
 
   const renderSpan = (span: LineSpan, i: number) => {
     switch (span.t) {
-      case 'key':
+      case "key":
         return (
           <span key={i} className="text-sky-300">
             {span.text}
           </span>
         );
-      case 'string':
+      case "string":
         return (
           <span key={i} className="text-emerald-300">
             {span.text}
           </span>
         );
-      case 'number':
+      case "number":
         return (
           <span key={i} className="text-amber-300">
             {span.text}
           </span>
         );
-      case 'punct':
+      case "punct":
         return (
           <span key={i} className="text-zinc-400">
             {span.text}
           </span>
         );
-      case 'dim':
+      case "dim":
         return (
           <span key={i} className="text-zinc-500">
             {span.text}
@@ -229,9 +305,7 @@ export function TerminalDemo({ locale = 'en' }: { locale?: string }) {
           <span className="size-2.5 rounded-full bg-[#ff5f57]" />
           <span className="size-2.5 rounded-full bg-[#febc2e]" />
           <span className="size-2.5 rounded-full bg-[#28c840]" />
-          <span className="ml-3 font-mono text-xs text-zinc-400">
-            {t.terminalWindowTitle}
-          </span>
+          <span className="ml-3 font-mono text-xs text-zinc-400">{t.terminalWindowTitle}</span>
           <span className="ml-auto rounded bg-zinc-700/60 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300">
             lore
           </span>

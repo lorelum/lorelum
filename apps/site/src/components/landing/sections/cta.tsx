@@ -1,12 +1,12 @@
-import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Star } from 'lucide-react';
-import { ScrollFloat } from '@/vendor/react-bits';
-import { gitConfig } from '@/shared/config/git';
-import { getStrings } from '@/shared/i18n/legacy-translations';
-import { GsapScaleUp } from '../motion/gsap-scale-up';
-import { MotionAwareAntigravity } from '../motion-aware/motion-aware-antigravity';
-import { MotionAwareSpecularButton } from '../motion-aware/motion-aware-specular-button';
-import { specularCtaProps } from './specular-cta-preset';
+import { useNavigate } from "@tanstack/react-router";
+import { ArrowRight, Star } from "lucide-react";
+import { ScrollFloat } from "@/vendor/react-bits";
+import { gitConfig } from "@/shared/config/git";
+import { getStrings } from "@/shared/i18n/legacy-translations";
+import { GsapScaleUp } from "../motion/gsap-scale-up";
+import { MotionAwareAntigravity } from "../motion-aware/motion-aware-antigravity";
+import { MotionAwareSpecularButton } from "../motion-aware/motion-aware-specular-button";
+import { specularCtaProps } from "./specular-cta-preset";
 
 /**
  * CTA — the closing moment, in the spirit of antigravity.google: a full-bleed
@@ -48,7 +48,7 @@ export function Cta({ lang }: { lang: string }) {
                 {...specularCtaProps}
                 tintOpacity={0.82}
                 blur={8}
-                onClick={() => navigate({ to: '/$lang/docs/$', params: { lang, _splat: '' } })}
+                onClick={() => navigate({ to: "/$lang/docs/$", params: { lang, _splat: "" } })}
               >
                 {t.ctaDocs}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />

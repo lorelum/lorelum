@@ -1,18 +1,18 @@
-import { useEffect, useRef } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Star } from 'lucide-react';
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
-import { DecryptedText } from '@/vendor/react-bits';
-import { gitConfig } from '@/shared/config/git';
-import { getStrings } from '@/shared/i18n/legacy-translations';
-import { HeroAurora } from '../effects/hero-aurora';
-import { TerminalShowcase } from './terminal-showcase';
-import { useCanvasEffectsEnabled } from '../motion/use-canvas-effects';
-import { gsap, registerGsapPlugins } from '@/shared/motion/gsap-client';
-import { MotionAwareTextType } from '../motion-aware/motion-aware-text-type';
-import { MotionAwareSpecularButton } from '../motion-aware/motion-aware-specular-button';
-import { specularCtaProps } from './specular-cta-preset';
-import { usePauseOffscreen } from '../motion/use-viewport-anim';
+import { useEffect, useRef } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { ArrowRight, Star } from "lucide-react";
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
+import { DecryptedText } from "@/vendor/react-bits";
+import { gitConfig } from "@/shared/config/git";
+import { getStrings } from "@/shared/i18n/legacy-translations";
+import { HeroAurora } from "../effects/hero-aurora";
+import { TerminalShowcase } from "./terminal-showcase";
+import { useCanvasEffectsEnabled } from "../motion/use-canvas-effects";
+import { gsap, registerGsapPlugins } from "@/shared/motion/gsap-client";
+import { MotionAwareTextType } from "../motion-aware/motion-aware-text-type";
+import { MotionAwareSpecularButton } from "../motion-aware/motion-aware-specular-button";
+import { specularCtaProps } from "./specular-cta-preset";
+import { usePauseOffscreen } from "../motion/use-viewport-anim";
 
 /**
  * Hero — Antigravity-grade type, alive on three axes:
@@ -41,7 +41,7 @@ export function Hero({ lang }: { lang: string }) {
   // Pause the gradient-text sweep (and any other CSS animation) once the hero
   // scrolls away, so it stops repainting off-screen. ScrollTrigger — the
   // page's canonical viewport gate (see use-viewport-anim).
-  usePauseOffscreen({ ref: sectionRef, selector: '.landing-gradient-text' });
+  usePauseOffscreen({ ref: sectionRef, selector: ".landing-gradient-text" });
 
   // Hero scroll exit — fades + lifts the copy as the section leaves. The
   // terminal below is NOT faded here: it is an opaque "real terminal" that
@@ -62,10 +62,10 @@ export function Hero({ lang }: { lang: string }) {
         {
           opacity: 0,
           y: -46,
-          ease: 'none',
+          ease: "none",
           scrollTrigger: {
             trigger: section,
-            start: 'top top',
+            start: "top top",
             end: copyEnd,
             scrub: true,
           },
@@ -126,12 +126,12 @@ export function Hero({ lang }: { lang: string }) {
 
           <motion.div className="w-full" style={{ x: titleX, y: titleY }}>
             <h1 className="landing-hero-title mx-auto mt-8 max-w-5xl text-balance font-display text-[clamp(3rem,8.5vw,7.25rem)] font-medium leading-[1.0] tracking-[-0.035em]">
-              <span className="landing-line block" style={{ animationDelay: '0.05s' }}>
+              <span className="landing-line block" style={{ animationDelay: "0.05s" }}>
                 {t.heroTitleBefore}
                 <span className="landing-gradient-text">{t.heroTitleGradient}</span>
                 {t.heroTitleComma}
               </span>
-              <span className="landing-line block" style={{ animationDelay: '0.18s' }}>
+              <span className="landing-line block" style={{ animationDelay: "0.18s" }}>
                 {t.heroTitleAfter}
               </span>
             </h1>
@@ -144,7 +144,7 @@ export function Hero({ lang }: { lang: string }) {
           {/* Typewriter subline — short phrases that loop after the hero loads.
               `min-h` reserves one line so the CTA buttons below don't jump as
               the text types/erases. Wrapper keeps it SSR-safe. */}
-          <div className="landing-hero-item mt-4 min-h-6" style={{ animationDelay: '0.26s' }}>
+          <div className="landing-hero-item mt-4 min-h-6" style={{ animationDelay: "0.26s" }}>
             <MotionAwareTextType
               text={t.heroTypewriter}
               className="font-mono text-sm tracking-wide text-fd-muted-foreground/90 sm:text-[15px]"
@@ -153,11 +153,14 @@ export function Hero({ lang }: { lang: string }) {
             />
           </div>
 
-          <div className="landing-hero-item mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-3" style={{ animationDelay: '0.32s' }}>
+          <div
+            className="landing-hero-item mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-3"
+            style={{ animationDelay: "0.32s" }}
+          >
             <MotionAwareSpecularButton
               {...specularCtaProps}
               tintOpacity={0.88}
-              onClick={() => navigate({ to: '/$lang/docs/$', params: { lang, _splat: '' } })}
+              onClick={() => navigate({ to: "/$lang/docs/$", params: { lang, _splat: "" } })}
             >
               {t.ctaDocs}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
@@ -173,7 +176,10 @@ export function Hero({ lang }: { lang: string }) {
             </a>
           </div>
 
-          <p className="landing-hero-item mt-5 text-xs tracking-wide text-fd-muted-foreground/70" style={{ animationDelay: '0.42s' }}>
+          <p
+            className="landing-hero-item mt-5 text-xs tracking-wide text-fd-muted-foreground/70"
+            style={{ animationDelay: "0.42s" }}
+          >
             {t.heroTrust}
           </p>
         </div>

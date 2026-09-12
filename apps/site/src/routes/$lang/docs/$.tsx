@@ -7,7 +7,8 @@ import { loadDocsPage } from "@/features/docs/server/load-doc-page";
 export const Route = createFileRoute("/$lang/docs/$")({
   component: Page,
   loader: async ({ params }) => {
-    const slugs = params._splat?.split("/") ?? [];
+    const { _splat: splat } = params;
+    const slugs = splat?.split("/") ?? [];
     const data = await serverLoader({ data: { slugs, lang: params.lang } });
     await preloadDocsPage(data.path);
     return data;
@@ -17,10 +18,7 @@ export const Route = createFileRoute("/$lang/docs/$")({
     const description = loaderData?.description;
 
     return {
-      meta: [
-        { title },
-        ...(description ? [{ name: "description", content: description }] : []),
-      ],
+      meta: [{ title }, ...(description ? [{ name: "description", content: description }] : [])],
     };
   },
 });

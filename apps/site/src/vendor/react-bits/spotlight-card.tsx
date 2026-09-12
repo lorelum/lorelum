@@ -4,7 +4,7 @@
  * License: MIT + Commons Clause (see https://reactbits.dev/LICENSE.md).
  * See apps/site/THIRD_PARTY_NOTICE.md.
  */
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from "react";
 
 interface Position {
   x: number;
@@ -18,15 +18,15 @@ interface SpotlightCardProps extends React.PropsWithChildren {
 
 const SpotlightCard: React.FC<SpotlightCardProps> = ({
   children,
-  className = '',
-  spotlightColor = 'var(--landing-spotlight, rgba(255,255,255,0.25))'
+  className = "",
+  spotlightColor = "var(--landing-spotlight, rgba(255,255,255,0.25))",
 }) => {
   const divRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState<boolean>(false);
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
   const [opacity, setOpacity] = useState<number>(0);
 
-  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = e => {
+  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     if (!divRef.current || isFocused) return;
 
     const rect = divRef.current.getBoundingClientRect();
@@ -65,7 +65,7 @@ const SpotlightCard: React.FC<SpotlightCardProps> = ({
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 ease-in-out"
         style={{
           opacity,
-          background: `radial-gradient(circle at ${position.x}px ${position.y}px, ${spotlightColor}, transparent 80%)`
+          background: `radial-gradient(circle at ${position.x}px ${position.y}px, ${spotlightColor}, transparent 80%)`,
         }}
       />
       {children}

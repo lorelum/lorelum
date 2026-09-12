@@ -1,8 +1,8 @@
-import { useLayoutEffect, type ReactNode } from 'react';
-import { registerGsapPlugins, ScrollSmoother } from '@/shared/motion/gsap-client';
+import { useLayoutEffect, type ReactNode } from "react";
+import { registerGsapPlugins, ScrollSmoother } from "@/shared/motion/gsap-client";
 
-export const SMOOTH_WRAPPER_ID = 'smooth-wrapper';
-export const SMOOTH_CONTENT_ID = 'smooth-content';
+export const SMOOTH_WRAPPER_ID = "smooth-wrapper";
+export const SMOOTH_CONTENT_ID = "smooth-content";
 
 /**
  * ScrollSmoother for the landing page, replacing Lenis.

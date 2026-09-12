@@ -1,4 +1,5 @@
 {
+  "ignorePatterns": ["apps/site/src/routeTree.gen.ts"],
   "overrides": [
     {
       "files": ["*.md", "**/*.md", "*.mdx", "**/*.mdx"],

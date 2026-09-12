@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { getCanvasScale, getParticleCount } from '../gates/particle-budget';
+import { useEffect, useRef } from "react";
+import { getCanvasScale, getParticleCount } from "../gates/particle-budget";
 
 /**
  * Lightweight 2D particle field for the landing background.
@@ -33,8 +33,8 @@ interface Particle {
   rgb: string;
 }
 
-const DARK_RGBS = ['255,255,255', '129,140,248', '34,211,238', '232,121,249'];
-const LIGHT_RGBS = ['79,70,229', '14,116,144', '147,51,234'];
+const DARK_RGBS = ["255,255,255", "129,140,248", "34,211,238", "232,121,249"];
+const LIGHT_RGBS = ["79,70,229", "14,116,144", "147,51,234"];
 
 /** Max cursor-parallax offset in CSS px (mouse sits at the center by default). */
 const MAX_PARALLAX = 18;
@@ -76,7 +76,7 @@ export function ParticleField() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     let raf = 0;
@@ -90,7 +90,7 @@ export function ParticleField() {
     let oy = 0;
     let lastDraw = 0;
 
-    const isDark = () => document.documentElement.classList.contains('dark');
+    const isDark = () => document.documentElement.classList.contains("dark");
 
     const resize = () => {
       const dpr = getCanvasScale(window.devicePixelRatio || 1);
@@ -108,8 +108,8 @@ export function ParticleField() {
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      tx = ((e.clientX / window.innerWidth) - 0.5) * 2 * MAX_PARALLAX;
-      ty = ((e.clientY / window.innerHeight) - 0.5) * 2 * MAX_PARALLAX;
+      tx = (e.clientX / window.innerWidth - 0.5) * 2 * MAX_PARALLAX;
+      ty = (e.clientY / window.innerHeight - 0.5) * 2 * MAX_PARALLAX;
     };
 
     const tick = () => {
@@ -156,7 +156,7 @@ export function ParticleField() {
     const stop = () => cancelAnimationFrame(raf);
 
     const onVisibility = () => {
-      running = document.visibilityState === 'visible';
+      running = document.visibilityState === "visible";
       if (running) start();
       else stop();
     };
@@ -173,20 +173,20 @@ export function ParticleField() {
       const h = window.innerHeight;
       particles = createParticles(particles.length, w, h, dark);
     });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     resize();
     start();
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('resize', onResize);
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
 
     return () => {
       running = false;
       stop();
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("pointermove", onPointerMove);
       observer.disconnect();
     };
   }, []);

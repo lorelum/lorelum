@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { shouldRenderWebglAurora } from '../gates/aurora-gate';
-import { gsap, registerGsapPlugins, ScrollTrigger } from '@/shared/motion/gsap-client';
-import { detectWebglRenderer, type WebglCapability } from '../gates/webgl-renderer';
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { shouldRenderWebglAurora } from "../gates/aurora-gate";
+import { gsap, registerGsapPlugins, ScrollTrigger } from "@/shared/motion/gsap-client";
+import { detectWebglRenderer, type WebglCapability } from "../gates/webgl-renderer";
 
 /**
  * Client-only WebGL aurora for the hero, gated to the cases where it can
@@ -22,20 +22,19 @@ import { detectWebglRenderer, type WebglCapability } from '../gates/webgl-render
  * resolve to the component's own module, and the barrel would pull every
  * vendored component into this chunk and defeat the lazy-load.
  */
-type AuroraModule = typeof import('@/vendor/react-bits/aurora');
+type AuroraModule = typeof import("@/vendor/react-bits/aurora");
 let auroraChunkPromise: Promise<AuroraModule> | null = null;
-const loadAuroraChunk = () =>
-  (auroraChunkPromise ??= import('@/vendor/react-bits/aurora'));
+const loadAuroraChunk = () => (auroraChunkPromise ??= import("@/vendor/react-bits/aurora"));
 
 const Aurora = lazy(loadAuroraChunk);
 
 function isWebGLAvailable(): boolean {
   try {
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     return Boolean(
-      canvas.getContext('webgl2') ||
-        canvas.getContext('webgl') ||
-        canvas.getContext('experimental-webgl'),
+      canvas.getContext("webgl2") ||
+      canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl"),
     );
   } catch {
     return false;
@@ -52,7 +51,7 @@ export function HeroAurora() {
   // a full-screen WebGL layer — the aurora drops to ~30fps while the CSS-only
   // fallback holds 60. Detected once on mount; `unknown` (SSR / unreadable)
   // passes the gate so we never degrade an unclassified setup.
-  const [hardwareWebgl, setHardwareWebgl] = useState<WebglCapability>('unknown');
+  const [hardwareWebgl, setHardwareWebgl] = useState<WebglCapability>("unknown");
   const [inView, setInView] = useState(true);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -66,8 +65,8 @@ export function HeroAurora() {
     setMounted(true);
     setWebgl(isWebGLAvailable());
     setHardwareWebgl(detectWebglRenderer());
-    setDark(document.documentElement.classList.contains('dark'));
-    setTouch(window.matchMedia('(pointer: coarse)').matches);
+    setDark(document.documentElement.classList.contains("dark"));
+    setTouch(window.matchMedia("(pointer: coarse)").matches);
     setViewportWidth(window.innerWidth);
 
     // Start fetching the WebGL chunk NOW, in parallel with the entrance —
@@ -77,19 +76,19 @@ export function HeroAurora() {
     // still has to be issued; issuing it early costs nothing extra.
     void loadAuroraChunk();
 
-    const onVisibility = () => setPaused(document.visibilityState !== 'visible');
-    document.addEventListener('visibilitychange', onVisibility);
+    const onVisibility = () => setPaused(document.visibilityState !== "visible");
+    document.addEventListener("visibilitychange", onVisibility);
 
     const themeObserver = new MutationObserver(() => {
-      setDark(document.documentElement.classList.contains('dark'));
+      setDark(document.documentElement.classList.contains("dark"));
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class'],
+      attributeFilter: ["class"],
     });
 
     const onResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', onResize);
+    window.addEventListener("resize", onResize);
 
     // Defer the WebGL *init* (context + shader compile) until the hero's
     // one-shot text entrance has painted. The chunk itself is already
@@ -109,8 +108,8 @@ export function HeroAurora() {
     const ctx = gsap.context(() => {
       const trigger = ScrollTrigger.create({
         trigger: sectionRef.current,
-        start: 'top bottom',
-        end: 'bottom top',
+        start: "top bottom",
+        end: "bottom top",
         onToggle: (self) => setInView(self.isActive),
       });
       return () => trigger.kill();
@@ -119,9 +118,9 @@ export function HeroAurora() {
 
     return () => {
       window.clearTimeout(settleTimer);
-      document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener("visibilitychange", onVisibility);
       themeObserver.disconnect();
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener("resize", onResize);
       cleanupGate?.();
     };
   }, []);
@@ -139,7 +138,12 @@ export function HeroAurora() {
     });
 
   return (
-    <div ref={sectionRef} aria-hidden data-hero-aurora className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+    <div
+      ref={sectionRef}
+      aria-hidden
+      data-hero-aurora
+      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+    >
       {enabled ? (
         <Suspense fallback={null}>
           <Aurora paused={paused} />

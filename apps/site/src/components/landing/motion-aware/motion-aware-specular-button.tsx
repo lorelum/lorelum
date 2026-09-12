@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
-import { SpecularButton, type SpecularButtonProps } from '@/vendor/react-bits';
-import { useCanvasEffectsEnabled } from '../motion/use-canvas-effects';
+import type { ReactNode } from "react";
+import { SpecularButton, type SpecularButtonProps } from "@/vendor/react-bits";
+import { useCanvasEffectsEnabled } from "../motion/use-canvas-effects";
 
-export type MotionAwareSpecularButtonProps = Omit<SpecularButtonProps, 'enableFx'>;
+export type MotionAwareSpecularButtonProps = Omit<SpecularButtonProps, "enableFx">;
 
 /**
  * Motion-gated SpecularButton.
@@ -12,7 +12,10 @@ export type MotionAwareSpecularButtonProps = Omit<SpecularButtonProps, 'enableFx
  * shadow, press feedback) minus the light canvas, and no per-frame render
  * loop is ever started for them.
  */
-export function MotionAwareSpecularButton({ children, ...props }: MotionAwareSpecularButtonProps & { children?: ReactNode }) {
+export function MotionAwareSpecularButton({
+  children,
+  ...props
+}: MotionAwareSpecularButtonProps & { children?: ReactNode }) {
   const fxEnabled = useCanvasEffectsEnabled();
 
   return (

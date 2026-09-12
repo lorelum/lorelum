@@ -1,7 +1,7 @@
-import { TerminalDemo } from './terminal-demo';
-import { getStrings } from '@/shared/i18n/legacy-translations';
-import { Reveal } from '../motion/reveal';
-import { GsapScaleUp } from '../motion/gsap-scale-up';
+import { TerminalDemo } from "./terminal-demo";
+import { getStrings } from "@/shared/i18n/legacy-translations";
+import { Reveal } from "../motion/reveal";
+import { GsapScaleUp } from "../motion/gsap-scale-up";
 
 export function TerminalShowcase({ lang }: { lang: string }) {
   const t = getStrings(lang);

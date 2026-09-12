@@ -9,8 +9,8 @@
  * wrapper skip the WebGL canvas entirely for touch users
  * without changing the button's rendered structure.
  */
-import { useEffect, useRef, type MouseEventHandler, type ReactNode } from 'react';
-import { Renderer, Program, Mesh, Triangle, Color } from 'ogl';
+import { useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
+import { Renderer, Program, Mesh, Triangle, Color } from "ogl";
 
 const PAD = 20;
 
@@ -78,7 +78,7 @@ void main() {
 
 export interface SpecularButtonProps {
   children?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   radius?: number;
   tint?: string;
   tintOpacity?: number;
@@ -99,7 +99,7 @@ export interface SpecularButtonProps {
   enableFx?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   className?: string;
-  type?: 'button' | 'submit' | 'reset';
+  type?: "button" | "submit" | "reset";
 }
 
 /** The animation-loop subset of the props, after defaults have been applied. */
@@ -118,15 +118,15 @@ interface ResolvedFxProps {
 }
 
 const SpecularButton = ({
-  children = 'Get Started',
-  size = 'lg',
+  children = "Get Started",
+  size = "lg",
   radius = 18,
-  tint = '#ffffff',
+  tint = "#ffffff",
   tintOpacity = 0,
   blur = 0,
-  textColor = '#f5f5f5',
-  lineColor = '#ffffff',
-  baseColor = '#525252',
+  textColor = "#f5f5f5",
+  lineColor = "#ffffff",
+  baseColor = "#525252",
   intensity = 1,
   shineSize = 10,
   shineFade = 40,
@@ -138,8 +138,8 @@ const SpecularButton = ({
   disabled = false,
   enableFx = true,
   onClick,
-  className = '',
-  type = 'button',
+  className = "",
+  type = "button",
 }: SpecularButtonProps) => {
   const btnRef = useRef<HTMLButtonElement>(null);
   const fxRef = useRef<HTMLSpanElement>(null);
@@ -239,7 +239,7 @@ const SpecularButton = ({
       const t = Math.max(0, 1 - dist / Math.max(propsRef.current.proximity, 1));
       proximityT = t * t * (3 - 2 * t);
     };
-    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener("pointermove", onPointerMove);
 
     let angle = 2.4;
     let idleAngle = 2.4;
@@ -283,9 +283,9 @@ const SpecularButton = ({
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener("pointermove", onPointerMove);
       if (gl.canvas.parentNode === fx) fx.removeChild(gl.canvas as HTMLCanvasElement);
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, [enableFx]);
 
@@ -295,14 +295,14 @@ const SpecularButton = ({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`specular-button specular-button--${size}${className ? ` ${className}` : ''}`}
+      className={`specular-button specular-button--${size}${className ? ` ${className}` : ""}`}
       style={
         {
-          '--sb-radius': `${radius}px`,
-          '--sb-tint': tint,
-          '--sb-tint-opacity': tintOpacity,
-          '--sb-blur': `${blur}px`,
-          '--sb-text-color': textColor,
+          "--sb-radius": `${radius}px`,
+          "--sb-tint": tint,
+          "--sb-tint-opacity": tintOpacity,
+          "--sb-blur": `${blur}px`,
+          "--sb-text-color": textColor,
         } as React.CSSProperties
       }
     >

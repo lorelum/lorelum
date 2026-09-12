@@ -17,8 +17,16 @@
  *     refresh them on resize/scroll, and only write `font-variation-settings`
  *     from cached positions — zero layout reads in the animation loop.
  */
-import { forwardRef, useMemo, useRef, useEffect, type RefObject, type CSSProperties, type HTMLAttributes } from 'react';
-import { motion, useAnimationFrame } from 'motion/react';
+import {
+  forwardRef,
+  useMemo,
+  useRef,
+  useEffect,
+  type RefObject,
+  type CSSProperties,
+  type HTMLAttributes,
+} from "react";
+import { motion, useAnimationFrame } from "motion/react";
 
 /**
  * Raw pointer position (client coords). The container-relative math is done
@@ -36,11 +44,11 @@ function useMousePositionRef() {
       if (touch) positionRef.current = { x: touch.clientX, y: touch.clientY };
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("touchmove", handleTouchMove);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("touchmove", handleTouchMove);
     };
   }, []);
 
@@ -53,7 +61,7 @@ interface VariableProximityProps extends HTMLAttributes<HTMLSpanElement> {
   toFontVariationSettings: string;
   containerRef: RefObject<HTMLElement | null>;
   radius?: number;
-  falloff?: 'linear' | 'exponential' | 'gaussian';
+  falloff?: "linear" | "exponential" | "gaussian";
   className?: string;
   onClick?: () => void;
   style?: CSSProperties;
@@ -71,8 +79,8 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
     toFontVariationSettings,
     containerRef,
     radius = 50,
-    falloff = 'linear',
-    className = '',
+    falloff = "linear",
+    className = "",
     onClick,
     style,
     ...restProps
@@ -88,11 +96,11 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
     const parseSettings = (settingsStr: string) =>
       new Map(
         settingsStr
-          .split(',')
+          .split(",")
           .map((s) => s.trim())
           .map((s) => {
-            const [name, value] = s.split(' ');
-            return [name.replace(/['"]/g, ''), parseFloat(value)];
+            const [name, value] = s.split(" ");
+            return [name.replace(/['"]/g, ""), parseFloat(value)];
           }),
       );
 
@@ -112,11 +120,11 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
   const calculateFalloff = (distance: number) => {
     const norm = Math.min(Math.max(1 - distance / radius, 0), 1);
     switch (falloff) {
-      case 'exponential':
+      case "exponential":
         return norm ** 2;
-      case 'gaussian':
+      case "gaussian":
         return Math.exp(-((distance / (radius / 2)) ** 2) / 2);
-      case 'linear':
+      case "linear":
       default:
         return norm;
     }
@@ -142,7 +150,7 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
 
     measure();
     let ro: ResizeObserver | undefined;
-    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+    if (typeof ResizeObserver !== "undefined" && containerRef.current) {
       ro = new ResizeObserver(measure);
       ro.observe(containerRef.current);
     }
@@ -152,12 +160,12 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
       const cRect = container.getBoundingClientRect();
       containerRectRef.current = { left: cRect.left, top: cRect.top };
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', measure, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", measure, { passive: true });
     return () => {
       ro?.disconnect();
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', measure);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", measure);
     };
   }, [containerRef]);
 
@@ -211,7 +219,7 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
           const interpolatedValue = fromValue + (toValue - fromValue) * falloffValue;
           return `'${axis}' ${interpolatedValue}`;
         })
-        .join(', ');
+        .join(", ");
 
       // Skip the style write when the value is unchanged (pointer micro-moves
       // inside the same 0.5px cell resolve to identical settings after the
@@ -224,20 +232,20 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
     });
   });
 
-  const words = label.split(' ');
+  const words = label.split(" ");
   let letterIndex = 0;
 
   return (
     <span
       ref={ref}
       onClick={onClick}
-      style={{ display: 'inline', ...style }}
+      style={{ display: "inline", ...style }}
       className={className}
       {...restProps}
     >
       {words.map((word, wordIndex) => (
         <span key={wordIndex} className="inline-block whitespace-nowrap">
-          {word.split('').map((letter) => {
+          {word.split("").map((letter) => {
             const currentLetterIndex = letterIndex++;
             return (
               <motion.span
@@ -245,7 +253,7 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
                 ref={(el) => {
                   letterRefs.current[currentLetterIndex] = el;
                 }}
-                style={{ display: 'inline-block' }}
+                style={{ display: "inline-block" }}
                 aria-hidden="true"
               >
                 {letter}
@@ -260,5 +268,5 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
   );
 });
 
-VariableProximity.displayName = 'VariableProximity';
+VariableProximity.displayName = "VariableProximity";
 export default VariableProximity;

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { readWebglRendererString } from './gates/webgl-renderer';
+import { useEffect, useState } from "react";
+import { readWebglRendererString } from "./gates/webgl-renderer";
 
 /**
  * On-screen frame-rate probe for diagnosing scroll/entrance jank in a REAL
@@ -24,7 +24,7 @@ export function FpsProbe() {
   const [stats, setStats] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!new URL(window.location.href).searchParams.has('probe')) return;
+    if (!new URL(window.location.href).searchParams.has("probe")) return;
     setShow(true);
 
     // Also surface the headline numbers in the document title ("42 fps — …")
@@ -35,23 +35,23 @@ export function FpsProbe() {
     // The GPU driver actually backing WebGL — "SwiftShader" / "llvmpipe" mean
     // software rendering, which scales terribly with screen area. Same probe
     // as the aurora gate (webgl-renderer.ts), raw string here.
-    const glRenderer = readWebglRendererString() ?? 'webgl-unavailable';
+    const glRenderer = readWebglRendererString() ?? "webgl-unavailable";
 
     // A/B layer hiding for diagnosing jank in a real browser: pass
     // `&hide=aurora` and/or `&hide=particles` to disable that layer via CSS
     // (`display:none` stops its rAF from ever being scheduled), then compare
     // the fps in the tab title. `&hide=canvas` turns both off at once.
-    const hideParam = new URL(window.location.href).searchParams.get('hide');
-    const hideLayers = new Set((hideParam ?? '').split(',').filter(Boolean));
+    const hideParam = new URL(window.location.href).searchParams.get("hide");
+    const hideLayers = new Set((hideParam ?? "").split(",").filter(Boolean));
     const applyHide = () => {
       const hideAurora =
-        hideLayers.has('aurora') || hideLayers.has('canvas') || hideLayers.has('all');
+        hideLayers.has("aurora") || hideLayers.has("canvas") || hideLayers.has("all");
       const hideParticles =
-        hideLayers.has('particles') || hideLayers.has('canvas') || hideLayers.has('all');
-      for (const c of document.querySelectorAll('canvas')) {
-        const isAurora = !!c.closest('[data-hero-aurora]');
+        hideLayers.has("particles") || hideLayers.has("canvas") || hideLayers.has("all");
+      for (const c of document.querySelectorAll("canvas")) {
+        const isAurora = !!c.closest("[data-hero-aurora]");
         if ((isAurora && hideAurora) || (!isAurora && hideParticles)) {
-          c.style.display = 'none';
+          c.style.display = "none";
         }
       }
     };
@@ -70,15 +70,15 @@ export function FpsProbe() {
     // ScrollTrigger stays the canonical viewport gate (AGENTS.md hard rule 3)
     // — if you rely on IO, verify here and record the configuration.
     let ioFires = 0;
-    let ioState: 'in' | 'out' | 'n/a' = 'n/a';
-    const ioTarget = document.querySelector('#smooth-content footer');
+    let ioState: "in" | "out" | "n/a" = "n/a";
+    const ioTarget = document.querySelector("#smooth-content footer");
     const io =
       ioTarget &&
       new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
             ioFires += 1;
-            ioState = entry.isIntersecting ? 'in' : 'out';
+            ioState = entry.isIntersecting ? "in" : "out";
           }
         },
         { threshold: 0 },
@@ -102,25 +102,23 @@ export function FpsProbe() {
 
     const timer = window.setInterval(() => {
       const snapshot = gaps.splice(0);
-      const avg = snapshot.length
-        ? snapshot.reduce((a, b) => a + b, 0) / snapshot.length
-        : 0;
+      const avg = snapshot.length ? snapshot.reduce((a, b) => a + b, 0) / snapshot.length : 0;
       const max = snapshot.length ? Math.max(...snapshot) : 0;
-      const canvases = [...document.querySelectorAll('canvas')].map(
+      const canvases = [...document.querySelectorAll("canvas")].map(
         (c) => `${c.width}x${c.height}`,
       );
-      const auroraMounted = !!document.querySelector('[data-hero-aurora] canvas');
-      const offscreen = document.querySelectorAll('.landing-gradient-text.is-offscreen').length;
-      const fpsText = avg ? Math.round(1000 / avg) : '-';
+      const auroraMounted = !!document.querySelector("[data-hero-aurora] canvas");
+      const offscreen = document.querySelectorAll(".landing-gradient-text.is-offscreen").length;
+      const fpsText = avg ? Math.round(1000 / avg) : "-";
       setStats([
         `fps ${fpsText} | maxFrame ${Math.round(max)}ms`,
         `viewport ${window.innerWidth}x${window.innerHeight} | dpr ${window.devicePixelRatio}`,
-        `canvases ${canvases.join(' | ') || 'none'} | aurora:${auroraMounted} offscreen:${offscreen}`,
+        `canvases ${canvases.join(" | ") || "none"} | aurora:${auroraMounted} offscreen:${offscreen}`,
         `io ${ioFires} fires, last:${ioState}`,
         `gl ${glRenderer}`,
       ]);
       // Compact title keeps AX-visible; `m` = max frame ms.
-      const glShort = glRenderer.replace(/^(ANGLE \()?/, '').slice(0, 28);
+      const glShort = glRenderer.replace(/^(ANGLE \()?/, "").slice(0, 28);
       document.title = `[${fpsText}fps m${Math.round(max)}ms ${glShort}] ${originalTitle}`;
     }, 1000);
 

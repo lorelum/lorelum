@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { gsap, registerGsapPlugins } from '@/shared/motion/gsap-client';
-import { cn } from '@/shared/lib/cn';
+import { useEffect, useRef, type ReactNode } from "react";
+import { gsap, registerGsapPlugins } from "@/shared/motion/gsap-client";
+import { cn } from "@/shared/lib/cn";
 
 /**
  * Scroll-linked vertical parallax wrapper, driven by a ScrollTrigger scrub.
@@ -37,11 +37,11 @@ export function ScrollParallax({
         { y: from },
         {
           y: to,
-          ease: 'none',
+          ease: "none",
           scrollTrigger: {
             trigger: el,
-            start: 'top bottom',
-            end: 'bottom top',
+            start: "top bottom",
+            end: "bottom top",
             scrub: true,
           },
         },
@@ -52,7 +52,7 @@ export function ScrollParallax({
   }, [from, to]);
 
   return (
-    <div ref={ref} className={cn('landing-parallax', className)}>
+    <div ref={ref} className={cn("landing-parallax", className)}>
       {children}
     </div>
   );

@@ -24,11 +24,11 @@
 /** Renderer strings known to be pure software rasterizers (case-insensitive
  *  substring match on the unmasked GL_RENDERER string). */
 const SOFTWARE_RENDERER_MARKERS = [
-  'microsoft basic render driver',
-  'swiftshader',
-  'llvmpipe',
-  'softpipe',
-  'software',
+  "microsoft basic render driver",
+  "swiftshader",
+  "llvmpipe",
+  "softpipe",
+  "software",
 ];
 
 /** True when `renderer` names a software (CPU) GL implementation. */

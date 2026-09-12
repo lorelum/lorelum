@@ -1,5 +1,5 @@
-import { useEffect, type RefObject } from 'react';
-import { gsap, registerGsapPlugins, ScrollTrigger } from '@/shared/motion/gsap-client';
+import { useEffect, type RefObject } from "react";
+import { gsap, registerGsapPlugins, ScrollTrigger } from "@/shared/motion/gsap-client";
 
 interface Target {
   ref: RefObject<HTMLElement | null>;
@@ -29,7 +29,7 @@ interface Target {
  *
  * The trigger is created unconditionally.
  */
-export function usePauseOffscreen(target: Target, className = 'is-offscreen') {
+export function usePauseOffscreen(target: Target, className = "is-offscreen") {
   const { ref, selector } = target;
 
   useEffect(() => {
@@ -45,8 +45,8 @@ export function usePauseOffscreen(target: Target, className = 'is-offscreen') {
     const ctx = gsap.context(() => {
       const trigger = ScrollTrigger.create({
         trigger: el,
-        start: 'top bottom',
-        end: 'bottom top',
+        start: "top bottom",
+        end: "bottom top",
         onToggle: (self) => apply(!self.isActive),
       });
       return () => trigger.kill();

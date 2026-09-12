@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { gsap, registerGsapPlugins } from '@/shared/motion/gsap-client';
-import { cn } from '@/shared/lib/cn';
+import { useEffect, useRef, type ReactNode } from "react";
+import { gsap, registerGsapPlugins } from "@/shared/motion/gsap-client";
+import { cn } from "@/shared/lib/cn";
 
 /**
  * Antigravity-style scroll-scrubbed scale-up.
@@ -35,12 +35,12 @@ export function GsapScaleUp({
       gsap.from(el, {
         scrollTrigger: {
           trigger: el,
-          start: 'top bottom',
-          end: 'top center',
+          start: "top bottom",
+          end: "top center",
           scrub: 1,
         },
         scale: fromScale,
-        ease: 'power2.out',
+        ease: "power2.out",
       });
     });
 
@@ -48,7 +48,7 @@ export function GsapScaleUp({
   }, [fromScale]);
 
   return (
-    <div ref={ref} className={cn('will-change-transform', className)}>
+    <div ref={ref} className={cn("will-change-transform", className)}>
       {children}
     </div>
   );

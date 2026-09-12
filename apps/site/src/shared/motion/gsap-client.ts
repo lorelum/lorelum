@@ -1,7 +1,7 @@
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ScrollSmoother } from 'gsap/ScrollSmoother';
-import { SplitText } from 'gsap/SplitText';
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollSmoother } from "gsap/ScrollSmoother";
+import { SplitText } from "gsap/SplitText";
 
 /**
  * Browser-safe registration point for Lorelum-owned GSAP choreography.
@@ -15,7 +15,7 @@ import { SplitText } from 'gsap/SplitText';
 let registered = false;
 
 export function registerGsapPlugins() {
-  if (registered || typeof window === 'undefined') return;
+  if (registered || typeof window === "undefined") return;
   gsap.registerPlugin(ScrollTrigger, ScrollSmoother, SplitText);
   registered = true;
 }

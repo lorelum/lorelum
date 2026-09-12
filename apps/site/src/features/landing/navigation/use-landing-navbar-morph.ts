@@ -1,5 +1,5 @@
-import { useEffect, type RefObject } from 'react';
-import { gsap, registerGsapPlugins, ScrollTrigger } from '@/shared/motion/gsap-client';
+import { useEffect, type RefObject } from "react";
+import { gsap, registerGsapPlugins, ScrollTrigger } from "@/shared/motion/gsap-client";
 
 const backgroundDuration = 0.48;
 const morphDuration = 0.72;
@@ -19,15 +19,12 @@ function getCompactWidth() {
 /**
  * Keep background attachment and hero shape transitions independent.
  */
-export function useLandingNavbarMorph(
-  navRef: RefObject<HTMLElement | null>,
-  heroId: string,
-) {
+export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, heroId: string) {
   useEffect(() => {
     const nav = navRef.current;
     const hero = document.getElementById(heroId);
-    const panel = nav?.querySelector<HTMLElement>('.landing-navbar__panel');
-    const surface = nav?.querySelector<HTMLElement>('.landing-navbar__surface');
+    const panel = nav?.querySelector<HTMLElement>(".landing-navbar__panel");
+    const surface = nav?.querySelector<HTMLElement>(".landing-navbar__surface");
     if (!nav || !hero || !panel || !surface) return;
 
     registerGsapPlugins();
@@ -37,7 +34,7 @@ export function useLandingNavbarMorph(
         paused: true,
         defaults: {
           duration: backgroundDuration,
-          ease: 'power2.inOut',
+          ease: "power2.inOut",
         },
       });
       background.to(surface, { opacity: 1 });
@@ -48,24 +45,23 @@ export function useLandingNavbarMorph(
         morph = gsap.timeline({
           defaults: {
             duration: morphDuration,
-            ease: 'power2.out',
+            ease: "power2.out",
           },
         });
 
-        morph
-        .to(
+        morph.to(
           panel,
-            compact
-              ? {
-                  marginTop: '0.75rem',
-                  width: getCompactWidth,
-                  borderRadius: '999px',
-                }
-              : {
-                  marginTop: 0,
-                  width: '100%',
-                  borderRadius: 0,
-          },
+          compact
+            ? {
+                marginTop: "0.75rem",
+                width: getCompactWidth,
+                borderRadius: "999px",
+              }
+            : {
+                marginTop: 0,
+                width: "100%",
+                borderRadius: 0,
+              },
           0,
         );
       };
@@ -79,7 +75,7 @@ export function useLandingNavbarMorph(
 
       const scrollTrigger = ScrollTrigger.create({
         trigger: hero,
-        start: 'bottom top+=56',
+        start: "bottom top+=56",
         onEnter: () => runMorph(true),
         onLeaveBack: () => runMorph(false),
       });

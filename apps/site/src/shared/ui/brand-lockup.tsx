@@ -1,15 +1,9 @@
-import { appName } from '@/shared/brand/config';
+import { appName } from "@/shared/brand/config";
 
 /** Official Lorelum horizontal brand lockup with an explicit dark-theme variant. */
-export function BrandLockup({
-  suffix,
-  className,
-}: {
-  suffix?: string;
-  className?: string;
-}) {
+export function BrandLockup({ suffix, className }: { suffix?: string; className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 leading-none ${className ?? ''}`}>
+    <span className={`inline-flex items-center gap-2 leading-none ${className ?? ""}`}>
       <span className="sr-only">{appName}</span>
       <img
         src="/brand/lorelum-horizontal-light.svg"

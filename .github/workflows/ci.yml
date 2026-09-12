@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   verify:
-    name: quality · design · site
+    name: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 

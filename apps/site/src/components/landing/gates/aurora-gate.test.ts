@@ -1,46 +1,46 @@
-import { describe, expect, test } from 'bun:test';
-import { shouldRenderWebglAurora, AURORA_MIN_WIDTH, type AuroraGateInput } from './aurora-gate';
+import { describe, expect, test } from "bun:test";
+import { shouldRenderWebglAurora, AURORA_MIN_WIDTH, type AuroraGateInput } from "./aurora-gate";
 
 const base: AuroraGateInput = {
   mounted: true,
   dark: true,
   touch: false,
   webgl: true,
-  hardwareWebgl: 'hardware',
+  hardwareWebgl: "hardware",
   inView: true,
   viewportWidth: 1440,
 };
 
-describe('shouldRenderWebglAurora', () => {
-  test('renders on desktop dark with WebGL, hero in view', () => {
+describe("shouldRenderWebglAurora", () => {
+  test("renders on desktop dark with WebGL, hero in view", () => {
     expect(shouldRenderWebglAurora(base)).toBe(true);
   });
 
   test("renders when renderer is unknown ('unknown') — never degrade an unclassified setup", () => {
-    expect(shouldRenderWebglAurora({ ...base, hardwareWebgl: 'unknown' })).toBe(true);
+    expect(shouldRenderWebglAurora({ ...base, hardwareWebgl: "unknown" })).toBe(true);
   });
 
   test("disabled under software rendering ('software')", () => {
-    expect(shouldRenderWebglAurora({ ...base, hardwareWebgl: 'software' })).toBe(false);
+    expect(shouldRenderWebglAurora({ ...base, hardwareWebgl: "software" })).toBe(false);
   });
 
-  test('never renders during SSR (mounted=false)', () => {
+  test("never renders during SSR (mounted=false)", () => {
     expect(shouldRenderWebglAurora({ ...base, mounted: false })).toBe(false);
   });
 
-  test('disabled in light theme', () => {
+  test("disabled in light theme", () => {
     expect(shouldRenderWebglAurora({ ...base, dark: false })).toBe(false);
   });
 
-  test('disabled on coarse pointer (mobile/tablet)', () => {
+  test("disabled on coarse pointer (mobile/tablet)", () => {
     expect(shouldRenderWebglAurora({ ...base, touch: true })).toBe(false);
   });
 
-  test('disabled when WebGL is unavailable', () => {
+  test("disabled when WebGL is unavailable", () => {
     expect(shouldRenderWebglAurora({ ...base, webgl: false })).toBe(false);
   });
 
-  test('disabled when hero is scrolled out of view', () => {
+  test("disabled when hero is scrolled out of view", () => {
     expect(shouldRenderWebglAurora({ ...base, inView: false })).toBe(false);
   });
 

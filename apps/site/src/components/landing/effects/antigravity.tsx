@@ -28,10 +28,10 @@
  */
 
 /* eslint-disable react/no-unknown-property */
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
-import * as THREE from 'three';
-import { poissonDiscFill } from '@/lib/poisson-disc';
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
+import { poissonDiscFill } from "@/lib/poisson-disc";
 
 export interface AntigravityProps {
   /** Poisson density — higher value = denser points. */
@@ -235,9 +235,7 @@ void main() {
 
 /* Smooth 1D pseudo-noise in [-1, 1] — drives the idle cursor wander. */
 function noise1D(x: number): number {
-  return (
-    (Math.sin(x) + Math.sin(x * 2.17 + 1.7) * 0.6 + Math.sin(x * 4.31 + 3.1) * 0.35) / 1.95
-  );
+  return (Math.sin(x) + Math.sin(x * 2.17 + 1.7) * 0.6 + Math.sin(x * 4.31 + 3.1) * 0.35) / 1.95;
 }
 
 const AntigravityInner = ({
@@ -256,8 +254,8 @@ const AntigravityInner = ({
     // buffer at 300x150.
     const canvas = gl.domElement;
     const io = new IntersectionObserver(
-      entries => entries.forEach(entry => (visibleRef.current = entry.isIntersecting)),
-      { threshold: 0 }
+      (entries) => entries.forEach((entry) => (visibleRef.current = entry.isIntersecting)),
+      { threshold: 0 },
     );
     io.observe(canvas);
     return () => io.disconnect();
@@ -268,7 +266,10 @@ const AntigravityInner = ({
   const lastMoveRef = useRef(0);
   const pointerNormRef = useRef({ x: -2, y: -2, over: false });
   const frameRef = useRef(0);
-  const pingPongRef = useRef<{ read: THREE.WebGLRenderTarget; write: THREE.WebGLRenderTarget } | null>(null);
+  const pingPongRef = useRef<{
+    read: THREE.WebGLRenderTarget;
+    write: THREE.WebGLRenderTarget;
+  } | null>(null);
   const everRenderedRef = useRef(false);
   const particleScaleRef = useRef(0.4);
 
@@ -297,7 +298,13 @@ const AntigravityInner = ({
       stateData[i * 4 + 2] = 0;
       stateData[i * 4 + 3] = 0;
     }
-    const posTex = new THREE.DataTexture(stateData, SIM_SIZE, SIM_SIZE, THREE.RGBAFormat, THREE.FloatType);
+    const posTex = new THREE.DataTexture(
+      stateData,
+      SIM_SIZE,
+      SIM_SIZE,
+      THREE.RGBAFormat,
+      THREE.FloatType,
+    );
     posTex.minFilter = THREE.NearestFilter;
     posTex.magFilter = THREE.NearestFilter;
     posTex.needsUpdate = true;
@@ -351,18 +358,18 @@ const AntigravityInner = ({
       seeds[i * 4 + 2] = Math.random();
       seeds[i * 4 + 3] = Math.random();
     }
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    geometry.setAttribute('seeds', new THREE.BufferAttribute(seeds, 4));
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    geometry.setAttribute("seeds", new THREE.BufferAttribute(seeds, 4));
     geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 10);
 
     const renderMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uState: { value: posTex },
         uTime: { value: 0 },
-        uColor1: { value: new THREE.Color('#7189ff') },
-        uColor2: { value: new THREE.Color('#3074f9') },
-        uColor3: { value: new THREE.Color('#05060f') },
+        uColor1: { value: new THREE.Color("#7189ff") },
+        uColor2: { value: new THREE.Color("#3074f9") },
+        uColor3: { value: new THREE.Color("#05060f") },
         uAlpha: { value: 1 },
         uParticleScale: { value: 0.4 },
       },
@@ -373,7 +380,18 @@ const AntigravityInner = ({
       depthWrite: false,
     });
 
-    return { posTex, rt1, rt2, simScene, simCamera, simQuad, simMaterial, geometry, renderMaterial, count };
+    return {
+      posTex,
+      rt1,
+      rt2,
+      simScene,
+      simCamera,
+      simQuad,
+      simMaterial,
+      geometry,
+      renderMaterial,
+      count,
+    };
     // Recreate only if density changes (re-sampling is expensive).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [density]);
@@ -399,11 +417,11 @@ const AntigravityInner = ({
       pointerNormRef.current.x = (e.clientX / window.innerWidth) * 2 - 1;
       pointerNormRef.current.y = -((e.clientY / window.innerHeight) * 2 - 1);
     };
-    window.addEventListener('pointermove', onMove, { passive: true });
-    return () => window.removeEventListener('pointermove', onMove);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
   }, []);
 
-  useFrame(state => {
+  useFrame((state) => {
     if (!visibleRef.current) return; // off-screen: hold the last frame
     const t = state.clock.getElapsedTime();
     frameRef.current += 1;
@@ -427,7 +445,7 @@ const AntigravityInner = ({
     if (!idle && pointerNormRef.current.over) {
       cursorRef.current.set(
         pointerNormRef.current.x * halfW * 0.175 + noise1D(wanderT) * 0.1,
-        pointerNormRef.current.y * halfH * 0.175 + noise1D(wanderN) * 0.1
+        pointerNormRef.current.y * halfH * 0.175 + noise1D(wanderN) * 0.1,
       );
       ringPosRef.current.x += (cursorRef.current.x - ringPosRef.current.x) * 0.02;
       ringPosRef.current.y += (cursorRef.current.y - ringPosRef.current.y) * 0.02;
@@ -474,8 +492,8 @@ const Antigravity = (props: AntigravityProps) => {
     <Canvas
       camera={{ position: [0, 0, 3.1], fov: 40 }}
       dpr={1}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', stencil: false }}
-      style={{ width: '100%', height: '100%' }}
+      gl={{ antialias: true, alpha: true, powerPreference: "high-performance", stencil: false }}
+      style={{ width: "100%", height: "100%" }}
     >
       <AntigravityInner {...props} />
     </Canvas>

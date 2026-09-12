@@ -1,6 +1,6 @@
-import { useEffect, useState, type RefObject } from 'react';
-import { TextType } from '@/vendor/react-bits';
-import { gsap, registerGsapPlugins, ScrollTrigger } from '@/shared/motion/gsap-client';
+import { useEffect, useState, type RefObject } from "react";
+import { TextType } from "@/vendor/react-bits";
+import { gsap, registerGsapPlugins, ScrollTrigger } from "@/shared/motion/gsap-client";
 
 /**
  * Motion-aware wrapper around the vendored `react-bits/text-type` base.
@@ -55,8 +55,8 @@ export function MotionAwareTextType({
     const ctx = gsap.context(() => {
       const trigger = ScrollTrigger.create({
         trigger: el,
-        start: 'top bottom',
-        end: 'bottom top',
+        start: "top bottom",
+        end: "bottom top",
         onToggle: (self) => setActive(self.isActive),
       });
       return () => trigger.kill();
@@ -77,7 +77,7 @@ export function MotionAwareTextType({
       // the OLD language's phrase (and only updates once its loop wraps
       // around). Keying on the phrases reseats the progress to the new
       // language immediately.
-      key={text.join('|')}
+      key={text.join("|")}
       text={text}
       as="span"
       className={className}

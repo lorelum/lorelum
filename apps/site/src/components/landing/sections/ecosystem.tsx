@@ -1,7 +1,7 @@
-import { LogoLoop, type LogoItem } from '@/vendor/react-bits';
-import { getStrings } from '@/shared/i18n/legacy-translations';
-import { Reveal } from '../motion/reveal';
-import { SectionHeading } from './section-heading';
+import { LogoLoop, type LogoItem } from "@/vendor/react-bits";
+import { getStrings } from "@/shared/i18n/legacy-translations";
+import { Reveal } from "../motion/reveal";
+import { SectionHeading } from "./section-heading";
 
 /**
  * Brand logos, served locally from /public/logos (downloaded once at build
@@ -21,14 +21,14 @@ import { SectionHeading } from './section-heading';
  * whole set once instead of two squished half-copies of it.
  */
 const BRAND_LOGOS: Array<{ name: string; src: string; href?: string; wide?: boolean }> = [
-  { name: 'AGENTS.md', src: '/logos/agentsmd.ico', href: 'https://agents.md' },
-  { name: 'CLAUDE.md', src: '/logos/markdown.svg' },
-  { name: '.cursorrules', src: '/logos/markdown.svg' },
-  { name: 'Cursor', src: '/logos/cursor.svg', href: 'https://cursor.com' },
-  { name: 'Claude Code', src: '/logos/claude.svg', href: 'https://claude.com/product/claude-code' },
-  { name: 'Codex', src: '/logos/codex.png', href: 'https://openai.com/codex/' },
-  { name: 'Continue', src: '/logos/continue.png', href: 'https://continue.dev' },
-  { name: 'Aider', src: '/logos/aider.svg', href: 'https://aider.chat', wide: true },
+  { name: "AGENTS.md", src: "/logos/agentsmd.ico", href: "https://agents.md" },
+  { name: "CLAUDE.md", src: "/logos/markdown.svg" },
+  { name: ".cursorrules", src: "/logos/markdown.svg" },
+  { name: "Cursor", src: "/logos/cursor.svg", href: "https://cursor.com" },
+  { name: "Claude Code", src: "/logos/claude.svg", href: "https://claude.com/product/claude-code" },
+  { name: "Codex", src: "/logos/codex.png", href: "https://openai.com/codex/" },
+  { name: "Continue", src: "/logos/continue.png", href: "https://continue.dev" },
+  { name: "Aider", src: "/logos/aider.svg", href: "https://aider.chat", wide: true },
 ];
 
 export function Ecosystem({ lang }: { lang: string }) {
@@ -45,7 +45,11 @@ export function Ecosystem({ lang }: { lang: string }) {
           loading="lazy"
           decoding="async"
           draggable={false}
-          className={wide ? 'logo-keep-color h-12 w-auto max-w-full object-contain' : 'size-12 object-contain'}
+          className={
+            wide
+              ? "logo-keep-color h-12 w-auto max-w-full object-contain"
+              : "size-12 object-contain"
+          }
         />
         <span className="font-mono text-sm text-fd-muted-foreground">{name}</span>
       </span>
@@ -56,8 +60,15 @@ export function Ecosystem({ lang }: { lang: string }) {
   }));
 
   return (
-    <section id="ecosystem" className="relative mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:py-32">
-      <SectionHeading eyebrow={t.ecosystemEyebrow} title={t.ecosystemHeading} sub={t.ecosystemSub} />
+    <section
+      id="ecosystem"
+      className="relative mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:py-32"
+    >
+      <SectionHeading
+        eyebrow={t.ecosystemEyebrow}
+        title={t.ecosystemHeading}
+        sub={t.ecosystemSub}
+      />
       <Reveal className="mt-14">
         <LogoLoop
           className="logo-wall"

@@ -1,5 +1,5 @@
-import { Reveal } from '../motion/reveal';
-import { SplitTextReveal } from '../motion/split-text-reveal';
+import { Reveal } from "../motion/reveal";
+import { SplitTextReveal } from "../motion/split-text-reveal";
 
 export function SectionHeading({
   eyebrow,

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { cn } from '@/shared/lib/cn';
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cn } from "@/shared/lib/cn";
 
 /**
  * Scroll-in reveal wrapper.
@@ -55,22 +55,22 @@ export function Reveal({
           }
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
+      { threshold: 0.12, rootMargin: "0px 0px -6% 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
   const style = {
-    '--reveal-y': `${y}px`,
-    '--reveal-scale': String(scale),
+    "--reveal-y": `${y}px`,
+    "--reveal-scale": String(scale),
     transitionDelay: `${delay}ms`,
   } as React.CSSProperties;
 
   return (
     <div
       ref={ref}
-      className={cn('landing-reveal', visible && 'is-visible', className)}
+      className={cn("landing-reveal", visible && "is-visible", className)}
       style={style}
     >
       {children}

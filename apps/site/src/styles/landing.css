@@ -18,54 +18,24 @@
  * pre-rasterized surface, so scroll and interaction stay cheap.
  */
 .landing-bg::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -14%;
-  background-image: radial-gradient(
-      55% 45% at 18% -5%,
-      rgba(79, 70, 229, 0.36) 0%,
-      transparent 62%
-    ),
-    radial-gradient(
-      45% 40% at 88% 5%,
-      rgba(45, 212, 191, 0.24) 0%,
-      transparent 60%
-    ),
-    radial-gradient(
-      50% 45% at 50% 105%,
-      rgba(168, 85, 247, 0.2) 0%,
-      transparent 62%
-    ),
-    radial-gradient(
-      35% 30% at 100% 92%,
-      rgba(52, 211, 153, 0.16) 0%,
-      transparent 60%
-    );
+  background-image:
+    radial-gradient(55% 45% at 18% -5%, rgba(79, 70, 229, 0.36) 0%, transparent 62%),
+    radial-gradient(45% 40% at 88% 5%, rgba(45, 212, 191, 0.24) 0%, transparent 60%),
+    radial-gradient(50% 45% at 50% 105%, rgba(168, 85, 247, 0.2) 0%, transparent 62%),
+    radial-gradient(35% 30% at 100% 92%, rgba(52, 211, 153, 0.16) 0%, transparent 60%);
   will-change: transform;
   animation: landing-bg-drift 90s ease-in-out infinite alternate;
 }
 
 :root:not(.dark) .landing-bg::before {
-  background-image: radial-gradient(
-      55% 45% at 18% -5%,
-      rgba(199, 210, 254, 0.7) 0%,
-      transparent 62%
-    ),
-    radial-gradient(
-      45% 40% at 88% 5%,
-      rgba(153, 246, 228, 0.6) 0%,
-      transparent 60%
-    ),
-    radial-gradient(
-      50% 45% at 50% 105%,
-      rgba(233, 213, 255, 0.6) 0%,
-      transparent 62%
-    ),
-    radial-gradient(
-      35% 30% at 100% 92%,
-      rgba(167, 243, 208, 0.5) 0%,
-      transparent 60%
-    );
+  background-image:
+    radial-gradient(55% 45% at 18% -5%, rgba(199, 210, 254, 0.7) 0%, transparent 62%),
+    radial-gradient(45% 40% at 88% 5%, rgba(153, 246, 228, 0.6) 0%, transparent 60%),
+    radial-gradient(50% 45% at 50% 105%, rgba(233, 213, 255, 0.6) 0%, transparent 62%),
+    radial-gradient(35% 30% at 100% 92%, rgba(167, 243, 208, 0.5) 0%, transparent 60%);
 }
 
 @keyframes landing-bg-drift {
@@ -184,7 +154,7 @@
 
 /* Visible focus rings on every interactive element (2px, offset so it clears
    the pill radius). Uses the theme primary so it reads in both modes. */
-:where(a, button, summary, [role='button'], [role='link']):focus-visible {
+:where(a, button, summary, [role="button"], [role="link"]):focus-visible {
   outline: 2px solid var(--color-fd-primary);
   outline-offset: 2px;
   border-radius: 4px;
@@ -310,7 +280,7 @@ summary {
  * masked ring, so the compositor owns the motion. */
 
 @property --landing-icon-angle {
-  syntax: '<angle>';
+  syntax: "<angle>";
   initial-value: 0deg;
   inherits: false;
 }
@@ -416,7 +386,9 @@ summary {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 8px 30px -8px rgba(139, 92, 246, 0.5);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .landing-specular-cta:hover {

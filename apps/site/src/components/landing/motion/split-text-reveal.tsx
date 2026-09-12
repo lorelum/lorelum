@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { gsap, registerGsapPlugins, SplitText } from '@/shared/motion/gsap-client';
-import { cn } from '@/shared/lib/cn';
+import { useEffect, useRef } from "react";
+import { gsap, registerGsapPlugins, SplitText } from "@/shared/motion/gsap-client";
+import { cn } from "@/shared/lib/cn";
 
 const HAS_CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
 
@@ -20,12 +20,12 @@ const HAS_CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
  */
 export function SplitTextReveal({
   text,
-  mode = 'auto',
+  mode = "auto",
   className,
   y = 16,
 }: {
   text: string;
-  mode?: 'auto' | 'words' | 'chars';
+  mode?: "auto" | "words" | "chars";
   className?: string;
   /** Vertical travel in px. */
   y?: number;
@@ -38,12 +38,12 @@ export function SplitTextReveal({
     registerGsapPlugins();
 
     const ctx = gsap.context(() => {
-      const useChars = mode === 'chars' || (mode === 'auto' && HAS_CJK.test(text));
+      const useChars = mode === "chars" || (mode === "auto" && HAS_CJK.test(text));
       const split = SplitText.create(el, {
-        type: 'chars,words',
-        tag: 'span',
-        charsClass: 'split-char',
-        wordsClass: 'split-word',
+        type: "chars,words",
+        tag: "span",
+        charsClass: "split-char",
+        wordsClass: "split-word",
       });
       const units = useChars ? split.chars : split.words;
       if (!units || units.length === 0) return;
@@ -63,12 +63,12 @@ export function SplitTextReveal({
       const tween = gsap.to(units, {
         opacity: 1,
         y: 0,
-        ease: 'none',
-        stagger: { each: stagger, from: 'start' },
+        ease: "none",
+        stagger: { each: stagger, from: "start" },
         scrollTrigger: {
           trigger: el,
-          start: 'top 96%',
-          end: 'top 60%',
+          start: "top 96%",
+          end: "top 60%",
           scrub: true,
         },
       });
@@ -92,7 +92,7 @@ export function SplitTextReveal({
     // restores the plain text) and remount a fresh one, so the new language
     // renders cleanly. Same-language scroll reveals are unaffected because the
     // key is stable across re-renders.
-    <span key={text} ref={ref} className={cn('landing-splittext', className)}>
+    <span key={text} ref={ref} className={cn("landing-splittext", className)}>
       {text}
     </span>
   );

@@ -16,9 +16,9 @@
  *     the rest of the landing: callers gate the component (see the
  *     `motion-aware-*` wrappers) rather than the vendored file doing it.
  */
-import React, { useEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import React, { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 interface ScrollFloatProps {
   children: ReactNode;
@@ -35,25 +35,25 @@ interface ScrollFloatProps {
 const ScrollFloat: React.FC<ScrollFloatProps> = ({
   children,
   scrollContainerRef,
-  containerClassName = '',
-  textClassName = '',
+  containerClassName = "",
+  textClassName = "",
   animationDuration = 1,
-  ease = 'back.inOut(2)',
-  scrollStart = 'center bottom+=50%',
-  scrollEnd = 'bottom bottom-=40%',
-  stagger = 0.03
+  ease = "back.inOut(2)",
+  scrollStart = "center bottom+=50%",
+  scrollEnd = "bottom bottom-=40%",
+  stagger = 0.03,
 }) => {
   const containerRef = useRef<HTMLHeadingElement>(null);
 
   const splitText = useMemo(() => {
-    const text = typeof children === 'string' ? children : '';
+    const text = typeof children === "string" ? children : "";
     // Split by words (not chars) and keep each word in a `whitespace-nowrap`
     // span so a narrow container can never break a word mid-glyph (the old
     // per-char split broke "rules" into "rul"+"es" on a constrained CTA
     // heading). Words still flow onto new lines at spaces, so the heading
     // wraps naturally; the per-word reveal is visually close to the per-char
     // version and far more robust.
-    const words = text.split(' ');
+    const words = text.split(" ");
     return words.map((word, index) => (
       <span key={index}>
         {index > 0 ? <span className="inline-block">&nbsp;</span> : null}
@@ -67,19 +67,20 @@ const ScrollFloat: React.FC<ScrollFloatProps> = ({
     const el = containerRef.current;
     if (!el) return;
 
-    const scroller = scrollContainerRef && scrollContainerRef.current ? scrollContainerRef.current : window;
+    const scroller =
+      scrollContainerRef && scrollContainerRef.current ? scrollContainerRef.current : window;
 
-    const charElements = el.querySelectorAll('.inline-block');
+    const charElements = el.querySelectorAll(".inline-block");
 
     gsap.fromTo(
       charElements,
       {
-        willChange: 'opacity, transform',
+        willChange: "opacity, transform",
         opacity: 0,
         yPercent: 120,
         scaleY: 2.3,
         scaleX: 0.7,
-        transformOrigin: '50% 0%'
+        transformOrigin: "50% 0%",
       },
       {
         duration: animationDuration,
@@ -94,15 +95,17 @@ const ScrollFloat: React.FC<ScrollFloatProps> = ({
           scroller,
           start: scrollStart,
           end: scrollEnd,
-          scrub: true
-        }
-      }
+          scrub: true,
+        },
+      },
     );
   }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger]);
 
   return (
     <h2 ref={containerRef} className={`my-5 overflow-hidden ${containerClassName}`}>
-      <span className={`inline-block text-[clamp(1.6rem,4vw,3rem)] leading-[1.5] ${textClassName}`}>{splitText}</span>
+      <span className={`inline-block text-[clamp(1.6rem,4vw,3rem)] leading-[1.5] ${textClassName}`}>
+        {splitText}
+      </span>
     </h2>
   );
 };
