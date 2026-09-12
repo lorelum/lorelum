@@ -1,6 +1,6 @@
 # Semantic Query v1 设计
 
-- 状态：分阶段设计；semantic index 阶段已在 #116 实现，semantic query 仍待后续设计与实现
+- 状态：Semantic Query v1 已在当前工作树实现；semantic index 来自 #116，semantic query 已通过真实本地流程验收，待按仓库流程提交
 - 日期：2026-09-10；最后更新：2026-09-12
 - 范围：为已安装的 Practice 增加本地优先的 semantic query；不实现 Hybrid 或后续检索优化。
 - 关联 Issue：[Semantic Query v1 设计 #92](https://github.com/lorelum/lorelum/issues/92)、[后续模型评测 #85](https://github.com/lorelum/lorelum/issues/85)。
@@ -10,20 +10,20 @@
 
 ## 结论
 
-Semantic Query 是 Lorelum 的目标默认检索方式：Semantic Query v1 交付后，未指定 `--mode` 的 `lore query` 使用本地 semantic Profile。当前默认 keyword query 只是已交付的过渡能力，不是最终产品方向。keyword query 保留为显式 `--mode keyword` 的零配置、离线模式。
+Semantic Query 是 Lorelum 的默认检索方式：未指定 `--mode` 的 `lore query` 使用本地 semantic Profile。keyword query 保留为显式 `--mode keyword` 的零配置、离线模式。
 
 Semantic Query v1 使用固定 default Profile：[`ibm-granite/granite-embedding-97m-multilingual-r2`](https://huggingface.co/ibm-granite/granite-embedding-97m-multilingual-r2)。它于 2026 年发布，采用 Apache-2.0 许可，规模为 97M、输出 384 维，面向多语言检索，也覆盖中英和代码。它符合“本地、够用、不要太大”的约束。
 
-Semantic Query v1 的目标链路是：固定本地 default Profile、显式构建 index、执行 semantic query、再用 `lore get` 读取完整 Practice。当前已完成显式 index status/build/rebuild 及增量构建；semantic query、默认路由和 query 结果合同仍待下一阶段。首次模型下载、index 初建和强制 rebuild 仍由显式命令触发；多 Profile、远程 provider 和模型选择不属于 v1。
+Semantic Query v1 使用固定本地 default Profile，用户显式构建 index 后执行 semantic query，再用 `lore get` 读取完整 Practice。显式 index status/build/rebuild、增量构建和本文定义的 query 路由均已实现。首次模型下载、index 初建和强制 rebuild 仍由显式命令触发；多 Profile、远程 provider 和模型选择不属于 v1。
 
-## 现状
+## Observed：现状
 
 以下内容已由代码和已接受 ADR 确认：
 
-- `QueryService` 当前只有 keyword query；请求只有 `text` 和 `limit`，结果 `mode` 固定为 `keyword`。见 [query-service.ts](../../packages/engine/src/query/query-service.ts)、[types.ts](../../packages/engine/src/query/types.ts)。
-- CLI 只暴露 `lore query <text> [--top-k]`，默认离线运行。见 [query-command.ts](../../packages/cli/src/query/query-command.ts) 和 [Query CLI 文档](../cli/query.md)。
+- Engine 保留 keyword `QueryService` 的 `text`/`limit` 合同，并新增独立 `SemanticQueryService`；两者复用输入校验和 canonical 摘要组装。见 [query-service.ts](../../packages/engine/src/query/query-service.ts)、[semantic/query-service.ts](../../packages/engine/src/query/semantic/query-service.ts) 和 [types.ts](../../packages/engine/src/query/types.ts)。
+- CLI 暴露 `lore query <text> [--mode semantic|keyword] [--top-k]`；缺省 semantic，显式 keyword 离线直连 Engine。见 [query-command.ts](../../packages/cli/src/query/query-command.ts) 和 [Query CLI 文档](../cli/query.md)。
 - keyword index 是 LocalStore 之外的派生 SQLite 数据；它绑定经过验证的 Store snapshot，并使用 `effectiveRevision` 和 revision delta 保持同步。canonical Practice 和 `contentDigest` 仍然是结果的事实来源。见 [ADR 0012](../adr/0012-persistent-keyword-index.md)。
-- 共享 config、固定本地模型、Backend 生命周期、embedding service、`lore index status/build/rebuild` 与增量 build/发布一致性已在当前工作树中落地；semantic query CLI、默认路由和 query 结果合同仍未实现。
+- 共享 config、固定本地模型、Backend 生命周期、embedding service、`lore index status/build/rebuild`、增量 build/发布一致性、semantic query CLI、默认路由和 query 结果合同均已在当前工作树中落地。
 
 因此，Semantic Query 不能把向量或缓存正文写入 LocalStore 的内容事务，也不能把 index 当作 Practice 内容或来源的事实来源。
 
@@ -32,7 +32,7 @@ Semantic Query v1 的目标链路是：固定本地 default Profile、显式构�
 ### Required
 
 - Semantic Query v1 改变 `lore query` 的默认检索方式为 semantic；keyword query 的现有行为、离线属性、JSON 摘要和 keyword index 保留在显式 `--mode keyword` 下。
-- 没有 `--mode` 或指定 `--mode semantic` 时执行语义检索；没有配置或没有可用 index 时明确报错，不能退回 keyword query 假装成功。
+- 没有 `--mode` 或指定 `--mode semantic` 时执行语义检索；配置无效或没有可用 index 时明确报错，不能退回 keyword query 假装成功。共享 config 可以使用当前默认值，不存在手写 config 文件本身不必然是错误。
 - 默认 semantic query 使用固定的本地 default Profile。没有有效本地配置、没有 active index、index/Profile 不兼容，或无法证明旧向量与当前 Store 的安全关系时明确报错；index 正在追赶一个较新的 Store 时可返回明确标记为 partial 的 semantic 结果。远程 provider 不属于 v1。
 - 每个 semantic index 必须同时绑定 Store snapshot 与 EmbeddingProfile。不同模型、模型 revision、输入投影、向量维度或归一化方式不得混用数据。
 - 用户必须先显式执行 `lore index build`。这条命令才允许编码完整 Practice 集；普通 query 不得隐式发送内容、花费远程额度或长时间占用本地资源。
@@ -60,13 +60,13 @@ v1 固定使用 Granite 97M：384 维、32K context、Apache-2.0。其模型卡�
 
 模型运行配置归共享 `~/.lorelum/config.yaml` 的 embedding 段，资源身份由固定 manifest 确定，不再采用早期 `<store-root>/config.json` 中保存模型 revision 的提案。index 与 Store 的绑定仍归 Engine；`--store-root` 仍由现有 resolver 决定，模型配置不能重定向 Store。
 
-Lorelum 本地后端服务固定监听 `http://127.0.0.1:26186`。`26186` 表示 `26-186`：2026 年的第 186 天，即 Lorelum 仓库创建日期 2026-07-05。它只绑定 loopback，不能监听 `0.0.0.0`、`::` 或其他网络接口。Semantic Query v1 通过后端 client 使用第二阶段定义的认证 embedding 入口；端口本身不专属于 embedding，未来本地能力可以复用此后端服务。`baseUrl` 不进入 config，也不允许用户改成常用端口或远程地址。
+Lorelum 本地后端服务固定监听 `http://127.0.0.1:26186`。它只绑定 loopback，不能监听 `0.0.0.0`、`::` 或其他网络接口。Semantic Query v1 通过后端 client 调用认证 query 入口，由 Backend 在进程内注入 embedding 能力。`baseUrl` 不进入 config，也不允许用户改成常用端口或远程地址。
 
 运行配置、固定 GGUF 资源与 llama.cpp build 身份由[第二阶段计划](./local-backend-stage-2-design.md)统一定义；本篇不另设 modelRevision、provider 或 endpoint 配置。
 
 v1 的 default Profile 不是用户可选 alias，但仍需要内部 `profileId` 作为向量空间和 index 身份。它由固定模型 `ibm-granite/granite-embedding-97m-multilingual-r2`、固定源 revision、Q4_0 GGUF 摘要、经过验收的编码实现版本、document/query 输入投影、384 维、归一化、距离度量及其版本确定性生成。固定 endpoint 不进入 `profileId`；实测维度必须为 384，否则 build 失败。index metadata 记录 `profileId` 和实测维度，禁止通过实测值改变既有身份。
 
-`transport` 在 v1 固定为 `local`；远程 provider 不在范围内。config、`show` 和错误输出不得保存或展开密钥。没有有效 local config 时，普通 semantic query 返回 `semantic.config-invalid`。固定端口没有 Lorelum 后端服务、端口被其他进程占用或该服务的 embedding 路由不符合协议时，返回 `semantic.provider-failed`；不得扫描或随机改用其他端口。
+`transport` 在 v1 固定为 `local`；远程 provider 不在范围内。config、`show` 和错误输出不得保存或展开密钥。配置、服务、模型故障保留现有 `config.*`、`backend.*`、`embedding.*` 错误，映射见文末本阶段合同；不得扫描或随机改用其他端口。
 
 本阶段不再沿用 `set-model-revision` / `unset-model-revision` 的旧配置提案。未来 semantic CLI 的状态输出复用已验收模型身份；写入配置、启动模型和构建 index 的职责分离，具体命令在 semantic 接入阶段对齐，不作为模型常驻阶段的附加任务。
 
@@ -95,7 +95,7 @@ v1 只有固定 default Profile 对应的一个 active index。固定合同变�
 
 ### Semantic query
 
-Semantic query 阶段拟采用以下请求合同：
+Semantic query 使用以下请求合同：
 
 ```ts
 type QueryMode = "semantic" | "keyword";
@@ -108,35 +108,36 @@ interface QueryRequest {
 }
 ```
 
-v1 没有 `--profile`。Semantic Query v1 合入前，现有 CLI 仍只有 keyword query，本段不改变已发布行为。
+v1 没有 `--profile`。
 
 ```sh
 lore query "如何避免组件直接请求接口"
 lore query "database migration rollback" --mode keyword
 ```
 
-未指定 `--mode` 或指定 `--mode semantic` 时，使用固定 local default Profile。没有有效 local config 时返回 `semantic.config-invalid`。`--mode keyword` 才跳过 semantic config，并继续返回 `mode: "keyword"`。
+未指定 `--mode` 或指定 `--mode semantic` 时，使用固定 local default Profile。配置故障保留现有 config/backend 错误。`--mode keyword` 跳过模型配置与 Backend，并继续返回 `mode: "keyword"`。
 
 Semantic query 的成功 JSON 保持现有 `results` 摘要形状，并返回：
 
 ```json
 {
   "mode": "semantic",
-  "profileId": "sha256:...",
+  "profileId": "<existing 64-character hex profile ID>",
+  "coverage": "complete",
   "results": []
 }
 ```
 
 不公开 cosine score。结果仍然通过 Store snapshot 批量读取 canonical Practice，并逐一核对 `practiceId` 与 `contentDigest`；semantic index 只返回候选身份、内部 rank 和相似度。
 
-建议新增以下错误码，具体命名在 CLI 设计 Issue 中冻结：
+早期错误分类在当前实现阶段收敛如下，详细映射见文末：
 
 | 情况                               | 可见错误                                       |
 | ---------------------------------- | ---------------------------------------------- |
-| config 缺失、损坏或版本不支持      | `config.invalid`                               |
-| semantic index 不存在或过期        | `semantic.index-not-ready`                     |
+| config 损坏或版本不支持            | 复用现有 `config.*` / `backend.config-invalid` |
+| semantic index 不存在或无法安全复用 | `semantic.index-not-ready`                    |
 | index 与 Profile/Store 不兼容      | `semantic.index-incompatible`                  |
-| 本地 provider 不可用、返回非法向量 | `semantic.provider-failed`                     |
+| 模型不可用、返回非法向量           | 现有 `embedding.*` / `semantic.embedding-failed` |
 | Store 无法获得稳定 snapshot        | 复用 `store.busy` 或 `store.recovery-required` |
 
 所有失败保持现有单行 JSON envelope 和退出码约定。semantic query 不静默回退 keyword query。
@@ -148,11 +149,11 @@ Semantic query 的成功 JSON 保持现有 `results` 摘要形状，并返回：
 | 模块 | 责任 |
 | --- | --- |
 | LocalStore | 验证并提供 canonical Practice、来源、digest 和 Store snapshot；不执行 embedding。 |
-| config | 解析、验证和原子写入 Store-scoped config；隐藏凭证值。 |
-| 本地后端服务 | 独占 loopback `26186`，并提供 Semantic Query v1 所需的 `/v1` embedding 路由；其他本地路由不在本阶段定义。 |
+| config | 解析、验证和原子写入用户级共享 config；隐藏凭证值。 |
+| 本地后端服务 | 独占 loopback `26186`，通过已有 `/internal/v1/query` 托管 Engine 查询用例，并复用已加载模型。 |
 | embedding provider | 按 Profile 编码 document/query，验证向量数量、维度、有限值和归一化合同。 |
 | semantic index | 保存向量、Practice binding、profileId、snapshot identity 和构建状态；负责 staging、发布和清理自身文件。 |
-| QueryService | 固定请求所见 snapshot，选择 keyword 或 semantic retriever，回读并验证候选后组装摘要。 |
+| Engine query 用例 | keyword 与 semantic 分别固定请求所见 snapshot，回读并验证候选后组装摘要；入口按 mode 选择用例。 |
 | CLI | 解析 mode/index 命令，并把 typed error 转成既有 JSON 协议。 |
 
 ### 最小 index 数据
@@ -186,27 +187,15 @@ active index 损坏、metadata 缺失或 staging 发布失败时，不修改 Loc
 ```ts
 interface EmbeddingProfile {
   readonly profileId: string;
-  readonly providerNamespace: string;
-  readonly model: string;
-  readonly modelRevision: string | undefined;
+  readonly encodingId: string;
   readonly dimensions: number;
-  readonly documentInstruction: string | undefined;
-  readonly queryInstruction: string | undefined;
   readonly documentProjectionVersion: number;
-  readonly queryProjectionVersion: number;
-  readonly tokenizerRevision: string;
-  readonly maxInputTokens: number;
   readonly normalization: "l2";
-  readonly distanceMetric: "cosine";
-  readonly runtimeVariant: string | undefined;
 }
 
-interface EmbeddingProvider {
-  embedDocuments(
-    profile: EmbeddingProfile,
-    inputs: readonly string[],
-  ): Promise<readonly Float32Array[]>;
-  embedQuery(profile: EmbeddingProfile, input: string): Promise<Float32Array>;
+interface EmbeddingPort {
+  readonly maxBatchSize: number;
+  embed(inputs: readonly string[]): Promise<EmbeddingBatch>;
 }
 
 interface SemanticCandidate {
@@ -218,13 +207,13 @@ interface SemanticCandidate {
 }
 ```
 
-`EmbeddingProvider` 不接触 LocalStore、CLI 或 SQLite。`SemanticIndex` 不重新解析 Pack、也不返回正文。QueryService 保留完整请求编排和 snapshot 校验责任，从而使未来添加 Hybrid 不必绕过当前一致性边界。
+`EmbeddingPort` 不接触 LocalStore、CLI 或 SQLite；Backend 分别注入 document/query 适配。Profile 与 batch 类型复用当前 Engine 实现，不增加 token 字段。`SemanticIndex` 不重新解析 Pack、也不返回正文。QueryService 保留完整请求编排和 snapshot 校验责任。
 
 ## 分阶段实施
 
-当前阶段（#116）已经完成 Backend 托管的 semantic index：Engine 提供固定 `profileId` 的 status/build/rebuild、增量同步、staging 发布、过期检测和恢复；Backend 托管 operation 和已加载模型；CLI 只调用 Backend client。此阶段不改变 `lore query` 的当前 keyword 默认行为。
+上一阶段（#116）完成了 Backend 托管的 semantic index：Engine 提供固定 `profileId` 的 status/build/rebuild、增量同步、staging 发布、过期检测和恢复；Backend 托管 operation 和已加载模型。
 
-下一阶段才设计和实现 Backend 托管的 semantic query：Backend 在进程内托管 Engine semantic QueryService，CLI 将 semantic 路径路由到 Backend，`--mode keyword` 继续直连 Engine。只有该阶段完成并通过真实进程验收，才能称 Semantic Query v1 已交付。
+最后一个 query 阶段已实现：Backend 在进程内托管 Engine `SemanticQueryService`，CLI 将默认 semantic 路径路由到 Backend，`--mode keyword` 继续直连 Engine。真实本地流程已验证 `index build → semantic query → get`，因此本实现构成 Semantic Query v1 的完整能力闭环。
 
 Hybrid 或更进一步的性能优化，以 v1 的实际使用和测量数据为依据另行设计。
 
@@ -238,7 +227,3 @@ Hybrid 或更进一步的性能优化，以 v1 的实际使用和测量数据为
 - 空 Store 可以完成 build/status/query：index 不调用 provider，semantic query 返回空结果；第一份 Practice 写入后必须重新 build 并验证实际维度。
 - 同一 Profile 下，重复执行 semantic query 的结果顺序和摘要确定；删除或更新的 Practice 不会从 stale index 返回。新增或更新 Practice 的向量尚未发布时，query 只能返回其余未受影响 Practice 的 partial 结果。
 - 固定模型 revision、384 维、投影或归一化改变后，旧 index 不可用也不可复用。
-
-## 设计对齐门槛
-
-semantic query 阶段开始前，仍需在对应 Issue 或 Discussion 中确认 query 的 Backend operation/轮询合同、错误码、index 清理行为，以及 Granite 97M 的真实运行验证结果。多 Profile、远程 provider 和模型评测由后续 Issue 单独对齐。

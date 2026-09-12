@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import type { QueryService } from "@lorelum/engine";
+import { SemanticIndexNotReadyError } from "@lorelum/engine";
+import type {
+  QueryRequest,
+  QueryService,
+  SemanticQueryService,
+  StorageRoot,
+} from "@lorelum/engine";
 
 import { createBackendApp } from "../app";
 import { createEmbeddingService, type EmbeddingService } from "../modules/embedding/service";
@@ -27,23 +33,38 @@ afterEach(() => {
 });
 
 function runningApp(
-  queryService?: QueryService,
+  keywordQueryService?: QueryService,
   backendIdentity: InstanceIdentity = identity,
   embedding?: EmbeddingService,
   indexOperations?: IndexOperationService,
+  semanticQueryService?: SemanticQueryService,
 ): {
   readonly app: ReturnType<typeof createBackendApp>;
   readonly url: string;
 } {
+  const keywordService: QueryService = keywordQueryService ?? {
+    async query() {
+      return { mode: "keyword", results: [] } as const;
+    },
+  };
+  const semantic =
+    semanticQueryService ??
+    ({
+      async query() {
+        return {
+          mode: "semantic",
+          profileId: "a".repeat(64),
+          coverage: "complete",
+          results: [],
+        } as const;
+      },
+    } satisfies SemanticQueryService);
   const app = createBackendApp({
     backend: createBackendService({ identity: backendIdentity, secret, onStop: () => undefined }),
     ...(embedding === undefined ? {} : { embedding }),
     ...(indexOperations === undefined ? {} : { indexOperations }),
-    queryService: queryService ?? {
-      async query() {
-        return { mode: "keyword", results: [] } as const;
-      },
-    },
+    keywordQueryService: keywordService,
+    semanticQueryService: semantic,
   });
   apps.push(app);
   app.listen({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: 65_536 });
@@ -68,7 +89,7 @@ describe("createBackendClient", () => {
     });
 
     await expect(
-      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search" }),
+      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search", mode: "keyword" }),
     ).resolves.toEqual({
       mode: "keyword",
       results: [],
@@ -88,7 +109,7 @@ describe("createBackendClient", () => {
     });
 
     await expect(
-      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search" }),
+      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search", mode: "keyword" }),
     ).rejects.toEqual(expect.objectContaining({ code: "backend.incompatible" }));
   });
 
@@ -106,7 +127,7 @@ describe("createBackendClient", () => {
     });
 
     await expect(
-      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search" }),
+      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search", mode: "keyword" }),
     ).rejects.toBeInstanceOf(BackendRemoteError);
   });
 
@@ -323,4 +344,53 @@ test("rejects a mismatched protocol before sending control or model requests", a
   await expect(client.status()).rejects.toMatchObject({ code: "backend.incompatible" });
   await expect(client.stop()).rejects.toMatchObject({ code: "backend.incompatible" });
   await expect(client.loadModel()).rejects.toMatchObject({ code: "backend.incompatible" });
+});
+
+test("round-trips semantic query metadata", async () => {
+  const calls: unknown[] = [];
+  const { url } = runningApp(undefined, identity, undefined, undefined, {
+    async query(_root: StorageRoot, request: QueryRequest) {
+      calls.push(request);
+      return {
+        mode: "semantic",
+        profileId: "b".repeat(64),
+        coverage: "complete" as const,
+        results: [],
+      };
+    },
+  });
+  const client = createBackendClient({
+    identity,
+    secret,
+    buildIdentity: identity.buildIdentity,
+    baseUrl: url,
+  });
+
+  await expect(
+    client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "meaning" }),
+  ).resolves.toEqual({
+    mode: "semantic",
+    profileId: "b".repeat(64),
+    coverage: "complete",
+    results: [],
+  });
+  expect(calls).toEqual([{ text: "meaning" }]);
+});
+
+test("preserves semantic index errors through the client boundary", async () => {
+  const { url } = runningApp(undefined, identity, undefined, undefined, {
+    async query() {
+      throw new SemanticIndexNotReadyError();
+    },
+  });
+  const client = createBackendClient({
+    identity,
+    secret,
+    buildIdentity: identity.buildIdentity,
+    baseUrl: url,
+  });
+
+  await expect(
+    client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "meaning" }),
+  ).rejects.toMatchObject({ code: "semantic.index-not-ready" });
 });

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createBackendApp } from "../../app";
+import type { QueryService, SemanticQueryService } from "@lorelum/engine";
 import { DEFAULT_BACKEND_SETTINGS } from "../../config/model";
 import { createBackendService } from "../backend/service";
 import { createEmbeddingService } from "./service";
@@ -18,14 +19,21 @@ function fixture() {
     onStop() {},
     modelState: () => embedding.status().state,
   });
+  const keywordQueryService: QueryService = {
+    async query() {
+      return { mode: "keyword", results: [] };
+    },
+  };
+  const semanticQueryService: SemanticQueryService = {
+    async query() {
+      return { mode: "semantic", profileId: "a".repeat(64), coverage: "complete", results: [] };
+    },
+  };
   const app = createBackendApp({
     backend,
     embedding,
-    queryService: {
-      async query() {
-        return { mode: "keyword", results: [] };
-      },
-    },
+    keywordQueryService,
+    semanticQueryService,
   });
   function request(path: string, method = "GET", body?: unknown, authorized = true) {
     return app.handle(

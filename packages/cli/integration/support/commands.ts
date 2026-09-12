@@ -30,8 +30,9 @@ export async function runQuery(
   text: string,
   storageRoot: string,
   topK?: number,
+  mode: "keyword" | "semantic" = "keyword",
 ): Promise<ProcessResult> {
-  const args = [binaryPath, "query", text, "--store-root", storageRoot];
+  const args = [binaryPath, "query", text, "--mode", mode, "--store-root", storageRoot];
   if (topK !== undefined) args.push("--top-k", String(topK));
   return runProcess(args);
 }

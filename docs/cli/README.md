@@ -9,7 +9,7 @@ Lorelum CLI 的机器接口是单行 JSON envelope。成功输出包含 `command
 - [Backend 控制](backend.md)：启动、状态、停止本地 backend。
 - [Model 生命周期](model.md)：准备、加载、状态、卸载 embedding 模型。
 - [Semantic index](index.md)：查看、构建或替换某个 Store 的 semantic index。
-- [Query](query.md)：使用 LocalStore 的 keyword query。
+- [Query](query.md)：默认使用本地 semantic query；`--mode keyword` 保留离线 keyword query。
 - [Get](get.md)：读取一个已安装 Practice。
 - [List](list.md)：列出 Pack 或 Practice 目录。
 

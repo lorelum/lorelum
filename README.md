@@ -387,7 +387,7 @@ Two modes share the same commands:
 - **Local mode (default):** `lore install` a public pack, query offline. Zero ops. Like npm.
 - **Endpoint mode:** point the CLI at a team/SaaS/self-hosted endpoint for real-time, multi-user knowledge.
 
-The current local foundation provides exact `lore get` and offline keyword `lore query`; semantic and hybrid retrieval remain on the roadmap.
+The current local foundation provides exact `lore get`, local semantic `lore query`, and an explicit offline keyword fallback with `lore query --mode keyword`. Hybrid retrieval remains on the roadmap.
 
 ## Roadmap
 

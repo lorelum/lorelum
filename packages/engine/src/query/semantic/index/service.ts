@@ -37,9 +37,7 @@ import {
   verifySemanticIndexIntegrity,
 } from "./database";
 import { planIncrementalSemanticIndex } from "./incremental";
-
-const INDEX_FILE_NAME = "active.sqlite";
-const WRITER_DIRECTORY = "writer";
+import { semanticIndexPaths, type SemanticIndexPaths } from "./paths";
 
 export interface SemanticIndexBuildResult {
   readonly status: SemanticIndexStatus;
@@ -62,21 +60,6 @@ export interface SemanticIndexDependencies {
   >;
   readonly profile: EmbeddingProfile;
   readonly embedding: EmbeddingPort;
-}
-
-interface IndexPaths {
-  readonly directory: string;
-  readonly active: string;
-  readonly writer: string;
-}
-
-function paths(rootPath: string, profileId: string): IndexPaths {
-  const directory = join(rootPath, "indexes", "semantic", "v1", profileId);
-  return Object.freeze({
-    directory,
-    active: join(directory, INDEX_FILE_NAME),
-    writer: join(directory, WRITER_DIRECTORY),
-  });
 }
 
 async function activeMetadata(path: string): Promise<SemanticIndexMetadata | undefined> {
@@ -132,7 +115,9 @@ export function createSemanticIndexService(
   const status = async (root: StorageRoot): Promise<SemanticIndexStatus> => {
     const identity = await store.readSnapshotIdentity(root);
     try {
-      const metadata = await activeMetadata(paths(root.rootPath, profile.profileId).active);
+      const metadata = await activeMetadata(
+        semanticIndexPaths(root.rootPath, profile.profileId).active,
+      );
       if (metadata === undefined) return statusFor("missing", profile);
       return statusFor(stateForMetadata(metadata, identity, profile), profile, metadata);
     } catch (error) {
@@ -143,7 +128,7 @@ export function createSemanticIndexService(
 
   const publish = async (
     root: StorageRoot,
-    indexPaths: IndexPaths,
+    indexPaths: SemanticIndexPaths,
     staging: string,
     identity: StoreSnapshotIdentity,
     metadata: SemanticIndexMetadata,
@@ -156,7 +141,7 @@ export function createSemanticIndexService(
 
   const fullBuild = async (
     root: StorageRoot,
-    indexPaths: IndexPaths,
+    indexPaths: SemanticIndexPaths,
   ): Promise<SemanticIndexBuildResult> => {
     const snapshot = await store.readEffectivePracticeSnapshot(root);
     const documents = Object.freeze(snapshot.practices.map(projectSemanticPractice));
@@ -197,7 +182,7 @@ export function createSemanticIndexService(
 
   const incrementalBuild = async (
     root: StorageRoot,
-    indexPaths: IndexPaths,
+    indexPaths: SemanticIndexPaths,
     existing: SemanticIndexMetadata,
   ): Promise<SemanticIndexBuildResult | undefined> => {
     const changes = await store.readEffectivePracticeChanges(root, existing.effectiveRevision);
@@ -276,7 +261,7 @@ export function createSemanticIndexService(
   };
 
   const build = async (root: StorageRoot, force: boolean): Promise<SemanticIndexBuildResult> => {
-    const indexPaths = paths(root.rootPath, profile.profileId);
+    const indexPaths = semanticIndexPaths(root.rootPath, profile.profileId);
     await mkdir(indexPaths.writer, { recursive: true });
     const lock = await acquireMutationLock(indexPaths.writer);
     try {

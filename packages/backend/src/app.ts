@@ -1,6 +1,6 @@
 import { embeddingController } from "./modules/embedding/controller";
 import type { EmbeddingService } from "./modules/embedding/service";
-import type { QueryService } from "@lorelum/engine";
+import type { QueryService, SemanticQueryService } from "@lorelum/engine";
 import { Elysia } from "elysia";
 import { backendController } from "./modules/backend/controller";
 import type { BackendService } from "./modules/backend/service";
@@ -14,7 +14,8 @@ export interface CreateBackendAppOptions {
   readonly backend: BackendService;
   readonly embedding?: EmbeddingService;
   readonly indexOperations?: IndexOperationService;
-  readonly queryService: QueryService;
+  readonly keywordQueryService: QueryService;
+  readonly semanticQueryService: SemanticQueryService;
   /** Internal test injection; production always uses the fixed IPv4 endpoint. */
   readonly host?: string;
   readonly port?: number;
@@ -49,5 +50,13 @@ export function createBackendApp(options: CreateBackendAppOptions) {
         ? indexController(options.indexOperations, backend.available)
         : new Elysia(),
     )
-    .use(queryController(options.queryService, backend.available));
+    .use(
+      queryController(
+        {
+          keywordQueryService: options.keywordQueryService,
+          semanticQueryService: options.semanticQueryService,
+        },
+        backend.available,
+      ),
+    );
 }

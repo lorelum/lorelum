@@ -24,3 +24,27 @@ export class SemanticEmbeddingError extends SemanticIndexError {
     this.name = "SemanticEmbeddingError";
   }
 }
+
+/** The active semantic index is absent or cannot safely answer this query yet. */
+export class SemanticIndexNotReadyError extends SemanticIndexError {
+  constructor(message = "Semantic index is not ready", options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SemanticIndexNotReadyError";
+  }
+}
+
+/** The active semantic index belongs to another Store or Profile contract. */
+export class SemanticIndexIncompatibleError extends SemanticIndexError {
+  constructor(message = "Semantic index is incompatible", options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SemanticIndexIncompatibleError";
+  }
+}
+
+/** The active semantic index could not be read or its candidates failed validation. */
+export class SemanticIndexQueryError extends SemanticIndexError {
+  constructor(message = "Semantic index query failed", options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SemanticIndexQueryError";
+  }
+}

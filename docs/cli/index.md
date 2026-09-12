@@ -1,6 +1,6 @@
 # Semantic index 命令
 
-`lore index status/build/rebuild` 管理指定 LocalStore 的 semantic index。它们通过本地 Backend 使用已经加载的 embedding 模型；这一步只准备按语义检索所需的派生数据，**不会改变当前 `lore query` 的 keyword 行为**。
+`lore index status/build/rebuild` 管理指定 LocalStore 的 semantic index。它们通过本地 Backend 使用已经加载的 embedding 模型；`lore query` 默认会使用这个 index，`--mode keyword` 则保留独立的离线路径。
 
 在当前 worktree 验收这组命令时，先按[开发指南的 normal workflow](../development/README.md#normal-development-workflow)选择源码或编译路径；不要用全局 `lore` 或其他 worktree 的 binary 验证当前改动。
 
@@ -74,4 +74,4 @@ canonical Practice 仍在 LocalStore；index 不是正文事实来源。首次�
 | `store.busy`、`store.recovery-required` | Store 正在变更或需要恢复；等待变更完成，或先修复 Store 后再重试。 |
 | `embedding.failed`、`backend.failed` | 模型或构建失败；查看 `lore model status`，修复后显式 build，必要时 rebuild。 |
 
-当前阶段不提供 semantic query、Hybrid、多个 Profile 或自动重建。这些功能会在 semantic index 的真实流程完成验收后另行推进。
+v1 不提供 Hybrid、多个 Profile 或自动重建。semantic query 仍要求用户显式启动 Backend、加载模型并构建 index。
