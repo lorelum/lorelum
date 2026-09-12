@@ -67,8 +67,8 @@ const requiredSemanticRoles = [
   "sidebar-ring",
 ] as const;
 
-function declarations(selector: ":root" | ".dark") {
-  const escapedSelector = selector.replace(".", "\\.");
+function declarations(selector: ".lorelum-ui" | ".dark .lorelum-ui") {
+  const escapedSelector = selector.replaceAll(".", "\\.");
   const block = tokensCss.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1];
   if (!block) throw new Error(`Missing ${selector} token block`);
 
@@ -104,9 +104,11 @@ function contrastRatio(foreground: string, background: string) {
 }
 
 describe("design tokens", () => {
-  test("keeps required semantic roles in parity across themes", () => {
-    const light = declarations(":root");
-    const dark = declarations(".dark");
+  test("keeps required semantic roles inside an explicit consumer scope", () => {
+    expect(tokensCss).not.toMatch(/:root\s*\{/);
+
+    const light = declarations(".lorelum-ui");
+    const dark = declarations(".dark .lorelum-ui");
 
     for (const role of requiredSemanticRoles) {
       expect(light.has(role), `light theme is missing --${role}`).toBe(true);
@@ -115,7 +117,7 @@ describe("design tokens", () => {
   });
 
   test("keeps action foreground pairs at WCAG AA contrast", () => {
-    for (const theme of [declarations(":root"), declarations(".dark")]) {
+    for (const theme of [declarations(".lorelum-ui"), declarations(".dark .lorelum-ui")]) {
       for (const role of ["primary", "destructive", "success", "warning", "info"] as const) {
         const background = theme.get(role);
         const foreground = theme.get(`${role}-foreground`);
@@ -141,7 +143,7 @@ describe("design tokens", () => {
   });
 
   test("keeps readable semantic text pairs at WCAG AA contrast", () => {
-    for (const theme of [declarations(":root"), declarations(".dark")]) {
+    for (const theme of [declarations(".lorelum-ui"), declarations(".dark .lorelum-ui")]) {
       for (const [backgroundRole, foregroundRole] of [
         ["background", "foreground"],
         ["card", "card-foreground"],
@@ -173,8 +175,8 @@ describe("design tokens", () => {
   });
 
   test("keeps the primary action contract aligned with DESIGN.md", () => {
-    const light = declarations(":root");
-    const dark = declarations(".dark");
+    const light = declarations(".lorelum-ui");
+    const dark = declarations(".dark .lorelum-ui");
 
     expect(light.get("primary")?.toLowerCase()).toBe(designColor("light-primary"));
     expect(light.get("primary-foreground")?.toLowerCase()).toBe(

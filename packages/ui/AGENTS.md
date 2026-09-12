@@ -7,5 +7,5 @@ The root instructions apply. This package owns reusable Web UI and production de
 - Keep `style`, base, icon library, and aliases aligned with `components.json`. Do not use Radix APIs in this Base UI package.
 - Reuse semantic tokens and existing variants. Call-site `className` is for layout, not replacing component colors or typography.
 - Do not add components speculatively or use `add --all`. A new component needs a real consumer and behavior-focused tests.
-- Keep CSS values in `styles/tokens.css`; `theme.css` only maps them into Tailwind namespaces.
+- Keep CSS values in `styles/tokens.css`; `theme.css` only maps them into Tailwind namespaces. Tokens are scoped by `.lorelum-ui`; never widen them to `:root` without an explicit whole-app migration.
 - Add colocated `bun:test` coverage. Run package typecheck/tests and the site production build after changing components or styles.

@@ -7,12 +7,12 @@ export function getRootHead() {
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       {
         name: "theme-color",
-        content: "#141618",
+        content: "#121212",
         media: "(prefers-color-scheme: dark)",
       },
       {
         name: "theme-color",
-        content: "#F8F9FA",
+        content: "#F5F5F5",
         media: "(prefers-color-scheme: light)",
       },
     ],

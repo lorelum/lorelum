@@ -1,11 +1,8 @@
 @import "tailwindcss";
-@import "@lorelum/ui/globals.css";
-@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @import "./vendor.css";
 @import "./landing.css";
-
-@source '../../../../packages/ui/src';
 
 /*
  * Tailwind v4 defaults the `dark:` variant to `prefers-color-scheme`, but
@@ -14,10 +11,12 @@
  */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
+@theme {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* "run/success/live" accent — breaks the indigo-only palette with the
    * "code dark, run green" cue the product's terminal demo leans on. */
-  --color-run: var(--success);
+  --color-run: #34d399;
 }
 
 html {

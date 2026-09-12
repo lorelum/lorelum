@@ -6,7 +6,10 @@ Private workspace package for Lorelum's reusable Web components and production d
 import { Button } from "@lorelum/ui/components/button";
 ```
 
-The consuming application imports `@lorelum/ui/globals.css` once. It must provide the `.dark` class lifecycle; this package intentionally has no ThemeProvider.
+A consuming surface imports `@lorelum/ui/globals.css` once and applies the
+`lorelum-ui` class to its root. The `.dark` class remains application-owned;
+this package intentionally has no ThemeProvider. Do not add the scope to an
+application root until that entire surface has adopted the semantic tokens.
 
 ## Ownership
 

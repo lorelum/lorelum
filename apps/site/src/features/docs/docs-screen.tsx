@@ -49,11 +49,10 @@ function DocsContent({
 
 /** Browser screen for Fumadocs layout and compiled MDX content. */
 export function DocsScreen({ lang, pageData }: DocsScreenProps) {
-  const { path, pageTree, markdownUrl, title, description } =
-    useFumadocsLoader(pageData);
+  const { path, pageTree, markdownUrl, title, description } = useFumadocsLoader(pageData);
 
   return (
-    <DocsLayout {...baseOptions(lang)} tree={pageTree}>
+    <DocsLayout {...baseOptions(lang)} tree={pageTree} containerProps={{ className: "lorelum-ui" }}>
       <Suspense>
         <DocsContent
           path={path}

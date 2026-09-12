@@ -1,3 +1,5 @@
+@import "@lorelum/ui/tokens.css";
+
 /*
  * Fumadocs adapter for the documentation surface.
  *
@@ -5,17 +7,31 @@
  * tokens, while Fumadocs owns the generated markup and interaction behavior.
  */
 
-:root,
-.dark {
+#nd-docs-layout {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-ring: var(--ring);
   --color-fd-overlay: var(--overlay);
   --color-fd-info: var(--info);
   --color-fd-warning: var(--warning);
   --color-fd-error: var(--destructive);
   --color-fd-success: var(--success);
   --color-fd-idea: var(--primary);
-}
-
-#nd-docs-layout {
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
   --docs-divider: color-mix(in srgb, var(--border) 72%, transparent);
   --docs-divider-soft: color-mix(in srgb, var(--border) 46%, transparent);
   --docs-control-surface: color-mix(in srgb, var(--secondary) 68%, transparent);
@@ -27,30 +43,30 @@
   --docs-control-surface: color-mix(in srgb, var(--secondary) 58%, transparent);
 }
 
-#nd-sidebar {
+#nd-docs-layout #nd-sidebar {
   border-inline-end-color: var(--docs-divider);
 }
 
-#nd-sidebar [data-search-full] {
+#nd-docs-layout #nd-sidebar [data-search-full] {
   border-color: var(--docs-divider);
   background: var(--docs-control-surface);
 }
 
-#nd-sidebar [data-search-full]:hover {
+#nd-docs-layout #nd-sidebar [data-search-full]:hover {
   background: var(--sidebar-accent);
 }
 
-#nd-sidebar [data-search-full] kbd {
+#nd-docs-layout #nd-sidebar [data-search-full] kbd {
   border-color: var(--docs-divider-soft);
   background: color-mix(in srgb, var(--sidebar) 76%, transparent);
   box-shadow: none;
 }
 
-#nd-sidebar a[data-status="active"] {
+#nd-docs-layout #nd-sidebar a[data-status="active"] {
   background: color-mix(in srgb, var(--sidebar-primary) 9%, transparent);
 }
 
-#nd-sidebar > div:last-child > div:has(> a[aria-label="GitHub"]) {
+#nd-docs-layout #nd-sidebar > div:last-child > div:has(> a[aria-label="GitHub"]) {
   align-self: flex-start;
   width: fit-content;
   gap: 0.125rem;
@@ -58,38 +74,42 @@
   background: var(--docs-control-surface);
 }
 
-#nd-sidebar a[aria-label="GitHub"] {
+#nd-docs-layout #nd-sidebar a[aria-label="GitHub"] {
   width: var(--lore-size-control-sm);
   height: var(--lore-size-control-sm);
   padding: 0;
   border-radius: var(--lore-radius-pill);
 }
 
-#nd-sidebar :is(a[aria-label="GitHub"], button[aria-label="Toggle theme"]):focus-visible,
-#nd-sidebar-mobile :is(a[aria-label="GitHub"], button[aria-label="Toggle theme"]):focus-visible {
+#nd-docs-layout
+  #nd-sidebar
+  :is(a[aria-label="GitHub"], button[aria-label="Toggle theme"]):focus-visible,
+#nd-docs-layout
+  #nd-sidebar-mobile
+  :is(a[aria-label="GitHub"], button[aria-label="Toggle theme"]):focus-visible {
   border-color: transparent;
   outline: 2px solid color-mix(in srgb, var(--sidebar-ring) 76%, transparent);
   outline-offset: 2px;
   box-shadow: none;
 }
 
-#nd-sidebar-mobile {
+#nd-docs-layout #nd-sidebar-mobile {
   border-inline-start-color: var(--docs-divider);
   box-shadow: var(--lore-shadow-overlay);
 }
 
-#nd-sidebar-mobile a[data-status="active"] {
+#nd-docs-layout #nd-sidebar-mobile a[data-status="active"] {
   background: color-mix(in srgb, var(--primary) 9%, transparent);
 }
 
-[data-sidebar-panel] {
+#nd-docs-layout [data-sidebar-panel] {
   border-color: var(--docs-divider);
   background: color-mix(in srgb, var(--muted) 88%, transparent);
   box-shadow: var(--lore-shadow-contact);
   backdrop-filter: blur(var(--lore-blur-soft));
 }
 
-[data-toc-popover] > header {
+#nd-docs-layout [data-toc-popover] > header {
   border-color: var(--docs-divider);
   background: color-mix(in srgb, var(--background) 88%, transparent);
   backdrop-filter: blur(var(--lore-blur-soft));

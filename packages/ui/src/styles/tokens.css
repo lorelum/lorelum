@@ -1,4 +1,4 @@
-:root {
+.lorelum-ui {
   color-scheme: light;
 
   --lore-brand: #35b88f;
@@ -137,7 +137,7 @@
   --sidebar-ring: #167459;
 }
 
-.dark {
+.dark .lorelum-ui {
   color-scheme: dark;
 
   --lore-shadow-contact: 0 2px 4px rgb(0 0 0 / 22%);
