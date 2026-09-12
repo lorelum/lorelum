@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { devNull, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { defaultPackDirectoryLimits, isPracticeSourcePath } from "@lorelum/engine";
@@ -17,7 +17,9 @@ const GIT_ENVIRONMENT = Object.freeze({
   TMP: process.env.TMP,
   TMPDIR: process.env.TMPDIR,
   GIT_ASKPASS: "",
-  GIT_CONFIG_GLOBAL: devNull,
+  /* Git treats an empty value like /dev/null on every platform; os.devNull's
+     Windows value (\\.\nul) is rejected by Git for Windows. */
+  GIT_CONFIG_GLOBAL: "",
   GIT_CONFIG_NOSYSTEM: "1",
   GIT_TERMINAL_PROMPT: "0",
 });

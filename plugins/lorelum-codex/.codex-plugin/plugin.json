@@ -1,0 +1,25 @@
+{
+  "name": "lorelum-codex",
+  "version": "0.1.0",
+  "description": "Use relevant Lorelum engineering Practices in Codex without querying on every action.",
+  "author": {
+    "name": "Lorelum"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/lorelum/lorelum",
+  "keywords": ["lorelum", "codex", "practices", "engineering-guidance"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Lorelum Codex",
+    "shortDescription": "Relevant engineering Practices for Codex",
+    "longDescription": "Lorelum gives Codex a lightweight index of installed Knowledge Packs and retrieves detailed Practices only when the current task and work moment make them relevant.",
+    "developerName": "Lorelum",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": [
+      "Show relevant Lorelum Practices for this task",
+      "Check this plan against installed Practices",
+      "Help me use Lorelum without unnecessary queries"
+    ]
+  }
+}

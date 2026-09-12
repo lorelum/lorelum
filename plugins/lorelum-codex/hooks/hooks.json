@@ -1,0 +1,32 @@
+{
+  "description": "Restore the lightweight Lorelum Pack Index at Codex session boundaries.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$PLUGIN_ROOT/scripts/inject-pack-index.ts\"",
+            "timeout": 10,
+            "additionalContextLimit": 5000,
+            "commandWindows": "bun \"$env:PLUGIN_ROOT\\scripts\\inject-pack-index.ts\""
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "^(manual|auto)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$PLUGIN_ROOT/scripts/inject-pack-index.ts\"",
+            "timeout": 10,
+            "commandWindows": "bun \"$env:PLUGIN_ROOT\\scripts\\inject-pack-index.ts\""
+          }
+        ]
+      }
+    ]
+  }
+}

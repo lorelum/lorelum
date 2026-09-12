@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { defaultPackDirectoryLimits } from "@lorelum/engine";
 import type { RegistryRelease } from "@lorelum/format";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { devNull, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -173,7 +173,8 @@ async function setupGit(directory: string, gitArguments: readonly string[]): Pro
       TEMP: process.env.TEMP,
       TMP: process.env.TMP,
       TMPDIR: process.env.TMPDIR,
-      GIT_CONFIG_GLOBAL: devNull,
+      /* Git treats an empty value like /dev/null on every platform. */
+      GIT_CONFIG_GLOBAL: "",
       GIT_CONFIG_NOSYSTEM: "1",
       GIT_TERMINAL_PROMPT: "0",
     },
