@@ -5,8 +5,11 @@ import {
   resolveEmbeddingNativeArtifact,
   type EmbeddingNativeArtifact,
 } from "../../packages/backend/src/runtime/native/embedding/catalog";
+import {
+  assertNativeArtifactMatch,
+  verifyNativeArtifact,
+} from "../../packages/backend/src/runtime/native/embedding/manifest";
 import { compileReleaseCli } from "./compile-cli";
-import { assertNativeArtifactMatch, verifyNativeArtifact } from "./native-manifest";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 

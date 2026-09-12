@@ -7,8 +7,8 @@ import {
   resolveEmbeddingNativeArtifact,
   trustedEmbeddingManifestPath,
 } from "../../packages/backend/src/runtime/native/embedding/catalog";
+import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/native/embedding/manifest";
 import { compileReleaseCli } from "./compile-cli";
-import type { NativeArtifactManifest } from "./native-manifest";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 

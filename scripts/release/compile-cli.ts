@@ -5,7 +5,7 @@ import {
   trustedEmbeddingManifestPath,
   type EmbeddingNativeArtifact,
 } from "../../packages/backend/src/runtime/native/embedding/catalog";
-import type { NativeArtifactManifest } from "./native-manifest";
+import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/native/embedding/manifest";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 const defaultEntrypoint = join(repositoryRoot, "packages/cli/src/main.ts");

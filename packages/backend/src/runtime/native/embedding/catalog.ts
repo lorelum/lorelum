@@ -1,4 +1,5 @@
 import { join, resolve } from "node:path";
+import { parseNativeArtifactManifest } from "./manifest";
 import darwinArm64Manifest from "./darwin-arm64.json";
 
 const backendPackageRoot = resolve(import.meta.dir, "../../../..");
@@ -15,14 +16,14 @@ const embeddingNativeArtifacts = [
     platform: "darwin",
     arch: "arm64",
     compileTarget: "bun-darwin-arm64",
-    manifest: darwinArm64Manifest,
+    manifest: parseNativeArtifactManifest(darwinArm64Manifest),
   },
 ] as const satisfies readonly {
   readonly id: string;
   readonly platform: NodeJS.Platform;
   readonly arch: string;
   readonly compileTarget: Bun.Build.CompileTarget;
-  readonly manifest: typeof darwinArm64Manifest;
+  readonly manifest: ReturnType<typeof parseNativeArtifactManifest>;
 }[];
 
 export type EmbeddingNativeArtifact = (typeof embeddingNativeArtifacts)[number];

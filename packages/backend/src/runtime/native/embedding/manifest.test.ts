@@ -5,10 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   assertNativeArtifactMatch,
+  assertSourceNativeArtifactMatch,
   parseNativeArtifactManifest,
   verifyNativeArtifact,
   type NativeArtifactManifest,
-} from "./native-manifest";
+} from "./manifest";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 
@@ -50,6 +51,30 @@ test("native artifact match rejects a copied manifest that differs from the comp
   ).toThrow("differs from the compiled CLI manifest");
 });
 
+test("source native artifact match permits local compiler bytes but not a different recipe", () => {
+  const expected = fixture();
+  expect(() =>
+    assertSourceNativeArtifactMatch(expected, {
+      ...expected,
+      buildIdentity: digest("local-compiler-build"),
+      files: [{ ...expected.files[0]!, sha256: digest("locally-built-native") }],
+      toolchain: { cmake: "cmake version local", compiler: "clang local" },
+    }),
+  ).not.toThrow();
+  expect(() =>
+    assertSourceNativeArtifactMatch(expected, {
+      ...expected,
+      recipeIdentity: digest("different-recipe"),
+    }),
+  ).toThrow("current source recipe");
+  expect(() =>
+    assertSourceNativeArtifactMatch(expected, {
+      ...expected,
+      patchSha256: digest("different-patch"),
+    }),
+  ).toThrow("current source recipe");
+});
+
 test("native artifact verification checks declared bytes, digests, mode and dependencies", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lore-release-native-"));
   const contents = "native";
@@ -59,6 +84,10 @@ test("native artifact verification checks declared bytes, digests, mode and depe
     await chmod(join(directory, "llama-server"), 0o755);
     await writeFile(join(directory, "manifest.json"), JSON.stringify(manifest));
     await expect(verifyNativeArtifact(directory)).resolves.toEqual(manifest);
+
+    await writeFile(join(directory, "unexpected"), "unexpected");
+    await expect(verifyNativeArtifact(directory)).rejects.toThrow("unexpected files");
+    await rm(join(directory, "unexpected"));
 
     await writeFile(
       join(directory, "manifest.json"),

@@ -2,7 +2,10 @@ import { cp, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { buildReleaseStaging } from "./build";
 import { renderThirdPartyNotices, collectBundledPackageNotices } from "./notices";
-import { readNativeArtifactManifest, sha256File } from "./native-manifest";
+import {
+  readNativeArtifactManifest,
+  sha256File,
+} from "../../packages/backend/src/runtime/native/embedding/manifest";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 const versionPattern =

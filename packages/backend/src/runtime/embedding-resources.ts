@@ -1,8 +1,7 @@
-import { isDeepStrictEqual } from "node:util";
 import { isCompiledEntrypoint } from "./build-identity";
 /* eslint-disable no-await-in-loop -- Digest reads must be bounded and ordered. */
 import { constants } from "node:fs";
-import { lstat, open, readFile, realpath } from "node:fs/promises";
+import { lstat, open, realpath } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import {
@@ -10,10 +9,14 @@ import {
   installedEmbeddingArtifactDirectory,
   resolveEmbeddingNativeArtifact,
 } from "./native/embedding/catalog";
+import {
+  assertNativeArtifactMatch,
+  assertSourceNativeArtifactMatch,
+  verifyNativeArtifact,
+} from "./native/embedding/manifest";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL } from "../modules/embedding/model";
 
-const MAX_MANIFEST_BYTES = 16_384;
 const HASH_CHUNK_BYTES = 256 * 1024;
 
 export interface EmbeddingResources {
@@ -35,22 +38,19 @@ export async function resolveEmbeddingResources(
       expected.model.bytes !== EMBEDDING_MODEL.bytes
     )
       throw new EmbeddingError("embedding.resource-invalid");
-    const root = isCompiledEntrypoint(Bun.main)
+    const compiledEntrypoint = isCompiledEntrypoint(Bun.main);
+    const root = compiledEntrypoint
       ? await resolveCompiledEmbeddingResourceRoot(process.execPath)
       : undefined;
     const directory =
       root === undefined
         ? developmentEmbeddingArtifactDirectory(artifact)
         : installedEmbeddingArtifactDirectory(root, artifact);
-    const manifestPath = join(directory, "manifest.json");
-    const info = await lstat(manifestPath);
-    if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_MANIFEST_BYTES)
-      throw new EmbeddingError("embedding.resource-invalid");
-    const actual: unknown = JSON.parse(await readFile(manifestPath, "utf8"));
-    if (!isDeepStrictEqual(actual, expected))
-      throw new EmbeddingError("embedding.resource-invalid");
+    const actual = await verifyNativeArtifact(directory);
+    if (compiledEntrypoint) assertNativeArtifactMatch(expected, actual);
+    else assertSourceNativeArtifactMatch(expected, actual);
     const checks: (() => Promise<void>)[] = [];
-    for (const file of expected.files) {
+    for (const file of actual.files) {
       if (!/^[a-zA-Z0-9_.-]+$/.test(file.path))
         throw new EmbeddingError("embedding.resource-invalid");
       checks.push(
@@ -61,8 +61,8 @@ export async function resolveEmbeddingResources(
       await verifyResource(modelPath, EMBEDDING_MODEL.bytes, EMBEDDING_MODEL.sha256, signal),
     );
     return {
-      executable: join(directory, expected.executable),
-      buildIdentity: expected.buildIdentity,
+      executable: join(directory, actual.executable),
+      buildIdentity: actual.buildIdentity,
       async assertUnchanged() {
         for (const check of checks) await check();
       },

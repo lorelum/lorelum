@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstat, readFile } from "node:fs/promises";
+import { lstat, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
@@ -62,6 +62,15 @@ export async function readNativeArtifactManifest(
 /** Verify every declared native file and the macOS system-library allowlist. */
 export async function verifyNativeArtifact(directory: string): Promise<NativeArtifactManifest> {
   const manifest = await readNativeArtifactManifest(directory);
+  const expectedNames = new Set(["manifest.json", ...manifest.files.map((file) => file.path)]);
+  const entries = await readdir(directory, { withFileTypes: true });
+  if (
+    entries.length !== expectedNames.size ||
+    entries.some(
+      (entry) => !expectedNames.has(entry.name) || !entry.isFile() || entry.isSymbolicLink(),
+    )
+  )
+    throw new Error("native artifact directory contains unexpected files");
   await Promise.all(
     manifest.files.map(async (file) => {
       const path = join(directory, file.path);
@@ -92,6 +101,25 @@ export function assertNativeArtifactMatch(
 ): void {
   if (!isDeepStrictEqual(actual, expected))
     throw new Error("native artifact manifest differs from the compiled CLI manifest");
+}
+
+/** Source runs accept local compiler bytes but require the reviewed native recipe and model contract. */
+export function assertSourceNativeArtifactMatch(
+  expected: NativeArtifactManifest,
+  actual: NativeArtifactManifest,
+): void {
+  if (
+    actual.recipeIdentity !== expected.recipeIdentity ||
+    actual.platform !== expected.platform ||
+    actual.arch !== expected.arch ||
+    actual.executable !== expected.executable ||
+    !isDeepStrictEqual(actual.model, expected.model) ||
+    !isDeepStrictEqual(actual.source, expected.source) ||
+    actual.patchSha256 !== expected.patchSha256 ||
+    !isDeepStrictEqual(actual.cmakeFlags, expected.cmakeFlags)
+  ) {
+    throw new Error("native artifact manifest differs from the current source recipe");
+  }
 }
 
 export async function sha256File(path: string): Promise<string> {

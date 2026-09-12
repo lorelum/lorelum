@@ -11,6 +11,7 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [Tests and CI](../../CONTRIBUTING.md#testing--ci)
 - [Issues, branches, and PRs](../../CONTRIBUTING.md#development-workflow)
 - [Local CLI and worktrees](#local-cli-and-multiple-worktrees)
+- [Embedding native runtime](#embedding-native-runtime)
 - [Discover installed Packs with `lore list`](../cli/list.md)
 - [Read an installed Practice with `lore get`](../cli/get.md)
 - [Query installed Practices with `lore query`](../cli/query.md)
@@ -93,6 +94,18 @@ rehash
 ```
 
 This assumes `~/.local/bin` is already in `PATH`. If the destination exists, inspect it instead of replacing it blindly.
+
+### Embedding native runtime
+
+Embedding source checks need one native candidate in the current worktree:
+
+```sh
+bun run build:native
+```
+
+The candidate is copied to `packages/backend/.artifacts/native/embedding/darwin-arm64/`. The completed native runtime is shared only as a developer build cache, currently `~/Library/Caches/Lorelum/native/v1` on macOS. A matching second worktree verifies and copies that runtime instead of running CMake again. The cache does not belong to `~/.lorelum`, is not selected by `config.yaml`, and is never used as the backend runtime path; removing it merely makes the next `build:native` rebuild the candidate.
+
+This remains a macOS arm64 CPU build. The source archive, pinned CMake download, and CMake intermediate files remain in the invoking worktree's ignored `.cache/native-build/` and are only needed on a cache miss. See the [native build guide](../../native/embedding/README.md) for lifecycle checks and the release/source trust boundary.
 
 ### Store isolation rules
 
