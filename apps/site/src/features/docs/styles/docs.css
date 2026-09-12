@@ -131,6 +131,11 @@
   border-color: var(--docs-divider);
 }
 
+#nd-page .fd-steps {
+  display: grid;
+  gap: var(--lore-space-inline);
+}
+
 #nd-page .prose > div[style*="--callout-color"] {
   border-color: color-mix(in srgb, var(--callout-color) 22%, transparent);
   background: color-mix(in srgb, var(--callout-color) 5%, var(--card));

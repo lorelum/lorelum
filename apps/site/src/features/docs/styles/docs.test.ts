@@ -20,6 +20,11 @@ describe("docs style adapter", () => {
     expect(appCss).not.toContain('@import "fumadocs-ui/css/shadcn.css";');
   });
 
+  test("keeps numbered Fumadocs steps visually distinct", () => {
+    expect(docsCss).toContain("#nd-page .fd-steps {");
+    expect(docsCss).toContain("gap: var(--lore-space-inline);");
+  });
+
   test("maps every Fumadocs feedback role to a production semantic token", () => {
     const mappings = {
       overlay: "overlay",
