@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import type { QueryService } from "@lorelum/engine";
+import type { QueryService, SemanticQueryService } from "@lorelum/engine";
 
 import { createBackendApp } from "../../app";
 import { createBackendService } from "../backend/service";
@@ -25,14 +25,20 @@ function request(path: string, init: RequestInit = {}): Request {
 }
 
 function app(indexOperations: IndexOperationService) {
-  const queryService: QueryService = {
+  const keywordQueryService: QueryService = {
     async query() {
       return { mode: "keyword", results: [] };
     },
   };
+  const semanticQueryService: SemanticQueryService = {
+    async query() {
+      return { mode: "semantic", profileId, coverage: "complete", results: [] };
+    },
+  };
   return createBackendApp({
     backend: createBackendService({ identity, secret, onStop: () => undefined }),
-    queryService,
+    keywordQueryService,
+    semanticQueryService,
     indexOperations,
   });
 }

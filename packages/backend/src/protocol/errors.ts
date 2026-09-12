@@ -41,6 +41,10 @@ export const backendRemoteErrorCodes = [
   "usage.invalid",
   "query.unavailable",
   "query.failed",
+  "semantic.index-not-ready",
+  "semantic.index-incompatible",
+  "semantic.index-failed",
+  "semantic.embedding-failed",
   "store.busy",
   "store.recovery-required",
 ] as const;

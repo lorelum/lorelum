@@ -18,7 +18,12 @@ import {
 } from "../protocol/errors";
 import { EmbeddingError, embeddingErrorCodes } from "../modules/embedding/errors";
 import { constantTimeEqual, identityProof, type InstanceIdentity } from "../protocol/identity";
-import { queryRequestSchema, queryResultSchema } from "../modules/query/model";
+import {
+  queryRequestSchema,
+  queryResultSchema,
+  type BackendQueryResult,
+  type QueryMode,
+} from "../modules/query/model";
 import {
   identitySchema,
   statusSchema,
@@ -42,7 +47,9 @@ import {
 import { ENCODING_ID } from "../modules/embedding/model";
 import type { EmbeddingResult } from "../modules/embedding/model";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
-import type { QueryRequest, QueryResult, StorageRoot } from "@lorelum/engine";
+import type { QueryRequest, StorageRoot } from "@lorelum/engine";
+
+export type BackendQueryRequest = QueryRequest & { readonly mode?: QueryMode };
 
 export interface CreateBackendClientOptions {
   readonly identity: InstanceIdentity;
@@ -64,7 +71,7 @@ export interface BackendClient {
   statusModel(): Promise<ModelStatus>;
   unloadModel(): Promise<ModelStatus>;
   embed(kind: "query" | "document", inputs: readonly string[]): Promise<EmbeddingResult>;
-  query(root: StorageRoot, request: QueryRequest): Promise<QueryResult>;
+  query(root: StorageRoot, request: BackendQueryRequest): Promise<BackendQueryResult>;
   indexStatus(root: StorageRoot): Promise<IndexStatus>;
   buildIndex(root: StorageRoot): Promise<IndexOperation>;
   rebuildIndex(root: StorageRoot): Promise<IndexOperation>;

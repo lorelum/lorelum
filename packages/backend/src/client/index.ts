@@ -1,1 +1,6 @@
-export { createBackendClient, type BackendClient, type CreateBackendClientOptions } from "./client";
+export {
+  createBackendClient,
+  type BackendClient,
+  type BackendQueryRequest,
+  type CreateBackendClientOptions,
+} from "./client";

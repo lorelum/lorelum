@@ -9,3 +9,11 @@ export function createEmbeddingAdapter(service: EmbeddingService): EmbeddingPort
     embed: (inputs: readonly string[]) => service.embed("document", inputs),
   });
 }
+
+/** Adapts the same daemon-lifetime model to semantic query inputs. */
+export function createQueryEmbeddingAdapter(service: EmbeddingService): EmbeddingPort {
+  return Object.freeze({
+    maxBatchSize: 1,
+    embed: (inputs: readonly string[]) => service.embed("query", inputs),
+  });
+}

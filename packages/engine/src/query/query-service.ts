@@ -15,7 +15,8 @@ import {
 } from "./keyword/persistent-keyword-index";
 import { projectKeywordPractice } from "./keyword/projection";
 import { parseQueryRequest } from "./request";
-import type { QueryDependencies, QueryHit, QueryResult, QueryService } from "./types";
+import { assembleQueryHits } from "./result";
+import type { QueryDependencies, QueryResult, QueryService } from "./types";
 
 const MAX_QUERY_RETRIES = 3;
 
@@ -148,25 +149,10 @@ function assembleQueryResult(
   practices: readonly EffectivePractice[],
   candidates: readonly KeywordCandidate[],
 ): QueryResult {
-  const byId = new Map(practices.map((practice) => [practice.practiceId, practice]));
-  const results = candidates.map((candidate): QueryHit => {
-    const effective = byId.get(candidate.practiceId);
-    if (effective === undefined || effective.contentDigest !== candidate.contentDigest) {
-      throw new KeywordIndexError("Keyword candidate differs from its query snapshot");
-    }
-    const { practice } = effective;
-    if (practice.severity === undefined) {
-      throw new KeywordIndexError("Query snapshot is not canonical");
-    }
-    return Object.freeze({
-      practiceId: effective.practiceId,
-      title: practice.title,
-      stage: practice.stage,
-      techStack: Object.freeze([...practice.tech_stack]),
-      appliesWhen: practice.applies_when,
-      severity: practice.severity,
-      contentDigest: effective.contentDigest,
-    });
-  });
-  return Object.freeze({ mode: "keyword", results: Object.freeze(results) });
+  const results = assembleQueryHits(
+    practices,
+    candidates,
+    (message) => new KeywordIndexError(message),
+  );
+  return Object.freeze({ mode: "keyword", results });
 }

@@ -3,7 +3,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createLocalStore, createQueryService, type QueryService } from "@lorelum/engine";
+import {
+  createLocalStore,
+  createQueryService,
+  type QueryService,
+  type SemanticQueryService,
+} from "@lorelum/engine";
 
 import { createPackCandidate } from "../../engine/src/local-store/model/candidate";
 
@@ -46,12 +51,30 @@ function request(path: string, init: RequestInit = {}): Request {
 }
 
 function app(
-  queryService?: QueryService,
+  keywordQueryService?: QueryService,
   onStop = () => undefined,
   instanceIdentity: typeof identity = identity,
   isReady: () => boolean = () => true,
   onStopFailure: (error: unknown) => void = () => undefined,
+  semanticQueryService?: SemanticQueryService,
 ) {
+  const keyword = keywordQueryService ?? {
+    async query() {
+      return { mode: "keyword", results: [] } as const;
+    },
+  };
+  const semantic =
+    semanticQueryService ??
+    ({
+      async query() {
+        return {
+          mode: "semantic",
+          profileId: "a".repeat(64),
+          coverage: "complete",
+          results: [],
+        } as const;
+      },
+    } satisfies SemanticQueryService);
   return createBackendApp({
     backend: createBackendService({
       identity: instanceIdentity,
@@ -60,11 +83,8 @@ function app(
       onStopFailure,
       isReady,
     }),
-    queryService: queryService ?? {
-      async query() {
-        return { mode: "keyword", results: [] } as const;
-      },
-    },
+    keywordQueryService: keyword,
+    semanticQueryService: semantic,
   });
 }
 
@@ -132,7 +152,7 @@ describe("createBackendApp", () => {
         },
         body: JSON.stringify({
           storageRoot: "/tmp/lorelum-test",
-          query: { text: "  keep this input  " },
+          query: { text: "  keep this input  ", mode: "keyword" },
         }),
       }),
     );
@@ -161,7 +181,10 @@ describe("createBackendApp", () => {
               authorization: `Bearer ${secret}`,
               "content-type": "application/json",
             },
-            body: JSON.stringify({ storageRoot: rootPath, query: { text, limit: 1 } }),
+            body: JSON.stringify({
+              storageRoot: rootPath,
+              query: { text, limit: 1, mode: "keyword" },
+            }),
           }),
         );
 
@@ -195,7 +218,7 @@ describe("createBackendApp", () => {
               authorization: `Bearer ${secret}`,
               "content-type": "application/json",
             },
-            body: JSON.stringify({ storageRoot: rootPath, query: { text } }),
+            body: JSON.stringify({ storageRoot: rootPath, query: { text, mode: "keyword" } }),
           }),
         );
         return response.json();
@@ -231,7 +254,10 @@ describe("createBackendApp", () => {
           authorization: `Bearer ${secret}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ storageRoot: "/tmp/lorelum-test", query: { text: "test" } }),
+        body: JSON.stringify({
+          storageRoot: "/tmp/lorelum-test",
+          query: { text: "test", mode: "keyword" },
+        }),
       }),
     );
 
@@ -255,7 +281,10 @@ describe("createBackendApp", () => {
           authorization: `Bearer ${secret}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ storageRoot: "/tmp/lorelum-test", query: { text: "test" } }),
+        body: JSON.stringify({
+          storageRoot: "/tmp/lorelum-test",
+          query: { text: "test", mode: "keyword" },
+        }),
       }),
     );
 
@@ -280,7 +309,10 @@ describe("createBackendApp", () => {
           authorization: `Bearer ${secret}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ storageRoot: "/tmp/lorelum-test", query: { text: "test" } }),
+        body: JSON.stringify({
+          storageRoot: "/tmp/lorelum-test",
+          query: { text: "test", mode: "keyword" },
+        }),
       }),
     );
 

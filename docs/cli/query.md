@@ -1,48 +1,52 @@
 # Query installed Practices
 
-`lore query <text>` searches the installed Practices in the selected LocalStore and returns a small summary for each match. The current command is offline keyword search; it does not call an Embedding provider and does not claim semantic understanding. The Engine contract and implementation boundary are defined in [ADR 0011](../adr/0011-local-store-point-read-and-query-boundary.md) and implemented under [Issue #60](https://github.com/lorelum/lorelum/issues/60).
+`lore query <text>` searches the installed Practices in the selected LocalStore and returns a small summary for each match. It defaults to local semantic retrieval; `--mode keyword` retains the offline FTS5 path.
 
 ```sh
+# Semantic is the default. Start the Backend, load the model, and build this Store's index first.
 lore query "React 登录页接入现有认证接口"
 lore query "database migration rollback" --top-k 10
+
+# Explicit zero-configuration, offline keyword retrieval.
+lore query "database migration rollback" --mode keyword
+
 lore --store-root /path/to/isolated-store query "request validation"
 lore describe query
 ```
 
-The positional text is trimmed before validation. It must contain at least one non-whitespace character and may contain at most 4,096 Unicode code points after trimming. `--top-k` is optional, defaults to `5`, and accepts a decimal positive integer from `1` through `50`. A value such as `5.0`, `-1`, or `51` is invalid. The global `--store-root` option follows the same resolution rules as `get`.
+The positional text is trimmed before validation. It must contain at least one non-whitespace character and may contain at most 4,096 Unicode code points after trimming. `--top-k` is optional, defaults to `5`, and accepts a decimal positive integer from `1` through `50`. `--mode` accepts `semantic` (the default) or `keyword`. The global `--store-root` option follows the same resolution rules as `get`.
 
-## Result
+## Semantic mode
 
-The command writes one JSON protocol envelope to stdout. A successful result has `command: "query"`, `ok: true`, and this data shape:
+Semantic mode uses the fixed local Profile and the selected Store's previously built semantic index. It does not start the Backend, download or load the model, or build an index. Prepare those resources explicitly:
+
+```sh
+lore backend start
+lore model load
+lore --store-root /path/to/store index build
+lore --store-root /path/to/store query "how should I verify this release?"
+```
+
+The successful result includes the Profile identity and how completely the active index covers the Store snapshot:
 
 ```json
 {
-  "mode": "keyword",
-  "results": [
-    {
-      "practiceId": "react.api.layered-design",
-      "title": "分层 API 设计",
-      "stage": "api-layer",
-      "techStack": ["react", "typescript"],
-      "appliesWhen": "在 React SPA 中构建 API 层",
-      "severity": "warn",
-      "contentDigest": "..."
-    }
-  ]
+  "mode": "semantic",
+  "profileId": "...",
+  "coverage": "complete",
+  "results": []
 }
 ```
 
-`results` may be empty and contains at most `top-k` entries. Results are Practices, not individual source files. The response intentionally omits the full body and internal BM25 score; use `lore get <practice-id>` to retrieve the complete canonical Practice. Ordering is deterministic for the same Store snapshot and query implementation: higher internal relevance first, then Practice ID for ties. A query does not pin a revision for a later `get` invocation.
+`coverage: "complete"` means the index and Store snapshot are identical. `coverage: "partial"` means the Store changed after the index was built, but Lorelum could use a continuous change history to exclude every affected Practice and safely return results from the remaining vectors. If that safety proof is unavailable, the command fails and asks for an explicit `index build`; it never silently switches to keyword retrieval.
 
-## Store and index behavior
+## Keyword mode
 
-The first query builds a derived SQLite FTS5 index under the selected Store root at `indexes/keyword/v<index-version>/active.sqlite`; it is separate from `store.sqlite`, whose canonical Practice rows remain the source of truth. Later queries reuse an index whose root binding and effective revision match the Store. An implementation-version directory isolates indexes when the FTS schema, projection, tokenizer, or ranking behavior changes. Queries search FTS5, then materialize and digest-check only the matched canonical Practice rows before assembling summaries.
+`--mode keyword` runs directly in Engine, does not need a Backend or model, and does not access the network. It maintains its own derived FTS5 index at `indexes/keyword/v<index-version>/active.sqlite`. The index is separate from `store.sqlite`; canonical Practice rows remain the source of returned summaries. A missing, corrupt, incompatible, or history-gap keyword index is rebuilt from a consistent Store snapshot.
 
-Install, upgrade, uninstall, and reindex do not wait for index work. LocalStore records an internal effective-revision delta with each changed corpus. A later query applies a contiguous delta to the FTS table in one SQLite transaction; it deletes affected IDs, inserts the final changed rows, and advances the index checkpoint. A missing, corrupt, incompatible, or history-gap index is rebuilt from one complete consistent snapshot. The index is never treated as a source for summaries or as a fallback for an inconsistent Store.
+## Shared result behavior
 
-The indexed fields are Practice ID, title, applies-when text, tech-stack values, stage, anti-pattern text, and body. The current internal weights are `id: 8`, `title: 5`, `appliesWhen: 3`, `techStack: 2`, `stage: 1`, `antiPatterns: 1`, and `body: 1`. These are implementation parameters, not CLI options. Query text and indexed text use the same tokenizer, including normalization for technical identifiers and CJK text; raw user text is encoded as FTS literal terms rather than passed through as FTS operators.
-
-The query path does not run the full artifact audit performed by `open()`, and it does not converge pending operation journals. It uses the same lock-free manifest/SQLite snapshot protocol as the existing full-read path. A Store that is busy or inconsistent therefore fails instead of returning a mixed or stale corpus. The query does not access the Registry or network. A query checks index metadata and its returned candidate digests; it is not a whole-index audit.
+Both modes return one JSON protocol envelope on stdout. `results` may be empty and contains at most `top-k` entries. Results are Practice summaries, not source files. They omit the full body and internal scores; use `lore get <practice-id>` to retrieve the complete canonical Practice. Results are deterministic for the same Store snapshot and query implementation. A query does not pin a revision for a later `get` invocation.
 
 ## Errors and exit codes
 
@@ -50,11 +54,12 @@ Success exits `0`. Failures use `ok: false` with `error: { code, message }` and 
 
 | Code | Meaning |
 | --- | --- |
-| `usage.invalid` | Missing text, invalid text length, malformed `--top-k`, duplicate option, or another command-line syntax error. |
-| `query.unavailable` | Bun SQLite FTS5 is unavailable in the current runtime. |
-| `query.failed` | The keyword index could not be built or searched. |
-| `store.busy` | A stable LocalStore corpus could not be obtained because it kept changing or a mutation is in progress. |
-| `store.recovery-required` | The selected LocalStore is inconsistent or cannot be read normally. |
+| `usage.invalid` | Missing or invalid text, `--top-k`, or `--mode`. Validation happens before a semantic query connects to the Backend. |
+| `backend.*` | The local Backend is absent, incompatible, busy, or exceeded its request deadline. Start or inspect it with `lore backend ...`. |
+| `embedding.*` | The local model is not loaded, is busy, timed out, or failed. Check `lore model status` and explicitly load it when needed. |
+| `semantic.index-not-ready` | No usable index exists, or Store history cannot safely bridge its age. Run `lore index build`. |
+| `semantic.index-incompatible` | The index does not match the fixed Profile or selected Store. Run `lore index rebuild`. |
+| `semantic.index-failed` / `semantic.embedding-failed` | The stored index or query embedding violates its contract. Rebuild the index; inspect model status for embedding failures. |
+| `query.unavailable` / `query.failed` | The explicit keyword index could not be searched. |
+| `store.busy` / `store.recovery-required` | The selected Store kept changing, is mutating, or needs recovery. |
 | `runtime.unexpected` | An undeclared internal failure prevented completion. |
-
-The Engine API reports `InvalidQueryRequestError`, `KeywordIndexUnavailableError`, and `KeywordIndexError` for the corresponding domain failures. CLI translation keeps those implementation types out of the protocol. Semantic, hybrid, structured-filter, and result-count options are not part of this command.

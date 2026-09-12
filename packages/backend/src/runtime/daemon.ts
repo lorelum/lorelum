@@ -6,13 +6,17 @@ import {
   createEmbeddingProfile,
   createLocalStore,
   createQueryService,
+  createSemanticQueryService,
   createSemanticIndexService,
 } from "@lorelum/engine";
 import { BACKEND_HOST, MAX_BODY_BYTES } from "../protocol/constants";
 import { BackendError } from "../protocol/errors";
 import { createBackendApp } from "../app";
 import { createBackendService } from "../modules/backend/service";
-import { createEmbeddingAdapter } from "../modules/index/embedding-adapter";
+import {
+  createEmbeddingAdapter,
+  createQueryEmbeddingAdapter,
+} from "../modules/index/embedding-adapter";
 import { createIndexOperationService } from "../modules/index/operation-service";
 import { isSameProcess } from "./process-identity";
 import { readRecord, removeRecord, writeRecord } from "./runtime-state";
@@ -71,20 +75,27 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
   });
   const store = createLocalStore();
   const model = embedding.status();
+  const profile = createEmbeddingProfile({
+    encodingId: model.encodingId,
+    dimensions: model.dimensions,
+  });
   const semanticIndex = createSemanticIndexService({
     store,
-    profile: createEmbeddingProfile({
-      encodingId: model.encodingId,
-      dimensions: model.dimensions,
-    }),
+    profile,
     embedding: createEmbeddingAdapter(embedding),
+  });
+  const semanticQuery = createSemanticQueryService({
+    store,
+    profile,
+    embedding: createQueryEmbeddingAdapter(embedding),
   });
   const indexOperations = createIndexOperationService(semanticIndex);
   const app = createBackendApp({
     backend,
     embedding,
     port,
-    queryService: createQueryService({ store }),
+    keywordQueryService: createQueryService({ store }),
+    semanticQueryService: semanticQuery,
     indexOperations,
   });
   const signalHandler = () => {

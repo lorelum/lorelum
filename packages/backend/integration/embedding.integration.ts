@@ -31,9 +31,14 @@ const app = createBackendApp({
   }),
   embedding: fixture.service,
   port: 0,
-  queryService: {
+  keywordQueryService: {
     async query() {
       return { mode: "keyword", results: [] };
+    },
+  },
+  semanticQueryService: {
+    async query() {
+      return { mode: "semantic", profileId: "a".repeat(64), coverage: "complete", results: [] };
     },
   },
 });

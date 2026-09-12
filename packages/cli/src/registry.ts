@@ -254,7 +254,11 @@ export const commandRegistry = snapshotCommandDefinitions([
   discoveryCommandDefinition,
   createInstallCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
   createGetCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
-  createQueryCommand({ queryService: sharedQueryService, storageRoot: sharedStorageRoot }),
+  createQueryCommand({
+    queryService: sharedQueryService,
+    createClient: createProcessBackendClient,
+    storageRoot: sharedStorageRoot,
+  }),
   createListCommand({ list: sharedListService, storageRoot: sharedStorageRoot }),
   ...createBackendCommands({ createSupervisor: createProcessBackendSupervisor }),
   ...createModelCommands({ createClient: createProcessBackendClient }),
