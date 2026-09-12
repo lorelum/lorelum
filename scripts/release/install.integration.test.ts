@@ -31,6 +31,50 @@ test("installer verifies, extracts, and atomically links one platform package", 
   }
 });
 
+test("installer resolves the latest stable release when no version is supplied", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lore-install-latest-"));
+  const server = await createReleaseServer(root);
+  try {
+    const result = await runInstaller(root, server.url.origin, []);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(Bun.file(join(root, "share", "versions", version, "lore")).exists()).resolves.toBe(true);
+    expect(result.stdout).toContain(`Installed lore ${version}`);
+  } finally {
+    server.stop(true);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("installer uses the exact tag returned for the latest release assets", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lore-install-latest-tag-"));
+  const server = await createReleaseServer(root, { latestTag: version, releaseTag: version });
+  try {
+    const result = await runInstaller(root, server.url.origin, []);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(`Installed lore ${version}`);
+  } finally {
+    server.stop(true);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("installer rejects a latest-release tag that is not semantic versioning", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lore-install-invalid-latest-"));
+  const server = await createReleaseServer(root, { latestTag: "release-candidate" });
+  try {
+    const result = await runInstaller(root, server.url.origin, []);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("cannot resolve the latest stable release");
+    await expect(Bun.file(join(root, "share", "versions", version, "lore")).exists()).resolves.toBe(
+      false,
+    );
+  } finally {
+    server.stop(true);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("installer leaves an unmanaged command untouched", async () => {
   const root = await mkdtemp(join(tmpdir(), "lore-install-conflict-"));
   const server = await createReleaseServer(root);
@@ -50,8 +94,12 @@ test("installer leaves an unmanaged command untouched", async () => {
   }
 });
 
-async function createReleaseServer(root: string) {
-  const releases = join(root, "releases", `v${version}`);
+async function createReleaseServer(
+  root: string,
+  options: { latestTag?: string; releaseTag?: string } = {},
+) {
+  const releaseTag = options.releaseTag ?? `v${version}`;
+  const releases = join(root, "releases", releaseTag);
   const packageDirectory = join(root, packageName);
   await mkdir(join(packageDirectory, "native", target), { recursive: true });
   await writeFile(join(packageDirectory, "lore"), "#!/bin/sh\nexit 0\n");
@@ -74,15 +122,25 @@ async function createReleaseServer(root: string) {
     port: 0,
     fetch(request) {
       const path = new URL(request.url).pathname;
-      if (path === `/v${version}/${archiveName}`) return new Response(Bun.file(archive));
-      if (path === `/v${version}/SHA256SUMS`)
+      if (path === `/${releaseTag}/${archiveName}`) return new Response(Bun.file(archive));
+      if (path === `/${releaseTag}/SHA256SUMS`)
         return new Response(Bun.file(join(releases, "SHA256SUMS")));
+      if (path === "/api/releases/latest")
+        return Response.json({
+          tag_name: options.latestTag ?? `v${version}`,
+          prerelease: false,
+          draft: false,
+        });
       return new Response("missing", { status: 404 });
     },
   });
 }
 
-async function runInstaller(root: string, releaseBase: string) {
+async function runInstaller(
+  root: string,
+  releaseBase: string,
+  arguments_: readonly string[] = ["--version", version],
+) {
   const fakeBin = join(root, "fake-bin");
   await mkdir(fakeBin, { recursive: true });
   const uname = join(fakeBin, "uname");
@@ -91,12 +149,13 @@ async function runInstaller(root: string, releaseBase: string) {
     '#!/bin/sh\ncase "$1" in\n  -s) echo Darwin ;;\n  -m) echo arm64 ;;\nesac\n',
   );
   await chmod(uname, 0o755);
-  const child = Bun.spawn(["sh", join(repositoryRoot, "install.sh"), "--version", version], {
+  const child = Bun.spawn(["sh", join(repositoryRoot, "install.sh"), ...arguments_], {
     cwd: root,
     env: {
       HOME: root,
       PATH: `${fakeBin}:${process.env.PATH}`,
       LORELUM_INSTALL_RELEASE_BASE_URL: releaseBase,
+      LORELUM_INSTALL_RELEASE_API_BASE_URL: `${releaseBase}/api/releases`,
       LORELUM_INSTALL_ROOT: join(root, "share"),
       LORELUM_INSTALL_BIN_DIR: join(root, "bin"),
     },
