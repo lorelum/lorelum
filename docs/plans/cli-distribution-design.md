@@ -75,7 +75,7 @@ lore model status
 
 ## 构建必须绑定同一批字节
 
-当前 native 脚本生成新的磁盘 manifest，而 loader 静态导入仓库里的 `native/embedding/artifacts/darwin-arm64.json`。CI 编译器、工具链标签或文件字节可能不同；只按“构建 native，再执行现有 build:cli”操作，并不能保证生成可运行的发布包。
+当前 native 脚本生成新的磁盘 manifest，而 backend runtime 保留一份开发模式使用的 manifest。CI 编译器、工具链标签或文件字节可能不同；只按“构建 native，再执行现有 build:cli”操作，并不能保证生成可运行的发布包。
 
 建议保留现有严格运行时验证，调整构建输入的交接：
 

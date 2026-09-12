@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveEmbeddingResourceRoot, verifyResource } from "./embedding-resources";
+import { resolveCompiledEmbeddingResourceRoot, verifyResource } from "./embedding-resources";
 
 test("compiled resource lookup resolves the executable symlink before finding native files", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lore-resource-root-"));
@@ -17,12 +17,8 @@ test("compiled resource lookup resolves the executable symlink before finding na
     await writeFile(executable, "fixture");
     await symlink(executable, link);
 
-    await expect(resolveEmbeddingResourceRoot(true, link, directory)).resolves.toBe(
+    await expect(resolveCompiledEmbeddingResourceRoot(link)).resolves.toBe(
       await realpath(installed),
-    );
-    const sourceDirectory = join(directory, "packages", "backend", "src", "runtime");
-    await expect(resolveEmbeddingResourceRoot(false, link, sourceDirectory)).resolves.toBe(
-      join(directory, "dist"),
     );
   } finally {
     await rm(directory, { recursive: true, force: true });

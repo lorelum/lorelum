@@ -5,12 +5,14 @@ import { constants } from "node:fs";
 import { lstat, open, readFile, realpath } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
-import { expectedEmbeddingManifest } from "./expected-embedding-manifest";
+import expectedEmbeddingManifest from "./native-artifacts/darwin-arm64.json";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL } from "../modules/embedding/model";
 
 const MAX_MANIFEST_BYTES = 16_384;
 const HASH_CHUNK_BYTES = 256 * 1024;
+// Source runs use the repository's current native build output; release binaries use their own directory.
+const developmentDistributionRoot = resolve(import.meta.dir, "../../../..", "dist");
 
 export interface EmbeddingResources {
   readonly executable: string;
@@ -34,11 +36,9 @@ export async function resolveEmbeddingResources(
       expected.model.bytes !== EMBEDDING_MODEL.bytes
     )
       throw new EmbeddingError("embedding.resource-invalid");
-    const root = await resolveEmbeddingResourceRoot(
-      isCompiledEntrypoint(Bun.main),
-      process.execPath,
-      import.meta.dir,
-    );
+    const root = isCompiledEntrypoint(Bun.main)
+      ? await resolveCompiledEmbeddingResourceRoot(process.execPath)
+      : developmentDistributionRoot;
     const directory = join(root, "native", `${process.platform}-${process.arch}`);
     const manifestPath = join(directory, "manifest.json");
     const info = await lstat(manifestPath);
@@ -73,15 +73,11 @@ export async function resolveEmbeddingResources(
   }
 }
 
-/** Resolve the release directory through a user-facing symlink before locating native files. */
-export async function resolveEmbeddingResourceRoot(
-  compiledEntrypoint: boolean,
+/** Resolve the real release directory when the user-facing command is a symlink. */
+export async function resolveCompiledEmbeddingResourceRoot(
   executablePath: string,
-  sourceDirectory: string,
 ): Promise<string> {
-  return compiledEntrypoint
-    ? dirname(await realpath(executablePath))
-    : resolve(sourceDirectory, "../../../..", "dist");
+  return dirname(await realpath(executablePath));
 }
 
 export async function verifyResource(

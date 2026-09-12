@@ -4,9 +4,9 @@ import type { NativeArtifactManifest } from "./native-manifest";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 const defaultEntrypoint = join(repositoryRoot, "packages/cli/src/main.ts");
-const defaultManifestModule = join(
+const defaultManifestArtifact = join(
   repositoryRoot,
-  "packages/backend/src/runtime/expected-embedding-manifest.ts",
+  "packages/backend/src/runtime/native-artifacts/darwin-arm64.json",
 );
 
 export interface CompileReleaseCliOptions {
@@ -14,8 +14,8 @@ export interface CompileReleaseCliOptions {
   readonly outfile: string;
   /** Test-only alternate entrypoint; release builds always use the CLI entrypoint. */
   readonly entrypoint?: string;
-  /** Test-only alternate module whose contents receive the trusted manifest. */
-  readonly manifestModule?: string;
+  /** Test-only alternate JSON artifact whose contents receive the trusted manifest. */
+  readonly manifestArtifact?: string;
   /** Test-only current-platform target; production builds are darwin-arm64 only. */
   readonly target?: Bun.Build.CompileTarget;
 }
@@ -28,7 +28,7 @@ export interface CompiledReleaseCli {
 export async function compileReleaseCli(
   options: CompileReleaseCliOptions,
 ): Promise<CompiledReleaseCli> {
-  const manifestModule = await realpath(options.manifestModule ?? defaultManifestModule);
+  const manifestArtifact = await realpath(options.manifestArtifact ?? defaultManifestArtifact);
   await mkdir(dirname(options.outfile), { recursive: true });
   const result = await Bun.build({
     entrypoints: [options.entrypoint ?? defaultEntrypoint],
@@ -40,7 +40,7 @@ export async function compileReleaseCli(
       autoloadBunfig: false,
     },
     metafile: true,
-    plugins: [manifestOverridePlugin(manifestModule, options.nativeManifest)],
+    plugins: [manifestOverridePlugin(manifestArtifact, options.nativeManifest)],
   });
   if (!result.success) {
     const details = result.logs.map((log) => log.message).join("\n");
@@ -53,13 +53,13 @@ export async function compileReleaseCli(
   });
 }
 
-function manifestOverridePlugin(manifestModule: string, manifest: NativeArtifactManifest) {
-  const filter = new RegExp(`^${escapeRegExp(manifestModule)}$`);
-  const contents = `export const expectedEmbeddingManifest = ${JSON.stringify(manifest)} as const;\n`;
+function manifestOverridePlugin(manifestArtifact: string, manifest: NativeArtifactManifest) {
+  const filter = new RegExp(`^${escapeRegExp(manifestArtifact)}$`);
+  const contents = `${JSON.stringify(manifest)}\n`;
   return {
     name: "lorelum-release-native-manifest",
     setup(builder: Bun.PluginBuilder) {
-      builder.onLoad({ filter }, () => ({ contents, loader: "ts" }));
+      builder.onLoad({ filter }, () => ({ contents, loader: "json" }));
     },
   };
 }

@@ -28,18 +28,15 @@ const manifest: NativeArtifactManifest = {
 test("release compiler embeds its supplied manifest and disables cwd dotenv discovery", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lore-release-compile-"));
   try {
-    const manifestModule = join(directory, "expected-manifest.ts");
+    const manifestArtifact = join(directory, "expected-manifest.json");
     const entrypoint = join(directory, "entry.ts");
     const executable = join(directory, "fixture");
-    await writeFile(
-      manifestModule,
-      'export const expectedEmbeddingManifest = { buildIdentity: "source-build" };\n',
-    );
+    await writeFile(manifestArtifact, JSON.stringify({ buildIdentity: "source-build" }));
     await writeFile(
       entrypoint,
       [
-        'import { expectedEmbeddingManifest } from "./expected-manifest.ts";',
-        'console.log(`${expectedEmbeddingManifest.buildIdentity}:${process.env.LORELUM_RELEASE_TEST ?? "unset"}`);',
+        'import manifest from "./expected-manifest.json";',
+        'console.log(`${manifest.buildIdentity}:${process.env.LORELUM_RELEASE_TEST ?? "unset"}`);',
       ].join("\n"),
     );
     await writeFile(join(directory, ".env"), "LORELUM_RELEASE_TEST=from-dotenv\n");
@@ -48,7 +45,7 @@ test("release compiler embeds its supplied manifest and disables cwd dotenv disc
       nativeManifest: manifest,
       outfile: executable,
       entrypoint,
-      manifestModule,
+      manifestArtifact,
       target: `bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget,
     });
     const child = Bun.spawn([executable], { cwd: directory, stdout: "pipe", stderr: "pipe" });
