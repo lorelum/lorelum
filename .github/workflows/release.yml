@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish the verified archives as a prerelease
+        description: Upload the verified archives to a draft release
         type: boolean
         default: false
       tag:
@@ -62,6 +62,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check release tooling
+        run: |
+          bun run tsc --noEmit -p scripts/release/tsconfig.json
+          bun run oxlint scripts/release/compile-cli.ts
+          bun run oxfmt --check scripts/release/compile-cli.ts
+
       - name: Test release tooling
         run: bun test scripts/native/build-config.test.ts scripts/release/compile-cli.test.ts scripts/release/notices.test.ts
 
@@ -107,11 +113,13 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: publish · GitHub prerelease
+    name: publish · GitHub draft release
     needs: build
     if: inputs.publish
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # Maintainers configure required reviewers on this Environment before publishing.
+    environment: release
     permissions:
       contents: write
 
@@ -136,7 +144,7 @@ jobs:
           cd release
           sha256sum -c SHA256SUMS
 
-      - name: Publish prerelease
+      - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -145,5 +153,6 @@ jobs:
           gh release create "$RELEASE_TAG" release/* \
             --target "$GITHUB_SHA" \
             --title "Lorelum $RELEASE_TAG" \
+            --draft \
             --prerelease \
             --notes "Release archives built and smoke-tested on Linux x64, macOS arm64, and Windows x64. Source commit: $GITHUB_SHA."

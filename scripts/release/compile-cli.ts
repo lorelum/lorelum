@@ -130,16 +130,14 @@ async function finishCompiledOutput(
 }
 
 function manifestOverridePlugin(manifestArtifact: string, manifest: NativeArtifactManifest) {
-  const filter = new RegExp(`^${escapeRegExp(manifestArtifact)}$`);
   const contents = `${JSON.stringify(manifest)}\n`;
   return {
     name: "lorelum-release-native-manifest",
     setup(builder: Bun.PluginBuilder) {
-      builder.onLoad({ filter }, () => ({ contents, loader: "json" }));
+      builder.onLoad({ filter: /\.json$/ }, async (args) => {
+        if ((await realpath(args.path)) !== manifestArtifact) return;
+        return { contents, loader: "json" };
+      });
     },
   };
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
