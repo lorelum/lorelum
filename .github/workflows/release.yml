@@ -63,6 +63,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Check release tooling
+        # Check source formatting once on LF checkouts; Windows uses CRLF by default.
+        if: runner.os == 'Linux'
         run: |
           bun run tsc --noEmit -p scripts/release/tsconfig.json
           bun run oxlint scripts/release/compile-cli.ts
