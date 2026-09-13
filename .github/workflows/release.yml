@@ -90,7 +90,7 @@ jobs:
           package_root="$RUNNER_TEMP/lorelum-release"
           mkdir -p "$package_root"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            tar -xf lore-*.zip -C "$package_root"
+            pwsh -NoProfile -Command 'Expand-Archive -Path lore-*.zip -DestinationPath "$env:RUNNER_TEMP/lorelum-release" -ErrorAction Stop'
             cli_name=lore.exe
             native_name=llama-server.exe
           else
