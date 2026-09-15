@@ -2,19 +2,21 @@
 
 当前可观察合同见 [practice read OpenSpec](../../openspec/specs/practice-read/spec.md)；本页说明 CLI 参数、JSON 输出与恢复操作。
 
-`lore get <practice-id>` retrieves one complete canonical Practice by its exact ID from the selected LocalStore. The public command contract was agreed in [issue #49](https://github.com/lorelum/lorelum/issues/49); ADR 0011 preserves historical reasoning for the point-read consistency boundary.
+`lore get <practice-id>` retrieves one complete canonical Practice by its exact ID from the selected query context. A discovered ProjectContext returns its current local winner; `--no-project` preserves Store-only behavior. The public command contract was agreed in [issue #49](https://github.com/lorelum/lorelum/issues/49); ADR 0011 preserves historical reasoning for the point-read consistency boundary.
 
 ```sh
 lore pack list
 lore pack list agentic-coding
 lore get agentic-coding.testing.classify-failure-before-changing-test
 lore --store-root /path/to/isolated-store get agentic-coding.testing.classify-failure-before-changing-test
+lore get platform.testing --project-root /path/to/project
+lore get platform.testing --no-project
 lore describe get
 ```
 
 For discovery, use `lore pack list` first, then `lore pack list <name>` and pass one returned Practice ID to `lore get`.
 
-The ID must follow the existing dotted Practice ID format. Lookup is exact: there is no title matching, prefix completion, or case normalization. The global `--store-root` option also works after the command; relative paths resolve from the calling process's working directory. Omitting it selects the user Store.
+The ID must follow the existing dotted Practice ID format. Lookup is exact: there is no title matching, prefix completion, or case normalization. The global `--store-root` option also works after the command; relative paths resolve from the calling process's working directory. Omitting it selects the user Store. `--project-root` selects an ordinary directory directly containing `.lorelum/`; nested layers inherit parent configuration by default. Project provenance uses safe logical roots such as `project-layer-0`, never an absolute project path.
 
 ## Result
 

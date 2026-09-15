@@ -18,7 +18,7 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [Discover installed Packs with `lore pack list`](../cli/list.md)
 - [Read an installed Practice with `lore get`](../cli/get.md)
 - [Query installed Practices with `lore query`](../cli/query.md)
-- [Manage a Store semantic index with `lore index`](../cli/index.md)
+- [Manage a query-context semantic artifact with `lore index`](../cli/index.md)
 - [LocalStore Engine API](#localstore-engine-api)
 - [QueryService Engine API](#queryservice-engine-api)
 - [Point-read performance benchmark](./local-store-point-read-benchmark.md)
@@ -46,13 +46,13 @@ When omitted, the Store remains `~/.lorelum`. A relative path is resolved from t
 
 All commands in this section start in the **target worktree**. The normal source path is the current worktree's TypeScript entrypoint, `bun packages/cli/src/main.ts ...`. `lore-dev` is an optional human shortcut for that same command; it is not a requirement for Agents or automation. The globally installed `lore` remains a stable command for the primary checkout and is not a worktree-validation tool.
 
-Use an isolated Store by default when validating a worktree. This applies even to a command that is mostly a read: opening a Store can recover state and query/index features can update derived state. Omit `--store-root` only when the task explicitly calls for the developer's real shared Packs and indexes.
+Use isolated Store and cache roots by default when validating a worktree. This applies even to a command that is mostly a read: opening a Store can recover state and semantic query/index can update derived cache. Omit `--store-root` or `--cache-root` only when the task explicitly calls for the developer's real shared Packs and derived data. The cache is content-addressed, so separate worktrees can intentionally share `~/.lorelum/cache`; tests should still pass a temporary `--cache-root` to avoid cross-test state.
 
 | What is being checked | Required route | Do not use |
 | --- | --- | --- |
 | TypeScript CLI or keyword behavior | `bun packages/cli/src/main.ts ...`; a human may use `lore-dev ...` instead | Global `lore` or an executable produced by another worktree. |
 | Backend lifecycle only | `bun packages/cli/src/main.ts backend start/status/stop` | `build:native`; no model runtime is needed just to control the Backend. |
-| Source-level model, embedding, or semantic index behavior | `bun run build:native`; then stop Backend and run `pack install`, `index build/rebuild`, or query against an isolated Store. A missing fixed model is automatically prepared in the daemon; inspect `preparing`/`pending` and use explicit `model load` only to wait for or retry a failed transfer. | `build:cli`; it has no native embedding runtime. A semantic command may start Backend and background model preparation, so do not assert completion merely because the command returned an accepted operation. |
+| Source-level model, embedding, or semantic index behavior | `bun run build:native`; then stop Backend and run `pack install`, `index build/rebuild`, or query against isolated Store and cache roots. A missing fixed model is automatically prepared in the daemon; inspect `preparing`/`indexing`/`queued` and use explicit `model load` only to wait for or retry a failed transfer. | `build:cli`; it has no native embedding runtime. A semantic command may start Backend and background model preparation, so do not assert completion merely because the command returned an accepted operation. |
 | Compiled non-embedding behavior | `bun run build:cli` followed by `./dist/lore ...` | That binary for a model, embedding, or semantic-index check. |
 | Runnable compiled embedding candidate | `bun run build:release-staging` followed by `./dist/release/darwin-arm64/lore ...` | `build:release` unless archive validation is the purpose. |
 | Final archive/package | `bun run build:release` | Treating the archive command as the normal development build. |

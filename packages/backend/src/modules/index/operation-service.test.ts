@@ -7,7 +7,6 @@ import {
   type StorageRoot,
 } from "@lorelum/engine";
 
-import { BackendError } from "../../protocol/errors";
 import { EmbeddingError } from "../embedding/errors";
 import { EMBEDDING_MODEL, ENCODING_ID } from "../embedding/model";
 import { createIndexOperationService } from "./operation-service";
@@ -46,7 +45,7 @@ async function waitFor<T>(read: () => T | undefined): Promise<T> {
   throw new Error("operation did not settle");
 }
 
-test("serializes all builds and preserves the terminal Engine status", async () => {
+test("joins a running build and preserves the terminal Engine status", async () => {
   const task = deferred<Awaited<ReturnType<SemanticIndexService["build"]>>>();
   const engine: SemanticIndexService = {
     status: async () => ({ state: "missing", profileId }),
@@ -56,10 +55,8 @@ test("serializes all builds and preserves the terminal Engine status", async () 
   const service = createIndexOperationService(engine);
   const first = service.build(root);
   expect(first.state).toBe("building");
-  expect(() => service.rebuild(root)).toThrow(new BackendError("backend.busy"));
-  expect(() => service.build({ rootPath: "/tmp/lorelum-other-index-operation" })).toThrow(
-    new BackendError("backend.busy"),
-  );
+  expect(service.rebuild(root)).toEqual(first);
+  expect(service.build({ rootPath: "/tmp/lorelum-other-index-operation" })).toEqual(first);
 
   task.resolve({ built: true, status: { state: "ready", profileId, vectorCount: 2 } });
   const final = await waitFor(() => {
@@ -165,7 +162,7 @@ test("continues the same operation after automatic model preparation", async () 
   });
   expect(preparationBegun).toBe(1);
   expect(builds).toBe(1);
-  expect(() => service.rebuild(root)).toThrow(new BackendError("backend.busy"));
+  expect(service.rebuild(root)).toEqual(preparing);
 
   preparationDone.resolve();
   const ready = await waitFor(() => {

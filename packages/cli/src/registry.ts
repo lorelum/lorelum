@@ -26,6 +26,10 @@ import { createModelCommands, createProcessBackendClient } from "./model/command
 import { createIndexCommands } from "./index/index-commands";
 import { createProcessIndexRuntimeClient } from "./index/runtime-client";
 import { createLocalizationCommands } from "./localization/index.js";
+import { createProjectContextResolver } from "./project-context/service.js";
+import { createProjectContextCommands } from "./project-context/commands.js";
+import { loadQuerySettings } from "./query/settings.js";
+import { createCacheCommands } from "./cache/commands.js";
 
 export interface CommandOption {
   readonly longFlag: string;
@@ -36,9 +40,18 @@ export interface CommandOption {
   /** Requires callers to provide the option; defaults are therefore not allowed. */
   readonly optionRequired: boolean;
   /** Reserved for framework-owned global options on the root command. */
-  readonly behavior?: "help" | "log-level" | "store-root" | "version";
+  readonly behavior?:
+    | "help"
+    | "log-level"
+    | "store-root"
+    | "project-root"
+    | "no-project"
+    | "cache-root"
+    | "version";
   /** Framework option availability; local command options omit this field. */
   readonly scope?: "global" | "root";
+  /** Optional command allowlist for a framework global option. */
+  readonly appliesTo?: readonly string[];
   /** Static framework response metadata, including its discoverable data contract. */
   readonly response?: Readonly<{
     command: string;
@@ -142,6 +155,39 @@ const globalOptions: readonly CommandOption[] = [
     behavior: "store-root",
     scope: "global",
   },
+  {
+    longFlag: "--project-root",
+    description: "Use the directory that directly contains .lorelum as the ProjectContext leaf.",
+    value: { name: "path", required: true },
+    optionRequired: false,
+    behavior: "project-root",
+    scope: "global",
+    appliesTo: ["query", "get", "index.status", "index.build", "index.rebuild", "context.status"],
+  },
+  {
+    longFlag: "--no-project",
+    description: "Disable ProjectContext discovery and use only the selected local Store.",
+    optionRequired: false,
+    behavior: "no-project",
+    scope: "global",
+    appliesTo: ["query", "get", "index.status", "index.build", "index.rebuild", "context.status"],
+  },
+  {
+    longFlag: "--cache-root",
+    description: "Use an explicit user-level directory for derived query artifacts.",
+    value: { name: "path", required: true },
+    optionRequired: false,
+    behavior: "cache-root",
+    scope: "global",
+    appliesTo: [
+      "query",
+      "index.status",
+      "index.build",
+      "index.rebuild",
+      "cache.status",
+      "cache.prune",
+    ],
+  },
 ] as const satisfies readonly CommandOption[];
 
 const positionalDescriptionSchema: JsonSchema = {
@@ -172,7 +218,17 @@ const optionDescriptionSchema: JsonSchema = {
     description: stringSchema,
     required: { type: "boolean" },
     scope: { enum: ["command", "global", "root"] },
-    behavior: { enum: ["help", "log-level", "store-root", "version"] },
+    behavior: {
+      enum: [
+        "help",
+        "log-level",
+        "store-root",
+        "project-root",
+        "no-project",
+        "cache-root",
+        "version",
+      ],
+    },
     response: optionResponseDescriptionSchema,
     defaultValue: stringSchema,
     values: { type: "array", items: stringSchema },
@@ -247,6 +303,7 @@ export const rootCommand = snapshotCommandDefinition({
 const sharedStore = createLocalStore();
 const sharedStorageRoot = defaultStorageRoot();
 const sharedQueryService = createQueryService({ store: sharedStore });
+const sharedProjectContextResolver = createProjectContextResolver(sharedStore);
 const sharedListService = createListService({
   store: sharedStore,
   storageRoot: sharedStorageRoot,
@@ -263,11 +320,22 @@ export const commandRegistry = snapshotCommandDefinitions([
   createInstallCommand(sharedInstallServices),
   createUpdateCommand(sharedInstallServices),
   createRemoveCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
-  createGetCommand({ store: sharedStore, storageRoot: sharedStorageRoot }),
+  createGetCommand({
+    store: sharedStore,
+    storageRoot: sharedStorageRoot,
+    resolveProjectContext: sharedProjectContextResolver,
+  }),
+  ...createProjectContextCommands({
+    storageRoot: sharedStorageRoot,
+    resolveProjectContext: sharedProjectContextResolver,
+  }),
+  ...createCacheCommands(),
   createQueryCommand({
     queryService: sharedQueryService,
     createClient: createProcessSemanticRuntimeClient,
     storageRoot: sharedStorageRoot,
+    resolveProjectContext: sharedProjectContextResolver,
+    loadSettings: loadQuerySettings,
   }),
   createListCommand({ list: sharedListService, storageRoot: sharedStorageRoot }),
   ...createBackendCommands({ createSupervisor: createProcessBackendSupervisor }),
@@ -276,6 +344,7 @@ export const commandRegistry = snapshotCommandDefinitions([
     createClient: createProcessBackendClient,
     createRuntimeClient: createProcessIndexRuntimeClient,
     storageRoot: sharedStorageRoot,
+    resolveProjectContext: sharedProjectContextResolver,
   }),
   ...createLocalizationCommands(),
 ]);
@@ -399,7 +468,8 @@ export function commandOptionAppliesTo(
   option: CommandOption,
   definition: CommandDefinition,
 ): boolean {
-  return option.scope !== "root" || definition === rootCommand;
+  if (option.scope === "root") return definition === rootCommand;
+  return option.appliesTo === undefined || option.appliesTo.includes(definition.name);
 }
 
 function snapshotCommandDefinition(definition: CommandDefinition): CommandDefinition {
@@ -425,6 +495,9 @@ function snapshotCommandDefinition(definition: CommandDefinition): CommandDefini
             ? {}
             : { response: deepFreeze(structuredClone(option.response)) }),
           ...(option.values === undefined ? {} : { values: Object.freeze([...option.values]) }),
+          ...(option.appliesTo === undefined
+            ? {}
+            : { appliesTo: Object.freeze([...option.appliesTo]) }),
         }),
       ),
     ),
@@ -465,12 +538,22 @@ function assertFrameworkMetadata(definition: CommandDefinition): void {
     }
     if (
       option.behavior === undefined &&
-      (option.scope !== undefined || option.response !== undefined)
+      (option.scope !== undefined ||
+        option.response !== undefined ||
+        option.appliesTo !== undefined)
     ) {
       throw new Error(`Command "${definition.name}" option scope and response require a behavior.`);
     }
     if (option.behavior !== undefined && option.scope === undefined) {
       throw new Error(`Command "${definition.name}" framework options must declare a scope.`);
+    }
+    if (option.appliesTo !== undefined) {
+      if (option.scope !== "global" || option.appliesTo.length === 0) {
+        throw new Error(`Command "${definition.name}" option applicability is invalid.`);
+      }
+      if (new Set(option.appliesTo).size !== option.appliesTo.length) {
+        throw new Error(`Command "${definition.name}" option applicability has duplicates.`);
+      }
     }
     if ((option.behavior === "version") !== (option.response !== undefined)) {
       throw new Error(

@@ -7,6 +7,12 @@ import type { BackendService } from "./modules/backend/service";
 import { queryController } from "./modules/query/controller";
 import { indexController } from "./modules/index/controller";
 import type { IndexOperationService } from "./modules/index/operation-service";
+import type {
+  ProjectSemanticIndexRuntimePort,
+  ProjectSemanticRuntimePort,
+  StoreSemanticIndexRuntimePort,
+  StoreSemanticRuntimePort,
+} from "./modules/query/project-semantic-runtime";
 import { localBoundary, reject } from "./plugins/local-auth";
 import { BACKEND_HOST, BACKEND_PORT } from "./protocol/constants";
 
@@ -16,6 +22,10 @@ export interface CreateBackendAppOptions {
   readonly indexOperations?: IndexOperationService;
   readonly keywordQueryService: QueryService;
   readonly semanticQueryService: SemanticQueryService;
+  readonly projectSemanticRuntime?: ProjectSemanticRuntimePort;
+  readonly storeSemanticRuntime?: StoreSemanticRuntimePort;
+  readonly projectSemanticIndexRuntime?: ProjectSemanticIndexRuntimePort;
+  readonly storeSemanticIndexRuntime?: StoreSemanticIndexRuntimePort;
   /** Internal test injection; production always uses the fixed IPv4 endpoint. */
   readonly host?: string;
   readonly port?: number;
@@ -47,7 +57,12 @@ export function createBackendApp(options: CreateBackendAppOptions) {
     )
     .use(
       options.indexOperations
-        ? indexController(options.indexOperations, backend.available)
+        ? indexController(
+            options.indexOperations,
+            backend.available,
+            options.projectSemanticIndexRuntime,
+            options.storeSemanticIndexRuntime,
+          )
         : new Elysia(),
     )
     .use(
@@ -55,6 +70,15 @@ export function createBackendApp(options: CreateBackendAppOptions) {
         {
           keywordQueryService: options.keywordQueryService,
           semanticQueryService: options.semanticQueryService,
+          ...(options.indexOperations === undefined
+            ? {}
+            : { indexOperations: options.indexOperations }),
+          ...(options.projectSemanticRuntime === undefined
+            ? {}
+            : { projectSemanticRuntime: options.projectSemanticRuntime }),
+          ...(options.storeSemanticRuntime === undefined
+            ? {}
+            : { storeSemanticRuntime: options.storeSemanticRuntime }),
         },
         backend.available,
       ),

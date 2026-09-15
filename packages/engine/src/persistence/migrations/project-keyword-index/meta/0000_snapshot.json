@@ -1,0 +1,54 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "ee2b4104-2a72-481d-8454-7bbd504546c0",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "keyword_index_metadata": {
+      "name": "keyword_index_metadata",
+      "columns": {
+        "singleton": {
+          "name": "singleton",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "root_binding": {
+          "name": "root_binding",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "effective_revision": {
+          "name": "effective_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "keyword_index_metadata_singleton": {
+          "name": "keyword_index_metadata_singleton",
+          "value": "\"keyword_index_metadata\".\"singleton\" = 1"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

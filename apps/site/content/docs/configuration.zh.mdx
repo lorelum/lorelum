@@ -17,6 +17,18 @@ lore --store-root /path/to/store query "认证改动应该怎样验证？"
 
 安装、index、query 和 `get` 应使用同一个 Store root。这个选项只选择 Pack 数据与派生 index，不会改变模型、缓存、Backend 地址或 runtime 目录。
 
+## Query cache 与等待策略
+
+cache 是用户级、可删除重建的派生数据，默认在 `~/.lorelum/cache`，不会写入 `.lorelum/`、Git metadata 或 LocalStore。使用 `--cache-root <path>` 为一次 query/index/cache 命令选择隔离 cache。相同最终 Practice 语料会复用 artifact 与 embedding vector；目录路径、Git、worktree、branch、commit 和 mtime 不参与 artifact ID。
+
+```yaml
+query:
+  maxWaitMs: 3000
+  minCoveragePercent: 0
+```
+
+两个值分别是 `0–120000` 的整数毫秒和 `0–100` 的整数百分比。超出 `maxWaitMs` 时，后台 operation 继续；已验证 current progress 达到 `minCoveragePercent` 时，query 可以返回 partial result。运行 `lore cache status` 查看大小与 progress，运行 `lore cache prune` 显式删除未被 build/query 使用的 derived state。
+
 ## 本地模型
 
 默认 query 和 semantic index 使用固定的本地 embedding 模型。Lorelum 按需下载并复用缓存文件，缓存位于 `~/.lorelum/models/`。

@@ -20,10 +20,19 @@ import { reject, requireJson } from "../../plugins/local-auth";
 import { backendErrorBody, errorSchema } from "../../protocol/errors";
 import { EmbeddingError } from "../embedding/errors";
 import { queryRequestSchema, queryResultSchema, type BackendQueryResult } from "./model";
+import type {
+  ProjectSemanticQueryResult,
+  ProjectSemanticRuntimePort,
+  StoreSemanticRuntimePort,
+} from "./project-semantic-runtime";
+import type { IndexOperationService } from "../index/operation-service";
 
 export interface QueryControllerServices {
   readonly keywordQueryService: QueryService;
   readonly semanticQueryService: SemanticQueryService;
+  readonly projectSemanticRuntime?: ProjectSemanticRuntimePort;
+  readonly storeSemanticRuntime?: StoreSemanticRuntimePort;
+  readonly indexOperations?: IndexOperationService;
 }
 
 /** The controller selects the Engine use case; it does not implement retrieval rules. */
@@ -46,9 +55,47 @@ export function queryController(services: QueryControllerServices, available: ()
               await services.keywordQueryService.query({ rootPath: body.storageRoot }, query),
             );
           }
-          return toResponse(
-            await services.semanticQueryService.query({ rootPath: body.storageRoot }, query),
-          );
+          if (body.query.projectContext !== undefined) {
+            if (services.projectSemanticRuntime === undefined) {
+              return status(
+                503,
+                domainError("semantic.index-failed", "Project semantic query is unavailable."),
+              );
+            }
+            return toResponse(
+              await services.projectSemanticRuntime.query(
+                { rootPath: body.storageRoot },
+                body.query.projectContext,
+                query,
+                {
+                  maxWaitMs: body.query.maxWaitMs ?? 3_000,
+                  minCoveragePercent: body.query.minCoveragePercent ?? 0,
+                },
+              ),
+            );
+          }
+          if (body.query.cacheRoot !== undefined) {
+            if (services.storeSemanticRuntime === undefined) {
+              return status(
+                503,
+                domainError("semantic.index-failed", "Store semantic query is unavailable."),
+              );
+            }
+            return toResponse(
+              await services.storeSemanticRuntime.queryStore(
+                { rootPath: body.storageRoot },
+                { cacheRoot: body.query.cacheRoot },
+                query,
+                {
+                  maxWaitMs: body.query.maxWaitMs ?? 3_000,
+                  minCoveragePercent: body.query.minCoveragePercent ?? 0,
+                },
+              ),
+            );
+          }
+          return await semanticResponse(services, { rootPath: body.storageRoot }, query, {
+            maxWaitMs: body.query.maxWaitMs ?? 3_000,
+          });
         } catch (error) {
           return queryFailure(error);
         }
@@ -58,6 +105,37 @@ export function queryController(services: QueryControllerServices, available: ()
         response: { 200: queryResultSchema, 400: errorSchema, 500: errorSchema, 503: errorSchema },
       },
     );
+}
+
+async function semanticResponse(
+  services: QueryControllerServices,
+  root: { readonly rootPath: string },
+  query: { readonly text: string; readonly limit?: number },
+  policy: { readonly maxWaitMs: number },
+): Promise<BackendQueryResult> {
+  try {
+    return toResponse(await services.semanticQueryService.query(root, query));
+  } catch (error) {
+    if (!(error instanceof SemanticIndexNotReadyError) || services.indexOperations === undefined) {
+      throw error;
+    }
+    const operation = services.indexOperations.build(root);
+    if (policy.maxWaitMs > 0) {
+      await services.indexOperations
+        .waitForIdle(Date.now() + policy.maxWaitMs)
+        .catch(() => undefined);
+      const observed = services.indexOperations.operation(operation.operationId);
+      if (observed?.state === "ready") {
+        return toResponse(await services.semanticQueryService.query(root, query));
+      }
+    }
+    return {
+      state: "indexing",
+      operationId: operation.operationId,
+      indexedPracticeCount: 0,
+      totalPracticeCount: 0,
+    };
+  }
 }
 
 function queryFailure(error: unknown) {
@@ -100,7 +178,10 @@ function domainError(code: string, message: string) {
   return { error: { code, message } };
 }
 
-function toResponse(result: QueryResult | SemanticQueryResult): BackendQueryResult {
+function toResponse(
+  result: QueryResult | SemanticQueryResult | ProjectSemanticQueryResult,
+): BackendQueryResult {
+  if ("state" in result) return result;
   const results = result.results.map((hit) => ({
     practiceId: hit.practiceId,
     title: hit.title,
@@ -111,5 +192,17 @@ function toResponse(result: QueryResult | SemanticQueryResult): BackendQueryResu
     contentDigest: hit.contentDigest,
   }));
   if (result.mode === "keyword") return { mode: "keyword", results };
-  return { mode: "semantic", profileId: result.profileId, coverage: result.coverage, results };
+  return {
+    mode: "semantic",
+    profileId: result.profileId,
+    coverage: result.coverage,
+    ...("indexedPracticeCount" in result
+      ? {
+          indexedPracticeCount: result.indexedPracticeCount,
+          totalPracticeCount: result.totalPracticeCount,
+          operationId: result.operationId,
+        }
+      : {}),
+    results,
+  };
 }

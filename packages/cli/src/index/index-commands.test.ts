@@ -8,6 +8,7 @@ import {
   type IndexOperation,
   type IndexStatus,
 } from "@lorelum/backend/protocol";
+import type { ProjectContextSnapshot } from "@lorelum/engine";
 import { expect, test } from "bun:test";
 
 import { resolve } from "node:path";
@@ -16,6 +17,7 @@ import { run } from "../main";
 import { protocolResponseSchema, type OutputWriter } from "../output/protocol";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper";
 import { snapshotCommandDefinitions } from "../registry";
+import type { ProjectContextResolver } from "../project-context/service";
 import { createIndexCommands } from "./index-commands";
 
 class MemoryWriter implements OutputWriter {
@@ -96,7 +98,11 @@ function runtime(
 
 async function invoke(
   arguments_: string[],
-  services: { readonly backend?: BackendClient; readonly runtime?: IndexRuntimeClient } = {},
+  services: {
+    readonly backend?: BackendClient;
+    readonly runtime?: IndexRuntimeClient;
+    readonly projectResolver?: ProjectContextResolver;
+  } = {},
 ) {
   const stdout = new MemoryWriter();
   const definitions = snapshotCommandDefinitions(
@@ -108,6 +114,9 @@ async function invoke(
           throw new Error("unexpected runtime client");
         }),
       storageRoot: { rootPath: "/default" },
+      ...(services.projectResolver === undefined
+        ? {}
+        : { resolveProjectContext: services.projectResolver }),
     }),
   );
   const exitCode = await run(arguments_, { registry: definitions, stdout });
@@ -115,6 +124,11 @@ async function invoke(
   expect(validateJsonSchema(response, protocolResponseSchema)).toEqual([]);
   return { exitCode, response };
 }
+
+const projectSnapshot = {
+  kind: "project",
+  projectRootPath: "/project",
+} as ProjectContextSnapshot;
 
 test("index status forwards the selected Store root without creating a runtime client", async () => {
   const result = await invoke(["--store-root", "/isolated", "index", "status"], {
@@ -132,6 +146,49 @@ test("index status forwards the selected Store root without creating a runtime c
     command: "index.status",
     data: { state: "stale", profileId, vectorCount: 4 },
   });
+});
+
+test("index commands resolve a ProjectContext once and forward its root plus the selected cache", async () => {
+  const calls: unknown[] = [];
+  const operationId = "0f8fad5b-d9cb-469f-a165-70867728950e";
+  const result = await invoke(
+    ["--store-root", "/isolated", "--cache-root", "/cache", "index", "build"],
+    {
+      projectResolver: async (root, options) => {
+        calls.push(["resolve", root, options]);
+        return projectSnapshot;
+      },
+      runtime: {
+        async build(root, options) {
+          calls.push(["build", root, options]);
+          return {
+            operationId,
+            state: "queued",
+            indexedPracticeCount: 0,
+            totalPracticeCount: 2,
+          };
+        },
+        async rebuild() {
+          throw new Error("unexpected rebuild");
+        },
+      },
+    },
+  );
+  expect(result.exitCode).toBe(0);
+  expect(result.response.data).toEqual({
+    operationId,
+    state: "queued",
+    indexedPracticeCount: 0,
+    totalPracticeCount: 2,
+  });
+  expect(calls).toEqual([
+    ["resolve", { rootPath: "/isolated" }, { noProject: false, cacheRoot: "/cache" }],
+    [
+      "build",
+      { rootPath: "/isolated" },
+      { projectContext: { projectRoot: "/project", cacheRoot: "/cache" } },
+    ],
+  ]);
 });
 
 test("index build forwards the selected Store root to the runtime client", async () => {

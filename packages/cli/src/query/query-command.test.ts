@@ -142,7 +142,14 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
   expect(calls).toBe(1);
   expect(received).toEqual({
     root: "unused-default",
-    request: { text: "How do I verify a release?", limit: 7, mode: "semantic" },
+    request: {
+      text: "How do I verify a release?",
+      limit: 7,
+      mode: "semantic",
+      maxWaitMs: 3_000,
+      minCoveragePercent: 0,
+      cacheRoot: expect.any(String),
+    },
   });
   expect(result.response.data).toEqual(semantic);
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
@@ -166,6 +173,37 @@ test("returns preparing as a successful exit-1 result", async () => {
   expect(result.exitCode).toBe(1);
   expect(result.response).toMatchObject({ ok: true, data: preparation });
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
+});
+
+test("requires complete coverage without cancelling the accepted semantic operation", async () => {
+  let received: unknown;
+  const result = await invoke(
+    ["query", "How do I verify a release?", "--require-complete"],
+    {
+      async query() {
+        throw new Error("keyword path should not run");
+      },
+    },
+    async () =>
+      ({
+        async query(_root, request) {
+          received = request;
+          return {
+            state: "indexing" as const,
+            operationId: "0f8fad5b-d9cb-469f-a165-70867728950e",
+            indexedPracticeCount: 50,
+            totalPracticeCount: 100,
+          };
+        },
+      }) as Pick<BackendClient, "query">,
+  );
+  expect(received).toMatchObject({ minCoveragePercent: 100, cacheRoot: expect.any(String) });
+  expect(result.exitCode).toBe(1);
+  expect(result.response.data).toMatchObject({
+    state: "indexing",
+    indexedPracticeCount: 50,
+    totalPracticeCount: 100,
+  });
 });
 
 test("rejects an invalid mode before creating the Backend client", async () => {

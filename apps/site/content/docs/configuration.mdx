@@ -17,6 +17,18 @@ lore --store-root /path/to/store query "how should I verify an authentication ch
 
 This option selects Pack data and derived indexes only. It does not select the model, model cache, Backend address, or runtime directory.
 
+## Query cache and wait policy
+
+Derived query data is user-level and rebuildable. Its default root is `~/.lorelum/cache`; it never writes project `.lorelum/`, Git metadata, or LocalStore. Use `--cache-root <path>` to isolate one query, index, or cache command. Equivalent final Practice corpora reuse artifacts and embedding vectors regardless of directory, Git/worktree, branch, commit, or mtime.
+
+```yaml
+query:
+  maxWaitMs: 3000
+  minCoveragePercent: 0
+```
+
+These are integer milliseconds from 0 through 120000 and an integer percentage from 0 through 100. A query timeout leaves its accepted operation running; verified current progress that meets the percentage may return a partial result. Use `lore cache status` to inspect cache state and `lore cache prune` to remove unused derived state explicitly.
+
 ## Model and Backend
 
 Semantic query and semantic index operations use the fixed local embedding model. The default cache is `~/.lorelum/models/`.

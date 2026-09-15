@@ -1,6 +1,13 @@
-import { relative, sep } from "node:path";
+import { lstat } from "node:fs/promises";
+import { join, relative, sep } from "node:path";
 
-import { decodePackDirectory, PackValidationError, SnapshotFormatError } from "@lorelum/engine";
+import {
+  decodePackDirectory,
+  InvalidProjectRootError,
+  PackValidationError,
+  resolveProjectContext,
+  SnapshotFormatError,
+} from "@lorelum/engine";
 import { analyzeLocalizationState, type ValidationIssue } from "@lorelum/format";
 import type { CommandDefinition, CommandResult } from "../registry.js";
 import type { JsonSchema, JsonValue } from "../output/protocol.js";
@@ -51,18 +58,39 @@ const localeStateSchema: JsonSchema = {
   },
 };
 const validateResultSchema: JsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["pack", "localization"],
-  properties: {
-    pack: packResultSchema,
-    localization: {
+  oneOf: [
+    {
       type: "object",
       additionalProperties: false,
-      required: ["locales"],
-      properties: { locales: { type: "array", items: localeStateSchema } },
+      required: ["pack", "localization"],
+      properties: {
+        pack: packResultSchema,
+        localization: {
+          type: "object",
+          additionalProperties: false,
+          required: ["locales"],
+          properties: { locales: { type: "array", items: localeStateSchema } },
+        },
+      },
     },
-  },
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["project"],
+      properties: {
+        project: {
+          type: "object",
+          additionalProperties: false,
+          required: ["valid", "state", "diagnostics"],
+          properties: {
+            valid: { type: "boolean" },
+            state: { enum: ["ready", "degraded"] },
+            diagnostics: { type: "array", items: diagnosticSchema },
+          },
+        },
+      },
+    },
+  ],
 };
 const validateErrors = Object.freeze([
   ...frameworkErrorCodes,
@@ -157,6 +185,92 @@ async function validatePack(packRoot: string): Promise<CommandResult<JsonValue>>
   };
 }
 
+async function isProjectRoot(path: string): Promise<boolean> {
+  const marker = await lstat(join(path, ".lorelum")).catch(() => undefined);
+  return marker?.isDirectory() === true && !marker.isSymbolicLink();
+}
+
+function projectDiagnostics(
+  snapshot: NonNullable<Awaited<ReturnType<typeof resolveProjectContext>>>,
+): JsonValue[] {
+  return snapshot.warnings.map((warning) => {
+    const prefix = `layers/${warning.layerDepth}`;
+    if (warning.code === "config.invalid") {
+      return {
+        level: "error",
+        code: "project.config.invalid",
+        path: `${prefix}/.lorelum/config.yaml`,
+        message: "Project layer configuration is invalid and was ignored by ordinary query.",
+      };
+    }
+    if (warning.code === "pack.invalid" || warning.code === "source.unsafe") {
+      return {
+        level: "error",
+        code: warning.code === "pack.invalid" ? "project.pack.invalid" : "project.source.unsafe",
+        path:
+          warning.packName === undefined
+            ? `${prefix}/.lorelum/packs`
+            : `${prefix}/.lorelum/packs/${warning.packName}`,
+        message: "Project Pack source is invalid or unsafe and was ignored by ordinary query.",
+      };
+    }
+    return {
+      level: "error",
+      code: "project.practice.invalid",
+      path:
+        warning.packName === undefined
+          ? `${prefix}/.lorelum/packs`
+          : `${prefix}/.lorelum/packs/${warning.packName}/practices/${warning.practiceId ?? "unknown"}`,
+      message: "Project Practice is invalid and was ignored by ordinary query.",
+    };
+  });
+}
+
+async function validateProject(projectRoot: string): Promise<CommandResult<JsonValue>> {
+  try {
+    const snapshot = await resolveProjectContext({
+      projectRoot,
+      storageRoot: { rootPath: join(projectRoot, ".lorelum", ".validate-store") },
+      store: {
+        async readEffectivePracticeSnapshot() {
+          return { practices: [] };
+        },
+      },
+    });
+    if (snapshot === undefined) throw new InvalidProjectRootError();
+    const diagnostics = projectDiagnostics(snapshot);
+    return {
+      data: {
+        project: {
+          valid: diagnostics.length === 0,
+          state: snapshot.state,
+          diagnostics,
+        },
+      },
+      exitCode: diagnostics.length === 0 ? 0 : 1,
+    };
+  } catch (error) {
+    if (!(error instanceof InvalidProjectRootError)) throw error;
+    return {
+      data: {
+        project: {
+          valid: false,
+          state: "degraded",
+          diagnostics: [
+            {
+              level: "error",
+              code: "project.root.invalid",
+              path: ".",
+              message: "Project root must directly contain a safe .lorelum directory.",
+            },
+          ],
+        },
+      },
+      exitCode: 1,
+    };
+  }
+}
+
 export function createValidateCommand(): CommandDefinition {
   return {
     name: "validate",
@@ -168,7 +282,8 @@ export function createValidateCommand(): CommandDefinition {
     exitCodes: [0, 1, 2],
     async handler({ positionals }) {
       try {
-        return await validatePack(positionals[0]!);
+        const root = positionals[0]!;
+        return (await isProjectRoot(root)) ? await validateProject(root) : await validatePack(root);
       } catch (error) {
         visibleLocalizationError(error);
       }

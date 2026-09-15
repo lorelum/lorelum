@@ -45,8 +45,12 @@ export function createIndexOperationService(
   let activeTask: Promise<void> | undefined;
 
   const start = (root: StorageRoot, operation: "build" | "rebuild"): IndexOperation => {
-    // The fixed v1 EmbeddingService admits one request; queueing would require a separate task contract.
-    if (activeOperationId) throw new BackendError("backend.busy");
+    // The fixed v1 EmbeddingService admits one request. Joining its active work is a
+    // safe default for first-query callers and avoids making them retry a recoverable state.
+    if (activeOperationId) {
+      const active = byId.get(activeOperationId);
+      if (active !== undefined) return active;
+    }
     const operationId = randomUUID();
     const initial: IndexOperation = Object.freeze({ operationId, state: "building" });
     byId.set(operationId, initial);

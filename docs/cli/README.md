@@ -10,12 +10,13 @@ Lorelum CLI 的普通机器接口是单行 JSON envelope。成功输出包含 `c
 - [Model 生命周期](model.md)：准备、加载、状态、卸载 embedding 模型。
 - [Semantic index](index.md)：查看、构建或替换某个 Store 的 semantic index。
 - [Query](query.md)：默认使用本地 semantic query；`--mode keyword` 保留离线 keyword query。
+- `lore cache status` / `lore cache prune`：查看或显式清理用户级、可重建的 query cache；不会扫描或修改项目源文件。
 - [Get](get.md)：读取一个已安装 Practice。
 - [Pack catalog](list.md)：列出已安装 Pack 或其 Practice 目录。
 - [Pack 生命周期](packs.md)：安装、更新或移除某个 Pack。
 - [Codex Hook](hook.md)：向 Codex 注入受限的 Installed Pack Catalog。
 
-使用 `lore --version` 查询 CLI 版本；`--help` 和 `--log-level` 是全局选项。需要 Store 的命令支持 `--store-root <path>`；backend/model 命令不读取或修改 LocalStore，传入该选项不会改变它们的模型来源。
+使用 `lore --version` 查询 CLI 版本；`--help` 和 `--log-level` 是全局选项。需要 Store 的命令支持 `--store-root <path>`；backend/model 命令不读取或修改 LocalStore，传入该选项不会改变它们的模型来源。`query`、`index` 与 cache 命令支持 `--cache-root <path>`，它只选择本次调用的用户级派生数据位置；未指定时默认使用 `~/.lorelum/cache`。
 
 ## Protocol versions
 

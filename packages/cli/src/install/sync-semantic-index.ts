@@ -45,7 +45,11 @@ function fromOperation(operation: IndexOperation): InstallIndexSync {
       operationId: operation.operationId,
       phase: "preparing",
     };
-  if (operation.state === "building")
+  if (
+    operation.state === "waiting-for-source" ||
+    operation.state === "queued" ||
+    operation.state === "building"
+  )
     return { state: "pending", operationId: operation.operationId, phase: "building" };
   if (operation.state === "ready" && operation.index?.state === "ready")
     return { state: "ready", index: operation.index };

@@ -1,7 +1,10 @@
 import { access } from "node:fs/promises";
 
 import { openSqliteConnection } from "../../../persistence/database/connection";
-import { semanticIndexDatabaseDefinition } from "../../../persistence/definitions";
+import {
+  semanticIndexDatabaseDefinition,
+  type SqliteDatabaseDefinition,
+} from "../../../persistence/definitions";
 import { semanticVectors } from "../../../persistence/schemas/semantic-index";
 import { SemanticIndexError } from "../errors";
 import {
@@ -17,7 +20,7 @@ import {
   type SemanticIndexConnection,
   verifySemanticIndexIntegrity,
 } from "./database";
-import { semanticIndexPaths } from "./paths";
+import { semanticIndexPaths, type SemanticIndexPaths } from "./paths";
 
 export interface SemanticCandidate {
   readonly practiceId: string;
@@ -105,7 +108,18 @@ export async function openSemanticIndexReader(
   rootPath: string,
   profile: EmbeddingProfile,
 ): Promise<SemanticIndexReader> {
-  const path = semanticIndexPaths(rootPath, profile.profileId).active;
+  return openSemanticIndexReaderAt(semanticIndexPaths(rootPath, profile.profileId), profile);
+}
+
+/** Open one complete artifact at a caller-owned cache location. */
+export async function openSemanticIndexReaderAt(
+  paths: SemanticIndexPaths,
+  profile: EmbeddingProfile,
+  definition: SqliteDatabaseDefinition<
+    typeof semanticIndexDatabaseDefinition.schema
+  > = semanticIndexDatabaseDefinition,
+): Promise<SemanticIndexReader> {
+  const path = paths.active;
   try {
     await access(path);
   } catch (error) {
@@ -117,7 +131,7 @@ export async function openSemanticIndexReader(
 
   let connection: SemanticIndexConnection | undefined;
   try {
-    connection = openSqliteConnection(path, semanticIndexDatabaseDefinition.schema, {
+    connection = openSqliteConnection(path, definition.schema, {
       readonly: true,
     });
     verifySemanticIndexIntegrity(connection);

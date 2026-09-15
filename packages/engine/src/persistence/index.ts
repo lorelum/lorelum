@@ -1,7 +1,12 @@
 export {
   keywordIndexDatabaseDefinition,
   localStoreDatabaseDefinition,
+  projectCacheDatabaseDefinition,
+  projectKeywordIndexDatabaseDefinition,
+  projectSemanticIndexDatabaseDefinition,
+  semanticProgressIndexDatabaseDefinition,
   semanticIndexDatabaseDefinition,
+  semanticVectorCacheDatabaseDefinition,
   type SqliteDatabaseDefinition,
 } from "./definitions";
 export {

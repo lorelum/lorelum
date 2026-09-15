@@ -11,11 +11,16 @@ import {
   type IndexStatus,
 } from "@lorelum/backend/protocol";
 import type { StorageRoot } from "@lorelum/engine";
+import { InvalidProjectRootError } from "@lorelum/engine";
 
 import type { JsonSchema, JsonValue } from "../output/protocol";
 import type { CommandDefinition } from "../registry";
 import { CliError, frameworkErrorCodes } from "../runtime/errors";
 import { resolveInvocationStorageRoot } from "../store/storage-root";
+import {
+  resolveProjectInvocationOptions,
+  type ProjectContextResolver,
+} from "../project-context/service";
 
 export interface IndexCommandServices {
   /** Read-only status keeps its existing non-starting Backend path. */
@@ -23,6 +28,7 @@ export interface IndexCommandServices {
   /** Build/rebuild observe Backend-owned execution without waiting for model downloads. */
   readonly createRuntimeClient: () => Promise<IndexRuntimeClient>;
   readonly storageRoot: StorageRoot;
+  readonly resolveProjectContext?: ProjectContextResolver;
 }
 
 const indexStatusResultSchema: JsonSchema = {
@@ -30,9 +36,12 @@ const indexStatusResultSchema: JsonSchema = {
   additionalProperties: false,
   required: ["state", "profileId"],
   properties: {
-    state: { enum: ["missing", "ready", "stale", "incompatible"] },
+    state: { enum: ["missing", "indexing", "ready", "stale", "incompatible"] },
     profileId: { type: "string" },
     vectorCount: { type: "integer" },
+    operationId: { type: "string" },
+    indexedPracticeCount: { type: "integer" },
+    totalPracticeCount: { type: "integer" },
   },
 };
 
@@ -52,7 +61,12 @@ const indexOperationResultSchema: JsonSchema = {
       type: "object",
       additionalProperties: false,
       required: ["operationId", "state"],
-      properties: { operationId: { type: "string" }, state: { const: "building" } },
+      properties: {
+        operationId: { type: "string" },
+        state: { enum: ["waiting-for-source", "queued", "building"] },
+        indexedPracticeCount: { type: "integer" },
+        totalPracticeCount: { type: "integer" },
+      },
     },
     {
       type: "object",
@@ -71,7 +85,16 @@ function toStatus(value: IndexStatus): JsonValue {
   return {
     state: value.state,
     profileId: value.profileId,
-    ...(value.vectorCount === undefined ? {} : { vectorCount: value.vectorCount }),
+    ...("vectorCount" in value && value.vectorCount !== undefined
+      ? { vectorCount: value.vectorCount }
+      : {}),
+    ...("operationId" in value ? { operationId: value.operationId } : {}),
+    ...("indexedPracticeCount" in value && value.indexedPracticeCount !== undefined
+      ? { indexedPracticeCount: value.indexedPracticeCount }
+      : {}),
+    ...("totalPracticeCount" in value && value.totalPracticeCount !== undefined
+      ? { totalPracticeCount: value.totalPracticeCount }
+      : {}),
   };
 }
 
@@ -83,7 +106,22 @@ function toOperation(value: IndexOperation): JsonValue {
       preparationId: value.preparationId,
     };
   }
-  if (value.state === "building") return { operationId: value.operationId, state: value.state };
+  if (
+    value.state === "waiting-for-source" ||
+    value.state === "queued" ||
+    value.state === "building"
+  ) {
+    return {
+      operationId: value.operationId,
+      state: value.state,
+      ...(value.indexedPracticeCount === undefined
+        ? {}
+        : { indexedPracticeCount: value.indexedPracticeCount }),
+      ...(value.totalPracticeCount === undefined
+        ? {}
+        : { totalPracticeCount: value.totalPracticeCount }),
+    };
+  }
   if (value.state === "failed") {
     if (embeddingErrorCodes.includes(value.error as (typeof embeddingErrorCodes)[number])) {
       throw new EmbeddingError(value.error as (typeof embeddingErrorCodes)[number]);
@@ -127,9 +165,26 @@ function command(
           invocation.options.storeRoot,
           services.storageRoot,
         );
+        const projectOptions = resolveProjectInvocationOptions(invocation.options);
+        const project =
+          isOperation || services.resolveProjectContext === undefined
+            ? undefined
+            : await services.resolveProjectContext(root, projectOptions);
+        const indexOptions =
+          project === undefined
+            ? { cacheRoot: projectOptions.cacheRoot }
+            : {
+                projectContext: {
+                  projectRoot: project.projectRootPath,
+                  cacheRoot: projectOptions.cacheRoot,
+                },
+              };
         if (isStatus || isOperation) {
           const client = await services.createClient();
-          if (isStatus) return { data: toStatus(await client.indexStatus(root)) };
+          if (isStatus)
+            return {
+              data: toStatus(await client.indexStatus(root, indexOptions)),
+            };
           const operationId = invocation.positionals[0];
           if (operationId === undefined) throw new BackendError("backend.invalid-request");
           return { data: toOperation(await client.indexOperation(operationId)) };
@@ -137,7 +192,9 @@ function command(
         const client = await services.createRuntimeClient();
         return {
           data: toOperation(
-            name === "build" ? await client.build(root) : await client.rebuild(root),
+            name === "build"
+              ? await client.build(root, indexOptions)
+              : await client.rebuild(root, indexOptions),
           ),
         };
       } catch (error) {
@@ -151,6 +208,8 @@ function command(
         ) {
           throw storeCliError(error.code as (typeof indexOperationStoreErrorCodes)[number]);
         }
+        if (error instanceof InvalidProjectRootError)
+          throw new CliError("usage.invalid", error.message);
         throw error;
       }
     },

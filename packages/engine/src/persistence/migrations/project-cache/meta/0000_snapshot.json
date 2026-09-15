@@ -1,0 +1,161 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "2979f809-7ed4-4985-bd10-9664930e641e",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "project_context_artifact_indexes": {
+      "name": "project_context_artifact_indexes",
+      "columns": {
+        "artifact_id": {
+          "name": "artifact_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "relative_path": {
+          "name": "relative_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verified_at": {
+          "name": "verified_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "project_context_artifact_indexes_by_path": {
+          "name": "project_context_artifact_indexes_by_path",
+          "columns": ["relative_path"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "project_context_artifact_indexes_artifact_id_project_context_artifacts_artifact_id_fk": {
+          "name": "project_context_artifact_indexes_artifact_id_project_context_artifacts_artifact_id_fk",
+          "tableFrom": "project_context_artifact_indexes",
+          "tableTo": "project_context_artifacts",
+          "columnsFrom": ["artifact_id"],
+          "columnsTo": ["artifact_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "project_context_artifact_indexes_artifact_id_state_pk": {
+          "columns": ["artifact_id", "state"],
+          "name": "project_context_artifact_indexes_artifact_id_state_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "project_context_artifacts": {
+      "name": "project_context_artifacts",
+      "columns": {
+        "artifact_id": {
+          "name": "artifact_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "corpus_digest": {
+          "name": "corpus_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "document_count": {
+          "name": "document_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_accessed_at": {
+          "name": "last_accessed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "project_context_artifacts_by_access": {
+          "name": "project_context_artifacts_by_access",
+          "columns": ["last_accessed_at"],
+          "isUnique": false
+        },
+        "project_context_artifacts_by_kind": {
+          "name": "project_context_artifacts_by_kind",
+          "columns": ["kind", "profile_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

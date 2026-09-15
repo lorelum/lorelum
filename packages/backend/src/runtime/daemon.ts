@@ -18,6 +18,8 @@ import {
   createQueryEmbeddingAdapter,
 } from "../modules/index/embedding-adapter";
 import { createIndexOperationService } from "../modules/index/operation-service";
+import { ProjectSemanticRuntime } from "../modules/query/project-semantic-runtime";
+import { SemanticOperationJournal } from "../modules/query/project-operation-journal";
 import { isSameProcess } from "./process-identity";
 import { readRecord, removeRecord, writeRecord } from "./runtime-state";
 import { logEvent } from "./log";
@@ -90,6 +92,14 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     embedding: createQueryEmbeddingAdapter(embedding),
   });
   const indexOperations = createIndexOperationService(semanticIndex, embedding);
+  const projectSemanticRuntime = new ProjectSemanticRuntime(
+    store,
+    profile,
+    createEmbeddingAdapter(embedding),
+    createQueryEmbeddingAdapter(embedding),
+    embedding,
+    new SemanticOperationJournal(directory),
+  );
   const app = createBackendApp({
     backend,
     embedding,
@@ -97,6 +107,10 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     keywordQueryService: createQueryService({ store }),
     semanticQueryService: semanticQuery,
     indexOperations,
+    projectSemanticRuntime,
+    storeSemanticRuntime: projectSemanticRuntime,
+    projectSemanticIndexRuntime: projectSemanticRuntime,
+    storeSemanticIndexRuntime: projectSemanticRuntime,
   });
   const signalHandler = () => {
     void backend.stop();
@@ -109,6 +123,7 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     try {
       try {
         await indexOperations.waitForIdle(deadline);
+        await projectSemanticRuntime.waitForIdle(deadline);
       } catch (error) {
         // Stop the native runtime, then wait for Engine to clean staging and release its writer lock.
         await embedding.unload(Date.now() + settings.shutdownTimeoutMs).catch(() => {});

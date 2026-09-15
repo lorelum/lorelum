@@ -134,6 +134,7 @@ async function executeCommand(
     );
     return;
   }
+  assertApplicableFrameworkOptions(command, definition);
   for (const option of definition.options) {
     if (option.optionRequired && !hasParsedOption(command, option)) {
       throw invalidInvocationError();
@@ -151,6 +152,18 @@ async function executeCommand(
   }
   renderSuccess(output, responseCommand, result.data);
   if (exitCode === 1) lifecycle.setExitCode(1);
+}
+
+function assertApplicableFrameworkOptions(command: Command, definition: CommandDefinition): void {
+  for (const option of rootCommand.options) {
+    if (
+      option.scope !== "global" ||
+      command.optsWithGlobals()[commandOptionKey(option)] === undefined
+    ) {
+      continue;
+    }
+    if (!commandOptionAppliesTo(option, definition)) throw invalidInvocationError();
+  }
 }
 
 function commandForDefinition(

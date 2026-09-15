@@ -15,7 +15,13 @@ import {
   SemanticIndexNotReadyError,
   SemanticIndexQueryError,
 } from "./errors";
-import { openSemanticIndexReader, type SemanticCandidate } from "./index/reader";
+import {
+  openSemanticIndexReader,
+  openSemanticIndexReaderAt,
+  type SemanticCandidate,
+} from "./index/reader";
+import type { SemanticIndexPaths } from "./index/paths";
+import type { SemanticIndexDatabaseDefinition } from "./index/database";
 import type { EmbeddingProfile } from "./profile";
 
 const MAX_QUERY_RETRIES = 3;
@@ -52,6 +58,8 @@ export interface SemanticQueryDependencies {
   };
   readonly profile: EmbeddingProfile;
   readonly embedding: EmbeddingPort;
+  readonly paths?: (root: StorageRoot, profileId: string) => SemanticIndexPaths;
+  readonly definition?: SemanticIndexDatabaseDefinition;
 }
 
 interface QueryCoverage {
@@ -148,6 +156,8 @@ export function createSemanticQueryService(
   dependencies: SemanticQueryDependencies,
 ): SemanticQueryService {
   const { store, profile, embedding } = dependencies;
+  const pathsFor = dependencies.paths;
+  const definition = dependencies.definition;
 
   return Object.freeze({
     async query(root: StorageRoot, request: QueryRequest): Promise<SemanticQueryResult> {
@@ -156,7 +166,14 @@ export function createSemanticQueryService(
         let reader: Awaited<ReturnType<typeof openSemanticIndexReader>> | undefined;
         try {
           // eslint-disable-next-line no-await-in-loop -- each retry reopens the active snapshot.
-          reader = await openSemanticIndexReader(root.rootPath, profile);
+          reader =
+            pathsFor === undefined
+              ? await openSemanticIndexReader(root.rootPath, profile)
+              : await openSemanticIndexReaderAt(
+                  pathsFor(root, profile.profileId),
+                  profile,
+                  definition,
+                );
           // eslint-disable-next-line no-await-in-loop -- coverage is bound to this retry's Store view.
           const current = await store.readSnapshotIdentity(root);
           // eslint-disable-next-line no-await-in-loop -- delta history is part of the same retry.

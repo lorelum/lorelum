@@ -2,7 +2,10 @@ import { count, eq, inArray } from "drizzle-orm";
 
 import type { SqliteConnection } from "../../../persistence/database/connection";
 import { migrateSqlite } from "../../../persistence/database/migrator";
-import { semanticIndexDatabaseDefinition } from "../../../persistence/definitions";
+import {
+  semanticIndexDatabaseDefinition,
+  type SqliteDatabaseDefinition,
+} from "../../../persistence/definitions";
 import {
   semanticIndexMetadata,
   semanticVectors,
@@ -12,6 +15,9 @@ import type { SemanticDocument } from "../projection";
 import type { SemanticIndexMetadata } from "./metadata";
 
 export type SemanticIndexConnection = SqliteConnection<
+  typeof semanticIndexDatabaseDefinition.schema
+>;
+export type SemanticIndexDatabaseDefinition = SqliteDatabaseDefinition<
   typeof semanticIndexDatabaseDefinition.schema
 >;
 
@@ -194,12 +200,13 @@ export function initializeSemanticIndex(
   metadata: SemanticIndexMetadata,
   documents: readonly SemanticDocument[],
   vectors: readonly Float32Array[],
+  definition: SemanticIndexDatabaseDefinition = semanticIndexDatabaseDefinition,
 ): void {
   if (documents.length !== vectors.length || metadata.vectorCount !== documents.length) {
     throw new SemanticIndexError("Semantic index document and vector counts differ");
   }
   try {
-    migrateSqlite(connection, semanticIndexDatabaseDefinition);
+    migrateSqlite(connection, definition);
     const rows = vectorRows(documents, vectors, metadata.dimensions);
     connection.orm.transaction(() => {
       insertMetadata(connection, metadata);

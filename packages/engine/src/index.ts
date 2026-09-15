@@ -10,3 +10,4 @@ export const PACKAGE_NAME = "@lorelum/engine";
 export * from "./local-store";
 export * from "./query";
 export * from "./list";
+export * from "./project-context";

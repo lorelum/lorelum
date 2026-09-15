@@ -85,7 +85,7 @@ test("caller deadline stops startup wait without stopping shared startup", async
     },
     start: () => starting,
   });
-  await expect(coordinator.connect({ deadline: Date.now() + 1 })).rejects.toMatchObject({
+  await expect(coordinator.connect({ deadline: Date.now() + 20 })).rejects.toMatchObject({
     code: "backend.deadline-exceeded",
   });
   release();
@@ -106,7 +106,7 @@ test("caller deadline also covers the post-start connection handshake", async ()
     },
     start: async () => undefined,
   });
-  await expect(coordinator.connect({ deadline: Date.now() + 1 })).rejects.toMatchObject({
+  await expect(coordinator.connect({ deadline: Date.now() + 20 })).rejects.toMatchObject({
     code: "backend.deadline-exceeded",
   });
   release();
@@ -187,4 +187,26 @@ test("index build keeps an accepted preparing operation when model observation r
     state: "preparing",
     preparationId,
   });
+});
+
+test("index build forwards a Store-only cache root to the Backend operation", async () => {
+  let received: unknown;
+  const connected = client({
+    buildIndex: async (_root, options) => {
+      received = options;
+      return {
+        operationId: "0f8fad5b-d9cb-469f-a165-70867728950e",
+        state: "ready",
+        index: { state: "ready", profileId: "a".repeat(64), vectorCount: 1 },
+      };
+    },
+  });
+  const coordinator = createBackendRuntimeCoordinator({
+    connect: async () => connected,
+    start: async () => {
+      throw new Error("must not start");
+    },
+  });
+  await createIndexRuntimeClient(coordinator).build(root, { cacheRoot: "/tmp/query-cache" });
+  expect(received).toMatchObject({ cacheRoot: "/tmp/query-cache" });
 });

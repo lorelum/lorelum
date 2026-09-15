@@ -1,11 +1,11 @@
 ---
 title: Index 命令
-description: 查看、构建或重建 Store 的 semantic index。
+description: 查看、构建或重建当前 query context 的 semantic artifact。
 ---
 
-Pack 安装通常会启动所需的 index 工作。这组命令用于查看进度或恢复已有 Store。
+query 会自动启动所需的 index 工作；这组命令用于查看、显式构建、强制重建或恢复当前 context。
 
-所有命令支持全局选项 `--store-root <path>` 与 `--log-level <level>`。选中的 Store 持有 derived index；Backend 和模型设置仍属于用户级。
+所有命令支持 `--store-root <path>`、`--cache-root <path>` 与 `--log-level <level>`。Store 只提供基础语料，derived artifact 位于用户级 cache；Backend 和模型设置仍属于用户级。目录中有 `.lorelum/` 时默认使用 ProjectContext，`--no-project` 可只用 Store。
 
 ```sh
 lore index status
@@ -16,7 +16,7 @@ lore index operation <operation-id>
 
 ## 构建与重建
 
-`build` 复用兼容的 index 数据，更新变更过的 Practice，必要时启动 Backend 并准备模型。如果 index 已覆盖 Store，可以直接返回。
+`build` 复用兼容 artifact 与 `(profileId, projectionDigest)` vector，必要时启动 Backend 并准备模型。如果 complete artifact 已覆盖 current context，可以直接返回。相同最终语料会 join 同一 operation；不同 target 排队而不是返回 `backend.busy`。
 
 `rebuild` 完整构建替换版本。Lorelum 报告 index 不兼容时使用它。
 
@@ -24,14 +24,14 @@ lore index operation <operation-id>
 
 ## 状态
 
-`status` 查看 Store 的 index，不启动 Backend。返回 `state`（`missing`、`ready`、`stale` 或 `incompatible`）、`profileId`，就绪时还包含 `vectorCount`。缺失时使用 `build`，不兼容时使用 `rebuild`。这些命令与 query 保持相同的 `--store-root`。
+`status` 查看 current context 的 artifact/progress，不启动 Backend。返回 `state`（`missing`、`indexing`、`ready`、`stale` 或 `incompatible`）、`profileId`，`indexing` 还包含 operation ID 与已完成/总 Practice counts，就绪时包含 `vectorCount`。这些命令与 query 保持相同的 `--store-root` 和 `--cache-root`。
 
 `status` 和 `operation` 需要 Backend 已运行，本身不会启动服务。若服务已停止，先运行 `lore backend start` 再检查。
 
 ## Operation 与错误
 
-同一时刻只构建一个 Store。遇到 `backend.busy`，等待当前工作完成。
+同一目录连续编辑只追赶最新 target；相同 artifact 会 join，不同 artifact 会 `queued`。CLI 断开不会取消已接受的 operation。
 
-operation ID 属于当前 daemon。重启后返回 `backend.operation-expired` 时，先查看 `index status`，再按需构建。
+daemon restart 后未完成 operation 保留可验证 progress 并进入 `waiting-for-source`。下一次在同一 Store 或同一项目目录执行 query/build/rebuild 时会安全 reattach；journal 不保存项目绝对路径或 Practice 正文。
 
 状态查询与已接受的构建退出 `0`，确认失败退出 `2`。任务被接受并不表示已经完成。当前 schema 见 `lore describe index.build`。

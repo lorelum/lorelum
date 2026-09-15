@@ -3,7 +3,12 @@ import { expect, test } from "bun:test";
 import {
   keywordIndexDatabaseDefinition,
   localStoreDatabaseDefinition,
+  projectCacheDatabaseDefinition,
+  projectKeywordIndexDatabaseDefinition,
+  projectSemanticIndexDatabaseDefinition,
+  semanticProgressIndexDatabaseDefinition,
   semanticIndexDatabaseDefinition,
+  semanticVectorCacheDatabaseDefinition,
 } from "../definitions";
 
 import { openSqliteConnection } from "./connection";
@@ -70,6 +75,80 @@ test("Drizzle semantic init creates the metadata and vector tables", () => {
         )
         .all(),
     ).toEqual([{ name: "semantic_index_metadata" }, { name: "semantic_vectors" }]);
+  } finally {
+    connection.close();
+  }
+});
+
+test("ProjectContext keyword migrations include the owned FTS5 virtual table", () => {
+  const connection = openSqliteConnection(":memory:", projectKeywordIndexDatabaseDefinition.schema);
+  try {
+    migrateSqlite(connection, projectKeywordIndexDatabaseDefinition);
+    migrateSqlite(connection, projectKeywordIndexDatabaseDefinition);
+    expect(
+      connection.client
+        .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'keyword_documents'")
+        .get(),
+    ).toEqual({ name: "keyword_documents" });
+  } finally {
+    connection.close();
+  }
+});
+
+test.each([projectSemanticIndexDatabaseDefinition, semanticProgressIndexDatabaseDefinition])(
+  "ProjectContext semantic migration definitions initialize idempotently",
+  (definition) => {
+    const connection = openSqliteConnection(":memory:", definition.schema);
+    try {
+      migrateSqlite(connection, definition);
+      migrateSqlite(connection, definition);
+      expect(
+        connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get() as {
+          readonly count: number;
+        },
+      ).toEqual({ count: 1 });
+    } finally {
+      connection.close();
+    }
+  },
+);
+
+test("Drizzle project cache init is versioned and idempotent", () => {
+  const connection = openSqliteConnection(":memory:", projectCacheDatabaseDefinition.schema);
+  try {
+    migrateSqlite(connection, projectCacheDatabaseDefinition);
+    migrateSqlite(connection, projectCacheDatabaseDefinition);
+    expect(
+      connection.client
+        .query(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('project_context_artifacts', 'project_context_artifact_indexes') ORDER BY name",
+        )
+        .all(),
+    ).toEqual([
+      { name: "project_context_artifact_indexes" },
+      { name: "project_context_artifacts" },
+    ]);
+    expect(
+      connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get(),
+    ).toEqual({ count: 1 });
+  } finally {
+    connection.close();
+  }
+});
+
+test("Drizzle shared-vector cache init is versioned and idempotent", () => {
+  const connection = openSqliteConnection(":memory:", semanticVectorCacheDatabaseDefinition.schema);
+  try {
+    migrateSqlite(connection, semanticVectorCacheDatabaseDefinition);
+    migrateSqlite(connection, semanticVectorCacheDatabaseDefinition);
+    expect(
+      connection.client
+        .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'embedding_vectors'")
+        .all(),
+    ).toEqual([{ name: "embedding_vectors" }]);
+    expect(
+      connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get(),
+    ).toEqual({ count: 1 });
   } finally {
     connection.close();
   }

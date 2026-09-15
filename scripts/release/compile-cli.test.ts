@@ -105,7 +105,7 @@ test("release compiler replaces the embedding catalog's trusted manifest", async
   }
 });
 
-test("release compiler embeds Drizzle migrations for cold LocalStore initialization", async () => {
+test("release compiler embeds ProjectContext cache migrations for cold initialization", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lore-release-migrations-"));
   try {
     const manifestArtifact = join(directory, "expected-manifest.json");
@@ -116,10 +116,10 @@ test("release compiler embeds Drizzle migrations for cold LocalStore initializat
       entrypoint,
       [
         'import { Database } from "bun:sqlite";',
-        `import { createSqliteConnection, localStoreDatabaseDefinition, migrateSqlite } from ${JSON.stringify(join(repositoryRoot, "packages/engine/src/persistence/index.ts"))};`,
-        'const connection = createSqliteConnection(new Database(":memory:"), localStoreDatabaseDefinition.schema);',
-        "migrateSqlite(connection, localStoreDatabaseDefinition);",
-        'console.log(connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get().count);',
+        `import { createSqliteConnection, projectKeywordIndexDatabaseDefinition, migrateSqlite } from ${JSON.stringify(join(repositoryRoot, "packages/engine/src/persistence/index.ts"))};`,
+        'const connection = createSqliteConnection(new Database(":memory:"), projectKeywordIndexDatabaseDefinition.schema);',
+        "migrateSqlite(connection, projectKeywordIndexDatabaseDefinition);",
+        "console.log(connection.client.query(\"SELECT name FROM sqlite_master WHERE name = 'keyword_documents'\").get().name);",
         "connection.close();",
       ].join("\n"),
     );
@@ -140,7 +140,7 @@ test("release compiler embeds Drizzle migrations for cold LocalStore initializat
     ]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
-    expect(stdout.trim()).toBe("1");
+    expect(stdout.trim()).toBe("keyword_documents");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

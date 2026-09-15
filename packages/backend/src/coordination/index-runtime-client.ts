@@ -1,7 +1,7 @@
 /* eslint-disable no-await-in-loop -- A single operation is observed at a bounded cadence. */
 import type { StorageRoot } from "@lorelum/engine";
 
-import type { BackendClient } from "../client/client";
+import type { BackendClient, BackendIndexRequestOptions } from "../client/client";
 import type { IndexOperation } from "../modules/index/model";
 import { BackendError } from "../protocol/errors";
 import type { BackendRuntimeCoordinator, RuntimeWaitOptions } from "./coordinator";
@@ -9,8 +9,14 @@ import type { BackendRuntimeCoordinator, RuntimeWaitOptions } from "./coordinato
 const OBSERVATION_MS = 1_000;
 
 export interface IndexRuntimeClient {
-  build(root: StorageRoot, options?: RuntimeWaitOptions): Promise<IndexOperation>;
-  rebuild(root: StorageRoot, options?: RuntimeWaitOptions): Promise<IndexOperation>;
+  build(
+    root: StorageRoot,
+    options?: RuntimeWaitOptions & Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot">,
+  ): Promise<IndexOperation>;
+  rebuild(
+    root: StorageRoot,
+    options?: RuntimeWaitOptions & Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot">,
+  ): Promise<IndexOperation>;
 }
 
 type IndexOperationKind = "build" | "rebuild";
@@ -49,7 +55,12 @@ export function createIndexRuntimeClient(
     const deadline = Math.min(options.deadline ?? Infinity, Date.now() + OBSERVATION_MS);
     let current = initial;
     options.onProgress?.("index: building");
-    while (current.state === "building" || current.state === "preparing") {
+    while (
+      current.state === "waiting-for-source" ||
+      current.state === "queued" ||
+      current.state === "building" ||
+      current.state === "preparing"
+    ) {
       if (Date.now() >= deadline) return current;
       if (current.state === "preparing") {
         let preparation;
@@ -88,20 +99,42 @@ export function createIndexRuntimeClient(
   async function run(
     kind: IndexOperationKind,
     root: StorageRoot,
-    options: RuntimeWaitOptions,
+    options: RuntimeWaitOptions & Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot">,
   ): Promise<IndexOperation> {
     const client = await coordinator.connect(options);
     const initial =
       kind === "build"
-        ? await client.buildIndex(root, { signal: options.signal, deadline: options.deadline })
-        : await client.rebuildIndex(root, { signal: options.signal, deadline: options.deadline });
+        ? await client.buildIndex(root, {
+            signal: options.signal,
+            deadline: options.deadline,
+            ...(options.projectContext === undefined
+              ? options.cacheRoot === undefined
+                ? {}
+                : { cacheRoot: options.cacheRoot }
+              : { projectContext: options.projectContext }),
+          })
+        : await client.rebuildIndex(root, {
+            signal: options.signal,
+            deadline: options.deadline,
+            ...(options.projectContext === undefined
+              ? options.cacheRoot === undefined
+                ? {}
+                : { cacheRoot: options.cacheRoot }
+              : { projectContext: options.projectContext }),
+          });
     return observe(client, initial, options);
   }
 
   return Object.freeze({
-    build: (root: StorageRoot, options: RuntimeWaitOptions = defaults) =>
-      run("build", root, options),
-    rebuild: (root: StorageRoot, options: RuntimeWaitOptions = defaults) =>
-      run("rebuild", root, options),
+    build: (
+      root: StorageRoot,
+      options: RuntimeWaitOptions &
+        Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot"> = defaults,
+    ) => run("build", root, options),
+    rebuild: (
+      root: StorageRoot,
+      options: RuntimeWaitOptions &
+        Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot"> = defaults,
+    ) => run("rebuild", root, options),
   });
 }

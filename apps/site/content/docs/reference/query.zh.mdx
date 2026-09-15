@@ -3,13 +3,13 @@ title: query
 description: 为 AI coding task 和 moment 找到合适的已安装 Practice。
 ---
 
-`query` 搜索选中的本地 Store，返回按相关性排序的 Practice 摘要。默认使用 semantic relevance；`keyword` 是明确指定的离线路径。
+`query` 搜索当前 query context，返回按相关性排序的 Practice 摘要。默认使用 semantic relevance；`keyword` 是明确指定的离线路径。当前目录或父目录有 `.lorelum/` 时，context 会按父到子继承并合并；`--no-project` 强制只使用 Store。
 
 ```sh
-lore query <text> [--mode semantic|keyword] [--top-k <n>] [--store-root <path>]
+lore query <text> [--mode semantic|keyword] [--top-k <n>] [--store-root <path>] [--cache-root <path>]
 ```
 
-`text` 必填，去除首尾空白后不能为空，最多 4,096 个 Unicode 码点。`--top-k` 接受 1–50 的整数，默认 5。`--mode` 可选 `semantic`（默认）或 `keyword`。全局 `--store-root` 选择 LocalStore，`--log-level` 控制 stderr 日志级别。
+`text` 必填，去除首尾空白后不能为空，最多 4,096 个 Unicode 码点。`--top-k` 接受 1–50 的整数，默认 5。`--mode` 可选 `semantic`（默认）或 `keyword`。`--store-root` 选择 Store 基础语料，`--cache-root` 选择用户级派生 cache（默认 `~/.lorelum/cache`），不会写入项目目录；`--max-wait-ms` 与 `--min-coverage-percent` 覆盖用户级等待/partial 策略，`--require-complete` 只接受完整结果。
 
 ```sh
 lore query "我将为一个小型 UI 改动定义范围和验证方式"
@@ -17,14 +17,14 @@ lore query "授权边界" --top-k 10
 lore query "token session cookie" --mode keyword
 ```
 
-成功结果包含 `mode` 和 `results`。每项包含 `practiceId`、`title`、`stage`、`techStack`、`appliesWhen`、`severity`、`contentDigest`；将该 `practiceId` 传给 [`get`](./get)。Semantic 结果还包含 `profileId` 与 `coverage`：`complete` 表示当前所有 Practice 都已建立 index；`partial` 表示变更过的 Practice 暂时排除，结果仍可用但可能缺少最新内容。运行 `lore index build` 可刷新 coverage。
+首次 semantic query 会自动提交或加入当前语料的后台 index operation，而不是要求先运行 `lore index build`。成功结果包含 `mode` 和 `results`。每项包含 `practiceId`、`title`、`stage`、`techStack`、`appliesWhen`、`severity`、`contentDigest`；将该 `practiceId` 传给 [`get`](./get)。Semantic 结果还包含 `profileId` 与 `coverage`：`complete` 表示完整 artifact 与当前 Practice 完全一致；`partial` 只检索已验证的 current progress rows，并报告 `indexedPracticeCount`、`totalPracticeCount` 和 `operationId`。变更、删除、shadowed 或 ignored 的 Practice 不会从旧 artifact 泄漏。
 
-模型仍在准备时，data 为 `{ "state": "preparing", "preparationId": "...", "message": "..." }`，进程退出码为 `1`；查看 `lore model status`，用 `lore model load` 等待后重试。query 不会构建缺失的 index。
+模型仍在准备时，data 为 `{ "state": "preparing", "preparationId": "...", "message": "..." }`，进程退出码为 `1`；查看 `lore model status`，用 `lore model load` 等待后重试。若当前 progress 尚未达到所需覆盖率，data 为 `{ "state": "indexing", "operationId": "...", "indexedPracticeCount": 50, "totalPracticeCount": 100 }`，同样退出 `1`。等待超时不会取消 operation。
 
 | 错误 | 处理 |
 | --- | --- |
-| `semantic.index-not-ready` | 运行 `lore index build`。 |
-| `semantic.index-incompatible` | 运行 `lore index rebuild`。 |
+| `semantic.index-not-ready` | 正常 CLI 不会返回它；query 会自动创建或加入 index。 |
+| `semantic.index-incompatible` | 查看 `lore index status`；必要时运行 `lore index rebuild`。 |
 | `semantic.embedding-failed` 或 `embedding.*` | 查看 `lore model status`，再重试 `lore model load`。 |
 | `query.unavailable` / `query.failed` | 检查 keyword index 与 Store 状态。 |
 | `store.busy` / `store.recovery-required` | 等待 Store 操作完成或按文档执行恢复。 |

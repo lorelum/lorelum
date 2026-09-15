@@ -13,7 +13,7 @@ import type { OutputWriter } from "../output/protocol";
 export interface QueryPreparingResult {
   readonly state: "preparing";
   readonly preparationId: string;
-  readonly message: string;
+  readonly message?: string;
 }
 
 export type SemanticRuntimeResult = BackendQueryResult | QueryPreparingResult;
@@ -29,12 +29,16 @@ export async function createProcessSemanticRuntimeClient(writer: OutputWriter = 
     start: async () => (await createProcessBackendSupervisor()).start(),
   });
   const onProgress = createRuntimeProgressReporter(writer);
-  const wait: RuntimeWaitOptions = { onProgress };
   return {
     async query(root: StorageRoot, request: BackendQueryRequest) {
+      const deadline = request.maxWaitMs === undefined ? undefined : Date.now() + request.maxWaitMs;
+      const wait: RuntimeWaitOptions = {
+        onProgress,
+        ...(deadline === undefined ? {} : { deadline }),
+      };
       const client = await coordinator.connect(wait);
       try {
-        return await client.query(root, { ...request, mode: "semantic" });
+        return await client.query(root, { ...request, mode: "semantic" }, { deadline });
       } catch (error) {
         if (!(error instanceof EmbeddingError) || error.code !== "embedding.not-loaded")
           throw error;
@@ -43,7 +47,7 @@ export async function createProcessSemanticRuntimeClient(writer: OutputWriter = 
       const preparation = await coordinator.beginModelPreparation(client, wait);
       const observed = await coordinator.observeModelPreparation(client, preparation, wait, 1_000);
       if (observed.status.state === "ready") {
-        return client.query(root, { ...request, mode: "semantic" });
+        return client.query(root, { ...request, mode: "semantic" }, { deadline });
       }
       if (observed.status.state === "loading") {
         return {

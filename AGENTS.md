@@ -32,6 +32,13 @@ Current integrations are CLI-first: use the released CLI together with host-nati
 
 For visual or component work, read [DESIGN.md](./DESIGN.md) first. Reusable Web components and production tokens belong in `packages/ui`; routes, copy, data, and page-specific composition belong to the consuming application. Run `bun run design:lint` after changing `DESIGN.md`.
 
+## User experience and failure handling
+
+- Treat user experience as a first-order product correctness requirement. For every feature and interaction, make the common, safe workflow complete with sensible defaults, clear precedence, and minimal manual setup or cleanup.
+- Do not make users resolve internal ambiguity, stale derived state, transient failures, or recoverable conflicts by default. Before exposing an error, prefer an explicit product rule, safe automatic recovery, idempotent retry, background continuation, or a user-visible choice that preserves their work.
+- An error is appropriate only for invalid input, an unsafe action, a genuinely ambiguous intent with no safe default, or a failure that cannot be recovered automatically. It must preserve canonical user data, avoid partial or hidden leftovers, explain the outcome plainly, and give one actionable next step.
+- Never silently guess when doing so could lose data, weaken security, or change a public contract. In those cases, surface the decision early and make the trade-off understandable.
+
 ## Global commands and verification
 
 - Runtime: Bun ≥ 1.1. Install dependencies with `bun install`.

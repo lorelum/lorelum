@@ -17,6 +17,7 @@ export const cliErrorCodes = Object.freeze({
   localizationPracticeNotFound: "localization.practice-not-found",
   queryUnavailable: "query.unavailable",
   queryFailed: "query.failed",
+  queryConfigInvalid: "query.config-invalid",
   usageInvalid: "usage.invalid",
 });
 

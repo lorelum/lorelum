@@ -108,6 +108,41 @@ test("validate reports stale localization as a completed finding", async () => {
   }
 });
 
+test("validate turns recoverable ProjectContext warnings into strict diagnostics", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lorelum-project-validate-"));
+  try {
+    const pack = join(root, ".lorelum", "packs", "platform");
+    await mkdir(join(pack, "practices"), { recursive: true });
+    await writeFile(join(root, ".lorelum", "config.yaml"), "base: none\n");
+    await writeFile(join(pack, "pack.yaml"), "name: platform\nversion: 1.0.0\n");
+    await writeFile(
+      join(pack, "practices", "valid.md"),
+      "---\nid: platform.valid\ntitle: Valid\nstage: implementation\ntech_stack: [typescript]\napplies_when: When checking project diagnostics.\n---\nKeep the valid neighbor.\n",
+    );
+    await writeFile(
+      join(pack, "practices", "broken.md"),
+      "---\nid: platform.broken\nstage: implementation\n---\nThis Practice is deliberately malformed.\n",
+    );
+
+    const output = new MemoryWriter();
+    expect(await run(["validate", root], { registry, stdout: output })).toBe(1);
+    const response = JSON.parse(output.value);
+    expect(response).toMatchObject({
+      command: "validate",
+      ok: true,
+      data: {
+        project: {
+          valid: false,
+          state: "degraded",
+          diagnostics: [expect.objectContaining({ code: "project.practice.invalid" })],
+        },
+      },
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("validate reports resource targets structurally and never executes Pack scripts", async () => {
   const root = await fixture();
   try {
