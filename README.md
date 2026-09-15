@@ -166,6 +166,7 @@ See [Agent integration](https://lorelum.com/en/docs/agent-setup) and [Codex setu
 | --- | --- | --- |
 | `agentic-coding` | `0.3.1` | Planning, implementation, verification, recovery, and delivery decisions |
 | `pack-creator` | `0.1.0` | Writing, reviewing, and publishing Practices and Packs |
+| `react-web-craft` | `0.1.0` | React web application design and performance: component state, async data flow, loading, rendering, and composition |
 
 Browse what you have installed:
 

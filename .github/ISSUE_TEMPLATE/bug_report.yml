@@ -23,7 +23,7 @@ body:
       label: Steps to reproduce
       description: Minimal reproducible steps. The more precise, the faster we can fix it.
       placeholder: |
-        1. `lore install react-fullstack`
+        1. `lore pack install agentic-coding`
         2. `lore query "..."`
         3. See error
     validations:
