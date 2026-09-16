@@ -18,7 +18,7 @@
 ## 4. descriptor git 化
 
 - [x] 4.1 git 传输 descriptor 读取：shallow fetch 后 `git show <rev>:.lorelum/registry.yaml`，复用沙箱环境与既有 git 超时；256KB 上限、schema 校验、错误分类与 raw 路径一致
-- [x] 4.2 `loadRegistry` 形态分流：legacy 输入保持现有 raw 路径（代码不共享），SSH 输入走 git 路径；fixture 端到端测试（install → list → get）覆盖 git 路径
+- [x] 4.2 `loadRegistry` 形态分流：legacy 输入保持现有 raw 路径（代码不共享），SSH 输入走 git 路径；fixture 覆盖 descriptor git 读取与 install 命令的 gitUrl 传递，install → list → get 全回路归 8.2 真实证据
 
 ## 5. 错误与非交互
 
@@ -38,4 +38,5 @@
 
 - [x] 8.1 全量验证序列原始输出留档：`bun test`、`bun run lint`、`bun run typecheck`、`bun run fmt:check`
 - [ ] 8.2 真实 SSH 强证据：host key 已核验信任、专用密钥已生成；待公钥上传 GitHub（需 admin:public_key scope 或网页）后执行 install → list → get 正向回路，与 5.2 两个真实态一并留档
-- [ ] 8.3 独立 CR：以零上下文对抗性 review 复现声明并审查 diff，findings 清零后本变更标记实现完成
+- [x] 8.3 独立 CR：以零上下文对抗性 review 复现声明并审查 diff，findings 清零后本变更标记实现完成
+  （2026-09-16 L2 CR verdict READY，无 blocker/major；4 个 minor 已修复：mkdtemp 失败映射、ssh:// dot-segment 归一、scp host 大小写派发、legacy 不回退测试锚定；2 个 nit 评估为安全失败行为并记录于 PR）

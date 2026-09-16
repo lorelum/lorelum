@@ -111,6 +111,30 @@ test("rejects credentialed locator forms outright", () => {
   );
 });
 
+test("never retries legacy locators over git transport when raw fails", async () => {
+  await expect(
+    loadRegistry(
+      "acme/team-packs",
+      responseFetch(new Response("missing", { status: 404 })),
+      gitMustNotRun(),
+    ),
+  ).rejects.toMatchObject({ code: "registry.unavailable", message: RAW_UNAVAILABLE_MESSAGE });
+});
+
+test("normalizes ssh:// dot segments consistently between slug and git URL", () => {
+  const resolved = resolveRegistryRepository("ssh://git@github.com/acme/../evil/repo.git");
+  expect(resolved.slug).toBe("evil/repo");
+  expect(resolved.gitUrl).toBe("ssh://git@github.com/evil/repo.git");
+  expect(resolved.transport).toBe("git");
+});
+
+test("accepts case-insensitive github.com hosts in scp-style locators", () => {
+  const resolved = resolveRegistryRepository("git@GitHub.com:acme/team-packs.git");
+  expect(resolved.slug).toBe("acme/team-packs");
+  expect(resolved.gitUrl).toBe("git@GitHub.com:acme/team-packs.git");
+  expect(resolved.transport).toBe("git");
+});
+
 test("distinguishes invalid content from an unavailable Registry", async () => {
   await expect(
     loadRegistry(undefined, responseFetch(new Response("schema_version: 2", { status: 200 }))),

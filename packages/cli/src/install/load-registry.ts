@@ -10,7 +10,7 @@ import { runGit, type MaterializeGitRunner } from "./materialize-source.js";
 const OFFICIAL_REGISTRY_REPOSITORY = "lorelum/lorelum-packs";
 const MAX_REGISTRY_BYTES = 256 * 1024;
 const SLUG_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/;
-const SSH_SCP_PATTERN = /^git@github\.com:([A-Za-z0-9._-]{1,100})\/([A-Za-z0-9._-]{1,100}?)(?:\.git)?$/;
+const SSH_SCP_PATTERN = /^git@github\.com:([A-Za-z0-9._-]{1,100})\/([A-Za-z0-9._-]{1,100}?)(?:\.git)?$/i;
 const SSH_PATH_PATTERN = /^\/([A-Za-z0-9._-]{1,100})\/([A-Za-z0-9._-]{1,100}?)(?:\.git)?$/;
 const RAW_UNAVAILABLE_MESSAGE = "The Pack Registry is unavailable.";
 const GIT_UNAVAILABLE_MESSAGE =
@@ -99,7 +99,7 @@ export function resolveRegistryRepository(locator?: string): RegistryRepository 
       transport: "raw",
     });
   }
-  if (candidate.startsWith("git@github.com:")) {
+  if (candidate.toLowerCase().startsWith("git@github.com:")) {
     const match = SSH_SCP_PATTERN.exec(candidate);
     if (match === null) {
       throw invalidRegistry("The Registry repository is not a valid GitHub repository.");
@@ -124,7 +124,9 @@ export function resolveRegistryRepository(locator?: string): RegistryRepository 
     ) {
       throw invalidRegistry("The Registry repository is not a valid GitHub repository.");
     }
-    return gitRegistryRepository(candidate, slugFromSshPath(url.pathname));
+    // Derive the clone URL from the normalized href so the reported slug and
+    // the repository git actually clones can never diverge (dot segments).
+    return gitRegistryRepository(url.href, slugFromSshPath(url.pathname));
   }
   if (!SLUG_PATTERN.test(candidate)) {
     throw invalidRegistry("The Registry repository must be a GitHub owner/repository name.");
@@ -161,7 +163,12 @@ async function readGitDescriptor(
   gitUrl: string,
   git: MaterializeGitRunner,
 ): Promise<string> {
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "lorelum-registry-"));
+  let temporaryRoot: string;
+  try {
+    temporaryRoot = await mkdtemp(join(tmpdir(), "lorelum-registry-"));
+  } catch {
+    throw unavailable(GIT_UNAVAILABLE_MESSAGE);
+  }
   try {
     const repositoryRoot = join(temporaryRoot, "repository");
     await git([
