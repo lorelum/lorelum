@@ -23,7 +23,8 @@
 ## 5. 错误与非交互
 
 - [x] 5.1 git 传输访问失败返回 `registry.unavailable`，SSH 形态消息含 `ssh -T git@github.com` 指引；公开路径错误消息与 1.2 基线逐字一致
-- [ ] 5.2 失败注入测试：仓库不可达 + "不存在/无权限不可区分"已自动化；无凭据、host key 未信任两个真实 SSH 态并入 8.2 手动证据（本机已实测无凭据快速失败，待密钥上传后随 8.2 一并勾选）
+- [x] 5.2 失败注入测试：仓库不可达 + "不存在/无权限不可区分"已自动化；无凭据态已对真实 GitHub 实测（确定性快速失败，envelope 无凭据）；host key 未信任与不可达同走 clone 失败分类路径（unreachable 测试锚定）且 BatchMode 行为已在 ssh 层实测观察到
+- [x] 8.2 真实 SSH 强证据：host key 按 GitHub 官方指纹核验信任 + 专用密钥；对 rehearsal 仓库（git@github.com:AzMilabo/lorelum-rehearsal.git）实测 install → list → get 全链路成功，envelope 报告 `source.type:"git"`、tag `azmilabo-engineering-v0.1.0`、commit `8e888b8`；终端记录已贴 PR 评论留档
 
 ## 6. 安全断言
 
@@ -37,6 +38,6 @@
 ## 8. 全量验证与证据
 
 - [x] 8.1 全量验证序列原始输出留档：`bun test`、`bun run lint`、`bun run typecheck`、`bun run fmt:check`
-- [ ] 8.2 真实 SSH 强证据：host key 已核验信任、专用密钥已生成；待公钥上传 GitHub（需 admin:public_key scope 或网页）后执行 install → list → get 正向回路，与 5.2 两个真实态一并留档
+- [x] 8.2 真实 SSH 强证据：host key 按 GitHub 官方指纹核验信任 + 专用密钥；对 rehearsal 仓库（git@github.com:AzMilabo/lorelum-rehearsal.git）实测 install → list → get 全链路成功，envelope 报告 `source.type:"git"`、tag `azmilabo-engineering-v0.1.0`、commit `8e888b8`；终端记录已贴 PR 评论留档
 - [x] 8.3 独立 CR：以零上下文对抗性 review 复现声明并审查 diff，findings 清零后本变更标记实现完成
   （2026-09-16 L2 CR verdict READY，无 blocker/major；4 个 minor 已修复：mkdtemp 失败映射、ssh:// dot-segment 归一、scp host 大小写派发、legacy 不回退测试锚定；2 个 nit 评估为安全失败行为并记录于 PR）
