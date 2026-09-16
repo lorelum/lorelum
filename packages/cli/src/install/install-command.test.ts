@@ -451,3 +451,31 @@ test.each([
     await rm(directory, { force: true, recursive: true });
   }
 });
+
+test("hands the SSH git URL to materialization and keeps credentials out of output", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "lorelum-install-command-"));
+  try {
+    const storageRoot = join(directory, "store");
+    const fixture = createServices(await createPack(directory), storageRoot);
+    const definitions = snapshotCommandDefinitions([createInstallCommand(fixture.services)]);
+    const stdout = new MemoryWriter();
+
+    expect(
+      await run(
+        ["pack", "install", "agentic-coding", "--registry", "git@github.com:acme/team-packs.git"],
+        { registry: definitions, stdout },
+      ),
+    ).toBe(0);
+    const parsed = JSON.parse(stdout.value);
+    expect(parsed).toMatchObject({
+      ok: true,
+      data: { registry: { name: "team-packs", repository: "acme/team-packs" }, idempotent: false },
+    });
+    expect(fixture.observed.locator).toBe("git@github.com:acme/team-packs.git");
+    expect(fixture.observed.repository).toBe("git@github.com:acme/team-packs.git");
+    expect(stdout.value).not.toMatch(/\/\/[^/\s]*:[^@\s]*@/);
+    expect(stdout.value).not.toMatch(/token/i);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});

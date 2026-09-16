@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   createDescriptorRepository,
@@ -18,6 +20,9 @@ packs:
 `;
 
 const RAW_UNAVAILABLE_MESSAGE = "The Pack Registry is unavailable.";
+const GIT_UNAVAILABLE_MESSAGE =
+  "The Pack Registry is unavailable. Verify your SSH access to the repository " +
+  "(e.g. `ssh -T git@github.com`), then retry.";
 const SSH_LOCATOR = "git@github.com:acme/team-packs.git";
 const SSH_URL_LOCATOR = "ssh://git@github.com/acme/team-packs.git";
 
@@ -97,6 +102,15 @@ test.each([
   );
 });
 
+test("rejects credentialed locator forms outright", () => {
+  expect(() => resolveRegistryRepository("https://git:token@github.com/acme/packs.git")).toThrow(
+    "valid GitHub repository",
+  );
+  expect(() => resolveRegistryRepository("ssh://git:pass@github.com/acme/packs.git")).toThrow(
+    "valid GitHub repository",
+  );
+});
+
 test("distinguishes invalid content from an unavailable Registry", async () => {
   await expect(
     loadRegistry(undefined, responseFetch(new Response("schema_version: 2", { status: 200 }))),
@@ -160,11 +174,23 @@ test("maps a missing descriptor over git transport to an actionable unavailable 
       ),
     ).rejects.toMatchObject({
       code: "registry.unavailable",
-      message: expect.stringContaining("ssh -T git@github.com"),
+      message: GIT_UNAVAILABLE_MESSAGE,
     });
   } finally {
     await removeDescriptorRepository(fixture);
   }
+});
+
+test("maps an unreachable repository to the same unavailable classification", async () => {
+  await expect(
+    loadRegistry(
+      SSH_LOCATOR,
+      fetchMustNotRun(),
+      gitRunnerMappingLocators({
+        [SSH_LOCATOR]: join(tmpdir(), "lorelum-nonexistent-repository"),
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "registry.unavailable", message: GIT_UNAVAILABLE_MESSAGE });
 });
 
 test("maps an oversized descriptor over git transport to registry.invalid", async () => {

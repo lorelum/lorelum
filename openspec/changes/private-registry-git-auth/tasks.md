@@ -22,20 +22,20 @@
 
 ## 5. 错误与非交互
 
-- [ ] 5.1 git 传输访问失败返回 `registry.unavailable`，SSH 形态消息含 `ssh -T git@github.com` 指引；公开路径错误消息与 1.2 基线逐字一致
-- [ ] 5.2 失败注入测试：无凭据、host key 未信任、仓库不可达三态均确定性快速失败不挂起；"仓库不存在"与"无权限"不可区分（同码同形）
+- [x] 5.1 git 传输访问失败返回 `registry.unavailable`，SSH 形态消息含 `ssh -T git@github.com` 指引；公开路径错误消息与 1.2 基线逐字一致
+- [ ] 5.2 失败注入测试：仓库不可达 + "不存在/无权限不可区分"已自动化；无凭据、host key 未信任两个真实 SSH 态并入 8.2 手动证据（本机已实测无凭据快速失败，待密钥上传后随 8.2 一并勾选）
 
 ## 6. 安全断言
 
-- [ ] 6.1 断言 install/update 成功与失败的全部输出（JSON envelope、错误消息、store 记录）不含 userinfo 与 token
-- [ ] 6.2 断言 spawn git 的环境不含凭据类变量、任何日志与错误输出无携带凭据的 URL
+- [x] 6.1 断言 install/update 成功与失败的全部输出（JSON envelope、错误消息、store 记录）不含 userinfo 与 token
+- [x] 6.2 断言 spawn git 的环境不含凭据类变量、任何日志与错误输出无携带凭据的 URL
 
 ## 7. 文档
 
-- [ ] 7.1 `docs/cli/packs.md` 增补 `--registry` SSH URL 用法示例与传输新鲜度语义说明（git 路径每次现拉；raw 路径受上游 CDN 窗口影响）
+- [x] 7.1 `docs/cli/packs.md` 增补 `--registry` SSH URL 用法示例与传输新鲜度语义说明（git 路径每次现拉；raw 路径受上游 CDN 窗口影响）
 
 ## 8. 全量验证与证据
 
-- [ ] 8.1 全量验证序列原始输出留档：`bun test`、`bun run lint`、`bun run typecheck`、`bun run fmt:check`
-- [ ] 8.2 真实 SSH 强证据：对 rehearsal 仓库执行 `--registry git@github.com:AzMilabo/lorelum-rehearsal.git` 端到端 install → list → get，终端记录留档
+- [x] 8.1 全量验证序列原始输出留档：`bun test`、`bun run lint`、`bun run typecheck`、`bun run fmt:check`
+- [ ] 8.2 真实 SSH 强证据：host key 已核验信任、专用密钥已生成；待公钥上传 GitHub（需 admin:public_key scope 或网页）后执行 install → list → get 正向回路，与 5.2 两个真实态一并留档
 - [ ] 8.3 独立 CR：以零上下文对抗性 review 复现声明并审查 diff，findings 清零后本变更标记实现完成
