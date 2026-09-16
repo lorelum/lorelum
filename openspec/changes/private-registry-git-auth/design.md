@@ -41,7 +41,7 @@ leader 定向即"复用用户自己的 git**ssh** 信息"；沙箱事实（`GIT_
 `owner/repo` 与 HTTPS URL 继续走现有匿名 raw 代码路径（不共享 git 路径代码，避免回归面）；仅 SSH URL 新语法走 git 传输。兼容承诺写入 spec（Legacy locator compatibility）。
 
 **D6 — 沙箱白名单增补 `SSH_AUTH_SOCK`；`HOME`/`USERPROFILE` 以测试锚定。**
-`SSH_AUTH_SOCK` 透传使 macOS/Linux agent 密钥可用（Windows OpenSSH 走命名管道不受影响），是 leader 定向的自然组成。`HOME`/`USERPROFILE` 当前未透传，ssh 能否定位 `~/.ssh` 存在平台差异——实现时以三平台测试验证，必要时增补白名单并在本文件记录。
+`SSH_AUTH_SOCK` 透传使 macOS/Linux agent 密钥可用（Windows OpenSSH 走命名管道不受影响），是 leader 定向的自然组成。**已实现（2026-09-16）**：`HOME`、`USERPROFILE`、`SSH_AUTH_SOCK` 与 `GIT_SSH_COMMAND="ssh -oBatchMode=yes"` 均已落入 `gitEnvironment()`（`materialize-source.ts`），环境管线以单测锚定（透传取值、无额外变量继承、BatchMode 注入）；真实 ssh 的跨平台 `~/.ssh` 定位由 8.2 手动强证据覆盖。
 
 **需求与代码锚点映射**（迁移要求 → 现有来源）：
 
@@ -55,7 +55,7 @@ leader 定向即"复用用户自己的 git**ssh** 信息"；沙箱事实（`GIT_
 
 ## Risks / Trade-offs
 
-- [平台差异：`HOME`/`USERPROFILE` 未透传可能使 ssh 定位不到 `~/.ssh`] → 三平台 CI 矩阵测试锚定；必要时增补白名单并回写 D6。
+- [平台差异：`HOME`/`USERPROFILE` 未透传可能使 ssh 定位不到 `~/.ssh`] → 白名单已增补三个 SSH 相关变量，管线以单测锚定；真实跨平台解析由 manual 验证（tasks 8.2）覆盖。
 - [git 传输延迟高于 raw CDN] → descriptor ≤256KB、shallow fetch；沿用 `GIT_TIMEOUT_MS` 上限；文档说明两种传输的新鲜度差异（git 路径严格更新鲜）。
 - [`BatchMode` 下无 agent 的 passphrase 密钥不可用] → 快速失败 + 指引；`SSH_AUTH_SOCK` 透传让 agent 密钥可用覆盖主流场景。
 - [openspec 流首例，维护者可能调整 PR 形态] → 提案 commit 与实现 commit 分离，可按需拆分 PR（见 PLAN 异常路径）。
