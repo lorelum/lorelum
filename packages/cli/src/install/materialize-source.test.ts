@@ -7,7 +7,8 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { CliError, cliErrorCodes } from "../runtime/errors.js";
-import { materializeRegistryRelease, type MaterializeGitRunner } from "./materialize-source.js";
+import { runFixtureGit } from "./git-test-support.js";
+import { gitEnvironment, materializeRegistryRelease, type MaterializeGitRunner } from "./materialize-source.js";
 
 const release: RegistryRelease = {
   version: "0.2.0",
@@ -167,33 +168,29 @@ function inputLines(call: GitCall): string[] {
   return new TextDecoder().decode(call.input).trimEnd().split("\n");
 }
 
-async function setupGit(directory: string, gitArguments: readonly string[]): Promise<string> {
-  const subprocess = Bun.spawn(["git", ...gitArguments], {
-    cwd: directory,
-    env: {
-      PATH: process.env.PATH,
-      SystemRoot: process.env.SystemRoot,
-      TEMP: process.env.TEMP,
-      TMP: process.env.TMP,
-      TMPDIR: process.env.TMPDIR,
-      /* Git treats an empty value like /dev/null on every platform. */
-      GIT_CONFIG_GLOBAL: "",
-      GIT_CONFIG_NOSYSTEM: "1",
-      GIT_TERMINAL_PROMPT: "0",
-    },
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(subprocess.stdout).text(),
-    new Response(subprocess.stderr).text(),
-    subprocess.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`git ${gitArguments[0] ?? "command"} failed: ${stderr.trim()}`);
+test("sandboxed git environment stays non-interactive and passes SSH identity only", () => {
+  const previousAgent = process.env.SSH_AUTH_SOCK;
+  const previousSentinel = process.env.LORELUM_FIXTURE_SENTINEL;
+  process.env.SSH_AUTH_SOCK = "/tmp/lorelum-fixture-agent.sock";
+  process.env.LORELUM_FIXTURE_SENTINEL = "leak-marker";
+  try {
+    const environment = gitEnvironment();
+    expect(environment.GIT_SSH_COMMAND).toBe("ssh -oBatchMode=yes");
+    expect(environment.GIT_ASKPASS).toBe("");
+    expect(environment.GIT_CONFIG_GLOBAL).toBe("");
+    expect(environment.GIT_CONFIG_NOSYSTEM).toBe("1");
+    expect(environment.GIT_TERMINAL_PROMPT).toBe("0");
+    expect(environment.SSH_AUTH_SOCK).toBe("/tmp/lorelum-fixture-agent.sock");
+    expect(environment.HOME).toBe(process.env.HOME);
+    expect(environment.USERPROFILE).toBe(process.env.USERPROFILE);
+    expect(environment.LORELUM_FIXTURE_SENTINEL).toBeUndefined();
+  } finally {
+    if (previousAgent === undefined) delete process.env.SSH_AUTH_SOCK;
+    else process.env.SSH_AUTH_SOCK = previousAgent;
+    if (previousSentinel === undefined) delete process.env.LORELUM_FIXTURE_SENTINEL;
+    else process.env.LORELUM_FIXTURE_SENTINEL = previousSentinel;
   }
-  return stdout.trim();
-}
+});
 
 test("materializes many Pack blobs with one exact acquisition and one local batch read", async () => {
   const git = new FakeGit(packEntries());
@@ -257,7 +254,7 @@ test("production runner materializes a filtered local Git remote through batch s
   await mkdir(join(sourceRepository, release.path, "references"), { recursive: true });
   await mkdir(join(sourceRepository, release.path, "assets"), { recursive: true });
   await mkdir(join(sourceRepository, release.path, "scripts"), { recursive: true });
-  await setupGit(sourceRepository, ["init", "-b", "main"]);
+  await runFixtureGit(sourceRepository, ["init", "-b", "main"]);
   await writeFile(
     join(sourceRepository, release.path, "pack.yaml"),
     "name: agentic-coding\nversion: 0.2.0\n",
@@ -279,8 +276,8 @@ test("production runner materializes a filtered local Git remote through batch s
     join(sourceRepository, release.path, "ignored.bin"),
     "Repository content outside the Pack materialization contract.\n",
   );
-  await setupGit(sourceRepository, ["add", "."]);
-  await setupGit(sourceRepository, [
+  await runFixtureGit(sourceRepository, ["add", "."]);
+  await runFixtureGit(sourceRepository, [
     "-c",
     "user.name=Lorelum Test",
     "-c",
@@ -289,17 +286,17 @@ test("production runner materializes a filtered local Git remote through batch s
     "-m",
     "fixture",
   ]);
-  await setupGit(sourceRepository, ["tag", release.ref]);
-  const expectedCommit = await setupGit(sourceRepository, ["rev-parse", "HEAD"]);
-  await setupGit(parent, ["clone", "--bare", "--", sourceRepository, remoteRepository]);
-  await setupGit(parent, ["-C", remoteRepository, "config", "uploadpack.allowFilter", "true"]);
+  await runFixtureGit(sourceRepository, ["tag", release.ref]);
+  const expectedCommit = await runFixtureGit(sourceRepository, ["rev-parse", "HEAD"]);
+  await runFixtureGit(parent, ["clone", "--bare", "--", sourceRepository, remoteRepository]);
+  await runFixtureGit(parent, ["-C", remoteRepository, "config", "uploadpack.allowFilter", "true"]);
 
   let source: Awaited<ReturnType<typeof materializeRegistryRelease>> | undefined;
   try {
     source = await materializeRegistryRelease(release, pathToFileURL(remoteRepository).href);
     expect(source.resolvedCommit).toBe(expectedCommit);
     expect(
-      await setupGit(parent, [
+      await runFixtureGit(parent, [
         "-C",
         join(dirname(source.directory), "repository"),
         "config",

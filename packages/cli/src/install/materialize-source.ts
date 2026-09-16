@@ -14,19 +14,33 @@ import { CliError, cliErrorCodes } from "../runtime/errors.js";
 const GIT_TIMEOUT_MS = 60_000;
 const MAX_SOURCE_TREE_ENTRIES = 2_048;
 const MAX_SOURCE_TREE_LISTING_BYTES = 1024 * 1024;
-const GIT_ENVIRONMENT = Object.freeze({
-  PATH: process.env.PATH,
-  SystemRoot: process.env.SystemRoot,
-  TEMP: process.env.TEMP,
-  TMP: process.env.TMP,
-  TMPDIR: process.env.TMPDIR,
-  GIT_ASKPASS: "",
-  /* Git treats an empty value like /dev/null on every platform; os.devNull's
-     Windows value (\\.\nul) is rejected by Git for Windows. */
-  GIT_CONFIG_GLOBAL: "",
-  GIT_CONFIG_NOSYSTEM: "1",
-  GIT_TERMINAL_PROMPT: "0",
-});
+
+/**
+ * Sandboxed child environment for every Git spawn (descriptor reads and
+ * release materialization): no user Git config, no prompts, and fully
+ * non-interactive SSH — BatchMode fails host-key and passphrase prompts fast
+ * instead of hanging. SSH identity still flows through the ssh process
+ * itself: default keys, ~/.ssh/config, known_hosts, and the agent socket.
+ */
+export function gitEnvironment(): Record<string, string | undefined> {
+  return {
+    PATH: process.env.PATH,
+    SystemRoot: process.env.SystemRoot,
+    HOME: process.env.HOME,
+    USERPROFILE: process.env.USERPROFILE,
+    SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
+    TMPDIR: process.env.TMPDIR,
+    GIT_ASKPASS: "",
+    /* Git treats an empty value like /dev/null on every platform; os.devNull's
+       Windows value (\\.\nul) is rejected by Git for Windows. */
+    GIT_CONFIG_GLOBAL: "",
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_SSH_COMMAND: "ssh -oBatchMode=yes",
+    GIT_TERMINAL_PROMPT: "0",
+  };
+}
 
 interface SourceBlob {
   readonly objectId: string;
@@ -58,7 +72,7 @@ export interface MaterializedPackSource {
   cleanup(): Promise<void>;
 }
 
-async function runGit(
+export async function runGit(
   arguments_: readonly string[],
   options: GitCommandOptions = {},
 ): Promise<Uint8Array> {
@@ -66,7 +80,7 @@ async function runGit(
   let subprocess: ReturnType<typeof Bun.spawn>;
   try {
     subprocess = Bun.spawn(["git", ...arguments_], {
-      env: GIT_ENVIRONMENT,
+      env: gitEnvironment(),
       ...(input === undefined ? {} : { stdin: input }),
       stderr: "ignore",
       stdout: outputLimit === undefined ? "ignore" : "pipe",
