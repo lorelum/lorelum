@@ -12,6 +12,10 @@ lore pack install agentic-coding
 lore pack install agentic-coding@0.1.0 --registry acme/team-packs
 lore pack update agentic-coding@0.2.0 --registry acme/team-packs
 
+# Install from a private GitHub repository with your own SSH credentials.
+lore pack install agentic-coding --registry git@github.com:acme/team-packs.git
+lore pack install agentic-coding --registry ssh://git@github.com/acme/team-packs.git
+
 # Remove one active Pack from the selected Store.
 lore --store-root ./tmp/lore-store pack remove agentic-coding
 
@@ -20,6 +24,8 @@ lore pack list
 lore pack list --details
 lore pack list agentic-coding
 ```
+
+`--registry` accepts three locator forms. `owner/repo` and `https://github.com/owner/repo(.git)` read the descriptor anonymously over the raw CDN and keep their historical behavior, so the descriptor may trail the repository by the CDN cache window. GitHub SSH URLs (`git@github.com:owner/repo.git` or `ssh://git@github.com/owner/repo.git`, github.com only) read the descriptor through git using your own SSH configuration — lore never stores or manages credentials, and `credential.helper` or `insteadOf` settings do not apply to these spawns. The transport is non-interactive: trust github.com once with `ssh -T git@github.com` (host key) and keep your key in `ssh-agent` if it has a passphrase. When access fails, the CLI returns `registry.unavailable` with an `ssh -T git@github.com` remediation hint and never distinguishes a missing repository from missing access. Git-transport descriptors are never cached — every install and update reflects the repository's current tags.
 
 `lore pack install` is idempotent only when the resolved artifact matches the active Pack exactly. If the same Pack name resolves to different content, it returns `pack.update-required` and leaves the Store unchanged. Use `lore pack update` to replace that Pack's sources with the selected release.
 
