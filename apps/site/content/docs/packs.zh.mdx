@@ -39,6 +39,19 @@ lore pack list agentic-coding
 
 使用 `lore pack remove <pack-name>` 从所选 Store 中移除 Pack，其他已安装 Pack 仍然可用。响应字段和错误处理见 [Pack 命令](./reference/packs)。
 
+## 私有 Registry 仓库
+
+从私有 GitHub 仓库安装时，请改用 SSH locator 而不是 slug。Lorelum 会用你自己的 Git SSH 身份读取 Registry：命令行不传 token，Lorelum 也不存储、不管理任何凭据：
+
+```sh
+lore pack install agentic-coding --registry git@github.com:acme/team-packs.git
+lore pack install agentic-coding --registry ssh://git@github.com/acme/team-packs.git
+```
+
+两种写法等价，且仅支持 github.com。每次 install 和 update 都直接从仓库默认分支读取 Registry 描述文件：没有 CDN 缓存窗口，本地也不做缓存。传输天然非交互——Lorelum 复用你现有的 SSH 配置（默认密钥文件、`~/.ssh/config` 或 `ssh-agent`），并禁用一切交互提示。
+
+一次性准备：运行 `ssh -T git@github.com`，并按 GitHub 官方指纹信任 host key。若 install 或 update 返回 `registry.unavailable` 并提示验证 SSH 访问：确认密钥已加载（`ssh-add -l`）、`ssh -T git@github.com` 能通过、账号对该仓库有读取权限后重试——CLI 刻意不区分"仓库不存在"与"无权限"。完整 locator 语义见 [Pack 命令](./reference/packs)。
+
 ## 社区 Pack
 
 欢迎为熟悉的框架、基础设施、团队规范或其他领域[创建 Pack](./create-pack)。

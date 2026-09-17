@@ -39,6 +39,19 @@ Use `lore pack update <pack-name>@<version>` to move an installed Pack to a sele
 
 Use `lore pack remove <pack-name>` to remove a Pack from the selected Store. Other installed Packs remain available. See [Pack commands](./reference/packs) for response fields and error handling.
 
+## Private Registry repositories
+
+To install from a private GitHub repository, pass an SSH locator instead of a slug. Lorelum reads the Registry with your own Git SSH identity; no tokens go on the command line and Lorelum never stores or manages credentials:
+
+```sh
+lore pack install agentic-coding --registry git@github.com:acme/team-packs.git
+lore pack install agentic-coding --registry ssh://git@github.com/acme/team-packs.git
+```
+
+Both forms are equivalent and github.com-only. Every install and update reads the Registry descriptor directly from the repository's default branch: there is no CDN cache window and nothing is cached locally. The transport is non-interactive by design — Lorelum uses your existing SSH setup (default key files, `~/.ssh/config`, or `ssh-agent`) and runs with prompts disabled.
+
+One-time preparation: run `ssh -T git@github.com` and trust the reported GitHub host key fingerprint. If install or update returns `registry.unavailable` with the hint to verify SSH access, confirm your key is loaded (`ssh-add -l`), that `ssh -T git@github.com` succeeds, and that your account can read the repository, then retry — the CLI deliberately does not distinguish a missing repository from missing access. The full locator semantics are in [Pack commands](./reference/packs).
+
 ## Community Packs
 
 We welcome Packs for frameworks, infrastructure, team conventions, and other domains you know well. [Create a Pack](./create-pack) to share that knowledge.

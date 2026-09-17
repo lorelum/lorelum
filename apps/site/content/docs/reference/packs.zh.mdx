@@ -9,9 +9,9 @@ description: 安装、浏览、更新、移除和校验 Pack。
 lore pack install agentic-coding
 ```
 
-全局 `--store-root <path>` 选择 LocalStore，`--log-level <level>` 控制 stderr 日志；`--registry <owner/repository>` 仅用于 install 和 update。
+全局 `--store-root <path>` 选择 LocalStore，`--log-level <level>` 控制 stderr 日志；`--registry <locator>` 仅用于 install 和 update。
 
-指定版本可固定发行内容。省略版本时，使用 Registry 选择的最新版本。其他 Registry 通过 `--registry owner/repository` 指定。
+指定版本可固定发行内容。省略版本时，使用 Registry 选择的最新版本。其他 Registry 通过 `--registry owner/repository` 指定；私有 Registry 请使用 SSH locator（`git@github.com:owner/repo.git`），见[安装与管理 Pack](../packs)。
 
 重复安装相同内容是安全的。如果同名 Pack 已安装不同内容，会返回 `pack.update-required`，请改用 `pack update`。
 

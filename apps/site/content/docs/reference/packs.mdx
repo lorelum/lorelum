@@ -9,9 +9,9 @@ description: Install, browse, update, remove, and validate Packs.
 lore pack install agentic-coding
 ```
 
-Global `--store-root <path>` selects the LocalStore and `--log-level <level>` controls stderr logs. `--registry <owner/repository>` is specific to install and update.
+Global `--store-root <path>` selects the LocalStore and `--log-level <level>` controls stderr logs. `--registry <locator>` is specific to install and update.
 
-A version pins the release. Omitting it selects the Registry's latest release. For a different Registry, pass `--registry owner/repository`.
+A version pins the release. Omitting it selects the Registry's latest release. For a different Registry, pass `--registry owner/repository`; for a private Registry, pass an SSH locator (`git@github.com:owner/repo.git`) — see [Install and manage Packs](../packs).
 
 Installing the same artifact again is safe. If the installed name has different content, Lorelum returns `pack.update-required`; use `pack update`.
 
