@@ -492,7 +492,7 @@ async function invokeCommand(
   const stdout = new MemoryWriter();
   const stderr = new MemoryWriter();
   const started = performance.now();
-  const exitCode = await run([...args], { registry: definitions, stdout, stderr });
+  const exitCode = await run(["--json", ...args], { registry: definitions, stdout, stderr });
   const elapsedMs = Number((performance.now() - started).toFixed(1));
   const response = JSON.parse(stdout.value) as Envelope;
   return { exitCode, elapsedMs, response };

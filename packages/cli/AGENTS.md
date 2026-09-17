@@ -9,7 +9,7 @@ The CLI is the composition and protocol boundary. It parses commands, resolves g
 - Keep command parsing, envelope/schema rendering, and user-facing error mapping thin. Business retrieval, Store, index, and ranking rules remain in Engine; runtime/model lifecycle remains in Backend.
 - Every LocalStore-consuming command must use the shared Store-root resolver. Do not call `defaultStorageRoot` directly when honoring `--store-root`.
 - Keyword query stays `CLI → Engine` so it remains offline. Semantic query and semantic-index operations use `CLI → Backend client → Backend daemon → Engine use case`; do not create `CLI → Engine → Backend client` routing.
-- Preserve command-definition schemas, exit-code semantics, and JSON-only stdout. Do not make a lifecycle state such as `preparing` look like a successful retrieval result or silently substitute keyword results for semantic behavior.
+- Preserve command-definition schemas, exit-code semantics, and the complete `--json` envelope. Ordinary commands default to complete text; use `--json` for a machine consumer. Do not make a lifecycle state such as `preparing` look like a successful retrieval result or silently substitute keyword results for semantic behavior.
 
 ## Current-worktree verification
 

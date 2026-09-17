@@ -11,7 +11,7 @@ lore format <pack-root>
 lore i18n sync <pack-root> --locale <locale> [--source-locale <locale>] [--practice <id> | --all]
 ```
 
-`validate` checks Pack structure and reports canonical diagnostics plus localization state. Exit `0` means validation completed without Pack or localization problems; exit `1` means validation completed with a Pack validation failure or localization problems (the JSON result remains inspectable); exit `2` means the invocation or source could not be processed.
+`validate` checks Pack structure and reports canonical diagnostics plus localization state. Exit `0` means validation completed without Pack or localization problems; exit `1` means validation completed with a Pack validation failure or localization problems (default text and `--json` both retain the result); exit `2` means the invocation or source could not be processed.
 
 `format` canonicalizes Practice Markdown and, when present, `i18n/manifest.yaml`. It returns `formattedFiles` and `manifestFormatted`; it exits `0` on success and `2` on invalid localization input.
 

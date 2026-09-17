@@ -24,7 +24,7 @@ icon: Rocket
 lore --version
 ```
 
-Lorelum 返回 JSON，其中包含已安装的工具版本。请在 Agent 实际使用的命令环境中检查。
+Lorelum 以可读 text 显示已安装的工具/协议版本。自动化需要 envelope 时使用 `lore --version --json`；请在 Agent 实际使用的命令环境中检查任一形式。
 
 ## 2. 安装 Knowledge Pack
 
@@ -34,7 +34,7 @@ Lorelum 返回 JSON，其中包含已安装的工具版本。请在 Agent 实际
 lore pack install agentic-coding
 ```
 
-安装会保存 Pack，并启动所需的 semantic index 工作。检查 `data.indexSync`：Pack 已安装时，模型准备或索引构建仍可能尚未完成。具体字段见 [Pack 命令](./reference/packs)。
+安装会保存 Pack，并启动所需的 semantic index 工作。默认 text 会完整显示 index 状态，Agent 直接阅读即可。Pack 已安装时，模型准备或索引构建仍可能尚未完成；只有状态异常、需要 protocol 级排查时才使用 `--json`。具体字段见 [Pack 命令](./reference/packs)。
 
 ## 3. 描述任务和时刻
 
@@ -42,7 +42,7 @@ lore pack install agentic-coding
 lore query "我正在按现有设计实现设置卡片，准备确定改动范围、实现计划和验证方式。"
 ```
 
-可用的查询结果包含 `data.results`。每项提供 `practiceId`、`title` 和 `appliesWhen`，帮助你判断指导是否适用。
+可用的查询结果会显示与 JSON 相同的 Practice ID、title 和 applicability 字段。Agent 直接阅读默认 text，不解析其排版；只有结果异常、需要排查时才使用 `--json`。
 
 首次 query 可能在本地模型下载或加载期间返回 `data.state: "preparing"`。等待加载后重试：
 

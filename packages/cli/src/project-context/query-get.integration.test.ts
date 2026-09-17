@@ -5,13 +5,16 @@ import { join } from "node:path";
 import { createLocalStore, createQueryService, decodePackDirectory } from "@lorelum/engine";
 
 import { createGetCommand } from "../get/get-command";
-import { run } from "../main";
+import { run as runCli } from "../main";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper";
 import { createProjectContextCommands } from "../project-context/commands";
 import { createProjectContextResolver } from "../project-context/service";
 import { createIsolatedProjectSandbox } from "../project-context/project-sandbox.test-helper";
 import { createQueryCommand } from "../query/query-command";
 import { snapshotCommandDefinitions } from "../registry";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 class MemoryWriter {
   value = "";

@@ -1,6 +1,6 @@
 # Read an installed Practice
 
-当前可观察合同见 [practice read OpenSpec](../../openspec/specs/practice-read/spec.md)；本页说明 CLI 参数、JSON 输出与恢复操作。
+当前可观察合同见 [practice read OpenSpec](../../openspec/specs/practice-read/spec.md)；本页说明 CLI 参数、默认 text、JSON machine output 与恢复操作。
 
 `lore get <practice-id>` retrieves one complete canonical Practice by its exact ID from the selected query context. A discovered ProjectContext returns its current local winner; `--no-project` preserves Store-only behavior. The public command contract was agreed in [issue #49](https://github.com/lorelum/lorelum/issues/49); ADR 0011 preserves historical reasoning for the point-read consistency boundary.
 
@@ -19,6 +19,8 @@ For discovery, use `lore pack list` first, then `lore pack list <name>` and pass
 The ID must follow the existing dotted Practice ID format. Lookup is exact: there is no title matching, prefix completion, or case normalization. The global `--store-root` option also works after the command; relative paths resolve from the calling process's working directory. Omitting it selects the user Store. `--project-root` selects an ordinary directory directly containing `.lorelum/`; nested layers inherit parent configuration by default. Project provenance uses safe logical roots such as `project-layer-0`, never an absolute project path.
 
 ## Result
+
+默认输出会以树形 text 完整显示下面所有 data 字段，包括 `contentDigest` 与每个 source 的 `packRoot`。需要程序读取这些字段时，使用 `lore get <practice-id> --json`。
 
 The existing protocol envelope contains `command: "get"`, `ok: true`, and:
 
@@ -51,7 +53,7 @@ Separate invocations can observe different Store revisions or project source sta
 
 ## Errors and exit codes
 
-Success exits `0`. Failures use `ok: false` with `error: { code, message }` and exit `2`. Both success and failure write exactly one JSON line to stdout.
+Success exits `0`. Failures exit `2`。默认成功写完整 text 到 stdout，默认失败写 `error.code`、message 和存在时的 recovery 到 stderr；`--json` 时 success/failure 都在 stdout 写一行 envelope。
 
 | Code | Meaning |
 | --- | --- |

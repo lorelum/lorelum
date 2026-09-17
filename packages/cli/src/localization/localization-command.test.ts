@@ -3,10 +3,13 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { run } from "../main.js";
+import { run as runCli } from "../main.js";
 import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
 import { createIsolatedProjectSandbox } from "../project-context/project-sandbox.test-helper.js";
 import { createLocalizationCommands } from "./index.js";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 class MemoryWriter {
   value = "";

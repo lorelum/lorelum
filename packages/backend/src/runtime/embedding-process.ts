@@ -18,13 +18,26 @@ const STARTUP_PROBE_TIMEOUT_MS = 500;
 const STARTUP_POLL_MS = 25;
 const FORCE_KILL_WAIT_MS = 100;
 
+/** Collaboration seams for tests; production callers use the defaults. */
+export interface EmbeddingProcessDeps {
+  resolveResources?(modelPath: string, signal: AbortSignal): Promise<EmbeddingResources>;
+  spawnProcess?(
+    executable: string,
+    args: readonly string[],
+    options: Parameters<typeof spawn>[2],
+  ): ReturnType<typeof spawn>;
+}
+
 /** This object owns a single lifetime, including failed startup and bounded bind retries. */
 export function createEmbeddingProcess(
   config: Pick<EmbeddingConfig, "modelPath" | "threads"> | undefined,
   recordProcess?: (
     identity: (ProcessIdentity & { nativeBuild: string }) | undefined,
   ) => Promise<void>,
+  deps: EmbeddingProcessDeps = {},
 ): EmbeddingRuntime {
+  const resolveResources = deps.resolveResources ?? resolveEmbeddingResources;
+  const spawnProcess = deps.spawnProcess ?? spawn;
   let child: ReturnType<typeof spawn> | undefined;
   let completion: Promise<void> | undefined;
   let startTask: Promise<void> | undefined;
@@ -56,7 +69,7 @@ export function createEmbeddingProcess(
   }
   async function launch(signal: AbortSignal, deadline: number) {
     if (!config?.modelPath) throw new EmbeddingError("embedding.not-configured");
-    resources = await resolveEmbeddingResources(config.modelPath, signal);
+      resources = await resolveResources(config.modelPath, signal);
     for (let attempt = 0; attempt < MAX_BIND_ATTEMPTS; attempt++) {
       signal.throwIfAborted();
       const port = await reservePort();
@@ -65,12 +78,16 @@ export function createEmbeddingProcess(
       const alias = randomBytes(32).toString("hex");
       await resources.assertUnchanged();
       signal.throwIfAborted();
-      const owned = spawn(
+      const owned = spawnProcess(
         resources.executable,
         llamaArguments(config.modelPath, port, alias, config),
         {
           stdio: ["pipe", "ignore", "ignore"],
-          env: { ...platformEnvironment(), LLAMA_API_KEY: secret },
+          env: {
+            ...platformEnvironment(),
+            LLAMA_API_KEY: secret,
+            LLAMA_PARENT_LIVENESS_STDIN: "1",
+          },
           windowsHide: true,
         },
       );

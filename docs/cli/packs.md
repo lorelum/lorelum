@@ -2,7 +2,7 @@
 
 Pack mutations operate on one LocalStore. Use the global `--store-root <path>` option to select an isolated Store for development or automation; otherwise the CLI uses the user-level default Store.
 
-当前 release 选择、install/update 边界以 [pack-management spec](../../openspec/specs/pack-management/spec.md) 为准；本文说明命令、参数和 JSON result 的使用方式。
+当前 release 选择、install/update 边界以 [pack-management spec](../../openspec/specs/pack-management/spec.md) 为准；本文说明命令、参数、默认完整 text 与 JSON machine result 的使用方式。
 
 ```sh
 # Install the latest Registry release selected by the Registry contract.
@@ -29,7 +29,7 @@ lore pack list agentic-coding
 
 `lore pack install` is idempotent only when the resolved artifact matches the active Pack exactly. If the same Pack name resolves to different content, it returns `pack.update-required` and leaves the Store unchanged. Use `lore pack update` to replace that Pack's sources with the selected release.
 
-`lore pack update` and `lore pack remove` return `pack.not-installed` when the named Pack is not active in the selected Store. All successful mutations return the committed `generation`, `effectiveRevision`, affected Practice `delta`, validation `diagnostics`, and `cleanupPending` state in the normal JSON envelope. Install and update additionally report the resolved Pack version, Registry, Git source, artifact digest, whether the operation was idempotent, and the readable public `packRoot` at `packs/p-<pack-name>/current`. Remove deliberately returns no root because it has removed that current view.
+`lore pack update` and `lore pack remove` return `pack.not-installed` when the named Pack is not active in the selected Store. All successful mutations expose the committed `generation`, `effectiveRevision`, affected Practice `delta`, validation `diagnostics`, and `cleanupPending` in default text and the same `--json` data. Install and update additionally report the resolved Pack version, Registry, Git source, artifact digest, whether the operation was idempotent, and the readable public `packRoot` at `packs/p-<pack-name>/current`. Remove deliberately returns no root because it has removed that current view.
 
 There is no bulk “update every Pack” operation. Each Pack update resolves one explicit Pack release, making Store changes and automation inputs deterministic. Root `lore update` is reserved for Lore's own version-management contract.
 

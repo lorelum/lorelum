@@ -1,10 +1,10 @@
 ---
 title: CLI 参考
-description: 命令发现、全局选项、JSON 响应和退出码。
+description: 命令发现、默认 text 输出、JSON 机器响应和退出码。
 icon: Terminal
 ---
 
-`lore` CLI 是 Agent 集成调用 Lorelum 的接口。每次调用都向 stdout 输出一个 JSON 响应，包括 help 和 version 命令。诊断和进度输出到 stderr。
+`lore` CLI 默认向 stdout 输出完整、可读的 text，包括 help 和 version。它是命令公开 `data` 的可视化，而不是摘要：source locator、ID、状态、进度、diagnostic 和 metadata 都会保留。Agent 直接阅读默认 text；只有结果异常、需要排查或核对 protocol 细节，以及脚本或 CI 需要程序化解析完整单行 JSON envelope 时，才显式传入 `--json`。诊断和进度输出到 stderr；默认命令失败也输出到 stderr。
 
 ## 命令目录
 
@@ -22,11 +22,11 @@ icon: Terminal
 ## 查询已安装版本的合同
 
 ```sh
-lore describe
-lore describe query
-lore describe index.build
-lore --help
-lore --version
+lore describe --json
+lore describe query --json
+lore describe index.build --json
+lore --help --json
+lore --version --json
 ```
 
 `describe` 返回参数、选项、结果 schema、错误码和退出码。嵌套命令使用点号标识：`index.build` 对应 `lore index build`。
@@ -39,19 +39,23 @@ lore --version
 | --------------------- | ------------------------------------------------- |
 | `--store-root <path>` | 选择 Pack、query、get 和 index 命令使用的 Store。 |
 | `--log-level <level>` | 设置 stderr 诊断级别，默认 `error`。              |
-| `--help`、`-h`        | 返回机器可读的命令能力。                          |
-| `--version`、`-V`     | 在根命令返回协议和工具版本。                      |
+| `--json`              | 返回完整、单行的 JSON protocol envelope。         |
+| `--help`、`-h`        | 显示可读 Help；需要能力数据时追加 `--json`。      |
+| `--version`、`-V`     | 显示工具/协议版本；需要 envelope 时追加 `--json`。|
 
 相对 Store 路径基于当前工作目录解析。相关命令应使用同一个 root：
 
 ```sh
 lore --store-root /path/to/store pack list
 lore --store-root /path/to/store query "评审一个局部 UI 修改的需求范围"
+lore --store-root /path/to/store query "评审一个局部 UI 修改的需求范围" --json
 ```
 
 模型配置和 Backend 运行状态仍属于用户级环境。详细说明见[配置](./configuration)。
 
-## 响应结构
+## JSON 响应结构
+
+下面字段只在选择 `--json` 时存在。不要解析默认 text。JSON 与 text 使用同一次 handler result 和同一个退出码；text 只不重复 envelope 外壳。
 
 每个响应都包含 `protocolVersion`、`toolVersion`、`command` 和 `ok`。
 
@@ -75,6 +79,6 @@ lore --store-root /path/to/store query "评审一个局部 UI 修改的需求范
 | `1`    | 命令特定的诊断或尚未完成的结果，例如 query 准备中或验证发现问题。 |
 | `2`    | 调用失败，检查 `error.code`。                                     |
 
-query 返回 `ok: true` 且 `data.state: "preparing"` 时退出码为 `1`，不代表查询结果为空。index 命令接受后台工作后可以退出 `0`；需要根据返回的 operation ID 继续检查是否完成。
+query 返回 `ok: true` 且 `data.state: "preparing"` 时退出码为 `1`，不代表查询结果为空。index 命令接受后台工作后可以退出 `0`；需要根据返回的 operation ID 继续检查是否完成。默认 text 也会完整展示相同状态和 ID；只有程序化 parser 需要使用 `--json`。
 
 各命令参考说明其支持的状态和退出码。

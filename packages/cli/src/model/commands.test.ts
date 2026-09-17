@@ -6,11 +6,14 @@ import {
   type ModelStatus,
 } from "@lorelum/backend/protocol";
 import { expect, test } from "bun:test";
-import { run } from "../main";
+import { run as runCli } from "../main";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper";
 import { protocolResponseSchema } from "../output/protocol";
 import { describeCommand, snapshotCommandDefinitions } from "../registry";
 import { createModelCommands, type ModelCommandServices } from "./commands";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 class MemoryWriter {
   value = "";

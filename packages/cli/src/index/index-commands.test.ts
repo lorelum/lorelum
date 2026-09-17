@@ -12,11 +12,14 @@ import { expect, test } from "bun:test";
 
 import { resolve } from "node:path";
 
-import { run } from "../main";
+import { run as runCli } from "../main";
 import { protocolResponseSchema, type OutputWriter } from "../output/protocol";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper";
 import { snapshotCommandDefinitions } from "../registry";
 import { createIndexCommands } from "./index-commands";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 class MemoryWriter implements OutputWriter {
   value = "";

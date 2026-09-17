@@ -10,6 +10,7 @@ export async function runGet(
     globalPosition === "before"
       ? [binaryPath, "--store-root", storageRoot, "get", practiceId]
       : [binaryPath, "get", practiceId, "--store-root", storageRoot];
+  args.push("--json");
   return runProcess(args);
 }
 
@@ -22,6 +23,7 @@ export async function runList(
   if (options.details === true) args.push("--details");
   if (options.packName !== undefined) args.push(options.packName);
   args.push("--store-root", storageRoot);
+  args.push("--json");
   return runProcess(args);
 }
 
@@ -34,5 +36,6 @@ export async function runQuery(
 ): Promise<ProcessResult> {
   const args = [binaryPath, "query", text, "--mode", mode, "--store-root", storageRoot];
   if (topK !== undefined) args.push("--top-k", String(topK));
+  args.push("--json");
   return runProcess(args);
 }

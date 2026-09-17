@@ -75,7 +75,7 @@ canonical Practice 仍在 LocalStore 或项目 layer source；artifact 不是正
 
 ## 常见错误
 
-`status`、已 ready 的 build/rebuild 和被接受的 `preparing`/`building` operation 都退出 `0`；已确认失败退出 `2`。stdout 始终只输出一个 JSON envelope。调用方应按 `state` 或 `error.code` 处理。
+`status`、已 ready 的 build/rebuild 和被接受的 `preparing`/`building` operation 都退出 `0`；已确认失败退出 `2`。默认 stdout 完整显示 result data；需要按 `state`、`operationId` 或 `error.code` 自动处理的调用方必须传 `--json`，以获得单行 envelope。
 
 | Code | 含义和处理 |
 | --- | --- |

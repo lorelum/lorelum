@@ -16,7 +16,7 @@ lore model load
 
 ## load
 
-`lore model load` downloads the fixed model if it is missing, verifies it, and waits until loading completes. It also retries a previous failed preparation. Progress goes to stderr; stdout contains the final JSON result.
+`lore model load` downloads the fixed model if it is missing, verifies it, and waits until loading completes. It also retries a previous failed preparation. Progress goes to stderr; stdout contains the complete final text result, or the JSON envelope when `--json` is selected.
 
 Repeated calls join the same preparation task.
 

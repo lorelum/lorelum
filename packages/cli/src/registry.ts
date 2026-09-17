@@ -4,6 +4,8 @@ import {
   type JsonSchema,
   type JsonValue,
 } from "./output/protocol.js";
+import { renderHelpText, renderVersionText } from "./output/presentation.js";
+import type { TextRenderer } from "./output/render.js";
 import {
   createListService,
   createLocalStore,
@@ -42,6 +44,7 @@ export interface CommandOption {
   /** Reserved for framework-owned global options on the root command. */
   readonly behavior?:
     | "help"
+    | "json"
     | "log-level"
     | "store-root"
     | "project-root"
@@ -57,6 +60,7 @@ export interface CommandOption {
     command: string;
     data: JsonValue;
     resultSchema: JsonSchema;
+    textRenderer?: TextRenderer;
   }>;
   readonly defaultValue?: string;
   readonly values?: readonly string[];
@@ -74,6 +78,8 @@ export interface CommandDefinition {
   readonly summary: string;
   readonly positionals: readonly PositionalArgument[];
   readonly options: readonly CommandOption[];
+  /** Pure layout override; absent commands use the shared structured text renderer. */
+  readonly textRenderer?: TextRenderer;
   /** Validates response `data`; the protocol envelope has its own exported schema. */
   readonly resultSchema: JsonSchema;
   /** Handler errors outside this allowlist are exposed as `runtime.unexpected`. */
@@ -125,6 +131,13 @@ const globalOptions: readonly CommandOption[] = [
     scope: "global",
   },
   {
+    longFlag: "--json",
+    description: "Return the complete JSON protocol envelope.",
+    optionRequired: false,
+    behavior: "json",
+    scope: "global",
+  },
+  {
     longFlag: "--version",
     shortFlag: "-V",
     description: "Return protocol and tool versions.",
@@ -135,6 +148,7 @@ const globalOptions: readonly CommandOption[] = [
       command: "version",
       data: { protocolVersion, toolVersion },
       resultSchema: versionResultSchema,
+      textRenderer: renderVersionText,
     },
   },
   {
@@ -221,6 +235,7 @@ const optionDescriptionSchema: JsonSchema = {
     behavior: {
       enum: [
         "help",
+        "json",
         "log-level",
         "store-root",
         "project-root",
@@ -292,6 +307,7 @@ export const rootCommand = snapshotCommandDefinition({
   summary: "Engineering knowledge tooling for AI coding agents.",
   positionals: [],
   options: globalOptions,
+  textRenderer: renderHelpText,
   resultSchema: rootCapabilitySchema,
   errorCodes: frameworkErrorCodes,
   exitCodes: [0, 2],
@@ -492,7 +508,16 @@ function snapshotCommandDefinition(definition: CommandDefinition): CommandDefini
           ...(option.value === undefined ? {} : { value: Object.freeze({ ...option.value }) }),
           ...(option.response === undefined
             ? {}
-            : { response: deepFreeze(structuredClone(option.response)) }),
+            : {
+                response: deepFreeze({
+                  command: option.response.command,
+                  data: structuredClone(option.response.data),
+                  resultSchema: structuredClone(option.response.resultSchema),
+                  ...(option.response.textRenderer === undefined
+                    ? {}
+                    : { textRenderer: option.response.textRenderer }),
+                }),
+              }),
           ...(option.values === undefined ? {} : { values: Object.freeze([...option.values]) }),
           ...(option.appliesTo === undefined
             ? {}
@@ -500,6 +525,7 @@ function snapshotCommandDefinition(definition: CommandDefinition): CommandDefini
         }),
       ),
     ),
+    ...(definition.textRenderer === undefined ? {} : { textRenderer: definition.textRenderer }),
     resultSchema: deepFreeze(structuredClone(definition.resultSchema)),
     errorCodes: Object.freeze([...definition.errorCodes]),
     exitCodes: Object.freeze([...definition.exitCodes]),
@@ -507,6 +533,9 @@ function snapshotCommandDefinition(definition: CommandDefinition): CommandDefini
 }
 
 function assertFrameworkMetadata(definition: CommandDefinition): void {
+  if (definition.textRenderer !== undefined && typeof definition.textRenderer !== "function") {
+    throw new Error(`Command "${definition.name}" declares an invalid text renderer.`);
+  }
   if (!/^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*$/.test(definition.name)) {
     throw new Error(`Command name "${definition.name}" must be a dotted kebab-case id.`);
   }
@@ -557,6 +586,14 @@ function assertFrameworkMetadata(definition: CommandDefinition): void {
     if ((option.behavior === "version") !== (option.response !== undefined)) {
       throw new Error(
         `Command "${definition.name}" version behavior requires exactly one response.`,
+      );
+    }
+    if (
+      option.response?.textRenderer !== undefined &&
+      typeof option.response.textRenderer !== "function"
+    ) {
+      throw new Error(
+        `Command "${definition.name}" version response declares an invalid text renderer.`,
       );
     }
     if (option.optionRequired && option.defaultValue !== undefined) {

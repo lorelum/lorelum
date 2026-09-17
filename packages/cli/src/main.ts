@@ -9,8 +9,18 @@ import {
   type TextInput,
 } from "./hook/codex.js";
 import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
-import { renderFailure, type OutputWriter } from "./output/protocol.js";
-import { rootCommand, type CommandDefinition, type KnownCommand } from "./registry.js";
+import { resolveOutputFormat } from "./output/format-selection.js";
+import { renderHelpText } from "./output/presentation.js";
+import { renderResult, type OutputFormat } from "./output/render.js";
+import type { OutputWriter } from "./output/protocol.js";
+import {
+  commandRegistry,
+  describeCommand,
+  rootCommand,
+  snapshotCommandDefinitions,
+  type CommandDefinition,
+  type KnownCommand,
+} from "./registry.js";
 import { toVisibleCliError } from "./runtime/errors.js";
 import { Logger } from "./runtime/logger.js";
 
@@ -55,9 +65,33 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
   }
   let command: KnownCommand | "unknown" = "unknown";
   let commandExitCode: 0 | 1 = 0;
+  let outputFormat: OutputFormat = "text";
   let visibleErrorCodes = rootCommand.errorCodes;
 
   try {
+    const definitions = snapshotCommandDefinitions(options.registry ?? commandRegistry);
+    const selection = resolveOutputFormat(arguments_, definitions);
+    if (selection.definition !== rootCommand || selection.response !== undefined) {
+      command = selection.commandName as KnownCommand | "unknown";
+    }
+    outputFormat = selection.format;
+    visibleErrorCodes = selection.definition?.errorCodes ?? rootCommand.errorCodes;
+    if (
+      selection.helpRequested &&
+      selection.helpCanBypassArgumentValidation &&
+      selection.response === undefined &&
+      selection.definition !== undefined
+    ) {
+      const data = describeCommand(selection.definition.name, definitions);
+      if (data === undefined) throw new Error("Selected command description is missing.");
+      renderResult(stdout, outputFormat, {
+        kind: "success",
+        command: "describe",
+        data,
+        textRenderer: renderHelpText,
+      });
+      return 0;
+    }
     const runtime = options.runtime ?? { logger: new Logger(stderr) };
     const program = createProgram(
       runtime,
@@ -71,13 +105,20 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
           commandExitCode = exitCode;
         },
       },
-      options.registry,
+      definitions,
+      outputFormat,
     );
     await program.parseAsync(arguments_, { from: "user" });
     return commandExitCode;
   } catch (error) {
     const cliError = toVisibleCliError(error, visibleErrorCodes);
-    renderFailure(stdout, command, cliError.code, cliError.message, cliError.recovery);
+    renderResult(outputFormat === "json" ? stdout : stderr, outputFormat, {
+      kind: "failure",
+      command,
+      code: cliError.code,
+      message: cliError.message,
+      ...(cliError.recovery === undefined ? {} : { recovery: cliError.recovery }),
+    });
     return cliError.exitCode;
   }
 }

@@ -36,7 +36,12 @@ async function main(): Promise<void> {
 }
 
 async function verifySourceEntrypoint(bunExecutable: string, directory: string): Promise<void> {
-  const source = await runProcess([bunExecutable, entrypoint, "--version"]);
+  const defaultVersion = await runProcess([bunExecutable, entrypoint, "--version"]);
+  assert.equal(defaultVersion.exitCode, 0);
+  assert.match(defaultVersion.stdout, /^Lorelum .+ \(protocol 1\)\n$/u);
+  assert.equal(defaultVersion.stderr, "");
+
+  const source = await runProcess([bunExecutable, entrypoint, "--version", "--json"]);
   assert.equal(source.exitCode, 0);
   assert.deepEqual(selectProtocolFields(source.stdout), { command: "version", ok: true });
   assert.equal(source.stderr, "");
@@ -63,6 +68,7 @@ async function verifySourceEntrypoint(bunExecutable: string, directory: string):
   const hiddenWithoutGrant = await runProcess([
     bunExecutable,
     entrypoint,
+    "--json",
     "--internal-backend-serve",
   ]);
   assert.equal(hiddenWithoutGrant.exitCode, 2);
@@ -89,18 +95,19 @@ async function compileCli(bunExecutable: string, executable: string): Promise<vo
 }
 
 async function verifyCompiledEntrypoint(executable: string, directory: string): Promise<void> {
-  const binary = await runProcess([executable, "--version"]);
+  const binary = await runProcess([executable, "--version", "--json"]);
   assert.equal(binary.exitCode, 0);
   assert.deepEqual(selectProtocolFields(binary.stdout), { command: "version", ok: true });
   assert.equal(binary.stderr, "");
 
-  const discovery = await runProcess([executable]);
+  const discovery = await runProcess([executable, "--json"]);
   assert.equal(discovery.exitCode, 0);
   assert.deepEqual(selectProtocolFields(discovery.stdout), { command: "describe", ok: true });
   assert.equal(discovery.stderr, "");
 
   const isolatedDiscovery = await runProcess([
     executable,
+    "--json",
     "--store-root",
     join(directory, "worktree-store"),
   ]);
@@ -111,7 +118,7 @@ async function verifyCompiledEntrypoint(executable: string, directory: string): 
   });
   assert.equal(isolatedDiscovery.stderr, "");
 
-  const invalid = await runProcess([executable, "--private-token"]);
+  const invalid = await runProcess([executable, "--json", "--private-token"]);
   assert.equal(invalid.exitCode, 2);
   assert.deepEqual(selectProtocolFields(invalid.stdout), {
     command: "unknown",

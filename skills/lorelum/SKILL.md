@@ -7,6 +7,8 @@ description: Discover installed Lorelum Knowledge Packs, then retrieve relevant 
 
 Lorelum is a local retrieval layer for engineering Practices. Packs contain reusable, trigger-conditioned guidance. Use it to bring the right Practice into planning, implementation, verification, recovery, and delivery without turning it into a mandatory workflow.
 
+For normal retrieval, read the default text output directly. It is the complete visual representation of the command's public data, not a summary. Do not parse its layout as a protocol. Use `--json` only while diagnosing an unexpected result, checking protocol/envelope details, or deliberately passing a result to a machine parser.
+
 ## Establish the Pack Catalog once
 
 At the start of each new engineering task, first check whether the current context already includes an installed Pack Catalog for this task. If it does, reuse it. If it does not, discover the installed Packs and their routing metadata once:
@@ -39,7 +41,7 @@ A Pack can include optional `references/`, `assets/`, and `scripts/` directories
 [API compatibility matrix](resource:references/api-compatibility.md)
 ```
 
-Treat this as task routing, not as a file-access allowlist. The Catalog can supply a Pack's `packRoot` as soon as its Pack context is clear. For a selected Practice, resolve the path after `resource:` from the matching `sources[].packRoot` returned by `lore get`; this remains necessary when the Practice has multiple Pack sources. If the user explicitly asks to browse or maintain one Pack, `lore pack list <pack-name>` supplies a fresh `packRoot`. Do not infer Store paths from Pack names or rely on SQLite/projection layout.
+Treat this as task routing, not as a file-access allowlist. The Catalog can supply a Pack's `packRoot` as soon as its Pack context is clear. For a selected Practice, resolve the path after `resource:` from the matching source shown by `lore get`; this remains necessary when the Practice has multiple Pack sources. If the user explicitly asks to browse or maintain one Pack, `lore pack list <pack-name>` supplies a fresh `packRoot`. Do not infer Store paths from Pack names or rely on SQLite/projection layout.
 
 - Read a `references/` file only when its linked Practice calls for the additional detail.
 - Copy an `assets/` file to the task's working destination before filling in or changing it; do not treat the installed Pack as a writable work directory.

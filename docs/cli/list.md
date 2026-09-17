@@ -15,7 +15,7 @@ The global `--store-root` option can appear before or after the command. Relativ
 
 ## Installed Pack catalog
 
-Without an argument, the protocol envelope contains `command: "pack.list"`, `ok: true`, and:
+Without an argument, default text contains the complete following data in readable form. `lore pack list --json` wraps the same data in `command: "pack.list"`, `ok: true`, and:
 
 ```text
 data: {
@@ -74,7 +74,7 @@ Practice entries are sorted by exact `id`. The returned `id` can be passed direc
 
 ## Errors and boundaries
 
-Success exits `0`. Failures use `ok: false` with `error: { code, message }` and exit `2`. Both success and failure write exactly one JSON line to stdout.
+Success exits `0`. Failures exit `2`。默认成功写完整 text 到 stdout，默认失败写 text error 到 stderr；自动化必须传 `--json` 并按 envelope 的 `error.code` 处理。
 
 | Code | Meaning |
 | --- | --- |

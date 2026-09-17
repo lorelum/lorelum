@@ -3,11 +3,14 @@ import { expect, test } from "bun:test";
 
 import { BackendError, type BackendStatus } from "@lorelum/backend/protocol";
 
-import { run } from "../main";
+import { run as runCli } from "../main";
 import { validateJsonSchema, validateProtocolSchema } from "../output/protocol-schema.test-helper";
 import { protocolResponseSchema } from "../output/protocol";
 import { describeCommand, snapshotCommandDefinitions } from "../registry";
 import { createBackendCommands, type BackendCommandServices } from "./control-commands";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 class MemoryWriter {
   value = "";

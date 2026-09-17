@@ -7,10 +7,13 @@ import { join } from "node:path";
 
 import { createLocalStore, decodePackDirectory } from "@lorelum/engine";
 
-import { run } from "../main.js";
+import { run as runCli } from "../main.js";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper.js";
 import { snapshotCommandDefinitions } from "../registry.js";
 import { createGetCommand } from "./get-command.js";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 const id = "example.read-practice";
 

@@ -35,11 +35,11 @@ test("requires private lifecycle environment before entering the backend daemon"
   ).toBe(true);
 });
 
-test("returns machine-readable root capability discovery", async () => {
+test("returns machine-readable root capability discovery when explicitly requested", async () => {
   const stdout = new MemoryWriter();
   const stderr = new MemoryWriter();
 
-  expect(await run([], { stderr, stdout })).toBe(0);
+  expect(await run(["--json"], { stderr, stdout })).toBe(0);
   const response = JSON.parse(stdout.value);
   expect(response).toMatchObject({
     protocolVersion: 1,
@@ -90,7 +90,7 @@ test("returns machine-readable root capability discovery", async () => {
 test("returns command metadata through describe", async () => {
   const stdout = new MemoryWriter();
 
-  expect(await run(["describe", "describe"], { stdout })).toBe(0);
+  expect(await run(["describe", "describe", "--json"], { stdout })).toBe(0);
   const response = JSON.parse(stdout.value);
   expect(response).toMatchObject({
     command: "describe",
@@ -134,20 +134,32 @@ function optionResultSchemaFor(command: string, behavior: string): JsonSchema {
   return schema;
 }
 
-test("returns structured help and version responses", async () => {
+test("uses readable Help and version by default while preserving explicit JSON", async () => {
   const help = new MemoryWriter();
   const version = new MemoryWriter();
+  const jsonHelp = new MemoryWriter();
+  const jsonVersion = new MemoryWriter();
 
   expect(await run(["describe", "--help"], { stdout: help })).toBe(0);
-  expect(JSON.parse(help.value)).toMatchObject({
+  expect(help.value).toContain("Usage: describe [command]");
+  expect(help.value).toContain("Complete command contract:");
+  expect(help.value).toContain("resultSchema:");
+  expect(help.value).toContain("errorCodes:");
+  expect(help.value).toContain("exitCodes:");
+
+  expect(await run(["describe", "--help", "--json"], { stdout: jsonHelp })).toBe(0);
+  expect(JSON.parse(jsonHelp.value)).toMatchObject({
     command: "describe",
     ok: true,
     data: { name: "describe" },
   });
-  expect(validateProtocolSchema(JSON.parse(help.value), protocolResponseSchema)).toEqual([]);
+  expect(validateProtocolSchema(JSON.parse(jsonHelp.value), protocolResponseSchema)).toEqual([]);
 
   expect(await run(["--version"], { stdout: version })).toBe(0);
-  const versionResponse = JSON.parse(version.value);
+  expect(version.value).toBe(`Lorelum ${toolVersion} (protocol 1)\n`);
+
+  expect(await run(["--version", "--json"], { stdout: jsonVersion })).toBe(0);
+  const versionResponse = JSON.parse(jsonVersion.value);
   expect(versionResponse).toEqual({
     protocolVersion: 1,
     toolVersion,
@@ -164,7 +176,7 @@ test("returns structured help and version responses", async () => {
 test("accepts the documented equals form of global options", async () => {
   const stdout = new MemoryWriter();
 
-  expect(await run(["--log-level=debug"], { stdout })).toBe(0);
+  expect(await run(["--json", "--log-level=debug"], { stdout })).toBe(0);
   expect(JSON.parse(stdout.value)).toMatchObject({ command: "describe", ok: true });
 });
 
@@ -185,7 +197,7 @@ test("validates invalid calls before help and version responses", async () => {
       const stdout = new MemoryWriter();
       const stderr = new MemoryWriter();
 
-      expect(await run(args, { stderr, stdout })).toBe(2);
+      expect(await run(["--json", ...args], { stderr, stdout })).toBe(2);
       expect(JSON.parse(stdout.value)).toMatchObject({
         ok: false,
         error: { code: "usage.invalid", message: "The command invocation is invalid." },
@@ -195,4 +207,16 @@ test("validates invalid calls before help and version responses", async () => {
       expect(validateProtocolSchema(JSON.parse(stdout.value), protocolResponseSchema)).toEqual([]);
     }),
   );
+});
+
+test("writes default failures to stderr as complete text", async () => {
+  const stdout = new MemoryWriter();
+  const stderr = new MemoryWriter();
+
+  expect(await run(["unknown"], { stderr, stdout })).toBe(2);
+  expect(stdout.value).toBe("");
+  expect(stderr.value).toBe(`error:
+  code: usage.invalid
+  message: The command invocation is invalid.
+`);
 });

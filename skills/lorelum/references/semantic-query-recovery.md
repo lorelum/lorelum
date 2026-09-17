@@ -1,22 +1,22 @@
 # Semantic query recovery
 
-Read this reference only after a semantic `lore query` has returned `data.state: "preparing"` or an error. Do not use it as a preflight checklist before the first query.
+Read this reference only after a semantic `lore query ...` has reported `state: "preparing"` or an error. Do not use it as a preflight checklist before the first query. Default text is sufficient to detect that recovery is needed; rerun the query with `--json` only when diagnosing exact envelope fields.
 
 ## Model preparation or embedding errors
 
-- For `data.state: "preparing"`, run `lore model status` and retry the same query after the model is ready.
-- If a previous model download or load failed, or waiting is necessary, run `lore model load` to retry and wait.
-- For an `embedding.*` error, inspect `lore model status`, resolve the reported configuration or resource problem, then use `lore model load` before retrying the same query.
+- For `data.state: "preparing"`, run `lore model status --json` and retry the same query after the model is ready.
+- If a previous model download or load failed, or waiting is necessary, run `lore model load --json` to retry and wait.
+- For an `embedding.*` error, inspect `lore model status --json`, resolve the reported configuration or resource problem, then use `lore model load --json` before retrying the same query.
 
 ## Semantic index errors
 
-- For `semantic.index-not-ready`, run `lore index build`.
-- For an incompatible or failed semantic index, run `lore index rebuild`.
-- If either command returns an operation ID, inspect it with `lore index operation <operation-id>` until it is ready, then retry the same query.
+- For `semantic.index-not-ready`, run `lore index build --json`.
+- For an incompatible or failed semantic index, run `lore index rebuild --json`.
+- If either command returns an operation ID, inspect it with `lore index operation <operation-id> --json` until it is ready, then retry the same query.
 
 ## Backend or Store errors
 
-- For a `backend.*` error, inspect `lore backend status` and resolve the reported startup, port, or compatibility problem before retrying.
+- For a `backend.*` error, inspect `lore backend status --json` and resolve the reported startup, port, or compatibility problem before retrying.
 - For `store.busy` or `store.recovery-required`, do not treat the failure as an empty result. Wait for concurrent work to finish or recover the selected Store, then retry the same query.
 
 ## Keyword mode remains explicit

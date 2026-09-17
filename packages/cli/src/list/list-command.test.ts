@@ -11,13 +11,16 @@ import {
 } from "@lorelum/engine";
 import { resolve } from "node:path";
 
-import { run } from "../main.js";
+import { run as runCli } from "../main.js";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper.js";
 import type { JsonSchema } from "../output/protocol.js";
 import { commandRegistry, describeCommand, snapshotCommandDefinitions } from "../registry.js";
 import type { CommandDefinition } from "../registry.js";
 import { CliError, cliErrorCodes } from "../runtime/errors.js";
 import { createListCommand } from "./list-command.js";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 class MemoryWriter {
   value = "";
@@ -111,6 +114,7 @@ test("describes the LocalStore-backed Pack catalog command contract", () => {
     positionals: [{ name: "pack", required: false }],
     options: [
       { name: "-h, --help", required: false },
+      { name: "--json", required: false },
       { name: "--log-level <level>", required: false },
       { name: "--store-root <path>", required: false },
       { name: "--details", required: false },
@@ -211,7 +215,7 @@ test("rejects conflicting or extra Pack catalog arguments before service dispatc
   ]);
 
   const invocations = [
-    { args: ["pack", "list", "agentic-coding", "extra"], command: "unknown" },
+    { args: ["pack", "list", "agentic-coding", "extra"], command: "pack.list" },
     { args: ["pack", "list", "agentic-coding", "--details"], command: "pack.list" },
   ];
   const results = await Promise.all(

@@ -59,6 +59,7 @@ test("discovers the supported Pack lifecycle and catalog commands", () => {
   expect(update.usage).toBe("pack update <pack[@version]>");
   expect(update.options.map((option) => option.name)).toEqual([
     "-h, --help",
+    "--json",
     "--log-level <level>",
     "--store-root <path>",
     "--registry <repository>",
@@ -75,6 +76,7 @@ test("discovers the supported Pack lifecycle and catalog commands", () => {
   expect(remove.usage).toBe("pack remove <pack>");
   expect(remove.options.map((option) => option.name)).toEqual([
     "-h, --help",
+    "--json",
     "--log-level <level>",
     "--store-root <path>",
   ]);
@@ -90,6 +92,7 @@ test("discovers the supported Pack lifecycle and catalog commands", () => {
   expect(list.usage).toBe("pack list [pack]");
   expect(list.options.map((option) => option.name)).toEqual([
     "-h, --help",
+    "--json",
     "--log-level <level>",
     "--store-root <path>",
     "--details",
@@ -245,6 +248,7 @@ test("describes registered commands from a single registry", () => {
     name: "lore",
     options: [
       { behavior: "help", name: "-h, --help", scope: "global" },
+      { behavior: "json", name: "--json", scope: "global" },
       {
         behavior: "version",
         name: "-V, --version",
@@ -356,6 +360,7 @@ test("describes registered commands from a single registry", () => {
   expect(describeCommand("describe")).toMatchObject({
     options: [
       { behavior: "help", scope: "global" },
+      { behavior: "json", scope: "global" },
       { behavior: "log-level", scope: "global" },
       { behavior: "store-root", scope: "global" },
     ],
@@ -368,6 +373,7 @@ test("describes registered commands from a single registry", () => {
   expect(install.usage).toBe("pack install <pack[@version]>");
   expect(install.options.map((option) => option.name)).toEqual([
     "-h, --help",
+    "--json",
     "--log-level <level>",
     "--store-root <path>",
     "--registry <repository>",
@@ -389,6 +395,7 @@ test("derives parser options and describe metadata from registered commands", as
     name: "future",
     options: [
       { behavior: "help", scope: "global" },
+      { behavior: "json", scope: "global" },
       { behavior: "log-level", scope: "global" },
       { behavior: "store-root", scope: "global" },
       { name: "--future-mode <mode>", scope: "command" },
@@ -433,22 +440,28 @@ test("derives parser options and describe metadata from registered commands", as
   });
 
   const stdout = new MemoryWriter();
-  expect(await run(["future", "--future-mode", "safe"], { registry: definitions, stdout })).toBe(0);
+  expect(
+    await run(["future", "--future-mode", "safe", "--json"], { registry: definitions, stdout }),
+  ).toBe(0);
   expect(JSON.parse(stdout.value)).toMatchObject({ command: "future", data: { mode: "safe" } });
 
   const missingRequiredOption = new MemoryWriter();
-  expect(await run(["future"], { registry: definitions, stdout: missingRequiredOption })).toBe(2);
+  expect(
+    await run(["future", "--json"], { registry: definitions, stdout: missingRequiredOption }),
+  ).toBe(2);
 
   const unsupportedOptionValue = new MemoryWriter();
   expect(
-    await run(["future", "--future-mode", "unsafe"], {
+    await run(["future", "--future-mode", "unsafe", "--json"], {
       registry: definitions,
       stdout: unsupportedOptionValue,
     }),
   ).toBe(2);
 
   const help = new MemoryWriter();
-  expect(await run(["future", "--help"], { registry: definitions, stdout: help })).toBe(0);
+  expect(await run(["future", "--help", "--json"], { registry: definitions, stdout: help })).toBe(
+    0,
+  );
   expect(JSON.parse(help.value)).toMatchObject({ command: "describe", data: { name: "future" } });
 });
 
@@ -461,6 +474,7 @@ test("keeps parser and describe on the same immutable program snapshot", async (
     stdout,
     { selectCommand() {}, setExitCode() {} },
     definitions,
+    "json",
   );
 
   definitions.pop();
@@ -486,7 +500,7 @@ test("returns exit code 1 with a successful blocking domain result", async () =>
   const stdout = new MemoryWriter();
 
   expect(
-    await run(["future-domain"], {
+    await run(["future-domain", "--json"], {
       registry: [...commandRegistry, blockingCommand],
       stdout,
     }),
@@ -512,7 +526,9 @@ test("renders one failure when a handler returns an undeclared completion", asyn
   };
   const stdout = new MemoryWriter();
 
-  expect(await run([command.name], { registry: [...commandRegistry, command], stdout })).toBe(2);
+  expect(
+    await run([command.name, "--json"], { registry: [...commandRegistry, command], stdout }),
+  ).toBe(2);
   expect(stdout.value.trimEnd().split("\n")).toHaveLength(1);
   expect(JSON.parse(stdout.value)).toMatchObject({
     command: command.name,
@@ -534,7 +550,9 @@ test("normalizes non-JSON-safe handler data before any success is written", asyn
   };
   const stdout = new MemoryWriter();
 
-  expect(await run([command.name], { registry: [...commandRegistry, command], stdout })).toBe(2);
+  expect(
+    await run([command.name, "--json"], { registry: [...commandRegistry, command], stdout }),
+  ).toBe(2);
   expect(stdout.value.trimEnd().split("\n")).toHaveLength(1);
   expect(JSON.parse(stdout.value)).toMatchObject({
     command: command.name,
@@ -559,7 +577,7 @@ test("normalizes handler errors that are not visible in command metadata", async
   const stdout = new MemoryWriter();
 
   expect(
-    await run(["future-failure"], {
+    await run(["future-failure", "--json"], {
       registry: [...commandRegistry, command],
       stdout,
     }),
@@ -592,7 +610,7 @@ test("preserves handler errors declared in command metadata", async () => {
   const stdout = new MemoryWriter();
 
   expect(
-    await run(["future-visible-failure"], {
+    await run(["future-visible-failure", "--json"], {
       registry: [...commandRegistry, command],
       stdout,
     }),
@@ -633,11 +651,13 @@ test("registers parent and nested commands from dotted command names", async () 
   ];
 
   const root = new MemoryWriter();
-  expect(await run(["config"], { registry: definitions, stdout: root })).toBe(0);
+  expect(await run(["config", "--json"], { registry: definitions, stdout: root })).toBe(0);
   expect(JSON.parse(root.value)).toMatchObject({ command: "config", data: { kind: "root" } });
 
   const nested = new MemoryWriter();
-  expect(await run(["config", "path"], { registry: definitions, stdout: nested })).toBe(0);
+  expect(await run(["config", "path", "--json"], { registry: definitions, stdout: nested })).toBe(
+    0,
+  );
   expect(JSON.parse(nested.value)).toMatchObject({
     command: "config.path",
     data: { kind: "nested" },
@@ -645,7 +665,7 @@ test("registers parent and nested commands from dotted command names", async () 
 
   const description = new MemoryWriter();
   expect(
-    await run(["describe", "config.path"], {
+    await run(["describe", "config.path", "--json"], {
       registry: definitions,
       stdout: description,
     }),

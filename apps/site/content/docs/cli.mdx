@@ -1,10 +1,10 @@
 ---
 title: CLI reference
-description: Command discovery, global options, JSON responses, and exit codes.
+description: Command discovery, default text output, JSON machine responses, and exit codes.
 icon: Terminal
 ---
 
-The `lore` CLI is the interface used by agent integrations. Every invocation writes one JSON response to stdout, including help and version commands. Diagnostics and progress go to stderr.
+The `lore` CLI defaults to complete, readable text on stdout, including Help and version. It is a visual representation of the command's public `data`, not a summary: source locators, IDs, state, progress, diagnostics, and metadata remain visible. Agents read this default text directly. Use `--json` only to diagnose an unexpected result, inspect protocol details, or let a script or CI job programmatically parse the complete one-line JSON envelope. Diagnostics and progress go to stderr; default command failures also go to stderr.
 
 ## Commands
 
@@ -22,11 +22,11 @@ The `lore` CLI is the interface used by agent integrations. Every invocation wri
 ## Discover the installed contract
 
 ```sh
-lore describe
-lore describe query
-lore describe index.build
-lore --help
-lore --version
+lore describe --json
+lore describe query --json
+lore describe index.build --json
+lore --help --json
+lore --version --json
 ```
 
 `describe` returns arguments, options, result schemas, error codes, and exit codes. Use dotted identifiers for nested commands: `index.build` describes `lore index build`.
@@ -39,19 +39,23 @@ Use the installed schema when automating against a particular release. Alpha ver
 | --------------------- | -------------------------------------------------------------- |
 | `--store-root <path>` | Select the Store used by Pack, query, get, and index commands. |
 | `--log-level <level>` | Set stderr diagnostic verbosity; default `error`.              |
-| `--help`, `-h`        | Return machine-readable command capabilities.                  |
-| `--version`, `-V`     | Return protocol and tool versions at the root command.         |
+| `--json`              | Return the complete one-line JSON protocol envelope.            |
+| `--help`, `-h`        | Show readable Help; add `--json` for capability data.          |
+| `--version`, `-V`     | Show tool/protocol version; add `--json` for its envelope.     |
 
 Relative Store paths resolve from the current working directory. Use the same root across related commands:
 
 ```sh
 lore --store-root /path/to/store pack list
 lore --store-root /path/to/store query "reviewing the scope of a small UI change"
+lore --store-root /path/to/store query "reviewing the scope of a small UI change" --json
 ```
 
 Model configuration and Backend runtime remain user-level. See [Configuration](./configuration).
 
-## Response envelope
+## JSON response envelope
+
+The fields below exist only when `--json` is selected. Do not parse default text. JSON and text use the same handler result and exit code; only the envelope itself is omitted from text.
 
 Every response includes `protocolVersion`, `toolVersion`, `command`, and `ok`.
 
@@ -75,6 +79,6 @@ Branch on error codes instead of parsing messages. Within a successful result, i
 | `1` | A command-specific diagnostic or non-final result, such as query preparation or validation diagnostics. |
 | `2` | Failed invocation; inspect `error.code`. |
 
-A query with `ok: true` and `data.state: "preparing"` exits `1`. This is not an empty search result. Index commands can exit `0` after accepting work; use the returned operation ID to check completion.
+A query with `ok: true` and `data.state: "preparing"` exits `1`. This is not an empty search result. Index commands can exit `0` after accepting work; use the returned operation ID to check completion. In default text the same state and ID remain visible; only programmatic parsers need `--json`.
 
 The command references specify which states and exit codes each command supports.

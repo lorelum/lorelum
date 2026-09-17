@@ -25,7 +25,7 @@ After installation, run:
 lore --version
 ```
 
-Lorelum returns JSON, including the installed tool version. Check it in the same environment your agent uses.
+Lorelum shows the installed tool/protocol version as readable text. Automation that needs the envelope uses `lore --version --json`; check either form in the same environment your agent uses.
 
 ## 2. Install a Knowledge Pack
 
@@ -35,7 +35,7 @@ The official `agentic-coding` Pack covers engineering decisions during planning,
 lore pack install agentic-coding
 ```
 
-Installation saves the Pack and starts the semantic index work it needs. Check `data.indexSync`: the Pack can be installed while model preparation or indexing is pending. See [Pack commands](./reference/packs).
+Installation saves the Pack and starts the semantic index work it needs. Default text fully shows the index state, so an Agent reads it directly. The Pack can be installed while model preparation or indexing is pending. Use `--json` only if an unexpected state needs protocol-level diagnosis. See [Pack commands](./reference/packs).
 
 ## 3. Describe the task and moment
 
@@ -43,7 +43,7 @@ Installation saves the Pack and starts the semantic index work it needs. Check `
 lore query "I am implementing a settings card from an existing design. I am about to define the scope, implementation plan, and validation."
 ```
 
-A ready result contains `data.results`. Each item includes `practiceId`, `title`, and `appliesWhen` to help you choose relevant guidance.
+A ready result visibly contains the same Practice IDs, titles, and applicability fields as JSON. An Agent reads those fields directly from default text and does not parse its layout; use `--json` only to diagnose an unexpected result.
 
 The first query may return `data.state: "preparing"` while the local model downloads or loads. Wait for it, then retry:
 

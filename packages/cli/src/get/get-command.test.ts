@@ -7,7 +7,7 @@ import {
   type EffectivePractice,
 } from "@lorelum/engine";
 
-import { run } from "../main.js";
+import { run as runCli } from "../main.js";
 import {
   validateJsonSchema,
   validateProtocolSchema,
@@ -16,6 +16,9 @@ import { protocolResponseSchema } from "../output/protocol.js";
 import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
 import { CliError } from "../runtime/errors.js";
 import { createGetCommand, type GetCommandServices } from "./get-command.js";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 const practice = {
   id: "sample.exact-id",

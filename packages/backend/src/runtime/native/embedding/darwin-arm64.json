@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "buildIdentity": "06bb48a643816d3fc3506d35a68abe30f380632a587d6a7c948622a2b1e8cd18",
-  "recipeIdentity": "c4798b76f2bb6c5cf3184af93e480bbf7b9bb976023a8cfe3008b59bef47e4f5",
+  "recipeIdentity": "0befbf72fb22a7f89505351aaa405144e804f5535aa86fc691d7e136d7376e8b",
   "platform": "darwin",
   "arch": "arm64",
   "executable": "llama-server",
@@ -10,7 +10,7 @@
     "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
     "archiveSha256": "b4220cefe053c18fb2d5c27a859c0aaab3106a5644bcbbbb2bdd67699dfe4b79"
   },
-  "patchSha256": "f58b3db4c77ae0297679153d893f08dabc1b1759edead5c5b4cd9eef19bab03f",
+  "patchSha256": "39de01bd05911688cd59772092302cf4864e55c4d5c3ffec5a416302e7f214c5",
   "toolchain": {
     "cmake": "cmake version 3.31.6",
     "compiler": "Apple clang version 17.0.0 (clang-1700.4.4.1)"
@@ -20,7 +20,7 @@
     "-DCMAKE_OSX_ARCHITECTURES=arm64",
     "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.3",
     "-DLLAMA_BUILD_NUMBER=10901",
-    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.f58b3db4",
+    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.39de01bd",
     "-DBUILD_SHARED_LIBS=OFF",
     "-DLLAMA_BUILD_TESTS=OFF",
     "-DLLAMA_BUILD_EXAMPLES=OFF",

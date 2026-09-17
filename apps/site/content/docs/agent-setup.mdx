@@ -39,6 +39,12 @@ curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/skills/lorelum
   -o .cursor/skills/lorelum/SKILL.md
 ```
 
+## Other agents
+
+Agents that can execute commands can use the same CLI. Install the Skill through the host's supported mechanism. If the host uses project instructions instead, include the Skill's retrieval instructions there.
+
+The essential behavior is to describe the task and current decision with `lore query`, read relevant results with `lore get`, and apply the guidance within its stated conditions. The Agent reads default text directly; it does not parse its layout. When a retrieved Practice contains a `resource:` link, the installed Skill explains how to resolve it from the displayed mutable current `packRoot`, read references on demand, copy assets before editing, and explicitly run a script only under task authorization. Use `--json` only to diagnose an unexpected result or inspect protocol details. See [Agent instructions](./agents) for the full execution contract.
+
 ## First use
 
 Start a new task and tell your agent:

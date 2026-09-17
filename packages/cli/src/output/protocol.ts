@@ -106,40 +106,36 @@ export const protocolResponseSchema = {
   ],
 } as const satisfies JsonSchema;
 
-export function renderSuccess<T extends JsonValue>(
-  writer: OutputWriter,
+export function createSuccessEnvelope<T extends JsonValue>(
   command: string,
   data: T,
-): void {
+): ProtocolSuccess<T> {
   assertJsonValue(data);
-  const response: ProtocolSuccess<T> = {
+  return {
     protocolVersion,
     toolVersion,
     command,
     ok: true,
     data,
   };
-  writer.write(`${JSON.stringify(response)}\n`);
 }
 
-export function renderFailure(
-  writer: OutputWriter,
+export function createFailureEnvelope(
   command: string,
   code: string,
   message: string,
   recovery?: ErrorRecovery,
-): void {
-  const response: ProtocolFailure = {
+): ProtocolFailure {
+  return {
     protocolVersion,
     toolVersion,
     command,
     ok: false,
     error: { code, message, ...(recovery === undefined ? {} : { recovery }) },
   };
-  writer.write(`${JSON.stringify(response)}\n`);
 }
 
-function assertJsonValue(value: unknown, ancestors: WeakSet<object> = new WeakSet()): void {
+export function assertJsonValue(value: unknown, ancestors: WeakSet<object> = new WeakSet()): void {
   if (value === null || typeof value === "string" || typeof value === "boolean") return;
   if (typeof value === "number") {
     if (Number.isFinite(value)) return;

@@ -1,6 +1,6 @@
 # Query installed Practices
 
-当前可观察合同见 [retrieval query OpenSpec](../../openspec/specs/retrieval-query/spec.md)；本页说明 CLI 参数、JSON 输出与恢复操作。
+当前可观察合同见 [retrieval query OpenSpec](../../openspec/specs/retrieval-query/spec.md)；本页说明 CLI 参数、默认完整 text、JSON machine output 与恢复操作。
 
 `lore query <text>` 在当前 query context 中检索 Practice 并返回小型 summary。默认使用本地 semantic retrieval；`--mode keyword` 保留离线 FTS5 路径。有效项目目录或其父目录中的 `.lorelum/` 会按父到子合并为 ProjectContext；选中的 LocalStore 根目录不是项目 layer。没有有效项目 layer（包括整条路径没有 `.lorelum/`）或传入 `--no-project` 时，query 使用纯 LocalStore。
 
@@ -57,7 +57,7 @@ The successful result includes the Profile identity and how completely the activ
 
 ## Shared result behavior
 
-Both modes return one JSON protocol envelope on stdout. `results` may be empty and contains at most `top-k` entries. Results are Practice summaries, not source files. They omit the full body and internal scores; use `lore get <practice-id>` to retrieve the complete canonical Practice. Results are deterministic for the same Store snapshot and query implementation. A query does not pin a revision for a later `get` invocation.
+Both modes default to complete text on stdout; it presents the same mode, profile, coverage, progress, context warning and result fields that `--json` exposes in a protocol envelope. `results` may be empty and contains at most `top-k` entries. Results are Practice summaries, not source files. They omit the full body and internal scores; use `lore get <practice-id>` to retrieve the complete canonical Practice. Results are deterministic for the same Store snapshot and query implementation. A query does not pin a revision for a later `get` invocation.
 
 When automatic preparation has been accepted but is not ready within the observation interval, semantic query returns `ok: true`, exit code `1`, and no results:
 
@@ -85,7 +85,7 @@ When there are no eligible current vectors, or the caller requires more coverage
 
 ## Errors and exit codes
 
-Ready query results exit `0`. A successful preparing result exits `1`. Failures use `ok: false` with `error: { code, message }` and exit `2`. Build/protocol mismatch additionally includes a machine-only `recovery` object; all paths still write exactly one JSON line to stdout. Callers should branch on `data.state`, `error.code`, and—when supplied—`error.recovery`, not parse the message.
+Ready query results exit `0`. A successful preparing result exits `1`. Failures exit `2`. Default text success remains on stdout; default errors show complete `error.code`/message/recovery on stderr. `--json` writes the complete envelope on stdout. Build/protocol mismatch additionally includes a `recovery` object; machine callers should pass `--json` and branch on `data.state`, `error.code`, and—when supplied—`error.recovery`, not parse text or message.
 
 ```json
 {

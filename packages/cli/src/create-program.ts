@@ -1,6 +1,8 @@
 import { Argument, Command, Option } from "commander";
 
-import { renderSuccess, type OutputWriter } from "./output/protocol.js";
+import { renderHelpText } from "./output/presentation.js";
+import { renderResult, type OutputFormat } from "./output/render.js";
+import type { OutputWriter } from "./output/protocol.js";
 import {
   commandOptionAppliesTo,
   commandOptionKey,
@@ -36,6 +38,7 @@ export function createProgram(
   output: OutputWriter,
   lifecycle: ProgramLifecycle,
   registryDefinitions: readonly CommandDefinition[] = commandRegistry,
+  outputFormat: OutputFormat = "text",
 ): Command {
   const registry = snapshotCommandDefinitions(registryDefinitions);
   const describeFromRegistry: DescribeCommand = (command) => describeCommand(command, registry);
@@ -60,6 +63,7 @@ export function createProgram(
         lifecycle,
         describeFromRegistry,
         discoveryCommandName,
+        outputFormat,
       ),
     );
 
@@ -97,6 +101,7 @@ export function createProgram(
         lifecycle,
         describeFromRegistry,
         definition.name,
+        outputFormat,
       );
     });
   }
@@ -112,6 +117,7 @@ async function executeCommand(
   lifecycle: ProgramLifecycle,
   describeFromRegistry: DescribeCommand,
   responseCommand: string,
+  outputFormat: OutputFormat,
 ): Promise<void> {
   lifecycle.selectCommand(definition);
   const helpOption = enabledFrameworkOption(command, definition, "help");
@@ -123,15 +129,21 @@ async function executeCommand(
   if (versionOption !== undefined) {
     const response = versionOption.response;
     if (response === undefined) throw new Error("The version registry response is missing.");
-    renderSuccess(output, response.command, response.data);
+    renderResult(output, outputFormat, {
+      kind: "success",
+      command: response.command,
+      data: response.data,
+      ...(response.textRenderer === undefined ? {} : { textRenderer: response.textRenderer }),
+    });
     return;
   }
   if (helpOption !== undefined) {
-    renderSuccess(
-      output,
-      discoveryCommandName,
-      requireCommandDescription(describeFromRegistry, definition.name),
-    );
+    renderResult(output, outputFormat, {
+      kind: "success",
+      command: discoveryCommandName,
+      data: requireCommandDescription(describeFromRegistry, definition.name),
+      textRenderer: renderHelpText,
+    });
     return;
   }
   assertApplicableFrameworkOptions(command, definition);
@@ -150,7 +162,12 @@ async function executeCommand(
   if (!definition.exitCodes.includes(exitCode)) {
     throw new Error(`Command "${definition.name}" returned undeclared exit code ${exitCode}.`);
   }
-  renderSuccess(output, responseCommand, result.data);
+  renderResult(output, outputFormat, {
+    kind: "success",
+    command: responseCommand,
+    data: result.data,
+    ...(definition.textRenderer === undefined ? {} : { textRenderer: definition.textRenderer }),
+  });
   if (exitCode === 1) lifecycle.setExitCode(1);
 }
 

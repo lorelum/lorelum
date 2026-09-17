@@ -12,7 +12,7 @@ import {
 import type { BackendClient } from "@lorelum/backend/client";
 import { BackendError, EmbeddingError } from "@lorelum/backend/protocol";
 
-import { run } from "../main.js";
+import { run as runCli } from "../main.js";
 import {
   validateJsonSchema,
   validateProtocolSchema,
@@ -21,6 +21,9 @@ import { protocolResponseSchema } from "../output/protocol.js";
 import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
 import { CliError } from "../runtime/errors.js";
 import { createQueryCommand, type QueryCommandServices } from "./query-command.js";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 const queryResult: QueryResult = {
   mode: "keyword",

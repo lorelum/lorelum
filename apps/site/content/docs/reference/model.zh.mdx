@@ -16,7 +16,7 @@ lore model load
 
 ## load
 
-`lore model load` 在模型缺失时下载固定文件，校验并等待加载完成。它也可以重试之前失败的准备任务。进度写入 stderr，stdout 只返回最终 JSON 结果。
+`lore model load` 在模型缺失时下载固定文件，校验并等待加载完成。它也可以重试之前失败的准备任务。进度写入 stderr，stdout 默认返回完整最终 text；选择 `--json` 时返回 envelope。
 
 重复调用会加入同一个准备任务。
 

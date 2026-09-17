@@ -8,7 +8,7 @@ import { createLocalStore, decodePackDirectory } from "@lorelum/engine";
 import { RegistrySchema, type RegistryRelease } from "@lorelum/format";
 import type { IndexOperation } from "@lorelum/backend/protocol";
 
-import { run } from "../main.js";
+import { run as runCli } from "../main.js";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper.js";
 import { snapshotCommandDefinitions } from "../registry.js";
 import {
@@ -17,6 +17,9 @@ import {
   type InstallCommandServices,
 } from "./install-command.js";
 import { resolveRegistryRepository } from "./load-registry.js";
+
+const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
+  runCli(["--json", ...arguments_], options);
 
 class MemoryWriter {
   value = "";

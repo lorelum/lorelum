@@ -1,31 +1,25 @@
 import { expect, test } from "bun:test";
 
-import { protocolResponseSchema, renderFailure, renderSuccess, toolVersion } from "./protocol.js";
+import {
+  createFailureEnvelope,
+  createSuccessEnvelope,
+  protocolResponseSchema,
+  toolVersion,
+} from "./protocol.js";
 import goldenEnvelopes from "./protocol-envelope.fixture.json";
 import { validateProtocolSchema } from "./protocol-schema.test-helper.js";
 
-class MemoryWriter {
-  value = "";
+test("creates structured protocol success envelopes", () => {
+  const response = createSuccessEnvelope("describe", { name: "lore" });
 
-  write(message: string): void {
-    this.value += message;
-  }
-}
-
-test("renders one JSON line for successful protocol responses", () => {
-  const writer = new MemoryWriter();
-
-  renderSuccess(writer, "describe", { name: "lore" });
-
-  expect(writer.value.endsWith("\n")).toBe(true);
-  expect(JSON.parse(writer.value)).toEqual({
+  expect(response).toEqual({
     protocolVersion: 1,
     toolVersion,
     command: "describe",
     ok: true,
     data: { name: "lore" },
   });
-  expect(validateProtocolSchema(JSON.parse(writer.value), protocolResponseSchema)).toEqual([]);
+  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 });
 
 test("rejects non-JSON-safe success data before writing", () => {
@@ -41,29 +35,27 @@ test("rejects non-JSON-safe success data before writing", () => {
   ];
 
   for (const value of invalidValues) {
-    const writer = new MemoryWriter();
-    expect(() => renderSuccess(writer, "invalid", value as never)).toThrow();
-    expect(writer.value).toBe("");
+    expect(() => createSuccessEnvelope("invalid", value as never)).toThrow();
   }
 });
 
-test("renders structured protocol failures", () => {
-  const writer = new MemoryWriter();
+test("creates structured protocol failures", () => {
+  const response = createFailureEnvelope(
+    "unknown",
+    "usage.invalid",
+    "The command invocation is invalid.",
+  );
 
-  renderFailure(writer, "unknown", "usage.invalid", "The command invocation is invalid.");
-
-  expect(JSON.parse(writer.value)).toMatchObject({
+  expect(response).toMatchObject({
     command: "unknown",
     ok: false,
     error: { code: "usage.invalid" },
   });
-  expect(validateProtocolSchema(JSON.parse(writer.value), protocolResponseSchema)).toEqual([]);
+  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 });
 
-test("renders optional machine recovery without widening unrelated failures", () => {
-  const writer = new MemoryWriter();
-  renderFailure(
-    writer,
+test("creates optional machine recovery without widening unrelated failures", () => {
+  const response = createFailureEnvelope(
     "query",
     "backend.build-mismatch",
     "A different Lorelum build owns the local backend.",
@@ -74,7 +66,7 @@ test("renders optional machine recovery without widening unrelated failures", ()
       retry: "original-command",
     },
   );
-  expect(JSON.parse(writer.value)).toMatchObject({
+  expect(response).toMatchObject({
     error: {
       code: "backend.build-mismatch",
       recovery: {
@@ -85,7 +77,7 @@ test("renders optional machine recovery without widening unrelated failures", ()
       },
     },
   });
-  expect(validateProtocolSchema(JSON.parse(writer.value), protocolResponseSchema)).toEqual([]);
+  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 });
 
 test("validates independent golden envelopes with the exported envelope schema", () => {

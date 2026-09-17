@@ -74,27 +74,27 @@ A Practice can link Pack-native material with a `resource:` target, such as `res
 
 The link is the default task route, not a file-access allowlist. A SessionStart Catalog injected by the Codex or ZCode Plugin gives every installed Pack its readable current `packRoot`, so you may use that root when the Pack context is already clear. For a retrieved Practice, keep multiple sources separate and use the matching `get` source root rather than silently choosing a Catalog entry. A root is a mutable current view: after a Pack mutation, retrieve `get` or `pack list` again before treating it as the current source; never derive roots from Store internals. Never assume a Pack script runs during install, validation, query, listing, get, indexing, or recovery.
 
-## Handle JSON and process status
+## Read default output and diagnose issues
 
-stdout contains one JSON response; stderr contains diagnostics and progress. Inspect `ok`, then the command-specific fields in `data`.
+For normal Agent calls, use default text and read it directly. It contains the same public business data as JSON, including IDs, source, state, progress, diagnostics, and metadata; it is not a summary. Do not parse its layout as a protocol. When a result is unexpected and you need to diagnose it, or when you need to inspect precise protocol fields, rerun the same command with `--json`: stdout then contains one JSON envelope and stderr contains diagnostics and progress. Scripts and CI that programmatically parse output must use `--json`.
 
 | Result | Next action |
 | --- | --- |
-| Ready query with `data.results` | Select relevant results and read them with `get`. |
-| `ok: true`, `data.state: "preparing"`, exit `1` | Check model state, wait with `lore model load`, then retry the same query. |
-| Ready query with an empty `results` array | Check installed Packs and refine the task description if useful. |
-| Accepted index operation | Follow its operation ID until it is ready or failed. |
-| `ok: false`, exit `2` | Inspect `error.code` and follow [Troubleshooting](./troubleshooting). |
+| Ready query shows Practices | Select relevant results and read them with `get`. |
+| Query shows `state: preparing`, exit `1` | Check model state, wait with `lore model load`, then retry the same query. |
+| Ready query shows an empty result list | Check installed Packs and refine the task description if useful. |
+| Index operation is accepted | Follow its visible operation ID until it is ready or failed. |
+| Command failure, exit `2` | Read its code/recovery and follow [Troubleshooting](./troubleshooting); use `--json` only if protocol-level diagnosis is needed. |
 
 Semantic query is the default. A failed semantic query does not mean that relevant guidance is absent. Use keyword mode only for an intentional offline lookup or to isolate a semantic-runtime problem, and identify that mode explicitly.
 
-## Discover the installed contract
+## Inspect the installed contract during diagnosis
 
 ```sh
-lore describe query
-lore describe get
-lore describe pack.list
-lore describe index.build
+lore describe query --json
+lore describe get --json
+lore describe pack.list --json
+lore describe index.build --json
 ```
 
-Use these schemas for arguments, fields, errors, and exit codes rather than assuming another version's behavior. Start from the [CLI reference](./cli) or [documentation overview](./index.md) for further guidance.
+Use these JSON schemas only when diagnosing a protocol or automation issue. For ordinary retrieval, keep using default text. Start from the [CLI reference](./cli) or [documentation overview](./index.md) for further guidance.

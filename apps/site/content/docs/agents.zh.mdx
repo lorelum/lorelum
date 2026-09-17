@@ -71,27 +71,27 @@ Practice 可以通过 `resource:` target 链接 Pack 内材料，例如 `resourc
 
 link 是默认任务路由，不是文件访问 allowlist。Codex 或 ZCode Plugin 在 SessionStart 注入的 Catalog 会为每个已安装 Pack 提供可直接读取的当前 `packRoot`，当 Pack 上下文已经明确时可以直接使用它。对于已经取回的 Practice，多个 source 必须保持分开，并使用相同 source 的 `get` root，而不能静默挑选 Catalog entry。root 是可变的 current view：发生 Pack mutation 后，重新执行 `get` 或 `pack list` 后再将它视为当前 source；不要通过 Store 内部实现推导 root。不要假定 Pack script 会在 install、validate、query、list、get、index 或 recovery 期间运行。
 
-## 处理 JSON 和退出状态
+## 阅读默认输出与排查问题
 
-stdout 包含一个 JSON 响应，stderr 包含诊断和进度。先检查 `ok`，再检查 `data` 中该命令的具体字段。
+Agent 的正常调用使用默认 text 并直接阅读。它包含与 JSON 相同的公开业务数据，包括 ID、source、状态、进度、diagnostic 和 metadata，不是摘要；但不得将其排版当作可解析协议。结果异常、需要排查，或需要核对精确 protocol 字段时，再用 `--json` 重跑同一命令：stdout 此时是单行 JSON envelope，stderr 仍承载诊断和进度。会以程序方式解析输出的脚本和 CI 必须使用 `--json`。
 
 | 结果 | 后续动作 |
 | --- | --- |
-| query 可用，包含 `data.results` | 选择相关结果，用 `get` 读取。 |
-| `ok: true`、`data.state: "preparing"`、退出码 `1` | 检查模型状态，用 `lore model load` 等待，再重试原查询。 |
-| query 可用，但 `results` 数组为空 | 检查已安装 Pack，必要时补充更具体的任务描述。 |
-| index 返回已接受的 operation | 根据 operation ID 检查，直到完成或失败。 |
-| `ok: false`、退出码 `2` | 检查 `error.code`，按[故障排查](./troubleshooting)处理。 |
+| query 可用，显示 Practice | 选择相关结果，用 `get` 读取。 |
+| 显示 `state: preparing`、退出码 `1` | 检查模型状态，用 `lore model load` 等待，再重试原查询。 |
+| query 可用，但显示空结果列表 | 检查已安装 Pack，必要时补充更具体的任务描述。 |
+| index operation 已被接受 | 根据可见的 operation ID 检查，直到完成或失败。 |
+| 命令失败、退出码 `2` | 阅读 code/recovery，按[故障排查](./troubleshooting)处理；只有需要 protocol 级排查时才用 `--json`。 |
 
 默认使用 semantic query。语义查询失败不代表没有相关指导。仅在明确需要离线查询或隔离语义运行时问题时使用 keyword 模式，并明确说明检索模式。
 
-## 查询已安装版本的合同
+## 在排查时检查已安装合同
 
 ```sh
-lore describe query
-lore describe get
-lore describe pack.list
-lore describe index.build
+lore describe query --json
+lore describe get --json
+lore describe pack.list --json
+lore describe index.build --json
 ```
 
-通过这些 schema 查询参数、字段、错误和退出码，不要假定当前版本与其他版本相同。更多内容见 [CLI 参考](./cli)和[文档概述](./index.md)。
+只有排查 protocol 或 automation 问题时才用这些 JSON schema 查询参数、字段、错误和退出码。普通检索继续使用默认 text。更多内容见 [CLI 参考](./cli)和[文档概述](./index.md)。

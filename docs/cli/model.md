@@ -13,7 +13,7 @@ lore backend start
 lore model load 2>model-load.progress.log
 ```
 
-stdout 只输出最终 JSON envelope；stderr 输出阶段和数值进度，例如：
+stdout 默认输出完整最终 text；传 `--json` 时输出最终 envelope。stderr 输出阶段和数值进度，例如：
 
 ```text
 model: resolving

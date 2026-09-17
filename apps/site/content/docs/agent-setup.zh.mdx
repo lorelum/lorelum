@@ -37,6 +37,12 @@ curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/skills/lorelum
   -o .cursor/skills/lorelum/SKILL.md
 ```
 
+## 其他 Agent
+
+能够执行命令的 Agent 可以调用同一套 CLI。按宿主支持的方式安装 Skill；若宿主使用项目指令，则将 Skill 的检索指导放入对应指令文件。
+
+核心行为是：用 `lore query` 描述任务和当前判断，用 `lore get` 读取相关结果，再按适用条件应用指导。Agent 直接阅读默认 text，而不解析其排版。取回的 Practice 包含 `resource:` link 时，已安装 Skill 会说明如何用显示出的可变 current `packRoot` 解析它、按需读取 reference、复制 asset 后编辑，以及只在当前任务授权下显式运行 script。只有结果异常、需要排查或核对 protocol 细节时才使用 `--json`。完整执行约定见 [Agent 使用说明](./agents)。
+
 ## 第一次使用
 
 启动一个新任务，告诉 Agent：
