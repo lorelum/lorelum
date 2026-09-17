@@ -41,3 +41,8 @@
 - [x] 8.2 真实 SSH 强证据：host key 按 GitHub 官方指纹核验信任 + 专用密钥；对 rehearsal 仓库（git@github.com:AzMilabo/lorelum-rehearsal.git）实测 install → list → get 全链路成功，envelope 报告 `source.type:"git"`、tag `azmilabo-engineering-v0.1.0`、commit `8e888b8`；终端记录已贴 PR 评论留档
 - [x] 8.3 独立 CR：以零上下文对抗性 review 复现声明并审查 diff，findings 清零后本变更标记实现完成
   （2026-09-16 L2 CR verdict READY，无 blocker/major；4 个 minor 已修复：mkdtemp 失败映射、ssh:// dot-segment 归一、scp host 大小写派发、legacy 不回退测试锚定；2 个 nit 评估为安全失败行为并记录于 PR）
+
+## 9. 维护者 review 响应（2026-09-17）
+
+- [x] 9.1 descriptor clone 增补 `--filter=tree:0` 部分克隆：clone 仅取 head commit，descriptor 树与 blob 由 `git show` 按需懒取；不支持 filter 的服务端告警降级为既有 shallow clone（本地实证）；回归 fixture（小 descriptor + 无关 5MB blob）断言 clone argv 含 filter 且大 blob 不在克隆对象库（修复前红、修复后绿）
+- [x] 9.2 站点双语用户文档：`apps/site/content/docs/packs(.zh).mdx` 增补私有 Registry 指南（SSH locator 形态、一次性 `ssh -T` 准备、不存储凭据边界、`registry.unavailable` 恢复）；`reference/packs(.zh).mdx` 的 `--registry` 说明补 SSH 形态并互链；`docs/cli/packs.md` 跨界链接站点指南

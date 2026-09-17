@@ -6,7 +6,9 @@ import {
   createDescriptorRepository,
   gitRunnerMappingLocators,
   removeDescriptorRepository,
+  runFixtureGit,
 } from "./git-test-support.js";
+import type { MaterializeGitRunner } from "./materialize-source.js";
 import { loadRegistry, resolveRegistryRepository } from "./load-registry.js";
 
 const validRegistry = `schema_version: 1
@@ -182,6 +184,41 @@ test("reads ssh:// locators through the same git transport", async () => {
     );
     expect(loaded.repository.slug).toBe("acme/team-packs");
     expect(loaded.registry.packs[0]?.name).toBe("agentic-coding");
+  } finally {
+    await removeDescriptorRepository(fixture);
+  }
+});
+
+test("bounds the descriptor clone so unrelated blobs are never transferred", async () => {
+  const fixture = await createDescriptorRepository(validRegistry, {
+    "assets/bulk.bin": "l".repeat(5 * 1024 * 1024),
+  });
+  try {
+    const bulkSha = await runFixtureGit(fixture.path, ["rev-parse", "HEAD:assets/bulk.bin"]);
+    const mapping = gitRunnerMappingLocators({ [SSH_LOCATOR]: fixture.fileUrl });
+    let cloneArgv: readonly string[] = [];
+    let localObjectIds = "";
+    const recordingRunner: MaterializeGitRunner = async (arguments_, options) => {
+      const output = await mapping(arguments_, options);
+      if (arguments_[0] === "clone") {
+        cloneArgv = arguments_;
+      } else if (arguments_[2] === "show") {
+        // The temporary clone still exists during this call: probe its local
+        // object store now, before loadRegistry removes it. Enumerating via
+        // --batch-all-objects avoids the lazy backfill that `cat-file -e`
+        // would trigger for the probed object itself.
+        localObjectIds = await runFixtureGit(arguments_[1] ?? "", [
+          "cat-file",
+          "--batch-all-objects",
+          "--batch-check",
+        ]);
+      }
+      return output;
+    };
+    const loaded = await loadRegistry(SSH_LOCATOR, fetchMustNotRun(), recordingRunner);
+    expect(loaded.registry.packs[0]?.name).toBe("agentic-coding");
+    expect(cloneArgv).toContain("--filter=tree:0");
+    expect(localObjectIds).not.toContain(bulkSha);
   } finally {
     await removeDescriptorRepository(fixture);
   }

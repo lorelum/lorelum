@@ -57,9 +57,15 @@ export async function runFixtureGit(
   return stdout.trim();
 }
 
-/** Create a one-commit local repository that carries a Registry descriptor. */
+/**
+ * Create a one-commit local repository that carries a Registry descriptor.
+ * `extraFiles` are committed alongside the descriptor (for example large
+ * unrelated blobs). The fixture serves partial clones (`uploadpack.allowFilter`)
+ * so descriptor reads exercise the same filtered transport as GitHub.
+ */
 export async function createDescriptorRepository(
   descriptor?: string,
+  extraFiles: Readonly<Record<string, string>> = {},
 ): Promise<DescriptorRepositoryFixture> {
   const root = await mkdtemp(join(tmpdir(), "lorelum-registry-fixture-"));
   const path = join(root, "repository");
@@ -68,7 +74,14 @@ export async function createDescriptorRepository(
     join(path, ".lorelum", descriptor === undefined ? ".gitkeep" : "registry.yaml"),
     descriptor ?? "",
   );
+  await Promise.all(
+    Object.entries(extraFiles).map(async ([name, content]) => {
+      await mkdir(join(path, name, ".."), { recursive: true });
+      await writeFile(join(path, name), content);
+    }),
+  );
   await runFixtureGit(path, ["init", "-b", "main"]);
+  await runFixtureGit(path, ["config", "uploadpack.allowFilter", "true"]);
   await runFixtureGit(path, ["add", "."]);
   await runFixtureGit(path, [
     "-c",

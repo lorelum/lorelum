@@ -10,7 +10,8 @@ import { runGit, type MaterializeGitRunner } from "./materialize-source.js";
 const OFFICIAL_REGISTRY_REPOSITORY = "lorelum/lorelum-packs";
 const MAX_REGISTRY_BYTES = 256 * 1024;
 const SLUG_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/;
-const SSH_SCP_PATTERN = /^git@github\.com:([A-Za-z0-9._-]{1,100})\/([A-Za-z0-9._-]{1,100}?)(?:\.git)?$/i;
+const SSH_SCP_PATTERN =
+  /^git@github\.com:([A-Za-z0-9._-]{1,100})\/([A-Za-z0-9._-]{1,100}?)(?:\.git)?$/i;
 const SSH_PATH_PATTERN = /^\/([A-Za-z0-9._-]{1,100})\/([A-Za-z0-9._-]{1,100}?)(?:\.git)?$/;
 const RAW_UNAVAILABLE_MESSAGE = "The Pack Registry is unavailable.";
 const GIT_UNAVAILABLE_MESSAGE =
@@ -159,10 +160,7 @@ async function fetchRawDescriptor(
   return response.text();
 }
 
-async function readGitDescriptor(
-  gitUrl: string,
-  git: MaterializeGitRunner,
-): Promise<string> {
+async function readGitDescriptor(gitUrl: string, git: MaterializeGitRunner): Promise<string> {
   let temporaryRoot: string;
   try {
     temporaryRoot = await mkdtemp(join(tmpdir(), "lorelum-registry-"));
@@ -171,12 +169,18 @@ async function readGitDescriptor(
   }
   try {
     const repositoryRoot = join(temporaryRoot, "repository");
+    // The size guard runs only after the transfer completes, so the clone
+    // itself must stay bounded: a partial clone fetches the head commit
+    // alone and the `git show` below lazily fetches the descriptor tree
+    // and blob on demand (servers without filter support warn and fall
+    // back to the plain shallow clone).
     await git([
       "clone",
       "--depth",
       "1",
       "--single-branch",
       "--no-tags",
+      "--filter=tree:0",
       "--no-checkout",
       "--",
       gitUrl,

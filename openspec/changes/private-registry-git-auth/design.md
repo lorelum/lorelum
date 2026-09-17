@@ -43,6 +43,9 @@ leader 定向即"复用用户自己的 git**ssh** 信息"；沙箱事实（`GIT_
 **D6 — 沙箱白名单增补 `SSH_AUTH_SOCK`；`HOME`/`USERPROFILE` 以测试锚定。**
 `SSH_AUTH_SOCK` 透传使 macOS/Linux agent 密钥可用（Windows OpenSSH 走命名管道不受影响），是 leader 定向的自然组成。**已实现（2026-09-16）**：`HOME`、`USERPROFILE`、`SSH_AUTH_SOCK` 与 `GIT_SSH_COMMAND="ssh -oBatchMode=yes"` 均已落入 `gitEnvironment()`（`materialize-source.ts`），环境管线以单测锚定（透传取值、无额外变量继承、BatchMode 注入）；真实 ssh 的跨平台 `~/.ssh` 定位由 8.2 手动强证据覆盖。
 
+**D7 — descriptor clone 采用部分克隆 `--filter=tree:0`（维护者 review 增补，2026-09-17）。**
+shallow + `--no-checkout` 只省 checkout，不限制 blob 传输：256KB 守卫运行在传输之后，含大 Pack 资产的 Registry 仍会在守卫生效前整体下载。镜像物化传输（`materialize-source.ts` `cloneRelease`）增补 `--filter=tree:0`：clone 仅取 head commit，descriptor 树与 blob 由 `git show` 按需懒取，传输量与 descriptor 同阶。不支持 filter 的服务端由 git 告警并降级为既有 shallow clone（本地实证，行为与增补前一致）；GitHub 支持该能力。回归 fixture（小 descriptor + 无关大 blob）断言 clone argv 含 filter 且大 blob 不进入克隆对象库（修复前红、修复后绿）。
+
 **需求与代码锚点映射**（迁移要求 → 现有来源）：
 
 | Spec 要求 | 锚点 |
@@ -51,6 +54,7 @@ leader 定向即"复用用户自己的 git**ssh** 信息"；沙箱事实（`GIT_
 | Legacy locator compatibility | `load-registry.ts:26-50`（现有 slug/HTTPS 归一化与校验）+ `load-registry.test.ts`（既有行为回归） |
 | Non-interactive SSH transport | `materialize-source.ts:13-25`（`GIT_TERMINAL_PROMPT="0"` 既有非交互立场） |
 | Registry descriptor freshness | `load-registry.ts:59-87`（raw 路径本无本地缓存） |
+| Descriptor 传输有界性（review 增补） | `load-registry.ts` `readGitDescriptor`（`--filter=tree:0` 部分克隆 + 懒取） |
 | Credential hygiene | `materialize-source.ts:13-25`（沙箱白名单）+ install 输出测试（新增断言） |
 
 ## Risks / Trade-offs
