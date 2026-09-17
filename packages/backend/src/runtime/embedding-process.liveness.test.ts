@@ -1,11 +1,12 @@
-import { expect, mock, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
+import { createEmbeddingProcess, type EmbeddingProcessDeps } from "./embedding-process";
 
 /**
- * Unit seam for the embedding runtime launcher: the resource resolver and the
- * child-process spawn are mocked so the launcher contract can be observed
- * without a native build or a real model file.
+ * The launcher's collaboration seams (resource resolution and child spawn) are
+ * injected, so the startup contract can be observed without a native build, a
+ * real model file, or global module mocks.
  */
 interface CapturedSpawn {
   readonly executable: string;
@@ -14,7 +15,7 @@ interface CapturedSpawn {
 
 const capturedSpawns: CapturedSpawn[] = [];
 
-/** Behavior switch for the fake child: resolves with the first spawn of a test. */
+/** Behavior switch for the fake child: resolved with the first spawn of a test. */
 let onFakeChild:
   | ((
       child: EventEmitter & {
@@ -26,7 +27,8 @@ let onFakeChild:
 
 class FakeNativeChild extends EventEmitter {
   readonly stdin = { on: () => {}, destroy: () => {} };
-  readonly pid = 424_242;
+  // A live pid keeps the real process-identity check on the launcher's path.
+  readonly pid = process.pid;
   exitCode: number | null = null;
   signalCode: number | null = null;
 
@@ -43,29 +45,28 @@ class FakeNativeChild extends EventEmitter {
   }
 }
 
-mock.module("./embedding-resources", () => ({
-  resolveEmbeddingResources: async () => ({
-    executable: "C:/fake/llama-server.exe",
-    buildIdentity: "test-build-identity",
-    assertUnchanged: async () => {},
-  }),
-}));
-mock.module("./process-identity", () => ({
-  processIdentity: async (pid: number) => ({ pid, startedAt: "test-started-at" }),
-}));
-mock.module("node:child_process", () => ({
-  spawn: (executable: string, _args: readonly string[], options: SpawnOptions): ChildProcess => {
-    capturedSpawns.push({ executable, options });
-    return new FakeNativeChild() as unknown as ChildProcess;
-  },
-}));
-
-const { createEmbeddingProcess } = await import("./embedding-process");
+function deps(): EmbeddingProcessDeps {
+  return {
+    resolveResources: async () => ({
+      executable: "stub-llama-server",
+      buildIdentity: "test-build-identity",
+      assertUnchanged: async () => {},
+    }),
+    spawnProcess: (executable, _args, options) => {
+      capturedSpawns.push({ executable, options });
+      return new FakeNativeChild() as unknown as ChildProcess;
+    },
+  };
+}
 
 test("daemon-owned spawn carries the parent liveness opt-in", async () => {
   capturedSpawns.length = 0;
   onFakeChild = () => {};
-  const runtime = createEmbeddingProcess({ modelPath: "C:/fake/model.gguf", threads: 1 });
+  const runtime = createEmbeddingProcess(
+    { modelPath: "stub-model", threads: 1 },
+    undefined,
+    deps(),
+  );
   try {
     await expect(
       runtime.start(new AbortController().signal, Date.now() + 400),
@@ -85,7 +86,11 @@ test("a native runtime that exits during startup fails terminally after bounded 
     child.exitCode = 0;
     queueMicrotask(() => child.emit("close", 0));
   };
-  const runtime = createEmbeddingProcess({ modelPath: "C:/fake/model.gguf", threads: 1 });
+  const runtime = createEmbeddingProcess(
+    { modelPath: "stub-model", threads: 1 },
+    undefined,
+    deps(),
+  );
   await expect(
     runtime.start(new AbortController().signal, Date.now() + 5_000),
   ).rejects.toMatchObject({ code: "embedding.failed" });
