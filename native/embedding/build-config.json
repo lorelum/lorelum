@@ -10,7 +10,7 @@
   },
   "patch": {
     "path": "patches/0001-exit-on-parent-stdin-close.patch",
-    "sha256": "f58b3db4c77ae0297679153d893f08dabc1b1759edead5c5b4cd9eef19bab03f"
+    "sha256": "39de01bd05911688cd59772092302cf4864e55c4d5c3ffec5a416302e7f214c5"
   },
   "model": {
     "fileName": "granite-q4_0.gguf",

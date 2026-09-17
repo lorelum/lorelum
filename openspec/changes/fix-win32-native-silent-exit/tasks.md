@@ -1,0 +1,12 @@
+## Tasks
+
+- [x] 1. 修改 `native/embedding/patches/0001-exit-on-parent-stdin-close.patch`：watcher 改为仅在 `LLAMA_PARENT_LIVENESS_STDIN=1` 存在时启动，保持"先于参数解析"与时序不变。验证：`sha256sum` 新补丁 = `39de01bd05911688cd59772092302cf4864e55c4d5c3ffec5a416302e7f214c5`，与 `build-config.json` 一致；补丁对纯净上游 main.cpp `git apply` 干净通过。
+- [x] 2. 更新 `native/embedding/build-config.json` 的 `patch.sha256` 为新补丁摘要。验证：`bun run build:native` 的 `assertNativePatchDigest` 前置检查通过，构建成功。
+- [x] 3. `packages/backend/src/runtime/embedding-process.ts`：spawn env 增加 `LLAMA_PARENT_LIVENESS_STDIN: "1"`。验证：任务 4 的回归测试通过。
+- [x] 4. 扩展 `packages/backend/src/runtime/embedding-process.liveness.test.ts`：(a) spawn 环境携带 opt-in 变量（修复前失败、修复后通过——已用 stash 实测 fails-before）；(b) 子进程启动即 exit 0 零输出时有界重试（3 次）后返回 `embedding.failed` 终态。验证：`bun test packages/backend/src/runtime/embedding-process.liveness.test.ts` 2 pass / 0 fail。
+- [x] 5. `bun run build:native`（win32-x64，recipeIdentity `a356d1f3…` 与预计算一致，buildIdentity `abb5ca69…`），产物 `llama-server.exe --version`（无 opt-in、stdin EOF）输出 109 字节版本 banner（修复前 10/10 零输出秒退）。验证：exit 0 + banner 非空；构建日志 recipeIdentity 与信任锚一致。
+- [x] 6. 扩展 `scripts/native/test-parent-liveness.ts`：三 daemon 等价 mode 显式携带 opt-in；新增 `direct-version` mode（无 opt-in + EOF stdin 必须输出版本 banner）。验证：`startup`、`encoding`、`stalled-main`、`direct-version` 四 mode 全 PASS。
+- [x] 7. 信任锚更新：`win32-x64.json` 全量更新（新 buildIdentity/exe 哈希 `a223379c…`/19730871 bytes）；`darwin-arm64.json`、`linux-x64.json` 更新 `patchSha256`/`recipeIdentity`/`cmakeFlags` 身份字段（文件哈希保持各平台最近验证构建）。验证：构建期 `assertSourceNativeArtifactMatch` 通过（identity 深比较一致）。
+- [x] 8. E2E 语义链路（隔离 `--store-root`/`--cache-root`，win32-x64 本机）：pack install agentic-coding 0.4.0（32 practices）→ model load `ready`（encodingId ed34b310…）→ index build → semantic query 返回 `mode: semantic`、`coverage: complete`；稳态复查 0.6s 走内容寻址缓存；`backend stop` 后无遗留进程。验证：本节命令输出即为证据；需 `LORELUM_BACKEND_REQUEST_TIMEOUT_MS=120000`（schema 上限）以覆盖通用基线 CPU 的批量嵌入时长。
+- [x] 9. 维护者文档 `native/embedding/README.md`：liveness 段落改为 opt-in 语义；验证命令清单加入 `direct-version` 并说明其回归含义；更新"Windows artifacts remain pending"的过时表述为当前实况。验证：文档 diff 仅覆盖相关段落。
+- [x] 10. 全局门禁：`bun test` 875 pass / 21 skip / 2 fail（均为 `packages/engine/src/local-store/storage/mutation-lock.test.ts` 的并发陈旧锁回收用例，在纯净 main 上 4/4 复现失败，属 Windows 既有 flaky，与本变更无关——本分支未触碰 engine）；`bun run lint` 0 errors（触碰文件无 warning）；`bun run typecheck` 9 包全绿；`openspec validate fix-win32-native-silent-exit` 通过；`git diff` 审查无 secrets、无本地产物。

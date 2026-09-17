@@ -70,7 +70,11 @@ export function createEmbeddingProcess(
         llamaArguments(config.modelPath, port, alias, config),
         {
           stdio: ["pipe", "ignore", "ignore"],
-          env: { ...platformEnvironment(), LLAMA_API_KEY: secret },
+          env: {
+            ...platformEnvironment(),
+            LLAMA_API_KEY: secret,
+            LLAMA_PARENT_LIVENESS_STDIN: "1",
+          },
           windowsHide: true,
         },
       );

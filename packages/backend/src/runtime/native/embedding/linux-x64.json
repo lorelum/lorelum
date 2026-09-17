@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "buildIdentity": "59f1c47caa11cd67a7c6da8a79460192e16e5bc7d19bbd31aec2322ee5b91873",
-  "recipeIdentity": "e747196a0e9eda4e84c706e46ced6986f5efcd63d47087284c84d2f8c149c8f0",
+  "recipeIdentity": "30fdb182dcef01aeeaa9135fb081f8b1c164c7578edd2c0709e6d80d77da3a3e",
   "platform": "linux",
   "arch": "x64",
   "executable": "llama-server",
@@ -10,7 +10,7 @@
     "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
     "archiveSha256": "b4220cefe053c18fb2d5c27a859c0aaab3106a5644bcbbbb2bdd67699dfe4b79"
   },
-  "patchSha256": "f58b3db4c77ae0297679153d893f08dabc1b1759edead5c5b4cd9eef19bab03f",
+  "patchSha256": "39de01bd05911688cd59772092302cf4864e55c4d5c3ffec5a416302e7f214c5",
   "toolchain": {
     "cmake": "cmake version 3.28.3",
     "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
@@ -18,7 +18,7 @@
   "cmakeFlags": [
     "-DCMAKE_BUILD_TYPE=Release",
     "-DLLAMA_BUILD_NUMBER=10901",
-    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.f58b3db4",
+    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.39de01bd",
     "-DBUILD_SHARED_LIBS=OFF",
     "-DLLAMA_BUILD_TESTS=OFF",
     "-DLLAMA_BUILD_EXAMPLES=OFF",

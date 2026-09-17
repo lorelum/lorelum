@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { materializePatchedLlamaSource } from "./source-tree";
 
-type TestMode = "startup" | "encoding" | "stalled-main";
+type TestMode = "startup" | "encoding" | "stalled-main" | "direct-version";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 const artifact = resolveEmbeddingNativeArtifact(process.platform, process.arch);
@@ -116,7 +116,9 @@ async function owner(mode: TestMode): Promise<never> {
       stdin: "pipe",
       stdout: mode === "stalled-main" ? "pipe" : "ignore",
       stderr: "ignore",
-      env: childEnvironment,
+      // The three daemon-equivalent modes exercise the opt-in parent-liveness
+      // watcher, so they must carry the same opt-in the daemon spawns with.
+      env: { ...childEnvironment, LLAMA_PARENT_LIVENESS_STDIN: "1" },
     },
   );
   console.log(`child:${child.pid}`);
@@ -240,11 +242,41 @@ function processExists(pid: number): boolean {
 }
 
 async function test(mode: TestMode): Promise<void> {
-  if (
-    statSync(model).size !== buildConfig.model.bytes ||
-    sha256File(model) !== buildConfig.model.sha256
-  ) {
-    throw new Error("validation model does not match the pinned Q4_0 manifest");
+  if (mode !== "direct-version") {
+    if (
+      statSync(model).size !== buildConfig.model.bytes ||
+      sha256File(model) !== buildConfig.model.sha256
+    ) {
+      throw new Error("validation model does not match the pinned Q4_0 manifest");
+    }
+  }
+
+  if (mode === "direct-version") {
+    // Regression for the silent-exit defect: without the daemon opt-in, an EOF
+    // stdin must not kill the runtime. Before the opt-in gate, this invocation
+    // exited 0 with zero output because the watcher won the startup race.
+    const child = Bun.spawn([executable, "--version"], {
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: childEnvironment,
+    });
+    const stderrText = await withTimeout(
+      new Response(child.stderr as ReadableStream).text(),
+      10_000,
+      "direct --version",
+    );
+    const code = await withTimeout(child.exited, 10_000, "direct --version exit");
+    if (code !== 0) {
+      throw new Error(`direct --version exited with ${code}`);
+    }
+    if (!stderrText.includes("version:")) {
+      throw new Error(
+        `direct invocation exited silently without a version banner: ${JSON.stringify(stderrText)}`,
+      );
+    }
+    console.log("PASS: direct invocation without the opt-in printed the version banner");
+    return;
   }
 
   if (mode === "stalled-main") {
@@ -294,7 +326,12 @@ async function test(mode: TestMode): Promise<void> {
 }
 
 const mode = argument("--mode") ?? "startup";
-if (mode !== "startup" && mode !== "encoding" && mode !== "stalled-main") {
+if (
+  mode !== "startup" &&
+  mode !== "encoding" &&
+  mode !== "stalled-main" &&
+  mode !== "direct-version"
+) {
   throw new Error(`unsupported --mode ${mode}`);
 }
 

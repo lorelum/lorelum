@@ -2,9 +2,10 @@ diff --git a/tools/server/main.cpp b/tools/server/main.cpp
 index 7f17c56..eb8289b 100644
 --- a/tools/server/main.cpp
 +++ b/tools/server/main.cpp
-@@ -1,5 +1,36 @@
+@@ -1,5 +1,43 @@
 +#include <cstdio>
 +#include <cstdlib>
++#include <cstring>
 +#include <thread>
 +
 +#if defined(_WIN32)
@@ -16,6 +17,12 @@ index 7f17c56..eb8289b 100644
  int llama_server(int argc, char ** argv);
  
 +static void start_parent_liveness_watcher() {
++    // Opt-in: only the Lorelum daemon enables stdin-based parent liveness, so
++    // every other invocation keeps standard llama-server behavior.
++    const char * enabled = std::getenv("LLAMA_PARENT_LIVENESS_STDIN");
++    if (enabled == nullptr || std::strcmp(enabled, "1") != 0) {
++        return;
++    }
 +    std::thread([]() {
 +        char buffer[1];
 +
