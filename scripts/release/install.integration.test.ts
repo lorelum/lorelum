@@ -485,12 +485,12 @@ async function createReleaseServer(
     await writeFile(join(packageDirectory, "LICENSE"), "Apache-2.0 fixture\n");
     await writeFile(join(packageDirectory, "THIRD_PARTY_NOTICES.txt"), "notices\n");
     await writeFile(
-      join(packageDirectory, "native", platform, "llama-server"),
+      join(packageDirectory, "native", platform, "lore-model"),
       "#!/bin/sh\nexit 0\n",
     );
     await writeFile(join(packageDirectory, "native", platform, "manifest.json"), "{}\n");
     await chmod(join(packageDirectory, "lore"), 0o755);
-    await chmod(join(packageDirectory, "native", platform, "llama-server"), 0o755);
+    await chmod(join(packageDirectory, "native", platform, "lore-model"), 0o755);
     await mkdir(releases, { recursive: true });
     const archive = join(releases, archiveName);
     const archived = Bun.spawnSync(["tar", "-C", root, "-czf", archive, packageName]);

@@ -20,13 +20,13 @@ function fixture(contents = "native"): NativeArtifactManifest {
     recipeIdentity: digest("recipe"),
     platform: "darwin",
     arch: "arm64",
-    executable: "llama-server",
+    executable: "lore-model",
     source: { tag: "b10901", commit: "a".repeat(40), archiveSha256: digest("archive") },
     patchSha256: digest("patch"),
     toolchain: { cmake: "cmake", compiler: "clang" },
     cmakeFlags: ["-DTEST=ON"],
     model: { fileName: "granite-q4_0.gguf", bytes: 1, sha256: digest("model") },
-    files: [{ path: "llama-server", bytes: Buffer.byteLength(contents), sha256: digest(contents) }],
+    files: [{ path: "lore-model", bytes: Buffer.byteLength(contents), sha256: digest(contents) }],
     licenses: [],
     dynamicDependencies: ["/usr/lib/libSystem.B.dylib"],
   };
@@ -39,7 +39,7 @@ test("native manifest rejects unknown fields and unsafe paths", () => {
   expect(() =>
     parseNativeArtifactManifest({
       ...fixture(),
-      files: [{ ...fixture().files[0]!, path: "../llama-server" }],
+      files: [{ ...fixture().files[0]!, path: "../lore-model" }],
     }),
   ).toThrow("safe file name");
 });
@@ -82,8 +82,8 @@ test.skipIf(process.platform === "win32")(
     const contents = "native";
     try {
       const manifest = fixture(contents);
-      await writeFile(join(directory, "llama-server"), contents);
-      await chmod(join(directory, "llama-server"), 0o755);
+      await writeFile(join(directory, "lore-model"), contents);
+      await chmod(join(directory, "lore-model"), 0o755);
       await writeFile(join(directory, "manifest.json"), JSON.stringify(manifest));
       await expect(verifyNativeArtifact(directory)).resolves.toEqual(manifest);
 
@@ -119,8 +119,8 @@ test.skipIf(process.platform === "win32")(
         arch: "x64",
         dynamicDependencies: ["libc.so.6", "libstdc++.so.6"],
       };
-      await writeFile(join(directory, "llama-server"), contents);
-      await chmod(join(directory, "llama-server"), 0o755);
+      await writeFile(join(directory, "lore-model"), contents);
+      await chmod(join(directory, "lore-model"), 0o755);
       await writeFile(join(directory, "manifest.json"), JSON.stringify(manifest));
       await expect(verifyNativeArtifact(directory)).resolves.toEqual(manifest);
 
@@ -154,13 +154,13 @@ test("win32 artifacts validate against the Windows system DLL allowlist only", a
       ...fixture(contents),
       platform: "win32",
       arch: "x64",
-      executable: "llama-server.exe",
+      executable: "lore-model.exe",
       files: [
-        { path: "llama-server.exe", bytes: Buffer.byteLength(contents), sha256: digest(contents) },
+        { path: "lore-model.exe", bytes: Buffer.byteLength(contents), sha256: digest(contents) },
       ],
       dynamicDependencies: ["KERNEL32.dll", "ws2_32.dll"],
     };
-    await writeFile(join(directory, "llama-server.exe"), contents);
+    await writeFile(join(directory, "lore-model.exe"), contents);
     await writeFile(join(directory, "manifest.json"), JSON.stringify(manifest));
     // Windows gates on the executable extension; POSIX mode bits never apply.
     await expect(verifyNativeArtifact(directory)).resolves.toEqual(manifest);

@@ -12,7 +12,7 @@ const digest = (value: string) => createHash("sha256").update(value).digest("hex
 // Fixtures mirror the host platform: POSIX targets gate on the execute bit, Windows on .exe.
 const windows = process.platform === "win32";
 const target = windows ? "win32-x64" : "darwin-arm64";
-const executableName = windows ? "llama-server.exe" : "llama-server";
+const executableName = windows ? "lore-model.exe" : "lore-model";
 
 function fixture(contents: string): NativeArtifactManifest {
   return {

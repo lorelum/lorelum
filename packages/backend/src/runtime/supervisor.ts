@@ -41,6 +41,8 @@ export interface BackendSupervisorOptions {
   readonly config?: BackendConfig;
   readonly buildIdentity: string;
   readonly command: readonly string[];
+  /** Optional child display name for hosts that honor spawn argv0. */
+  readonly daemonArgv0?: string;
   /** Internal test injection, never exposed as CLI flags or Store config. */
   readonly runtimeDirectory?: string;
   readonly baseUrl?: string;
@@ -324,6 +326,7 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
     const child = spawn(executable, options.command.slice(1), {
       detached: true,
       stdio: ["pipe", "ignore", "ignore"],
+      ...(options.daemonArgv0 === undefined ? {} : { argv0: options.daemonArgv0 }),
       env: daemonEnvironment({
         runtimeDirectory: directory,
         instanceId,

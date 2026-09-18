@@ -100,11 +100,11 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             pwsh -NoProfile -Command 'Expand-Archive -Path lore-*.zip -DestinationPath "$env:RUNNER_TEMP/lorelum-release" -ErrorAction Stop'
             cli_name=lore.exe
-            native_name=llama-server.exe
+            native_name=lore-model.exe
           else
             tar -xzf lore-*.tar.gz -C "$package_root"
             cli_name=lore
-            native_name=llama-server
+            native_name=lore-model
           fi
           package_directory=("$package_root"/lore-*)
           cd "${package_directory[0]}"

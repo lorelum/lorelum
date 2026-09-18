@@ -280,7 +280,7 @@ try {
   if ($LASTEXITCODE -ne 0) { Fail 'archive extraction failed' }
   $packageDirectory = Join-Path $extracted $packageName
   if (-not (Test-Path -LiteralPath (Join-Path $packageDirectory 'lore.exe') -PathType Leaf)) { Fail 'archive CLI executable is missing' }
-  foreach ($required in @('LICENSE', 'THIRD_PARTY_NOTICES.txt', "native\$target\llama-server.exe", "native\$target\manifest.json")) {
+  foreach ($required in @('LICENSE', 'THIRD_PARTY_NOTICES.txt', "native\$target\lore-model.exe", "native\$target\manifest.json")) {
     if (-not (Test-Path -LiteralPath (Join-Path $packageDirectory $required) -PathType Leaf)) { Fail "archive $required is missing" }
   }
 

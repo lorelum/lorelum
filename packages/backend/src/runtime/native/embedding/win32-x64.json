@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "buildIdentity": "abb5ca69b4cff24ba2e0fa31a61b04aaec128946279c804392da2b5d7bb2dc9d",
+  "buildIdentity": "ec2347317040357b8c0144f83c810276cb5779f0e97440cdde43c84254f85223",
   "recipeIdentity": "a356d1f361ec24dc9f3e3a6d67d91c25efafca38bdbe1b9827f709d2e92049ca",
   "platform": "win32",
   "arch": "x64",
-  "executable": "llama-server.exe",
+  "executable": "lore-model.exe",
   "source": {
     "tag": "b10901",
     "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
@@ -57,7 +57,7 @@
   },
   "files": [
     {
-      "path": "llama-server.exe",
+      "path": "lore-model.exe",
       "bytes": 19730871,
       "sha256": "a223379c03a2581e2bc19e060eb31bb133958a80fde6374e2c65635cd11a500e"
     },

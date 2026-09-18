@@ -89,6 +89,7 @@ export async function createProcessBackendSupervisor(
     config: await loadBackendConfig(),
     buildIdentity: await currentBuildIdentity(entrypoint),
     command,
+    daemonArgv0: "lore-backend",
   });
 }
 

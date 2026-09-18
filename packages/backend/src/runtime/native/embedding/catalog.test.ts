@@ -49,7 +49,7 @@ test("embedding artifact catalog owns the win32-x64 development, installed, and 
 
   expect(artifact.id).toBe("win32-x64");
   expect(artifact.compileTarget).toBe("bun-windows-x64");
-  expect(artifact.manifest.executable).toBe("llama-server.exe");
+  expect(artifact.manifest.executable).toBe("lore-model.exe");
   expect(artifact.manifest.platform).toBe("win32");
   expect(developmentEmbeddingArtifactDirectory(artifact)).toBe(
     resolve(import.meta.dir, "../../../..", ".artifacts", "native", "embedding", artifact.id),

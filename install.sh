@@ -159,7 +159,7 @@ package_directory="$temporary/extracted/$package_name"
 [ -x "$package_directory/lore" ] || fail 'archive CLI executable is missing'
 [ -f "$package_directory/LICENSE" ] || fail 'archive LICENSE is missing'
 [ -f "$package_directory/THIRD_PARTY_NOTICES.txt" ] || fail 'archive third-party notices are missing'
-[ -x "$package_directory/native/$target/llama-server" ] || fail 'archive native executable is missing'
+[ -x "$package_directory/native/$target/lore-model" ] || fail 'archive native executable is missing'
 [ -f "$package_directory/native/$target/manifest.json" ] || fail 'archive native manifest is missing'
 first_link="$(find "$package_directory" -type l -print -quit)"
 [ -z "$first_link" ] || fail 'archive must not contain symbolic links'

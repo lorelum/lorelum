@@ -11,6 +11,16 @@ import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/
 const repositoryRoot = resolve(import.meta.dir, "../..");
 const defaultEntrypoint = join(repositoryRoot, "packages/cli/src/main.ts");
 const migrationAssetsDirectory = "packages/engine/src/persistence/migrations";
+const windowsIcon = join(repositoryRoot, "scripts/release/lorelum.ico");
+
+export function windowsCompileMetadataArguments(): readonly string[] {
+  if (!existsSync(windowsIcon)) throw new Error(`Windows release icon is missing: ${windowsIcon}`);
+  return Object.freeze([
+    `--windows-icon=${windowsIcon}`,
+    "--windows-title=Lorelum",
+    "--windows-description=Lorelum local knowledge retrieval CLI",
+  ]);
+}
 
 export interface CompileReleaseCliOptions {
   readonly nativeManifest: NativeArtifactManifest;
@@ -101,6 +111,7 @@ async function compileBundledEntry(
         `--target=${compileTarget}`,
         "--no-compile-autoload-dotenv",
         "--no-compile-autoload-bunfig",
+        ...windowsCompileMetadataArguments(),
         "--asset",
         migrationAssetsDirectory,
         bundleOutfile,

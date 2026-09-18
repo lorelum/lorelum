@@ -43,7 +43,8 @@ if (artifact === undefined) {
   );
 }
 const buildRoot = join(worktreeBuildRoot, `build-${artifact.id}`);
-const executableName = artifact.platform === "win32" ? "llama-server.exe" : "llama-server";
+const upstreamExecutableName = artifact.platform === "win32" ? "llama-server.exe" : "llama-server";
+const artifactExecutableName = artifact.platform === "win32" ? "lore-model.exe" : "lore-model";
 
 const recipe = targetRecipe(artifact);
 const cmakeFlags = recipe.cmakeFlags.map((flag) =>
@@ -255,12 +256,12 @@ function buildNativeArtifact(outputRoot: string): NativeArtifactManifest {
     toolchain.spawnEnvironment,
   );
 
-  const builtExecutable = join(buildRoot, "bin", executableName);
+  const builtExecutable = join(buildRoot, "bin", upstreamExecutableName);
   if (!existsSync(builtExecutable)) throw new Error(`build completed without ${builtExecutable}`);
 
   rmSync(outputRoot, { recursive: true, force: true });
   mkdirSync(outputRoot, { recursive: true });
-  copyArtifact(builtExecutable, join(outputRoot, executableName));
+  copyArtifact(builtExecutable, join(outputRoot, artifactExecutableName));
   for (const [source, file] of licenses)
     copyFileSync(join(sourceRoot, source), join(outputRoot, file));
   writeFileSync(
@@ -287,7 +288,7 @@ function buildNativeArtifact(outputRoot: string): NativeArtifactManifest {
     model: config.model,
   });
   const licenseFiles = [...licenses.map(([, file]) => file), "THIRD_PARTY_NOTICES.txt"];
-  const files = [executableName, ...licenseFiles].map((path) => ({
+  const files = [artifactExecutableName, ...licenseFiles].map((path) => ({
     path,
     bytes: statSync(join(outputRoot, path)).size,
     sha256: sha256File(join(outputRoot, path)),
@@ -298,7 +299,7 @@ function buildNativeArtifact(outputRoot: string): NativeArtifactManifest {
     recipeIdentity,
     platform: artifact.platform,
     arch: artifact.arch,
-    executable: executableName,
+    executable: artifactExecutableName,
     source: {
       tag: config.source.tag,
       commit: config.source.commit,
@@ -313,7 +314,7 @@ function buildNativeArtifact(outputRoot: string): NativeArtifactManifest {
     model: config.model,
     files,
     licenses: licenseFiles,
-    dynamicDependencies: toolchain.dynamicDependencies(join(outputRoot, executableName)),
+    dynamicDependencies: toolchain.dynamicDependencies(join(outputRoot, artifactExecutableName)),
   };
   writeFileSync(join(outputRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;

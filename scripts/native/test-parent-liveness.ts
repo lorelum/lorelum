@@ -19,7 +19,7 @@ if (artifact === undefined)
   throw new Error(
     `native lifecycle tests currently support darwin-arm64, linux-x64, and win32-x64, got ${process.platform}-${process.arch}`,
   );
-const executableName = artifact.platform === "win32" ? "llama-server.exe" : "llama-server";
+const executableName = artifact.manifest.executable;
 const executable = join(developmentEmbeddingArtifactDirectory(artifact), executableName);
 const model = join(repositoryRoot, ".cache/embedding-validation", buildConfig.model.fileName);
 const harnessName =

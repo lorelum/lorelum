@@ -5,11 +5,20 @@ import { mkdtemp, realpath, rm, stat, readFile, mkdir, writeFile } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createBackendSupervisor } from "./supervisor";
 import { readRecord, writeRecord } from "./runtime-state";
 import { isSameProcess, processIdentity } from "./process-identity";
 import { PROTOCOL_VERSION } from "../protocol/constants";
 import { removeActivityRecord, setRuntimeActivity, withActivityLock } from "./activity-state";
+
+const execute = promisify(execFile);
+
+async function processDisplayName(pid: number): Promise<string> {
+  const { stdout } = await execute("ps", ["-o", "comm=", "-p", String(pid)]);
+  return stdout.trim();
+}
 
 async function fixture(
   run: (directory: string, port: number, command: readonly string[]) => Promise<void>,
@@ -73,6 +82,7 @@ test(
       const options = {
         buildIdentity: "integration-build",
         command,
+        daemonArgv0: "lore-backend",
         runtimeDirectory: directory,
         baseUrl: `http://127.0.0.1:${port}`,
       };
@@ -82,6 +92,9 @@ test(
       expect(results[0]?.state).toBe("ready");
       const record = (await readRecord(directory))!;
       expect(record.pid).not.toBe(process.pid);
+      // Bun argv0 changes the macOS process display name; Linux `ps comm` keeps `bun`.
+      if (process.platform === "darwin")
+        expect(await processDisplayName(record.pid)).toBe("lore-backend");
       // Directory and record permission bits only exist on POSIX.
       if (process.platform !== "win32") {
         expect((await stat(directory)).mode & 0o777).toBe(0o700);

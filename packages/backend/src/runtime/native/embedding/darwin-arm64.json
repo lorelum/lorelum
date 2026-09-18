@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "buildIdentity": "06bb48a643816d3fc3506d35a68abe30f380632a587d6a7c948622a2b1e8cd18",
+  "buildIdentity": "83a0fb9b1897a512927ca1018fe76e2d436c388c2b955dd6b19cccc078602b77",
   "recipeIdentity": "0befbf72fb22a7f89505351aaa405144e804f5535aa86fc691d7e136d7376e8b",
   "platform": "darwin",
   "arch": "arm64",
-  "executable": "llama-server",
+  "executable": "lore-model",
   "source": {
     "tag": "b10901",
     "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
@@ -46,7 +46,7 @@
   },
   "files": [
     {
-      "path": "llama-server",
+      "path": "lore-model",
       "bytes": 12575520,
       "sha256": "13af30986b823fad2951b166c2a77c8e914a2a796a5c36efe7294912802b306c"
     },

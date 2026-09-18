@@ -389,7 +389,7 @@ async function createReleaseServer(
     else await writeFile(join(packageDirectory, "lore.exe"), "cli fixture\n");
     await writeFile(join(packageDirectory, "LICENSE"), "Apache-2.0 fixture\n");
     await writeFile(join(packageDirectory, "THIRD_PARTY_NOTICES.txt"), "notices\n");
-    await writeFile(join(packageDirectory, "native", target, "llama-server.exe"), "native\n");
+    await writeFile(join(packageDirectory, "native", target, "lore-model.exe"), "native\n");
     await writeFile(join(packageDirectory, "native", target, "manifest.json"), "{}\n");
     await chmod(join(packageDirectory, "lore.exe"), 0o755);
     await mkdir(releases, { recursive: true });

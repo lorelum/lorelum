@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -8,7 +9,7 @@ import {
   trustedEmbeddingManifestPath,
 } from "../../packages/backend/src/runtime/native/embedding/catalog";
 import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/native/embedding/manifest";
-import { compileReleaseCli } from "./compile-cli";
+import { compileReleaseCli, windowsCompileMetadataArguments } from "./compile-cli";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const repositoryRoot = resolve(import.meta.dir, "../..");
@@ -21,13 +22,13 @@ const manifest: NativeArtifactManifest = {
   recipeIdentity: digest("recipe"),
   platform: "darwin",
   arch: "arm64",
-  executable: "llama-server",
+  executable: "lore-model",
   source: { tag: "b10901", commit: "a".repeat(40), archiveSha256: digest("archive") },
   patchSha256: digest("patch"),
   toolchain: { cmake: "cmake", compiler: "clang" },
   cmakeFlags: [],
   model: { fileName: "granite-q4_0.gguf", bytes: 1, sha256: digest("model") },
-  files: [{ path: "llama-server", bytes: 1, sha256: digest("native") }],
+  files: [{ path: "lore-model", bytes: 1, sha256: digest("native") }],
   licenses: [],
   dynamicDependencies: ["/usr/lib/libSystem.B.dylib"],
 };
@@ -39,6 +40,16 @@ const compileTimeoutMs = 30_000;
 function compileTest(name: string, fn: () => Promise<void>): void {
   test(name, fn, compileTimeoutMs);
 }
+
+test("Windows release compiler uses the checked-in Lorelum icon and product metadata", () => {
+  const compileArguments = windowsCompileMetadataArguments();
+  expect(existsSync(join(repositoryRoot, "scripts/release/lorelum.ico"))).toBe(true);
+  expect(compileArguments).toEqual([
+    `--windows-icon=${join(repositoryRoot, "scripts/release/lorelum.ico")}`,
+    "--windows-title=Lorelum",
+    "--windows-description=Lorelum local knowledge retrieval CLI",
+  ]);
+});
 
 compileTest(
   "release compiler embeds its supplied manifest and disables cwd dotenv discovery",
