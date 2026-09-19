@@ -1,0 +1,201 @@
+---
+title: How we improved our evaluation system to reliably measure the effect of Practice injection
+description: Three rounds of rework — a three-condition control, task-material discipline, dimension-separated verdict rules, and a calibrated judge — turned the evaluation system into one that can tell execution failure from ineffective guidance and eliminate reference-implementation bias. Across three tasks the oracle group strictly outperformed both controls; the sample is tiny and the conclusion remains directional.
+date: 2026-09-18
+category: benchmark
+author: Yuchao Huang
+---
+
+Lorelum is an open-source project we maintain. It organizes engineering experience into structured, retrievable guidance cards — called Practices — and delivers the card relevant to the current decision to an AI coding agent while it works. The product rests on a single hypothesis: an agent given the right Practice produces higher-quality code.
+
+Verifying that hypothesis is a controlled-experiment question: holding everything else constant, does injecting a relevant Practice improve the code the agent produces? To answer it, we built an evaluation system — and over two months we put it through three rounds of fundamental rework. In the first round, the evaluator was effectively checking how similar the submitted code was to our own reference implementation. In the second, the run data could not distinguish "the run failed" from "the guidance had no effect." In the third, the language model we used for quality scoring produced inverted results in its very first discrimination calibration. This post reviews those three rounds in chronological order — the motivation, the fix, and the outcome. All materials and run records are public in the [lorelum-benchmark](https://github.com/lorelum/lorelum-benchmark) repository and can be verified line by line.
+
+## Why this is hard to measure
+
+First, what a single experimental run looks like. A coding agent (we use Pi) receives a task statement and an initial codebase, then autonomously reads code, edits code, and runs tests, producing a diff within minutes. The variable under test is exactly one: whether, before the run starts, a task-relevant Practice is injected. A Practice describes only responsibility boundaries — for example, "components handle interaction and presentation only; remote calls go through domain operations, never directly through an HTTP client" — and contains no file paths or function names from any project, so it transfers across similar situations.
+
+The intuitive way to verify the hypothesis is the two-group comparison above. Once we actually ran it, three intuitive assumptions broke in sequence.
+
+The first intuition: one run per condition is enough. Re-running the same condition on the same input, one run may fully conform to the guidance's layering structure and the next may abandon it entirely — that is normal. The model supports no fixed sampling seed, so two runs cannot sample the same result. A single run carries almost no information; conclusions must rest on a pre-declared number of repetitions.
+
+The second intuition: tests can judge quality. Functional correctness can be judged by tests, but a Practice changes structural quality. "Better layering" is not a right-or-wrong question; it must be defined before it can be observed, and the definition step is where subjectivity enters most easily.
+
+The third intuition: everything else just needs to be held constant. One extra hint in the task statement, one changed line in the evaluator, the order in which conditions execute, dependency versions — any uncontrolled difference can masquerade as a signal that "the Practice worked."
+
+The evaluation system's entire job is to control these three sources, one by one. What follows is a chronological review.
+
+## The first attempt: conditions and two mistakes
+
+For the first comparison we prepared a login-page task: a task statement, an initial codebase, and a Practice card about frontend layering. From this first attempt onward, the comparison used three groups rather than two, because "does injection help" stacks two hypotheses: providing the agent with a piece of guidance text beats providing nothing; and providing the **correct** guidance beats providing arbitrary guidance. Comparing "inject vs. don't" tests only the former; we needed to test the latter. So each task runs under three conditions:
+
+- **baseline group**: nothing injected; the blank control;
+- **oracle group**: the Practice directly relevant to the task — the card a human selected as the best match (in experimental design, "oracle" means "the known correct answer");
+- **irrelevant group**: a Practice of equal length and format but an unrelated topic — for the login task, a card about list rendering.
+
+The irrelevant control is the linchpin: only if the oracle group beats both the baseline group and the irrelevant group can the gain be attributed to the relevance of the guidance, rather than to "there is one more piece of text in the context." Across the three conditions, everything except the injected content is held fixed: same task version, same initial code, same model and prompt, same budget.
+
+Verdicts are produced by an evaluator — an automated checking script that runs after the agent submits and verifies item by item. The conventional starting point for designing an evaluator is to write a reference implementation yourself as the model answer, then write checks against it. The first mistake happened exactly there: on inspection, several checks came from the reference implementation's concrete layout — for example, "must contain `src/features/auth/loginService.ts`" and "the component must import `postSession` from `./services/http`." Using such conditions to decide "the Practice was followed" is not sound: they measure similarity of layout and naming, not the engineering principle the guidance states. An implementation with fully equivalent responsibilities but different files and names would be marked as failing. The experiment's dependent variable had been swapped: we were measuring "how similar to our answer," not "whether the guidance worked."
+
+The second mistake was subtler: a bad run could not be attributed. Three situations of entirely different nature appeared as the same "failure" in the early records:
+
+- the run did not finish (timeout, infrastructure fault);
+- the task's functionality itself was wrong;
+- functionality was correct, but the quality dimension the Practice targets was not observed.
+
+Mixed records answer no question. This round produced no conclusion about Practices themselves — it produced two lessons: task materials need explicit information boundaries, and run results need to be recorded by dimension. Turning lessons into rules, however, presupposes that the experiment itself is executable and affordable.
+
+## Automating execution
+
+The earliest runs depended on human attendance: prepare a clean workspace, launch one agent run, wait, archive the output, move to the next condition. One task under three conditions, three runs each, means nine complete agent runs. The worse problem was not the time but the error-proneness: condition and repetition numbers were tracked by hand, output was collected by hand, and one mistake polluted the whole batch.
+
+Execution was then pushed toward automation. The first step was a dedicated local script for the login-page task — a reasonable v0: a runnable path for a single task, built quickly. As tasks multiplied, several execution paths coexisted in the repository; the proposal for a general executor listed their problems one by one. Two produced formal run records — a formal record, once created, is immutable and is the basis for external conclusions, which diagnostic runs must not touch. One did not verify that two runs were based on the same materials, and could not keep the baseline group from obtaining the Practice text. The earliest one was incompatible with later results and explicitly banned from being mixed with them.
+
+Thus the general executor: new tasks plug in with zero code; the declared conditions, repetition counts, and input manifest directly constitute the execution plan. Its three guarantees each correspond to a price already paid:
+
+- before each run, the task version, the code snapshot, and the fingerprint of all inputs are verified to be mutually consistent — proving that this run and its controls genuinely started from the same materials; on inconsistency, no workspace is created and no model is called;
+- the Practice text is injected only through an in-memory channel as a system prompt, never written to the workspace, the run logs, or the output — the baseline group cannot physically obtain it;
+- a single failed run is quarantined and recorded, without interrupting the others.
+
+After deployment we found and fixed one more bias. The earliest executor ran conditions in a fixed batch order — a natural v0 choice, but it meant condition effects could be confounded with execution-order effects: say the model service happened to be less stable during a stretch in which a single condition was executing. The fix was to switch to a seed-derived cyclic Latin square: within each repetition block each condition runs once, the order is randomized, the plan is registered before execution and never changed afterward. Statistics use the registered run count as the denominator — failed and timed-out runs stay in the count and may not be dropped. Re-runs are gated too: on suspicion of an unhealthy evaluator, a minimal one-repetition, three-condition plan may verify health, but its results are forcibly marked diagnostic-only and may support no conclusion.
+
+With automation and order balance in place, the last category of waste was the silent stall of unattended runs. A single diagnostic run takes ten-plus minutes; Pi sometimes produces no output for long stretches, leaving no way to tell whether it is reasoning, waiting on the network, or dead. Inspection found three concrete problems, and five fixes landed the same day:
+
+- timeouts killed only the direct child process, leaving grandchildren running in the background → timeouts now terminate the entire process tree;
+- waits on output pipes had no bound, so no output meant waiting forever → pipe waits now have a cap;
+- the semantic hard gate needs to actually run the modified application in a browser, and the evaluator depends on a vite dev server that had not been pre-started, so the evaluator would wait forever on a service that did not exist → vite is now pre-started.
+
+The other two fixes were a five-minute per-run budget and a stall watchdog with a global cap; Pi's built-in stall detection was disabled in the same pass, replaced by our own budget and watchdog. After the fixes, six planned runs completed in about 22 minutes; timeouts were recorded and retried once automatically — a stall went from an indistinguishable wait to an observable event in the data.
+
+At this point a three-condition comparison went from a manual procedure to a single command, with failures and stalls both recorded as data. Only after the cost of experimenting dropped did the subsequent rounds of rework become feasible.
+
+## Task materials: the discipline of statements and Practices
+
+Beyond the controls, two more places can inject bias: the task statement gives the answer away, or the evaluation inherits the reference implementation's standards. To prevent this, all information in a task's materials is divided into five categories with distinct responsibilities: the statement describes only target product behavior ("on successful login show a welcome; on failure show a generic error; disable submission and prevent duplicates"), never implementation paths; a Practice states only responsibility boundaries and rationale, never file names; the semantic hard gate's checks verify only behavior the statement declared, executed as automated browser tests; quality signals check only structural evidence of equivalent responsibility; the reference implementation's paths, naming, and layout are report-only and never verdict criteria.
+
+A qualifying Practice card, for example:
+
+> Keep components focused on interaction and presentation; make remote calls through domain operations rather than directly through an HTTP client; at the API boundary translate responses into domain results and never let raw response objects flow into component state; components do not interpret status codes.
+
+A failing version reads: "In `LoginPage.tsx`, import `postSession` from `./services/http`, and create `src/features/auth/loginService.ts` to handle the request." It turns a single task's reference paths and function names into guidance; any equivalent-responsibility implementation with a different layout fails against it, and it does not transfer.
+
+Task statements need the same discipline. One backend task's statement went through three revisions: first rewritten in the tone of a real development ticket; then implementation hints were removed — with hints present, the statement itself gave away the layering plan and the Practice ceased to be the differentiator; finally file paths were removed, so the agent had to locate them in the repository itself. The third revision's commit message stated the motive directly: practice stays the differentiator.
+
+Supporting constraints include: task versions are immutable — any change creates a new version, and existing run records are never rewritten; agent-visible materials and evaluation-private materials are physically separated; one-off manual trial artifacts live in a gitignored scratch directory and are explicitly barred from supporting any conclusion. At this point, "the difference can only come from the injected content" became an engineering fact.
+
+## Verdict rules: three dimensions, probes, and the judge
+
+For "three kinds of failure mixed into one," the fix was a fixed set of verdict rules that split a run into three independent dimensions:
+
+| Dimension | Question it answers | Decides task completion? |
+| --- | --- | --- |
+| Execution health | Did this run complete normally? | No |
+| Semantic hard gate | Is the declared functional behavior correct? | Yes — the sole completion signal |
+| Quality signal | Was the Practice's target quality dimension observed? | No — report only |
+
+Execution health rests only on the run's own evidence — the process exit code, the completeness of output — and may not be inferred from semantic or quality outcomes; a quality score can never flip task completion under any circumstance.
+
+"Observed" is not a human judgment. The approach is to decompose "correctly layered" into a small number of responsibility facts verifiable by code, and assign each fact to a probe — a checking script targeting a single quality dimension. For the login task, probes verify: does the component await a domain operation outside the component, rather than a raw HTTP response; does the translation of transport errors (401, for instance) happen in the boundary module. Probes check responsibility facts only, and accept any equivalent implementation regardless of naming or directory layout.
+
+A probe is precise but narrow: it can check only pre-declared facts and cannot appraise the overall quality of the code. Human review covers that breadth, but one comparison yields nine diffs; human verdicts are slow and unstable, and the reviewer's expectations leak into the result. So we introduced a judge: the task statement, the initial code, and the submitted changes go to a language model, which scores the code dimension by dimension against a rubric, on a 0–100 reference scale, with a stated rationale for each criterion. The rubric is maintained as an independent file whose hash is recorded with every result. The judge's permissions are constrained at the same time: inputs are limited to public materials — any input containing condition information, Practice text, or private evaluation materials is rejected outright; every result must carry the judge model version and the hashes of the prompt, the rubric, and the inputs, and any missing item fails the whole result; CI uses a deterministic mock provider by default and calls no external model.
+
+The judge then promptly failed its first discrimination calibration. The calibration supplies three implementations — reference, responsibility-equivalent, and anti-pattern — and requires scores such that the equivalent one lands close to the reference and the anti-pattern clearly lower. Judge v1 scored the reference 66, the equivalent implementation 80, and the anti-pattern 72: the direction was inverted — the equivalent scored above the reference, and the anti-pattern was not separated. The second attempt aborted outright: the model returned a non-integer confidence field, the parser rejected it per contract, and the round never completed.
+
+The problems were located in two places: the auto-generated rubric lacked discriminating power for implementations that are functionally correct but structurally anti-patterned; and output parsing was too strict on numeric fields, so any format wobble failed the whole result. The fixed v2 extended the rubric's dimensions, added tolerant numeric normalization, and passed re-calibration: reference 90, equivalent 88, anti-pattern 76, all checks passing. v1's failure evidence is preserved in the repository as-is.
+
+Finally, the counting rules — stated before the results, because reading the results depends on them:
+
+- Each run reduces to one boolean. A **pass** is defined as the semantic hard gate passing and the probe observing the target quality dimension; the judge's reference score plays no part in deciding a pass.
+- For a condition to constitute a directional signal, its pass count must be **strictly greater** than both other conditions; a tie or lower is diagnostic only.
+- If a **cell** (all repetitions of one task under one condition) contains an execution failure, the entire cell is recorded as "uncertain" and excluded from comparison.
+
+## Current evidence and its limits
+
+The most complete round covered three tasks — login form, profile update, project-directory search — each paired with a layering Practice. The login task's retest plan fixed six runs per condition; the other two tasks used three. Pass counts under the rules above (oracle = relevant-Practice group, irrelevant = irrelevant-Practice group):
+
+| Task                              | oracle | baseline | irrelevant |
+| --------------------------------- | ------ | -------- | ---------- |
+| Login form (6 runs)               | 3      | 1        | 2          |
+| Profile update (3 runs)           | 3      | 1        | 1          |
+| Project-directory search (3 runs) | 3      | 0        | 0          |
+
+The oracle group strictly exceeded its two controls on all three tasks — directionally consistent. The judge's reference scores agree: oracle 68–100, baseline 48–61. The gaps concentrate on the dimensions the Practice speaks to — for the profile-update task, oracle vs. baseline reads: domain delegation 20 vs. 14 (out of 20), boundary translation 14 vs. 4 (out of 20), raw-response containment 10 vs. 2 (out of 10).
+
+The code-level difference is directly comparable. The baseline component reads the transport response directly:
+
+```tsx
+import { postSession } from "./api/http";
+const result = await postSession({ email, password });
+if (result.status === 200) {
+  setDisplayName(result.body.user.display_name);
+} else {
+  setError(result.body.message);
+}
+```
+
+The oracle-group component consumes only domain results; translation happens at the boundary:
+
+```ts
+export type LoginResult = { ok: true; displayName: string } | { ok: false; message: string };
+
+export async function login(email, password): Promise<LoginResult> {
+  const response = await postSession({ email, password });
+  if (response.status === 200) {
+    return { ok: true, displayName: response.body.user.display_name };
+  }
+  return { ok: false, message: response.body.message };
+}
+```
+
+Three boundaries must be stated.
+
+First, the noise is real. The oracle group contains runs with a judge reference score of 0, and the baseline group has runs scoring 100. The numbers say "correct layering becomes more probable," not "injection guarantees correctness." The login task's cells contained two execution failures; per the rule above, that task is recorded overall as uncertain.
+
+Second, a high score is not efficacy. One irrelevant-group run scored 71 — the interaction details were well done — but its structural problems matched the baseline's: the component still read `res.status` directly, the layering gain was zero, the probe recorded not-observed, and it did not count as a pass. No judge score can change that verdict; this is precisely why probes decide passes and the judge only reports.
+
+Third, the gain has a scope. Both groups lost points on loading states, error-retry UI, and duplicate-submission protection. The Practice lifts the dimension it instructs; it does not cover interaction completeness.
+
+One counterexample is worth recording. In a backend task's three-condition comparison (3 runs per condition), the oracle group passed once and the irrelevant group also passed once — not strictly greater — so per the rules the conclusion stayed diagnostic-only. That is what strict rules are for: they stop ambiguous data from becoming a flattering narrative.
+
+The final boundary concerns the question itself. In the Lorelum product, Practices are to be selected automatically by retrieval; in these experiments they were selected by hand. The results therefore answer "does providing correct guidance help," not "can retrieval pick the right one" — the latter can only be tested once retrieval is wired into the comparison.
+
+## What we would do differently
+
+Looking back, four rules, had we adopted them on day one, would have eliminated most of the wasted work:
+
+- **The irrelevant control belongs in the first experiment.** It separates "more text helps" from "the right guidance helps," and it is the precondition for all attribution.
+- **Execution health, semantic completion, and quality observation must be recorded separately.** Mixed records have no reading; the login trial paid for that lesson.
+- **A judge passes discrimination calibration before it scores anything.** v1's calibration came out inverted; v2 was deployed only after passing, and it forever remains a report-only signal.
+- **Register the execution plan before executing it.** Order, repetition counts, and re-run eligibility are fixed before execution; failed and timed-out runs stay in the statistics.
+
+Where the evidence stands: three tasks, directionally consistent, the oracle group strictly above both controls on all three. The sample is small, retrieval is not yet in the loop, and the conclusion remains directional. We do not use the word "proved"; we report a consistent direction. Next: enlarge the sample, wire real retrieval into the comparison, and produce, under the formal protocol, results fit to be published as conclusions — at which point the "uncertain" in this post may finally be replaced.
+
+## Evidence and protocols
+
+The four documents below back every number and claim in this post; all are public in the lorelum-benchmark repository.
+
+<Accordions type="single">
+  <Accordion title="Three-condition results analysis" id="evidence-three-condition">
+    The complete per-run record across three tasks × three conditions: each run's judge reference
+    score, probe observation, execution health, and the "strictly greater" decision rule in its
+    original wording. [Read the
+    document](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/issue-92-practice-injection-analysis.md)
+  </Accordion>
+  <Accordion title="Benchmark protocol" id="evidence-protocol">
+    The authoritative definition of the outcome contract (execution health / semantic hard gate /
+    quality signal) and the run-record rules: dimension semantics, the ban on hidden weighted
+    totals, record immutability. [Read the
+    document](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/BENCHMARK_PROTOCOL.md)
+  </Accordion>
+  <Accordion title="Practice candidate design guide" id="evidence-guide">
+    The full definition and worked examples of the five information boundaries: what the task
+    statement, the Practice card, the semantic hard gate, quality signals, and implementation
+    preferences are each allowed to decide. [Read the
+    document](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/PRACTICE_BENCHMARK_GUIDE.md)
+  </Accordion>
+  <Accordion title="Judge v1 calibration failure record" id="evidence-judge-calibration">
+    The raw record of judge v1's discrimination calibration: the inverted 66 / 80 / 72 scores, the
+    non-integer confidence that aborted the second round, and the v2 re-calibration evidence of 90 /
+    88 / 76. [Read the
+    document](https://github.com/lorelum/lorelum-benchmark/blob/main/openspec/changes/archive/2026-08-14-llm-provider-gateway-v2-pilot-diagnostic/verification/judge-calibration-attempt.md)
+  </Accordion>
+</Accordions>

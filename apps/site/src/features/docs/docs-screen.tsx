@@ -12,7 +12,7 @@ import {
 } from "fumadocs-ui/layouts/docs/page";
 import { gitConfig } from "@/shared/config/git";
 import { loadDocsPage } from "./content/client";
-import { useMDXComponents } from "./content/mdx-components";
+import { useMDXComponents } from "@/shared/mdx/mdx-components";
 import type { DocsPageData } from "./server/load-doc-page";
 import { baseOptions } from "./layout/base-options";
 import { resolveContentLink } from "./content/resolve-content-link";

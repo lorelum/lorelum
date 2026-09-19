@@ -5,6 +5,7 @@ import { getStrings } from "@/shared/i18n/legacy-translations";
 /** The central product destinations in the three-zone landing header. */
 export function LandingPrimaryNavigation({ lang }: { lang: string }) {
   const homePath = lang === i18n.defaultLanguage ? "/" : `/${lang}`;
+  const blogPath = lang === i18n.defaultLanguage ? "/blog" : `/${lang}/blog`;
   const t = getStrings(lang);
 
   return (
@@ -14,6 +15,9 @@ export function LandingPrimaryNavigation({ lang }: { lang: string }) {
       </Link>
       <Link to="/$lang/docs/$" params={{ lang, _splat: "" }} className="landing-navbar__link">
         {t.navDocs}
+      </Link>
+      <Link to={blogPath} className="landing-navbar__link">
+        {t.navBlog}
       </Link>
     </div>
   );

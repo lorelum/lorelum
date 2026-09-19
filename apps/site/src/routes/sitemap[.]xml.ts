@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { source } from "@/features/docs/server/source";
+import { blogSource } from "@/features/blog/server/source";
 import { i18n } from "@/shared/i18n/config";
 import { siteUrl } from "@/shared/config/site";
 
@@ -40,6 +41,18 @@ export const Route = createFileRoute("/sitemap.xml")({
           // `/zh/docs`). Collapse the default-language versions to their
           // unprefixed path so the sitemap has one canonical URL per page.
           urls.add(canonicalFor(page.url));
+        }
+
+        // Blog articles (both locales), collapsed the same way.
+        for (const page of blogSource.getPages()) {
+          urls.add(canonicalFor(page.url));
+        }
+
+        // Blog index pages.
+        urls.add(canonicalFor("/blog"));
+        for (const lang of i18n.languages) {
+          if (lang === i18n.defaultLanguage) continue;
+          urls.add(canonicalFor(`/${lang}/blog`));
         }
 
         // Landing pages.
