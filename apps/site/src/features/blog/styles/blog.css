@@ -1,0 +1,37 @@
+@import "@lorelum/ui/tokens.css";
+
+/*
+ * Fumadocs adapter for the blog reading surface.
+ *
+ * Mirrors the Docs feature adapter: the shared package owns semantic tokens,
+ * while Fumadocs owns the generated markup and interaction behavior. The scope
+ * wraps only the reading column — the site navbar and footer keep the global
+ * landing Fumadocs theme.
+ */
+
+.blog-scope {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-ring: var(--ring);
+  --color-fd-overlay: var(--overlay);
+  --color-fd-info: var(--info);
+  --color-fd-warning: var(--warning);
+  --color-fd-error: var(--destructive);
+  --color-fd-success: var(--success);
+  --color-fd-idea: var(--primary);
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+}
