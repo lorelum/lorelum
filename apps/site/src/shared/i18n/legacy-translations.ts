@@ -15,6 +15,11 @@ export interface LandingStrings {
   readDocs: string;
   navHome: string;
   navDocs: string;
+  navBlog: string;
+  // Blog
+  blogIndexDescription: string;
+  blogEmpty: string;
+  blogOnThisPage: string;
   toggleTheme: string;
   // Hero
   heroBadge: string;
@@ -102,6 +107,11 @@ const en: LandingStrings = {
   readDocs: "Read the docs",
   navHome: "Home",
   navDocs: "Docs",
+  navBlog: "Blog",
+  blogIndexDescription:
+    "Engineering notes from the Lorelum team: benchmarks, measurement work, and Pack engineering.",
+  blogEmpty: "No posts yet.",
+  blogOnThisPage: "On this page",
   toggleTheme: "Toggle theme",
   heroBadge: "Engineering knowledge for Agent decisions",
   heroTitleBefore: "The right ",
@@ -203,6 +213,10 @@ const zh: LandingStrings = {
   readDocs: "阅读文档",
   navHome: "首页",
   navDocs: "文档",
+  navBlog: "博客",
+  blogIndexDescription: "Lorelum 团队的工程笔记：benchmark、测量工作与 Pack 工程。",
+  blogEmpty: "暂无文章。",
+  blogOnThisPage: "本页目录",
   toggleTheme: "切换主题",
   heroBadge: "为 Agent 提供工程判断依据",
   heroTitleBefore: "正确的 ",

@@ -16,6 +16,10 @@ import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as LangIndexRouteImport } from './routes/$lang/index'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as LangBlogIndexRouteImport } from './routes/$lang/blog/index'
+import { Route as LangBlogSlugRouteImport } from './routes/$lang/blog/$slug'
 import { Route as LangDocsSplatRouteImport } from './routes/$lang/docs/$'
 import { Route as LangDocsChar123Char125DotmdRouteImport } from './routes/$lang/docs/{$}[.]md'
 
@@ -54,6 +58,26 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
   path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LangBlogIndexRoute = LangBlogIndexRouteImport.update({
+  id: '/$lang/blog/',
+  path: '/$lang/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LangBlogSlugRoute = LangBlogSlugRouteImport.update({
+  id: '/$lang/blog/$slug',
+  path: '/$lang/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LangDocsSplatRoute = LangDocsSplatRouteImport.update({
   id: '/$lang/docs/$',
   path: '/$lang/docs/$',
@@ -73,9 +97,13 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/search': typeof ApiSearchRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/$lang/': typeof LangIndexRoute
+  '/blog/': typeof BlogIndexRoute
+  '/$lang/blog/$slug': typeof LangBlogSlugRoute
   '/$lang/docs/$': typeof LangDocsSplatRoute
   '/$lang/docs/{$}.md': typeof LangDocsChar123Char125DotmdRoute
+  '/$lang/blog/': typeof LangBlogIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -84,9 +112,13 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/search': typeof ApiSearchRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/$lang': typeof LangIndexRoute
+  '/blog': typeof BlogIndexRoute
+  '/$lang/blog/$slug': typeof LangBlogSlugRoute
   '/$lang/docs/$': typeof LangDocsSplatRoute
   '/$lang/docs/{$}.md': typeof LangDocsChar123Char125DotmdRoute
+  '/$lang/blog': typeof LangBlogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,9 +128,13 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/search': typeof ApiSearchRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/$lang/': typeof LangIndexRoute
+  '/blog/': typeof BlogIndexRoute
+  '/$lang/blog/$slug': typeof LangBlogSlugRoute
   '/$lang/docs/$': typeof LangDocsSplatRoute
   '/$lang/docs/{$}.md': typeof LangDocsChar123Char125DotmdRoute
+  '/$lang/blog/': typeof LangBlogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,9 +145,13 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/search'
+    | '/blog/$slug'
     | '/$lang/'
+    | '/blog/'
+    | '/$lang/blog/$slug'
     | '/$lang/docs/$'
     | '/$lang/docs/{$}.md'
+    | '/$lang/blog/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -120,9 +160,13 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/search'
+    | '/blog/$slug'
     | '/$lang'
+    | '/blog'
+    | '/$lang/blog/$slug'
     | '/$lang/docs/$'
     | '/$lang/docs/{$}.md'
+    | '/$lang/blog'
   id:
     | '__root__'
     | '/'
@@ -131,9 +175,13 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/search'
+    | '/blog/$slug'
     | '/$lang/'
+    | '/blog/'
+    | '/$lang/blog/$slug'
     | '/$lang/docs/$'
     | '/$lang/docs/{$}.md'
+    | '/$lang/blog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -143,9 +191,13 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiSearchRoute: typeof ApiSearchRoute
+  BlogSlugRoute: typeof BlogSlugRoute
   LangIndexRoute: typeof LangIndexRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+  LangBlogSlugRoute: typeof LangBlogSlugRoute
   LangDocsSplatRoute: typeof LangDocsSplatRoute
   LangDocsChar123Char125DotmdRoute: typeof LangDocsChar123Char125DotmdRoute
+  LangBlogIndexRoute: typeof LangBlogIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -199,6 +251,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$lang/blog/': {
+      id: '/$lang/blog/'
+      path: '/$lang/blog'
+      fullPath: '/$lang/blog/'
+      preLoaderRoute: typeof LangBlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$lang/blog/$slug': {
+      id: '/$lang/blog/$slug'
+      path: '/$lang/blog/$slug'
+      fullPath: '/$lang/blog/$slug'
+      preLoaderRoute: typeof LangBlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$lang/docs/$': {
       id: '/$lang/docs/$'
       path: '/$lang/docs/$'
@@ -223,9 +303,13 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiSearchRoute: ApiSearchRoute,
+  BlogSlugRoute: BlogSlugRoute,
   LangIndexRoute: LangIndexRoute,
+  BlogIndexRoute: BlogIndexRoute,
+  LangBlogSlugRoute: LangBlogSlugRoute,
   LangDocsSplatRoute: LangDocsSplatRoute,
   LangDocsChar123Char125DotmdRoute: LangDocsChar123Char125DotmdRoute,
+  LangBlogIndexRoute: LangBlogIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
