@@ -1,0 +1,15 @@
+{
+  "name": "lorelum",
+  "version": "0.1.0-alpha.3",
+  "description": "Surface relevant Lorelum engineering Practices in WorkBuddy when they can inform a task or decision.",
+  "author": {
+    "name": "Lorelum",
+    "url": "https://lorelum.com"
+  },
+  "homepage": "https://lorelum.com",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/lorelum/lorelum",
+  "keywords": ["lorelum", "workbuddy", "practices", "engineering-guidance"],
+  "skills": "./skills",
+  "commands": "./commands"
+}

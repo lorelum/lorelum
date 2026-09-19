@@ -13,6 +13,7 @@ import {
   runCursorHook,
   type CursorHookServices,
 } from "./hook/cursor.js";
+import { parseWorkbuddyHookInvocation, runWorkbuddyHook, type WorkbuddyHookServices } from "./hook/workbuddy.js";
 import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
 import { resolveOutputFormat } from "./output/format-selection.js";
 import { renderHelpText } from "./output/presentation.js";
@@ -42,6 +43,8 @@ export interface RunOptions {
   zcodeHookServices?: ZcodeHookServices;
   /** Override the raw Cursor Hook Store adapter in source-level tests. */
   cursorHookServices?: CursorHookServices;
+  /** Override the raw WorkBuddy Hook Store adapter in source-level tests. */
+  workbuddyHookServices?: WorkbuddyHookServices;
   stderr?: OutputWriter;
   stdout?: OutputWriter;
 }
@@ -78,6 +81,18 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       stderr,
       ...(options.cursorHookServices === undefined ? {} : { services: options.cursorHookServices }),
       ...(cursorHook.storeRoot === undefined ? {} : { storeRoot: cursorHook.storeRoot }),
+    });
+  }
+  const workbuddyHook = parseWorkbuddyHookInvocation(arguments_);
+  if (workbuddyHook !== undefined) {
+    return runWorkbuddyHook({
+      stdin: options.stdin ?? standardInput,
+      stdout,
+      stderr,
+      ...(options.workbuddyHookServices === undefined
+        ? {}
+        : { services: options.workbuddyHookServices }),
+      ...(workbuddyHook.storeRoot === undefined ? {} : { storeRoot: workbuddyHook.storeRoot }),
     });
   }
   let command: KnownCommand | "unknown" = "unknown";

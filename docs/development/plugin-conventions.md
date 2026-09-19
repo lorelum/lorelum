@@ -8,12 +8,12 @@ own manifest, marketplace format, lifecycle events, and permission model.
 
 | Concept | Rule | Current examples |
 | --- | --- | --- |
-| Product ID | Always `lorelum`; this is the user-facing Plugin and Skill identity. | Codex, ZCode, and Cursor manifests all use `lorelum`. |
-| Host key | Lowercase kebab-case; it identifies the host adapter, not the product. | `codex`, `zcode`, `cursor` |
-| Source root | `plugins/<hostKey>/lorelum/` | [`plugins/codex/lorelum`](../../plugins/codex/lorelum), [`plugins/zcode/lorelum`](../../plugins/zcode/lorelum), [`plugins/cursor/lorelum`](../../plugins/cursor/lorelum) |
-| Marketplace | A host-owned registration file with its host-native schema. | [Codex registration](../../.agents/plugins/marketplace.json), [ZCode registration](../../marketplace.json), [Cursor registration](../../.cursor-plugin/marketplace.json) |
+| Product ID | Always `lorelum`; this is the user-facing Plugin and Skill identity. | Codex, WorkBuddy, ZCode, and Cursor manifests all use `lorelum`. |
+| Host key | Lowercase kebab-case; it identifies the host adapter, not the product. | `codex`, `workbuddy`, `zcode`, `cursor` |
+| Source root | `plugins/<hostKey>/lorelum/` | [`plugins/codex/lorelum`](../../plugins/codex/lorelum), [`plugins/workbuddy/lorelum`](../../plugins/workbuddy/lorelum), [`plugins/zcode/lorelum`](../../plugins/zcode/lorelum), [`plugins/cursor/lorelum`](../../plugins/cursor/lorelum) |
+| Marketplace | A host-owned registration file with its host-native schema. | [Codex registration](../../.agents/plugins/marketplace.json), [WorkBuddy registration](../../.codebuddy-plugin/marketplace.json), [ZCode registration](../../marketplace.json), [Cursor registration](../../.cursor-plugin/marketplace.json) |
 | Selector | Unique inside the host marketplace. It is not a global key across hosts. | `lorelum@lorelum-plugins` |
-| Release version | Each host uses its native version fields. When the marketplace participates in update detection, its entry version MUST equal the native manifest version. | ZCode `marketplace.json` and `.zcode-plugin/plugin.json` |
+| Release version | Each host uses its native version fields. When the marketplace participates in update detection, its entry version MUST equal the native manifest version. | Cursor `.cursor-plugin/marketplace.json`, WorkBuddy `.codebuddy-plugin/marketplace.json`, ZCode `marketplace.json`, and their `plugin.json` manifests |
 
 Do not encode a host name into the public Plugin ID merely because the source
 directory is host-specific. `lorelum-zcode` is an implementation path, not a
@@ -58,6 +58,23 @@ manifest field means an inline Hook object or an exact Hook-file path, so a
 directory value is diagnosed as an unreadable Hook file. Keep the Hook matcher
 and `process`/`command` configuration only in `hooks/hooks.json` unless a
 verified ZCode manifest contract requires an additional source.
+
+### WorkBuddy Hook declaration
+
+WorkBuddy also discovers a Plugin's `hooks/hooks.json` automatically, and its
+manifest `hooks` field carries the same inline-object-or-file-path meaning, so
+the same duplication trap applies to `.codebuddy-plugin/plugin.json`. WorkBuddy
+Hooks use the host-native `command` form — a shell command that forwards to
+`lore hook workbuddy` and degrades to `{"continue":true}` when the CLI is
+unavailable — with a `commandWindows` PowerShell variant for Windows sessions,
+mirroring the Codex Hook shape. Keep the matcher and command configuration only
+in `hooks/hooks.json`.
+
+WorkBuddy resolves SessionStart matchers by splitting the matcher on `|` and
+exact-matching each token against the session source. Anchored regex forms such
+as `^(startup|resume|clear|compact)$` therefore never match on the live host;
+declare the unanchored list `startup|resume|clear|compact` (verified against
+WorkBuddy 5.5.6).
 
 ## Add a host only when it has a real integration need
 

@@ -1,0 +1,16 @@
+{
+  "name": "lorelum-plugins",
+  "plugins": [
+    {
+      "name": "lorelum",
+      "source": "./plugins/workbuddy/lorelum",
+      "version": "0.1.0-alpha.3",
+      "description": "On-demand engineering Practices for WorkBuddy: a compact installed Knowledge Pack catalog with targeted semantic retrieval.",
+      "author": {
+        "name": "Lorelum",
+        "url": "https://lorelum.com"
+      },
+      "category": "productivity"
+    }
+  ]
+}

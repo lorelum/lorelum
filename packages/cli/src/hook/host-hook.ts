@@ -11,7 +11,7 @@ import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import { renderPackCatalog } from "./pack-catalog.js";
 
 /** Hosts with a versioned raw session Hook ABI (`lore hook <host>`). */
-export type HostHookName = "codex" | "zcode" | "cursor";
+export type HostHookName = "codex" | "cursor" | "workbuddy" | "zcode";
 
 export type HostHookEvent = "SessionStart";
 
@@ -147,7 +147,7 @@ export async function createHostHookResponse(
 ): Promise<CursorHookResponse>;
 export async function createHostHookResponse(
   input: HostHookInput,
-  host: "codex" | "zcode",
+  host: "codex" | "workbuddy" | "zcode",
   services?: HostHookServices,
   storeRoot?: string,
 ): Promise<HostHookResponse>;
@@ -199,8 +199,14 @@ function parseHostHookInput(serialized: string, host: HostHookName): HostHookInp
   return parsed;
 }
 
-function hostLabel(host: HostHookName): "Codex" | "Zcode" | "Cursor" {
-  return host === "codex" ? "Codex" : host === "zcode" ? "Zcode" : "Cursor";
+function hostLabel(host: HostHookName): "Codex" | "Cursor" | "Workbuddy" | "Zcode" {
+  return host === "codex"
+    ? "Codex"
+    : host === "cursor"
+      ? "Cursor"
+      : host === "workbuddy"
+        ? "Workbuddy"
+        : "Zcode";
 }
 
 function diagnosticMessage(error: unknown): string {

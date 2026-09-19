@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createInstalledPacksFixture } from "./fixtures/installed-packs.js";
 import { verifyGetAndQueryScenario } from "./scenarios/get-query.js";
 import { verifyCodexHookScenario } from "./scenarios/hook-codex.js";
+import { verifyWorkbuddyHookScenario } from "./scenarios/hook-workbuddy.js";
 import { verifyZcodeHookScenario } from "./scenarios/hook-zcode.js";
 import { verifyListPacksScenario } from "./scenarios/list-packs.js";
 import { runProcess } from "./support/process.js";
@@ -28,6 +29,7 @@ async function main(): Promise<void> {
     const fixture = await createInstalledPacksFixture(directory);
     await verifyListPacksScenario(executable, fixture, directory);
     await verifyCodexHookScenario(executable, fixture, directory);
+    await verifyWorkbuddyHookScenario(executable, fixture, directory);
     await verifyZcodeHookScenario(executable, fixture, directory);
     await verifyGetAndQueryScenario(executable, fixture, directory);
   } finally {

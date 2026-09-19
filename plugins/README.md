@@ -7,11 +7,12 @@ users install in that host's marketplace.
 | Host | Source root | Native registration |
 | --- | --- | --- |
 | Codex | [`codex/lorelum`](./codex/lorelum) | [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json) |
+| WorkBuddy | [`workbuddy/lorelum`](./workbuddy/lorelum) | [`.codebuddy-plugin/marketplace.json`](../.codebuddy-plugin/marketplace.json) |
 | ZCode | [`zcode/lorelum`](./zcode/lorelum) | [`marketplace.json`](../marketplace.json) |
 | Cursor | [`cursor/lorelum`](./cursor/lorelum) | [`.cursor-plugin/marketplace.json`](../.cursor-plugin/marketplace.json) |
 
 Read [Host Plugin conventions](../docs/development/plugin-conventions.md)
-before changing an artifact, registration, public ID, or version. Both
+before changing an artifact, registration, public ID, or version. All
 artifacts call the released `lore` CLI for Pack metadata. They must not import
 Engine packages, read LocalStore files directly, or reproduce retrieval and
 ranking behavior.

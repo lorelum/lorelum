@@ -40,6 +40,18 @@ export {
   type RunCursorHookOptions,
 } from "./hook/cursor.js";
 export {
+  buildWorkbuddyHookResponse,
+  createWorkbuddyHookResponse,
+  parseWorkbuddyHookInvocation,
+  runWorkbuddyHook,
+  type WorkbuddyHookEvent,
+  type WorkbuddyHookInput,
+  type WorkbuddyHookResponse,
+  type WorkbuddyHookServices,
+  type WorkbuddyHookInvocation,
+  type RunWorkbuddyHookOptions,
+} from "./hook/workbuddy.js";
+export {
   DEFAULT_MAX_CHARACTERS as CODEX_HOOK_CATALOG_MAX_CHARACTERS,
   renderPackCatalog,
   type InstalledPackCatalogEntry,

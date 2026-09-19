@@ -1,0 +1,52 @@
+---
+title: WorkBuddy
+description: 在 WorkBuddy 中安装 Lorelum，并在新任务中使用 /lore 命令。
+icon: Plug
+---
+
+Lorelum Plugin 为 WorkBuddy 带来工程指引与 `/lore` 命令。
+
+## 开始之前
+
+先完成[快速开始](./quickstart)。`lore` 命令必须对 WorkBuddy 可用，并且至少安装一个 Pack。
+
+## 安装
+
+1. 在 WorkBuddy 的插件/市场管理中，将 Lorelum 仓库（GitHub 上的 `lorelum/lorelum`）添加为第三方市场，然后从 `lorelum-plugins` 市场安装 **Lorelum**。
+
+2. 或者使用 WorkBuddy 内嵌的 CodeBuddy CLI。注意：不带环境变量直接运行只会写入独立 CLI 的注册表（`~/.codebuddy`），而桌面端客户端读取的是 `~/.workbuddy`，所以必须先重定向配置目录；安装完成后还要完全退出并重启 WorkBuddy，常驻进程才会重新加载插件注册表：
+
+   ```sh
+   export WORKBUDDY_CONFIG_DIR=~/.workbuddy CODEBUDDY_CONFIG_DIR=~/.workbuddy
+   codebuddy plugin marketplace add /absolute/path/to/lorelum  # 仓库根目录，内含 .codebuddy-plugin/marketplace.json
+   codebuddy plugin install lorelum@lorelum-plugins
+   ```
+
+   `codebuddy` 是 WorkBuddy 安装目录内嵌的 CLI（Windows 位于安装目录下的
+   `resources/app.asar.unpacked/cli/bin/codebuddy`），按你的平台调整调用路径。
+
+3. 开始一个新任务。WorkBuddy 会在会话开始时收到已安装的 Pack 目录。
+
+## 使用 Lorelum
+
+确认 `/lore` 出现在 WorkBuddy 展示插件命令的位置。你可以运行：
+
+```text
+/lore 这个改动应该如何验证？
+```
+
+或在 WorkBuddy 最终确定重要决策之前，让它先用 Lorelum 检索相关指引。
+
+## 更新
+
+打开插件管理界面，选择 Lorelum 并安装提供的更新。对本地检出而言，修改 Plugin 文件后请从你的市场卸载并重装。
+
+## 排障
+
+如果 `/lore` 或指引缺失：
+
+1. 确认 Lorelum 已在插件管理中安装并启用。
+2. 确认 `lore --version` 在 WorkBuddy 使用的环境中可用。
+3. 安装或更新后，开始一个新任务。
+
+检索或模型问题参见[故障排查](./troubleshooting)。

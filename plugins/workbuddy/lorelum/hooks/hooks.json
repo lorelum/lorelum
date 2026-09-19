@@ -1,0 +1,19 @@
+{
+  "description": "Restore the compact Lorelum Installed Pack Catalog at supported WorkBuddy session boundaries.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if output=\"$(lore hook workbuddy)\"; then printf '%s\\n' \"$output\"; else printf '%s\\n' '{\"continue\":true}'; fi",
+            "timeout": 10,
+            "additionalContextLimit": 5000,
+            "commandWindows": "try { $output = & lore hook workbuddy; if ($LASTEXITCODE -eq 0) { $output } else { '{\"continue\":true}' } } catch { '{\"continue\":true}' }"
+          }
+        ]
+      }
+    ]
+  }
+}
