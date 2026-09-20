@@ -118,6 +118,8 @@ The most complete round covered three tasks — login form, profile update, proj
 | Profile update (3 runs)           | 3      | 1        | 1          |
 | Project-directory search (3 runs) | 3      | 0        | 0          |
 
+> Source: issue-92 per-run records · 3 tasks · 6/3/3 runs per condition
+
 The oracle group strictly exceeded its two controls on all three tasks — directionally consistent. The judge's reference scores agree: oracle 68–100, baseline 48–61. The gaps concentrate on the dimensions the Practice speaks to — for the profile-update task, oracle vs. baseline reads: domain delegation 20 vs. 14 (out of 20), boundary translation 14 vs. 4 (out of 20), raw-response containment 10 vs. 2 (out of 10).
 
 The code-level difference is directly comparable. The baseline component reads the transport response directly:
@@ -173,29 +175,11 @@ Where the evidence stands: three tasks, directionally consistent, the oracle gro
 
 The four documents below back every number and claim in this post; all are public in the lorelum-benchmark repository.
 
-<Accordions type="single">
-  <Accordion title="Three-condition results analysis" id="evidence-three-condition">
-    The complete per-run record across three tasks × three conditions: each run's judge reference
-    score, probe observation, execution health, and the "strictly greater" decision rule in its
-    original wording. [Read the
-    document](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/issue-92-practice-injection-analysis.md)
-  </Accordion>
-  <Accordion title="Benchmark protocol" id="evidence-protocol">
-    The authoritative definition of the outcome contract (execution health / semantic hard gate /
-    quality signal) and the run-record rules: dimension semantics, the ban on hidden weighted
-    totals, record immutability. [Read the
-    document](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/BENCHMARK_PROTOCOL.md)
-  </Accordion>
-  <Accordion title="Practice candidate design guide" id="evidence-guide">
-    The full definition and worked examples of the five information boundaries: what the task
-    statement, the Practice card, the semantic hard gate, quality signals, and implementation
-    preferences are each allowed to decide. [Read the
-    document](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/PRACTICE_BENCHMARK_GUIDE.md)
-  </Accordion>
-  <Accordion title="Judge v1 calibration failure record" id="evidence-judge-calibration">
-    The raw record of judge v1's discrimination calibration: the inverted 66 / 80 / 72 scores, the
-    non-integer confidence that aborted the second round, and the v2 re-calibration evidence of 90 /
-    88 / 76. [Read the
-    document](https://github.com/lorelum/lorelum-benchmark/blob/main/openspec/changes/archive/2026-08-14-llm-provider-gateway-v2-pilot-diagnostic/verification/judge-calibration-attempt.md)
-  </Accordion>
-</Accordions>
+<BlogEvidenceList>
+
+- **[Three-condition results analysis](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/issue-92-practice-injection-analysis.md)** — the complete per-run record across three tasks × three conditions: each run's judge reference score, probe observation, execution health, and the "strictly greater" decision rule in its original wording.
+- **[Benchmark protocol](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/BENCHMARK_PROTOCOL.md)** — the authoritative definition of the outcome contract (execution health / semantic hard gate / quality signal) and the run-record rules: dimension semantics, the ban on hidden weighted totals, record immutability.
+- **[Practice candidate design guide](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/PRACTICE_BENCHMARK_GUIDE.md)** — the full definition and worked examples of the five information boundaries: what the task statement, the Practice card, the semantic hard gate, quality signals, and implementation preferences are each allowed to decide.
+- **[Judge v1 calibration failure record](https://github.com/lorelum/lorelum-benchmark/blob/main/openspec/changes/archive/2026-08-14-llm-provider-gateway-v2-pilot-diagnostic/verification/judge-calibration-attempt.md)** — the raw record of judge v1's discrimination calibration: the inverted 66 / 80 / 72 scores, the non-integer confidence that aborted the second round, and the v2 re-calibration evidence of 90 / 88 / 76.
+
+</BlogEvidenceList>

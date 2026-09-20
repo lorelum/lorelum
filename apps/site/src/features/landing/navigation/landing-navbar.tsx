@@ -11,11 +11,25 @@ import "./landing-navbar.css";
 
 const heroId = "landing-hero";
 
+interface LandingNavbarProps {
+  readonly lang: string;
+  /**
+   * Render the site-wide language control (default `true`).
+   *
+   * It swaps the locale prefix of the current path, so it cannot know whether
+   * the target page exists. A blog article does know: it renders its own
+   * translation entry only when the other locale actually publishes the post,
+   * and the article page therefore turns this control off rather than offer a
+   * URL that answers 404.
+   */
+  readonly withLanguageToggle?: boolean;
+}
+
 /**
  * Three-zone product navigation: brand, primary destinations, and utilities.
  * The feature-local morph hook owns its Hero-driven scroll behavior.
  */
-export function LandingNavbar({ lang }: { lang: string }) {
+export function LandingNavbar({ lang, withLanguageToggle = true }: LandingNavbarProps) {
   const homePath = lang === i18n.defaultLanguage ? "/" : `/${lang}`;
   const navRef = useRef<HTMLElement>(null);
   useLandingNavbarMorph(navRef, heroId);
@@ -32,6 +46,7 @@ export function LandingNavbar({ lang }: { lang: string }) {
           <div className="justify-self-start">
             <Link
               to={homePath}
+              activeOptions={{ exact: true }}
               className="inline-flex h-9 items-center rounded-lg text-fd-foreground transition-opacity hover:opacity-75"
             >
               <BrandLockup />
@@ -41,7 +56,7 @@ export function LandingNavbar({ lang }: { lang: string }) {
           <LandingPrimaryNavigation lang={lang} />
 
           <div className="flex items-center justify-self-end gap-1">
-            <LanguageToggle lang={lang} />
+            {withLanguageToggle ? <LanguageToggle lang={lang} /> : null}
             <ThemeToggle lang={lang} />
             <GitHubLink />
           </div>

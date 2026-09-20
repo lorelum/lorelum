@@ -118,6 +118,8 @@ judge 随即在第一次判别力校准中失败。校准方法是提供三份�
 | 资料保存（3 次）     | 3      | 1        | 1          |
 | 项目目录搜索（3 次） | 3      | 0        | 0          |
 
+> 来源：issue-92 逐次运行记录 · 3 个任务 · 6/3/3 次运行
+
 三个任务的 oracle 组均严格高于各自的两个对照组，方向一致。judge 的参考分也一致更高：oracle 组 68–100，baseline 组 48–61。分差集中在与 Practice 直接相关的维度——以资料保存任务为例，oracle 组与 baseline 组的对比为：领域委托 20 对 14（满分 20）、边界翻译 14 对 4（满分 20）、原始响应不出边界 10 对 2（满分 10）。
 
 代码层面的差异可以直接对照。baseline 的组件直接读取传输层响应：
@@ -173,22 +175,11 @@ export async function login(email, password): Promise<LoginResult> {
 
 以下四份文档支撑本文的全部数字与结论，均公开在 lorelum-benchmark 仓库中。
 
-<Accordions type="single">
-  <Accordion title="三条件结果分析" id="evidence-three-condition">
-    三个任务 × 三条件 × 逐次运行的完整记录：每次运行的 judge
-    参考分、探针观测与执行健康状态，以及「严格高于」判定口径的原文。[阅读原文](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/issue-92-practice-injection-analysis.md)
-  </Accordion>
-  <Accordion title="Benchmark 协议" id="evidence-protocol">
-    结果契约（执行健康 / 语义硬门槛 /
-    质量信号）与运行记录规则的权威定义：维度语义、禁止加权总分、记录不可变等约束。[阅读原文](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/BENCHMARK_PROTOCOL.md)
-  </Accordion>
-  <Accordion title="Practice 候选设计指南" id="evidence-guide">
-    五类信息边界的完整定义与正反例：题面、Practice
-    卡片、语义硬门槛检查、质量信号、实现偏好各自允许判定什么。[阅读原文](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/PRACTICE_BENCHMARK_GUIDE.md)
-  </Accordion>
-  <Accordion title="judge v1 校准失败记录" id="evidence-judge-calibration">
-    judge v1 判别力校准的原始记录：66 / 80 / 72 的方向错误、confidence 非整数导致的整轮中断，以及 v2
-    复校 90 / 88 / 76
-    的证据。[阅读原文](https://github.com/lorelum/lorelum-benchmark/blob/main/openspec/changes/archive/2026-08-14-llm-provider-gateway-v2-pilot-diagnostic/verification/judge-calibration-attempt.md)
-  </Accordion>
-</Accordions>
+<BlogEvidenceList>
+
+- **[三条件结果分析](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/issue-92-practice-injection-analysis.md)** — 三个任务 × 三条件 × 逐次运行的完整记录：每次运行的 judge 参考分、探针观测与执行健康状态，以及「严格高于」判定口径的原文。
+- **[Benchmark 协议](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/BENCHMARK_PROTOCOL.md)** — 结果契约（执行健康 / 语义硬门槛 / 质量信号）与运行记录规则的权威定义：维度语义、禁止加权总分、记录不可变等约束。
+- **[Practice 候选设计指南](https://github.com/lorelum/lorelum-benchmark/blob/main/docs/PRACTICE_BENCHMARK_GUIDE.md)** — 五类信息边界的完整定义与正反例：题面、Practice 卡片、语义硬门槛检查、质量信号、实现偏好各自允许判定什么。
+- **[judge v1 校准失败记录](https://github.com/lorelum/lorelum-benchmark/blob/main/openspec/changes/archive/2026-08-14-llm-provider-gateway-v2-pilot-diagnostic/verification/judge-calibration-attempt.md)** — judge v1 判别力校准的原始记录：66 / 80 / 72 的方向错误、confidence 非整数导致的整轮中断，以及 v2 复校 90 / 88 / 76 的证据。
+
+</BlogEvidenceList>

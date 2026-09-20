@@ -48,6 +48,27 @@
     background-color 160ms ease-out;
 }
 
+/*
+ * The current destination is stated in text, not with an icon, underline or dot:
+ * a weight step plus a tinted surface, the same formula the hover state uses.
+ *
+ * The weight carries the state, and the numbers are why. In this theme
+ * `--color-fd-primary` is #171717 against a #0a0a0a foreground (light) and
+ * #fafafa against #ebebeb (dark), so a colour-only state differs by about 13 of
+ * 255 — measured, and not something a reader can rely on. The tint is therefore
+ * a state surface rather than decoration: the reader is being told where they
+ * are, which is the one thing this header previously never said.
+ */
+.landing-navbar__link[aria-current="page"] {
+  color: var(--color-fd-primary);
+  font-weight: 600;
+  background: color-mix(in oklab, var(--color-fd-primary) 8%, transparent);
+}
+
+.dark .landing-navbar__link[aria-current="page"] {
+  background: color-mix(in oklab, var(--color-fd-primary) 14%, transparent);
+}
+
 .landing-navbar__link:hover {
   background: color-mix(in oklab, var(--color-fd-primary) 9%, transparent);
   color: var(--color-fd-primary);

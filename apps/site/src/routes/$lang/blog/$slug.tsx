@@ -1,32 +1,41 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { BlogNotFound, BlogPostScreen } from "@/features/blog";
 import { preloadBlogContent } from "@/features/blog/content/client";
-import { BlogPostScreen } from "@/features/blog";
+import { adjacentPosts } from "@/features/blog/model/adjacent-posts";
 import { blogPostHead } from "@/features/blog/model/blog-head";
 import { isSupportedBlogLocale } from "@/features/blog/model/locale";
 import { loadBlogPost } from "@/features/blog/server/load-blog-post";
+import { listBlogPosts } from "@/features/blog/server/list-blog-posts";
 
 export const Route = createFileRoute("/$lang/blog/$slug")({
   component: Page,
+  notFoundComponent: () => <BlogNotFound lang={Route.useParams().lang} />,
   loader: async ({ params }) => {
     if (!isSupportedBlogLocale(params.lang)) throw notFound();
 
-    const post = await postLoader({ data: { slug: params.slug, lang: params.lang } });
-    await preloadBlogContent(post.path);
-    return post;
+    const page = await pageLoader({ data: { slug: params.slug, lang: params.lang } });
+    await preloadBlogContent(page.post.path);
+    return page;
   },
-  head: ({ params, loaderData }) => blogPostHead(params.lang, loaderData),
+  head: ({ params, loaderData }) => blogPostHead(params.lang, loaderData?.post),
 });
 
-const postLoader = createServerFn({ method: "GET" })
+const pageLoader = createServerFn({ method: "GET" })
   .validator((params: { slug: string; lang?: string }) => params)
   .handler(async ({ data }) => {
     const post = loadBlogPost(data);
     if (!post) throw notFound();
-    return post;
+
+    // The neighbours come from the post's own locale index, which the server
+    // already builds for the list page, so the screen never sees the source.
+    const adjacent = adjacentPosts(listBlogPosts(post.locale), post.slug);
+
+    return { post, adjacent };
   });
 
 function Page() {
   const { lang } = Route.useParams();
-  return <BlogPostScreen lang={lang} post={Route.useLoaderData()} />;
+  const { post, adjacent } = Route.useLoaderData();
+  return <BlogPostScreen lang={lang} post={post} adjacent={adjacent} />;
 }

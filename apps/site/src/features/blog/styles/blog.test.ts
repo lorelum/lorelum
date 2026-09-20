@@ -39,12 +39,14 @@ describe("blog style adapter", () => {
   });
 
   test("applies the production token scope on every blog surface", () => {
-    // The scope moved into the shared surface component; the invariant is that
+    // The scope lives in the shared surface component; the invariant is that
     // whichever element wraps a blog screen's reading column carries it, and
-    // that neither screen renders an unscoped column of its own.
+    // that neither screen renders an unscoped column of its own. Both screens
+    // now route through the surface, so the second half is asserted at its home.
     expect(surface).toContain("lorelum-ui blog-scope");
     expect(indexScreen).toContain("BlogSurface");
-    expect(postScreen).toContain("lorelum-ui blog-scope");
+    expect(postScreen).toContain("BlogSurface");
+    expect(postScreen).not.toContain("lorelum-ui blog-scope");
   });
 
   test("binds the body font as a property rather than rebinding --font-sans", () => {
@@ -201,28 +203,30 @@ describe("blog typography contract", () => {
     // The binding sets the base the `:lang(zh)` multiplier scales. Without it
     // the base is Fumadocs' own 28px rather than the token's 26px.
     expect(blogRules).toMatch(
-      /\.blog-scope article \.prose\s*\{[^}]*font-size:\s*var\(--lore-text-body\)/,
+      /\.blog-scope \.blog-post__reading \.prose\s*\{[^}]*font-size:\s*var\(--lore-text-body\)/,
     );
     expect(blogRules).toMatch(
-      /\.blog-scope article \.prose\s*\{[^}]*line-height:\s*var\(--lore-leading-body\)/,
+      /\.blog-scope \.blog-post__reading \.prose\s*\{[^}]*line-height:\s*var\(--lore-leading-body\)/,
     );
     expect(blogRules).toMatch(
-      /\.blog-scope article \.prose\s*\{[^}]*font-family:\s*var\(--lore-font-sans\)/,
+      /\.blog-scope \.blog-post__reading \.prose\s*\{[^}]*font-family:\s*var\(--lore-font-sans\)/,
     );
   });
 
-  test("keeps every prose rule off the table-of-contents rail", () => {
+  test("keeps every prose rule off the table-of-contents entries", () => {
     // Fumadocs' TOC entries are themselves `.prose` elements
     // (`prose relative py-1.5 text-sm`). A rule scoped to `.prose` alone
-    // therefore also lands on the rail, overriding the 14px/20px its `text-sm`
-    // asks for and pushing the rail into scrolling at short viewports. The
-    // reading column is inside `article`; the rail never is.
+    // therefore also lands on them, overriding the 14px/20px their `text-sm`
+    // asks for. `article` was too broad in the same way once the
+    // narrow-viewport disclosure started rendering those entries inside it —
+    // they measured 16px/26px again. `.blog-post__reading` wraps the prose body
+    // and nothing else.
     //
     // The selector list is split on commas before matching and each part is
     // anchored, because a rule may append a second, unscoped selector to a
-    // scoped one — `.blog-scope article .prose, .blog-scope .prose { … }` —
-    // which re-broadens the rule while every part still contains the scoped
-    // text somewhere.
+    // scoped one — `.blog-scope .blog-post__reading .prose, .blog-scope .prose
+    // { … }` — which re-broadens the rule while every part still contains the
+    // scoped text somewhere.
     const selectors = [...blogRules.matchAll(/([^{}]*)\{/g)]
       .flatMap((match) => (match[1] ?? "").split(","))
       .map((selector) => selector.trim())
@@ -230,7 +234,7 @@ describe("blog typography contract", () => {
 
     expect(selectors.length).toBeGreaterThan(0);
     for (const selector of selectors) {
-      expect(selector, selector).toMatch(/^\.blog-scope article \.prose\b/);
+      expect(selector, selector).toMatch(/^\.blog-scope \.blog-post__reading \.prose\b/);
     }
   });
 
@@ -238,7 +242,7 @@ describe("blog typography contract", () => {
     // Fumadocs ships `font-style: italic` on blockquotes; for Chinese that
     // italic is synthesised.
     expect(blogRules).toMatch(
-      /\.blog-scope article \.prose blockquote:not\(\[class~="not-prose"\]\)\s*\{[^}]*font-style:\s*normal/,
+      /\.blog-scope \.blog-post__reading \.prose blockquote:not\(\[class~="not-prose"\]\)\s*\{[^}]*font-style:\s*normal/,
     );
   });
 
@@ -246,7 +250,7 @@ describe("blog typography contract", () => {
     // `--radius-lg` is Tailwind's default-theme 0.5rem here — the site never
     // loads `theme.css` — so Fumadocs' table radius missed the production one.
     expect(blogRules).toMatch(
-      /\.blog-scope article \.prose\s*\{[^}]*--radius-lg:\s*var\(--radius\)/,
+      /\.blog-scope \.blog-post__reading \.prose\s*\{[^}]*--radius-lg:\s*var\(--radius\)/,
     );
   });
 
@@ -262,7 +266,7 @@ describe("blog typography contract", () => {
 describe("blog link contract", () => {
   test("underlines body links permanently and nav links only on hover", () => {
     expect(blogRules).toMatch(
-      /\.blog-scope article \.prose a:not\(\[data-card\]\)\s*\{[^}]*text-decoration-line:\s*underline/,
+      /\.blog-scope \.blog-post__reading \.prose a:not\(\[data-card\]\)\s*\{[^}]*text-decoration-line:\s*underline/,
     );
     expect(blogRules).toMatch(
       /:is\(\.blog-title-link, \.blog-nav-link\)\s*\{[^}]*text-decoration-line:\s*none/,
@@ -277,14 +281,14 @@ describe("blog link contract", () => {
     // override must both restore the opacity and animate the decoration
     // colour, not the opacity — so both are asserted inside the link rules.
     const restingRule = blogRules.match(
-      /\.blog-scope article \.prose a:not\(\[data-card\]\)\s*\{([^}]*)\}/,
+      /\.blog-scope \.blog-post__reading \.prose a:not\(\[data-card\]\)\s*\{([^}]*)\}/,
     );
     expect(restingRule, "the body-link rule").not.toBeNull();
     expect(restingRule?.[1] ?? "").toContain("transition-property: color, text-decoration-color;");
     expect(restingRule?.[1] ?? "").toContain("transition-duration: var(--lore-motion-feedback);");
 
     const hoverRule = blogRules.match(
-      /\.blog-scope article \.prose a:not\(\[data-card\]\):hover\s*\{([^}]*)\}/,
+      /\.blog-scope \.blog-post__reading \.prose a:not\(\[data-card\]\):hover\s*\{([^}]*)\}/,
     );
     expect(hoverRule, "the body-link hover rule").not.toBeNull();
     expect(hoverRule?.[1] ?? "").toContain("opacity: 1;");

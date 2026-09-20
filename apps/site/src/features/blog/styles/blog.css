@@ -163,7 +163,7 @@
  * Fumadocs' own (0,1,0) (its `:where()` and `:not(:where(…))` both count
  * zero), so the outcome is the same at any chunk order.
  */
-.blog-scope article .prose a:not([data-card]) {
+.blog-scope .blog-post__reading .prose a:not([data-card]) {
   color: var(--blog-link);
   text-decoration-line: underline;
   text-decoration-color: color-mix(in srgb, var(--blog-link) 45%, transparent);
@@ -173,7 +173,7 @@
   transition-timing-function: var(--lore-ease-feedback);
 }
 
-.blog-scope article .prose a:not([data-card]):hover {
+.blog-scope .blog-post__reading .prose a:not([data-card]):hover {
   text-decoration-color: var(--blog-link);
   opacity: 1;
 }
@@ -200,11 +200,15 @@
  * already rebinds, but each role still ships its own default. Rebind every role
  * the blog actually renders, plus the body metrics.
  *
- * Scoped to `article`, not to `.prose` alone: Fumadocs' table-of-contents
- * entries carry the `prose` class themselves (`prose relative py-1.5 text-sm`),
- * so a bare `.blog-scope .prose` also took the rail from the 14px/20px its
- * `text-sm` asks for to 16px/26px, which pushed the rail into scrolling at
- * short viewports. The reading column is inside `article`; the rail is not.
+ * Scoped to `.blog-post__reading`, the wrapper around the prose body, not to
+ * `.prose` alone: Fumadocs' table-of-contents entries carry the `prose` class
+ * themselves (`prose relative py-1.5 text-sm`), so a bare `.blog-scope .prose`
+ * also took the rail from the 14px/20px its `text-sm` asks for to 16px/26px,
+ * which pushed the rail into scrolling at short viewports. `article` was tried
+ * next as the hook and is too broad for the same reason in the other direction:
+ * the narrow-viewport disclosure renders those same entries *inside* the
+ * article, and they measured 16px/26px again (rail 14/20). Only the prose
+ * wrapper holds the body text and nothing else.
  *
  * The body metrics are the base the `:lang(zh)` multiplier further up scales
  * (26px × 1.08 = 28.08px). Without this binding the base is Fumadocs' own 28px.
@@ -215,7 +219,7 @@
  * table to the production radius without out-specifying the rule that consumes
  * it: measured 8px → 12px.
  */
-.blog-scope article .prose {
+.blog-scope .blog-post__reading .prose {
   --tw-prose-links: var(--blog-link);
   --tw-prose-bullets: var(--border-strong);
   --tw-prose-hr: var(--blog-hairline);
@@ -234,7 +238,7 @@
 
 /* Fumadocs italicises quotes. The design system rejects the italic editorial
    voice, and for Chinese the italic would be synthesised. */
-.blog-scope article .prose blockquote:not([class~="not-prose"]) {
+.blog-scope .blog-post__reading .prose blockquote:not([class~="not-prose"]) {
   font-style: normal;
 }
 
@@ -250,10 +254,109 @@
 }
 
 /*
+ * Evidence appendix: the documents a post's numbers rest on, all visible
+ * without interaction. Bullets are dropped and rows separated by the inline
+ * hairline — the formula the index rows already use — so this reads as a source
+ * list rather than as one more body bullet list.
+ */
+.blog-scope .blog-evidence ul {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.blog-scope .blog-evidence li + li {
+  margin-top: var(--lore-space-related);
+  padding-top: var(--lore-space-related);
+  border-top: 1px solid var(--blog-hairline);
+}
+
+/*
  * Focus is a functional state, so it takes the focus token on every interactive
  * element in the reading scope.
  */
 .blog-scope :is(a, button, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Article page
+ * ---------------------------------------------------------------------------
+ */
+
+/*
+ * The frame holds the reading column and the table-of-contents rail side by
+ * side. The measure stays on the column itself (`--lore-reading-width`), so the
+ * rail never narrows the text; this only sets how much room both together need.
+ *
+ * The two literal terms are the surface's own chrome, not new design values:
+ * `2.5rem` is the row's `xl:gap-10`, which is the gap in force wherever the rail
+ * is visible, and `2rem` is `BlogSurface`'s `px-4` (1rem each side). Leaving the
+ * gutter out was measurable: the column came out 32px narrow at 1440
+ * (631.67px against its own 663.68px measure).
+ *
+ * Both classes sit on the same `<main>`, so this is a compound selector rather
+ * than a descendant one — `.blog-scope .blog-post__frame` matches nothing at
+ * all, which is how the first version of this rule shipped inert.
+ */
+.blog-scope.blog-post__frame {
+  max-width: calc(var(--lore-reading-width) + var(--blog-toc-rail) + 2.5rem + 2rem);
+}
+
+/*
+ * Block rhythm comes from the production spacing scale rather than from
+ * Fumadocs' em-based prose defaults, so a heading's distance from the text
+ * around it is the design system's decision and not the library's. Fumadocs
+ * sets `margin-top: 2em` on h2, which happens to equal `--lore-space-block` at
+ * the current heading size — the point is that it stays true if either changes.
+ */
+.blog-scope .blog-post__reading .prose :is(h2) {
+  margin-top: var(--lore-space-block);
+  margin-bottom: var(--lore-space-group);
+}
+
+.blog-scope .blog-post__reading .prose :is(h3) {
+  margin-top: var(--lore-space-panel);
+  margin-bottom: var(--lore-space-related);
+}
+
+/*
+ * A long unbroken identifier in a paragraph must not widen the column. This is
+ * not only a CJK rule: the `:lang(zh)` block above adds `overflow-wrap` and
+ * `line-break` for Chinese text, while this covers the Latin case (URLs, hashes,
+ * slugs) in every locale.
+ */
+.blog-scope .blog-post__reading .prose p {
+  overflow-wrap: break-word;
+}
+
+/*
+ * Heading anchors stay visible rather than appearing on hover: a hover-only
+ * affordance cannot be reached on a touch device. They sit at the muted
+ * foreground and take the full foreground on hover and on keyboard focus, so
+ * they read as available without competing with the heading itself.
+ */
+.blog-scope .blog-post__reading .prose :is(h1, h2, h3, h4, h5, h6) button[aria-label] {
+  opacity: 1;
+  color: var(--muted-foreground);
+}
+
+.blog-scope .blog-post__reading .prose :is(h1, h2, h3, h4, h5, h6) button[aria-label]:hover,
+.blog-scope .blog-post__reading .prose :is(h1, h2, h3, h4, h5, h6) button[aria-label]:focus-visible {
+  color: var(--foreground);
+}
+
+/*
+ * Contents navigation. The active entry takes the brand channel and medium
+ * weight; the rest sit between the muted and full foreground, the same formula
+ * the docs sidebar already uses, so the two surfaces agree.
+ */
+.blog-scope :is(.blog-toc, .blog-toc-disclosure) a[data-active="true"] {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.blog-scope :is(.blog-toc, .blog-toc-disclosure) a[data-active="false"] {
+  color: color-mix(in srgb, var(--muted-foreground), var(--foreground));
 }

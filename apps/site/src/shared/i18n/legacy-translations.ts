@@ -24,6 +24,14 @@ export interface LandingStrings {
   blogFilteredByPrefix: string;
   blogShowAll: string;
   blogNoPostsInCategory: string;
+  blogUpdatedOn: string;
+  blogReadIn: string;
+  blogLanguageEnglish: string;
+  blogLanguageChinese: string;
+  blogEarlierPost: string;
+  blogNewerPost: string;
+  blogNotFoundTitle: string;
+  blogNotFoundBody: string;
   blogCategoryBenchmark: string;
   blogCategoryPacks: string;
   blogCategoryLorelum: string;
@@ -125,6 +133,14 @@ const en: LandingStrings = {
   blogFilteredByPrefix: "Filtered by: ",
   blogShowAll: "Show all",
   blogNoPostsInCategory: "No posts in this category yet.",
+  blogUpdatedOn: "Updated",
+  blogReadIn: "Read in",
+  blogLanguageEnglish: "English",
+  blogLanguageChinese: "中文",
+  blogEarlierPost: "Earlier post",
+  blogNewerPost: "Newer post",
+  blogNotFoundTitle: "That post does not exist",
+  blogNotFoundBody: "It may have been renamed, or published in the other language only.",
   blogCategoryBenchmark: "Benchmark",
   blogCategoryPacks: "Packs",
   blogCategoryLorelum: "Lorelum",
@@ -238,6 +254,14 @@ const zh: LandingStrings = {
   blogFilteredByPrefix: "分类：",
   blogShowAll: "显示全部",
   blogNoPostsInCategory: "该分类下暂无文章。",
+  blogUpdatedOn: "更新于",
+  blogReadIn: "阅读",
+  blogLanguageEnglish: "English",
+  blogLanguageChinese: "中文",
+  blogEarlierPost: "更早的一篇",
+  blogNewerPost: "更新的一篇",
+  blogNotFoundTitle: "文章不存在",
+  blogNotFoundBody: "它可能已被重命名，或仅以另一种语言发布。",
   blogCategoryBenchmark: "Benchmark",
   blogCategoryPacks: "Pack",
   blogCategoryLorelum: "Lorelum",

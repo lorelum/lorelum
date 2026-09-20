@@ -22,10 +22,17 @@ function getCompactWidth() {
 export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, heroId: string) {
   useEffect(() => {
     const nav = navRef.current;
-    const hero = document.getElementById(heroId);
     const panel = nav?.querySelector<HTMLElement>(".landing-navbar__panel");
     const surface = nav?.querySelector<HTMLElement>(".landing-navbar__surface");
-    if (!nav || !hero || !panel || !surface) return;
+    if (!nav || !panel || !surface) return;
+
+    // The hero is optional: every non-landing route renders this navbar without
+    // one. It used to be part of the guard above, so on those routes the whole
+    // effect returned early and the surface timeline was never created — the
+    // navbar stayed at its initial opacity however far the reader scrolled
+    // (measured: opacity 0 at the top and after 600px on the blog index, the
+    // legacy /blog path and the article, against 0 → 1 on the landing page).
+    const hero = document.getElementById(heroId);
 
     registerGsapPlugins();
 
@@ -73,16 +80,21 @@ export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, her
         onLeaveBack: () => background.reverse(),
       });
 
-      const scrollTrigger = ScrollTrigger.create({
-        trigger: hero,
-        start: "bottom top+=56",
-        onEnter: () => runMorph(true),
-        onLeaveBack: () => runMorph(false),
-      });
+      // The morph is the part that needs a hero to measure, so it is the only
+      // thing skipped when there is none.
+      const scrollTrigger =
+        hero === null
+          ? undefined
+          : ScrollTrigger.create({
+              trigger: hero,
+              start: "bottom top+=56",
+              onEnter: () => runMorph(true),
+              onLeaveBack: () => runMorph(false),
+            });
 
       return () => {
         detachTrigger.kill();
-        scrollTrigger.kill();
+        scrollTrigger?.kill();
         background.kill();
         morph?.kill();
       };
