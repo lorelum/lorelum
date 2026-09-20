@@ -1,77 +1,75 @@
 import { Link } from "@tanstack/react-router";
-import { i18n } from "@/shared/i18n/config";
 import { getStrings } from "@/shared/i18n/legacy-translations";
-import { LandingNavbar } from "@/features/landing/navigation/landing-navbar";
-import { SiteFooter } from "@/components/landing/sections/site-footer";
+import type { BlogCategory } from "./content/frontmatter";
+import { blogIndexPath } from "./model/blog-routes";
+import { categoryLabelKey } from "./model/category-label";
 import type { BlogIndexEntry } from "./model/list-posts";
+import { BlogEntryRow } from "./components/blog-entry-row";
+import { BlogSurface } from "./components/blog-surface";
 import "./styles/blog.css";
 
 interface BlogIndexScreenProps {
   readonly lang: string;
+  /** Already filtered by the route when a category is active. */
   readonly posts: readonly BlogIndexEntry[];
-}
-
-/** Language marker shown when an entry only exists in the other locale. */
-function translatedMarker(entry: BlogIndexEntry): string {
-  return entry.locale === "zh" ? "中文" : "EN";
+  /** The active category filter, as validated from the search param. */
+  readonly category?: BlogCategory;
 }
 
 /**
  * Text-first blog index: a plain, deterministic list of posts. Summaries come
- * from each post's frontmatter description — one factual sentence, no hero
- * copy and no separate editorial teaser text.
+ * from each post's frontmatter description — one factual sentence, no hero copy
+ * and no separate editorial teaser text.
+ *
+ * The index deliberately does no year grouping, pagination, series or related
+ * posts while the list is short: at n=1 those components would render nothing,
+ * and a row gains its structure from the hairline between rows and its
+ * metadata, not from the number of siblings.
  */
-export function BlogIndexScreen({ lang, posts }: BlogIndexScreenProps) {
+export function BlogIndexScreen({ lang, posts, category }: BlogIndexScreenProps) {
   const t = getStrings(lang);
-  const base = lang === i18n.defaultLanguage ? "/blog" : `/${lang}/blog`;
 
   return (
-    <div className="blog-page flex min-h-dvh flex-col">
-      <LandingNavbar lang={lang} />
-
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-24">
+    <BlogSurface lang={lang}>
+      <header>
         <h1 className="text-3xl font-semibold tracking-tight text-fd-foreground">{t.navBlog}</h1>
+        <p className="mt-3 text-fd-muted-foreground">{t.blogIndexDescription}</p>
+      </header>
 
-        {posts.length === 0 ? (
-          <p className="mt-8 text-fd-muted-foreground">{t.blogEmpty}</p>
-        ) : (
-          <ul className="mt-8 divide-y divide-fd-border/60">
-            {posts.map((entry) => {
-              const href: string = `${base}/${entry.slug}`;
-              return (
-                <li key={`${entry.slug}-${entry.locale}`} className="blog-entry py-8">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fd-muted-foreground">
-                    <time dateTime={entry.data.date}>{entry.data.date}</time>
-                    <span aria-hidden="true" className="h-3.5 w-px bg-fd-border/60" />
-                    <span>{entry.data.category}</span>
-                    {entry.translated ? (
-                      <>
-                        <span aria-hidden="true" className="h-3.5 w-px bg-fd-border/60" />
-                        <span lang={entry.locale}>{translatedMarker(entry)}</span>
-                      </>
-                    ) : null}
-                  </div>
+      {/*
+       * The filter state only exists while a filter is active: an always-present
+       * filter bar would be a control that occupies the page while doing
+       * nothing, and at n=1 every one of its options returns the same list.
+       */}
+      {category === undefined ? null : (
+        <p className="mt-6 flex flex-wrap items-center gap-x-2 text-sm text-fd-muted-foreground">
+          <span>{t.blogFilteredByPrefix}</span>
+          <span className="font-medium text-fd-foreground">{t[categoryLabelKey(category)]}</span>
+          <span aria-hidden="true">·</span>
+          <Link to={blogIndexPath(lang)} className="blog-nav-link rounded-sm">
+            {t.blogShowAll}
+          </Link>
+        </p>
+      )}
 
-                  <h2 className="mt-3 text-xl font-medium leading-snug">
-                    <Link
-                      to={href}
-                      className="rounded-sm text-fd-foreground transition-colors hover:text-fd-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fd-primary"
-                    >
-                      {entry.data.title}
-                    </Link>
-                  </h2>
-
-                  <p className="mt-2 leading-relaxed text-fd-muted-foreground">
-                    {entry.data.description}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </main>
-
-      <SiteFooter lang={lang} />
-    </div>
+      {posts.length === 0 ? (
+        <p className="mt-8 text-fd-muted-foreground">
+          {category === undefined ? t.blogEmpty : t.blogNoPostsInCategory}{" "}
+          <Link
+            to="/$lang/docs/$"
+            params={{ lang, _splat: "" }}
+            className="blog-nav-link rounded-sm"
+          >
+            {t.readDocs}
+          </Link>
+        </p>
+      ) : (
+        <ul className="blog-entry-list mt-8">
+          {posts.map((entry) => (
+            <BlogEntryRow key={`${entry.slug}-${entry.locale}`} entry={entry} lang={lang} />
+          ))}
+        </ul>
+      )}
+    </BlogSurface>
   );
 }

@@ -2,6 +2,7 @@ import { i18n } from "@/shared/i18n/config";
 import { siteUrl } from "@/shared/config/site";
 import { getStrings } from "@/shared/i18n/legacy-translations";
 import type { BlogPostData } from "../server/load-blog-post";
+import { blogIndexPath } from "./blog-routes";
 
 /**
  * Per-route `<head>` factories for the blog surface, shared by the
@@ -20,13 +21,9 @@ const ogLocales: Record<string, string> = {
   zh: "zh_CN",
 };
 
-function blogBase(lang: string): string {
-  return lang === i18n.defaultLanguage ? "/blog" : `/${lang}/blog`;
-}
-
 export function blogIndexHead(lang: string): HeadBlock {
   const t = getStrings(lang);
-  const canonical = `${siteUrl}${blogBase(lang)}`;
+  const canonical = `${siteUrl}${blogIndexPath(lang)}`;
 
   return {
     meta: [
@@ -47,7 +44,7 @@ export function blogPostHead(lang: string, post: BlogPostData | undefined): Head
     return { meta: [{ title: `Blog | Lorelum` }], links: [] };
   }
 
-  const canonical = `${siteUrl}${blogBase(lang)}/${post.slug}`;
+  const canonical = `${siteUrl}${blogIndexPath(lang)}/${post.slug}`;
 
   return {
     meta: [

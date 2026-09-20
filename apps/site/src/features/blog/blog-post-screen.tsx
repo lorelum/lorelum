@@ -24,7 +24,7 @@ function BlogTableOfContents({ lang }: { lang: string }) {
   return (
     <aside
       aria-label={t.blogOnThisPage}
-      className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] w-[240px] shrink-0 overflow-y-auto pb-8 pe-2 pt-2 xl:block"
+      className="sticky top-[var(--blog-sticky-offset)] hidden max-h-[calc(100dvh-var(--blog-sticky-offset)-1rem)] w-[240px] shrink-0 overflow-y-auto pb-8 pe-2 pt-2 xl:block"
     >
       <h3 className="inline-flex items-center gap-1.5 text-sm text-fd-muted-foreground">
         <Text aria-hidden="true" className="size-4" />
@@ -81,7 +81,7 @@ function BlogPostBody({ lang, post }: { lang: string; post: BlogPostData }) {
  */
 export function BlogPostScreen({ lang, post }: BlogPostScreenProps) {
   return (
-    <div className="blog-page flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col">
       <LandingNavbar lang={lang} />
 
       <main className="lorelum-ui blog-scope mx-auto w-full max-w-[1160px] flex-1 px-4 pb-24 pt-24">

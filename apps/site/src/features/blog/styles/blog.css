@@ -1,12 +1,13 @@
 @import "@lorelum/ui/tokens.css";
 
 /*
- * Fumadocs adapter for the blog reading surface.
+ * Fumadocs adapter for the blog surfaces.
  *
  * Mirrors the Docs feature adapter: the shared package owns semantic tokens,
  * while Fumadocs owns the generated markup and interaction behavior. The scope
- * wraps only the reading column — the site navbar and footer keep the global
- * landing Fumadocs theme.
+ * wraps a screen's `<main>` — the site navbar and footer stay outside it and
+ * keep the global landing Fumadocs theme, so chrome cannot disagree between
+ * routes.
  */
 
 .blog-scope {
@@ -32,6 +33,227 @@
   --color-fd-error: var(--destructive);
   --color-fd-success: var(--success);
   --color-fd-idea: var(--primary);
+
+  /*
+   * Blog-local aliases, following the `--docs-*` precedent: compositions of
+   * production tokens that this surface owns, not new palette values. The
+   * colour aliases are entirely `var()`/`color-mix()` compositions; the two
+   * size aliases are literal lengths because production has no token for
+   * either one.
+   */
+  --blog-link: var(--accent-foreground);
+  --blog-hairline: color-mix(in srgb, var(--border) 76%, transparent);
+  --blog-quiet-surface: color-mix(in srgb, var(--secondary) 62%, transparent);
+
+  /*
+   * The blog's one sticky offset, shared by the table-of-contents rail (`top`)
+   * and every heading's `scroll-margin-top`, so an anchor jump lands where the
+   * rail expects the active item. 7rem is the value Fumadocs already computes
+   * for its own heading anchor (`scroll-m-28` = `--spacing * 28` at Tailwind's
+   * 0.25rem step), so adopting it preserves the current jump position; the rail
+   * previously sat at 5rem and so disagreed with the headings by 2rem.
+   */
+  --blog-sticky-offset: 7rem;
+
+  /* Width of the article's table-of-contents rail. */
+  --blog-toc-rail: 15rem;
+
+  /*
+   * The body font is bound here as a property rather than by rebinding
+   * `--font-sans`. Custom properties resolve on the element that *uses* them,
+   * and the site's `html { font-family: var(--default-font-family) }` chain
+   * resolves at the document root — so rebinding `--font-sans` on this scope
+   * would inherit the already-computed system stack instead. `--lore-font-sans`
+   * is Manrope with a system CJK fallback.
+   */
+  font-family: var(--lore-font-sans);
+
   background: var(--color-fd-background);
   color: var(--color-fd-foreground);
+}
+
+/*
+ * Dark mode is Fumadocs' `.dark` class on `<html>`, so this mirrors the
+ * `--docs-*` override shape. `--accent-foreground` is theme-asymmetric (brand
+ * green in light, neutral in dark), and a link token that went neutral in dark
+ * would lose the "links are green" signal, so dark flips to `--primary`.
+ */
+.dark .blog-scope {
+  --blog-link: var(--primary);
+  --blog-hairline: color-mix(in srgb, var(--border) 64%, transparent);
+  --blog-quiet-surface: color-mix(in srgb, var(--secondary) 54%, transparent);
+}
+
+/*
+ * Headings take the site's display face, as they do on every other surface.
+ * That face has no CJK coverage, so a Chinese heading would otherwise mix
+ * Bricolage latin glyphs with system Chinese ones — which reads as a failed
+ * font load. The `:lang(zh)` rule below hands those headings back to the
+ * reading face, whose CJK fallback matches the body's.
+ *
+ * The scroll offset lives in this rule too. Fumadocs' generated heading
+ * component emits its own offset utility classes (`scroll-m-28` for prose
+ * headings, `scroll-m-24` for accordion titles), and this selector's
+ * specificity (0,1,1 against the utility's 0,1,0) wins at any input order.
+ */
+.blog-scope :is(h1, h2, h3, h4) {
+  font-family: var(--lore-font-display);
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  scroll-margin-top: var(--blog-sticky-offset);
+}
+
+.blog-scope :is(h5, h6) {
+  scroll-margin-top: var(--blog-sticky-offset);
+}
+
+/*
+ * Language-scoped metrics. Chinese sets tighter per glyph than latin text at
+ * the same size, so the latin line-height crowds it; the multiplier is the only
+ * knob (the measure stays as designed). `line-break: strict` keeps CJK
+ * punctuation off the start of a line, and where it is unsupported it is simply
+ * inert rather than a layout dependency.
+ *
+ * These stay inside `.blog-scope`: the navbar and footer are shared chrome and
+ * keep the site's metrics.
+ */
+.blog-scope :where(h1, h2, h3, h4, h5):lang(zh) {
+  font-family: var(--lore-font-sans);
+  letter-spacing: 0;
+}
+
+.blog-scope :where(p, li, dd, blockquote):lang(zh) {
+  line-height: calc(var(--lore-leading-body) * 1.08);
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+
+.blog-scope :where(p, li, dd):lang(zh) code {
+  overflow-wrap: anywhere;
+}
+
+.blog-scope :where(p, li) {
+  text-wrap: pretty;
+}
+
+/*
+ * Selection takes the token whose pairing was contrast-checked, rather than the
+ * landing surface's unchecked `--primary` mix.
+ */
+.blog-scope ::selection {
+  background: var(--selection);
+  color: var(--selection-foreground);
+}
+
+/*
+ * Link contract: the colour is the signal, the underline is the affordance.
+ *
+ * Body links carry the link colour plus a permanent underline, so they stay
+ * identifiable without relying on colour at all. Fumadocs' own rule dims the
+ * whole link to 80% opacity on hover; that is a fade, not feedback, and it
+ * fights the underline signal — so the transition is rebound to the colour and
+ * the underline instead, on the feedback duration the design system defines.
+ *
+ * The `:not([data-card])` guard mirrors Fumadocs' own `not-prose` guard. The
+ * elements it excludes are the eight heading self-anchors Fumadocs emits —
+ * `<h2 id=…><a data-card href="#…">Heading</a><button aria-label="Copy Anchor
+ * Link">` — which would otherwise take the body-link colour and underline.
+ * It is not what wins the cascade; specificity does, and either counting
+ * convention for the `:not()` attribute selector puts this rule well above
+ * Fumadocs' own (0,1,0) (its `:where()` and `:not(:where(…))` both count
+ * zero), so the outcome is the same at any chunk order.
+ */
+.blog-scope article .prose a:not([data-card]) {
+  color: var(--blog-link);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, var(--blog-link) 45%, transparent);
+  text-underline-offset: 0.2em;
+  transition-property: color, text-decoration-color;
+  transition-duration: var(--lore-motion-feedback);
+  transition-timing-function: var(--lore-ease-feedback);
+}
+
+.blog-scope article .prose a:not([data-card]):hover {
+  text-decoration-color: var(--blog-link);
+  opacity: 1;
+}
+
+/*
+ * Navigation and heading links (entry titles, the category entry, the filter's
+ * clear action) carry no colour signal at rest — the surrounding structure
+ * already says they are links — and reveal colour and underline together on
+ * hover.
+ */
+.blog-scope :is(.blog-title-link, .blog-nav-link) {
+  color: var(--foreground);
+  text-decoration-line: none;
+  text-underline-offset: 0.2em;
+}
+
+.blog-scope :is(.blog-title-link, .blog-nav-link):hover {
+  color: var(--blog-link);
+  text-decoration-line: underline;
+}
+
+/*
+ * Fumadocs' prose roles resolve through `--color-fd-*`, which this scope
+ * already rebinds, but each role still ships its own default. Rebind every role
+ * the blog actually renders, plus the body metrics.
+ *
+ * Scoped to `article`, not to `.prose` alone: Fumadocs' table-of-contents
+ * entries carry the `prose` class themselves (`prose relative py-1.5 text-sm`),
+ * so a bare `.blog-scope .prose` also took the rail from the 14px/20px its
+ * `text-sm` asks for to 16px/26px, which pushed the rail into scrolling at
+ * short viewports. The reading column is inside `article`; the rail is not.
+ *
+ * The body metrics are the base the `:lang(zh)` multiplier further up scales
+ * (26px × 1.08 = 28.08px). Without this binding the base is Fumadocs' own 28px.
+ *
+ * `--radius-lg` is Tailwind's default-theme 0.5rem here — the site never loads
+ * `theme.css`, so Fumadocs' `border-radius: var(--radius-lg)` was resolving to
+ * something that is not the production radius. Rebinding the variable moves the
+ * table to the production radius without out-specifying the rule that consumes
+ * it: measured 8px → 12px.
+ */
+.blog-scope article .prose {
+  --tw-prose-links: var(--blog-link);
+  --tw-prose-bullets: var(--border-strong);
+  --tw-prose-hr: var(--blog-hairline);
+  --tw-prose-quote-borders: var(--border-strong);
+  --tw-prose-code: var(--code-foreground);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-th-borders: var(--blog-hairline);
+  --tw-prose-td-borders: var(--blog-hairline);
+
+  --radius-lg: var(--radius);
+
+  font-family: var(--lore-font-sans);
+  font-size: var(--lore-text-body);
+  line-height: var(--lore-leading-body);
+}
+
+/* Fumadocs italicises quotes. The design system rejects the italic editorial
+   voice, and for Chinese the italic would be synthesised. */
+.blog-scope article .prose blockquote:not([class~="not-prose"]) {
+  font-style: normal;
+}
+
+/*
+ * Divider roles are not interchangeable: structural borders ("--border"),
+ * inline separators ("--blog-hairline") and control boundaries ("--input") each
+ * have their own token. Index rows are separated by the inline hairline, which
+ * is why this is a rule here and not Tailwind's default `divide-y` — that
+ * preflight colour resolves to `--color-fd-border`, the *structural* role.
+ */
+.blog-entry-list > li + li {
+  border-top: 1px solid var(--blog-hairline);
+}
+
+/*
+ * Focus is a functional state, so it takes the focus token on every interactive
+ * element in the reading scope.
+ */
+.blog-scope :is(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }

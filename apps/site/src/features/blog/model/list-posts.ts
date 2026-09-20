@@ -1,4 +1,4 @@
-import type { BlogFrontmatter } from "../content/frontmatter";
+import type { BlogCategory, BlogFrontmatter } from "../content/frontmatter";
 
 /** One locale's version of a post, as read from the source index. */
 export interface BlogPostRecord {
@@ -50,4 +50,17 @@ export function buildBlogIndex(records: readonly BlogPostRecord[], lang: string)
   return [...bySlug.values()].sort(
     (a, b) => b.data.date.localeCompare(a.data.date) || a.slug.localeCompare(b.slug),
   );
+}
+
+/**
+ * Keep only the entries in one category. `undefined` means no filter, and the
+ * input is never mutated — the unfiltered index is the route's loader data and
+ * callers may hold it across renders.
+ */
+export function filterBlogIndex(
+  entries: readonly BlogIndexEntry[],
+  category: BlogCategory | undefined,
+): BlogIndexEntry[] {
+  if (category === undefined) return [...entries];
+  return entries.filter((entry) => entry.data.category === category);
 }

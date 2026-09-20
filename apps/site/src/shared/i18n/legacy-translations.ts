@@ -20,6 +20,16 @@ export interface LandingStrings {
   blogIndexDescription: string;
   blogEmpty: string;
   blogOnThisPage: string;
+  /** Prefix rendered before the active category's label in the filter row. */
+  blogFilteredByPrefix: string;
+  blogShowAll: string;
+  blogNoPostsInCategory: string;
+  blogCategoryBenchmark: string;
+  blogCategoryPacks: string;
+  blogCategoryLorelum: string;
+  /** Reader-facing hint: this entry exists only in English / only in Chinese. */
+  blogOnlyInEnglish: string;
+  blogOnlyInChinese: string;
   toggleTheme: string;
   // Hero
   heroBadge: string;
@@ -109,9 +119,17 @@ const en: LandingStrings = {
   navDocs: "Docs",
   navBlog: "Blog",
   blogIndexDescription:
-    "Engineering notes from the Lorelum team: benchmarks, measurement work, and Pack engineering.",
+    "Benchmarks, evaluation methods, and Pack engineering. Each post states what was measured, the size of the sample, and where the evidence comes from.",
   blogEmpty: "No posts yet.",
   blogOnThisPage: "On this page",
+  blogFilteredByPrefix: "Filtered by: ",
+  blogShowAll: "Show all",
+  blogNoPostsInCategory: "No posts in this category yet.",
+  blogCategoryBenchmark: "Benchmark",
+  blogCategoryPacks: "Packs",
+  blogCategoryLorelum: "Lorelum",
+  blogOnlyInEnglish: "English version only",
+  blogOnlyInChinese: "Chinese version only",
   toggleTheme: "Toggle theme",
   heroBadge: "Engineering knowledge for Agent decisions",
   heroTitleBefore: "The right ",
@@ -214,9 +232,17 @@ const zh: LandingStrings = {
   navHome: "首页",
   navDocs: "文档",
   navBlog: "博客",
-  blogIndexDescription: "Lorelum 团队的工程笔记：benchmark、测量工作与 Pack 工程。",
+  blogIndexDescription: "benchmark、评测方法与 Pack 工程。每篇说明测量口径、样本规模与证据来源。",
   blogEmpty: "暂无文章。",
   blogOnThisPage: "本页目录",
+  blogFilteredByPrefix: "分类：",
+  blogShowAll: "显示全部",
+  blogNoPostsInCategory: "该分类下暂无文章。",
+  blogCategoryBenchmark: "Benchmark",
+  blogCategoryPacks: "Pack",
+  blogCategoryLorelum: "Lorelum",
+  blogOnlyInEnglish: "仅有英文版本",
+  blogOnlyInChinese: "仅有中文版本",
   toggleTheme: "切换主题",
   heroBadge: "为 Agent 提供工程判断依据",
   heroTitleBefore: "正确的 ",

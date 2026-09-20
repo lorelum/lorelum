@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { BlogPostRecord } from "./list-posts";
-import { buildBlogIndex } from "./list-posts";
+import { buildBlogIndex, filterBlogIndex } from "./list-posts";
 
 function record(
   slug: string,
@@ -86,5 +86,42 @@ describe("buildBlogIndex", () => {
 
     expect(forward).toEqual(reversed);
     expect(forward.map((entry) => entry.slug)).toEqual(["post-b", "post-a"]);
+  });
+});
+
+describe("filterBlogIndex", () => {
+  const entries = buildBlogIndex(
+    [
+      record("post-a", "en", { category: "benchmark" }),
+      record("post-b", "en", { category: "packs" }),
+      record("post-c", "en", { category: "benchmark" }),
+    ],
+    "en",
+  );
+
+  test("keeps only the requested category", () => {
+    expect(filterBlogIndex(entries, "benchmark").map((entry) => entry.slug)).toEqual([
+      "post-a",
+      "post-c",
+    ]);
+    expect(filterBlogIndex(entries, "packs").map((entry) => entry.slug)).toEqual(["post-b"]);
+  });
+
+  test("returns every entry for the empty filter", () => {
+    expect(filterBlogIndex(entries, undefined)).toEqual(entries);
+  });
+
+  test("does not mutate the index it was given", () => {
+    const before = entries.map((entry) => entry.slug);
+
+    filterBlogIndex(entries, "packs");
+
+    expect(entries.map((entry) => entry.slug)).toEqual(before);
+  });
+
+  test("returns a copy even when nothing is filtered out", () => {
+    const unfiltered = filterBlogIndex(entries, undefined);
+
+    expect(unfiltered).not.toBe(entries);
   });
 });
