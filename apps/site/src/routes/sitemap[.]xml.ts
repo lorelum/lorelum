@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { source } from "@/features/docs/server/source";
-import { blogSource } from "@/features/blog/server/source";
+import { getPublishedBlogPages } from "@/features/blog/server/published-pages";
 import { i18n } from "@/shared/i18n/config";
 import { siteUrl } from "@/shared/config/site";
 
@@ -43,8 +43,10 @@ export const Route = createFileRoute("/sitemap.xml")({
           urls.add(canonicalFor(page.url));
         }
 
-        // Blog articles (both locales), collapsed the same way.
-        for (const page of blogSource.getPages()) {
+        // Blog articles (both locales), collapsed the same way. Drafts are
+        // never listed: a sitemap advertises what may be indexed, and a draft is
+        // not published.
+        for (const page of getPublishedBlogPages()) {
           urls.add(canonicalFor(page.url));
         }
 

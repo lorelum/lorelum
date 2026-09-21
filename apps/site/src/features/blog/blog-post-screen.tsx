@@ -139,7 +139,15 @@ function BlogPostBody({ lang, post, adjacent }: BlogPostScreenProps) {
  */
 export function BlogPostScreen({ lang, post, adjacent }: BlogPostScreenProps) {
   return (
-    <BlogSurface lang={lang} mainClassName="blog-post__frame">
+    <BlogSurface
+      lang={lang}
+      mainClassName="blog-post__frame"
+      // The article's metadata line carries the translation entry, which the
+      // server only renders when the other locale publishes the post. The
+      // navbar's control swaps the locale prefix without knowing that, so on
+      // this route it is switched off rather than left to offer a 404.
+      withLanguageToggle={false}
+    >
       <Suspense
         fallback={
           <div

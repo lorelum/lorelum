@@ -332,6 +332,44 @@
 }
 
 /*
+ * A long unbroken run anywhere in the blog scope must wrap rather than widen the
+ * page. `overflow-wrap` is inherited, so one declaration on the scope covers every
+ * role an author can fill: headings, the article dek, the metadata line, index row
+ * summaries, the closing block's neighbour titles, and body paragraphs. The first
+ * attempt listed only `:is(h1..h6)` and the reading column's paragraphs; the
+ * round-4 review then put the same 105-character token in the other roles and
+ * measured what that left open at 375px — the dek gave 292px of page scroll, the
+ * author 151px, an index row summary 221px and a neighbour title 158px.
+ */
+.blog-scope {
+  overflow-wrap: break-word;
+}
+
+/*
+ * The flex rows are where inheritance is not enough: a flex item refuses to
+ * shrink below the width of an unbreakable run unless its minimum size is lifted,
+ * so the items below need `min-width: 0` before their inherited wrap can apply.
+ * The two rows are the article's heading anchors and the metadata line.
+ */
+.blog-scope :is(h1, h2, h3, h4, h5, h6) > *,
+.blog-scope .blog-post__meta > * {
+  min-width: 0;
+}
+
+/*
+ * The closing block's neighbour row needs one more rule, of a different kind:
+ * its link is an `inline-flex` box, and a shrink-to-fit box is floored at its
+ * min-content width — the width of the one unbreakable run — so the link stayed
+ * 502px wide inside a 328px column even with the run's own wrap inherited
+ * (measured: 158px of page scroll at 375px with a 105-character title in the
+ * neighbour row; capping the link removes it, while putting `min-width: 0` on the
+ * link's children changes nothing, which is why that rule is not here).
+ */
+.blog-scope .blog-post__closing .blog-nav-link {
+  max-width: 100%;
+}
+
+/*
  * Heading anchors stay visible rather than appearing on hover: a hover-only
  * affordance cannot be reached on a touch device. They sit at the muted
  * foreground and take the full foreground on hover and on keyboard focus, so

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { destinationOf, destinationPath } from "./navigation-destination";
+import {
+  destinationOf,
+  destinationPath,
+  isCurrentDestination,
+  navigationDestinations,
+} from "./navigation-destination";
 
 const languages = ["en", "zh"];
 const defaultLanguage = "en";
@@ -46,5 +51,38 @@ describe("navigation destination", () => {
     expect(destinationPath("blog", "zh", defaultLanguage)).toBe("/zh/blog");
     expect(destinationPath("docs", "en", defaultLanguage)).toBe("/docs");
     expect(destinationPath("docs", "zh", defaultLanguage)).toBe("/zh/docs");
+  });
+});
+
+describe("isCurrentDestination", () => {
+  test("is true only for the destination the pathname belongs to", () => {
+    // The whole marking rule in one place: a version that answered `true`
+    // unconditionally would put every destination link in the "you are here"
+    // state on every page, which is the defect this stage set out to remove.
+    expect(isCurrentDestination("/blog", "blog", languages)).toBe(true);
+    expect(isCurrentDestination("/blog/a-post", "blog", languages)).toBe(true);
+    expect(isCurrentDestination("/en/blog", "blog", languages)).toBe(true);
+    expect(isCurrentDestination("/zh/blog/a-post", "blog", languages)).toBe(true);
+
+    expect(isCurrentDestination("/blog", "home", languages)).toBe(false);
+    expect(isCurrentDestination("/blog", "docs", languages)).toBe(false);
+    expect(isCurrentDestination("/en/docs", "blog", languages)).toBe(false);
+    expect(isCurrentDestination("/en", "blog", languages)).toBe(false);
+    expect(isCurrentDestination("/", "blog", languages)).toBe(false);
+  });
+
+  test("marks home on every spelling of the home page and nowhere else", () => {
+    expect(isCurrentDestination("/", "home", languages)).toBe(true);
+    expect(isCurrentDestination("/en", "home", languages)).toBe(true);
+    expect(isCurrentDestination("/zh", "home", languages)).toBe(true);
+    expect(isCurrentDestination("/blog", "home", languages)).toBe(false);
+    expect(isCurrentDestination("/zh/blog", "home", languages)).toBe(false);
+  });
+
+  test("owns nothing on paths the navigation does not own", () => {
+    for (const destination of navigationDestinations) {
+      expect(isCurrentDestination("/sitemap.xml", destination, languages)).toBe(false);
+      expect(isCurrentDestination("/nope", destination, languages)).toBe(false);
+    }
   });
 });

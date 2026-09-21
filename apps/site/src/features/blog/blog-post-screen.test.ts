@@ -115,10 +115,18 @@ describe("article closing block", () => {
   test("the back links mark the blog index current only on the blog index", () => {
     // `Link` marks a route active by prefix match, so a link to `/blog` from
     // `/blog/<slug>` announced `aria-current="page"` on an article — the reader
-    // was told the index was the page they were on.
-    const exactMatches = closing.match(/activeOptions=\{\{ exact: true \}\}/g) ?? [];
-    expect(exactMatches.length).toBe(1);
-    expect(meta).toContain("activeOptions={{ exact: true }}");
+    // was told the index was the page they were on. The option has to sit on the
+    // link that points at the index, so this asserts per link tag: counting the
+    // option anywhere in the file would pass with it on the neighbour links.
+    const backTags = [
+      ...(closing.match(/<Link\b[^>]*>/g) ?? []),
+      ...(meta.match(/<Link\b[^>]*>/g) ?? []),
+      ...(notFound.match(/<Link\b[^>]*>/g) ?? []),
+    ].filter((tag) => tag.includes("to={blogIndexPath("));
+    expect(backTags.length).toBe(3);
+    for (const tag of backTags) {
+      expect(tag).toContain("activeOptions={{ exact: true }}");
+    }
   });
 
   test("neighbours are individual rows that can each be absent", () => {
@@ -153,8 +161,23 @@ describe("blog not-found body", () => {
     // Measured on the built 404 in both locales: the back link carried
     // `aria-current="page"` (prefix match on `/blog/no-such-post`), so the exit
     // was announced as the current page on the one screen where the reader is
-    // definitely lost.
-    expect(notFound).toContain("activeOptions={{ exact: true }}");
+    // definitely lost. The missing post is missing in both locales, so the
+    // language control is off here too: it would hand the reader another 404.
+    const back = (notFound.match(/<Link\b[^>]*>/g) ?? []).find((tag) =>
+      tag.includes("to={blogIndexPath("),
+    );
+    expect(back).toContain("activeOptions={{ exact: true }}");
+    expect(notFound).toContain("withLanguageToggle={false}");
+  });
+
+  test("the article turns the navbar's language control off", () => {
+    // The control only swaps the locale prefix and cannot know whether the target
+    // page exists. On a drafted translation the prerender crawl followed it into a
+    // 404 and failed the whole build, so the article carries its own accurate
+    // entry instead. Deleting this prop silently brings the crawl back and leaves
+    // the 404 screen's identical prop — and every other test in the suite — green:
+    // the round-4 review passed exactly that mutation.
+    expect(postScreen).toContain("withLanguageToggle={false}");
   });
 });
 

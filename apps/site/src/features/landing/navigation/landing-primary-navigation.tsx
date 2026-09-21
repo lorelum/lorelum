@@ -1,7 +1,11 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { i18n } from "@/shared/i18n/config";
 import { getStrings } from "@/shared/i18n/legacy-translations";
-import { destinationOf, destinationPath, type NavigationDestination } from "./navigation-destination";
+import {
+  destinationPath,
+  isCurrentDestination,
+  type NavigationDestination,
+} from "./navigation-destination";
 
 /**
  * The central product destinations in the three-zone landing header.
@@ -17,9 +21,10 @@ import { destinationOf, destinationPath, type NavigationDestination } from "./na
 export function LandingPrimaryNavigation({ lang }: { lang: string }) {
   const { pathname } = useLocation();
   const t = getStrings(lang);
-  const current = destinationOf(pathname, i18n.languages);
   const mark = (destination: NavigationDestination) =>
-    current === destination ? ("page" as const) : undefined;
+    isCurrentDestination(pathname, destination, i18n.languages)
+      ? ("page" as const)
+      : undefined;
 
   return (
     <div className="hidden items-center gap-1 md:flex">

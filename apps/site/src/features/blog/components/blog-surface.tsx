@@ -25,12 +25,22 @@ interface BlogSurfaceProps {
    * the article passes its own so the column can sit beside the TOC rail.
    */
   readonly mainClassName?: string;
+  /**
+   * Whether the shared navbar renders its language control. The article turns
+   * it off: the post's own translation entry is the accurate one.
+   */
+  readonly withLanguageToggle?: boolean;
 }
 
-export function BlogSurface({ lang, children, mainClassName }: BlogSurfaceProps) {
+export function BlogSurface({
+  lang,
+  children,
+  mainClassName,
+  withLanguageToggle,
+}: BlogSurfaceProps) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <LandingNavbar lang={lang} />
+      <LandingNavbar lang={lang} withLanguageToggle={withLanguageToggle} />
 
       <main
         className={`lorelum-ui blog-scope mx-auto w-full flex-1 px-4 pb-24 pt-24 ${

@@ -1,7 +1,10 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { i18n } from "@/shared/i18n/config";
 import { getStrings } from "@/shared/i18n/legacy-translations";
-import { destinationOf, destinationPath } from "@/features/landing/navigation/navigation-destination";
+import {
+  destinationPath,
+  isCurrentDestination,
+} from "@/features/landing/navigation/navigation-destination";
 
 /**
  * The blog entry in the docs sidebar.
@@ -14,7 +17,7 @@ import { destinationOf, destinationPath } from "@/features/landing/navigation/na
  */
 export function DocsBlogBanner({ locale }: { readonly locale: string }) {
   const { pathname } = useLocation();
-  const isCurrent = destinationOf(pathname, i18n.languages) === "blog";
+  const isCurrent = isCurrentDestination(pathname, "blog", i18n.languages);
 
   return (
     <Link

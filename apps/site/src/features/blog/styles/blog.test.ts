@@ -261,6 +261,39 @@ describe("blog typography contract", () => {
       expect((match[1] ?? "").trim().startsWith(".blog-scope"), match[1] ?? "").toBe(true);
     }
   });
+
+  test("wraps an unbreakable run anywhere in the blog scope, not only in headings", () => {
+    // Measured on the built site with a 105-character token as the article title:
+    // the h1 overflowed its 664px column by 643px and the page scrolled
+    // horizontally by 627px at 375px (263px at 768, 135px at 1024), and the index
+    // row title overflowed by 58px even at 1440px. A first fix covered headings and
+    // the reading column's paragraphs only; the round-4 review then put the same
+    // token in the other author-filled roles and measured what that left open at
+    // 375px: 292px of page scroll from the dek, 151px from the author, 221px from
+    // an index row summary, 158px from a neighbour title. So the contract is the
+    // scope, and `overflow-wrap` inherits from there into every one of those roles.
+    expect(blogRules).toMatch(/\.blog-scope\s*\{[^}]*overflow-wrap:\s*break-word/);
+    // The flex rows still need it on their items: a flex item will not shrink below
+    // the width of an unbreakable run without `min-width: 0`.
+    expect(blogRules).toMatch(
+      /\.blog-scope :is\(h1, h2, h3, h4, h5, h6\) > \*,[^}]*\.blog-scope \.blog-post__meta > \*[^{]*\{[^}]*min-width:\s*0/,
+    );
+    // The closing block's neighbour row is the third case, and the one where
+    // neither rule above helps: the link is an `inline-flex` box, so it is floored
+    // at its min-content width whatever its children do (measured: 502px inside a
+    // 328px column at 375px, i.e. 158px of page scroll, unaffected by `min-width: 0`
+    // on the children and removed by this cap).
+    expect(blogRules).toMatch(
+      /\.blog-scope \.blog-post__closing \.blog-nav-link\s*\{[^}]*max-width:\s*100%/,
+    );
+    // A later rule that keeps both pinned declarations and resets them re-opens the
+    // defect while the assertions above still match (the round-4 review verified
+    // that mutation passing), so every reset spelling of both properties is
+    // forbidden outright — `initial`/`unset`/`revert` included, because they are
+    // the same reset wearing a different word.
+    expect(blogRules).not.toMatch(/overflow-wrap:\s*(normal|initial|unset|revert)/);
+    expect(blogRules).not.toMatch(/(?:min|max)-width:\s*(auto|none|initial|unset|revert)/);
+  });
 });
 
 describe("blog link contract", () => {

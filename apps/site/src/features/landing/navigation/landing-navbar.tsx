@@ -1,9 +1,10 @@
 import { useRef } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { i18n } from "@/shared/i18n/config";
 import { BrandLockup } from "@/shared/ui/brand-lockup";
 import { GitHubLink } from "./github-link";
 import { LandingPrimaryNavigation } from "./landing-primary-navigation";
+import { isCurrentDestination } from "./navigation-destination";
 import { LanguageToggle } from "@/shared/ui/language-toggle";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import { useLandingNavbarMorph } from "./use-landing-navbar-morph";
@@ -31,6 +32,10 @@ interface LandingNavbarProps {
  */
 export function LandingNavbar({ lang, withLanguageToggle = true }: LandingNavbarProps) {
   const homePath = lang === i18n.defaultLanguage ? "/" : `/${lang}`;
+  const { pathname } = useLocation();
+  // The brand leads home, so it states the home destination — from the pathname,
+  // like the primary navigation, so `/en` and `/` answer the same way.
+  const onHome = isCurrentDestination(pathname, "home", i18n.languages);
   const navRef = useRef<HTMLElement>(null);
   useLandingNavbarMorph(navRef, heroId);
 
@@ -47,6 +52,7 @@ export function LandingNavbar({ lang, withLanguageToggle = true }: LandingNavbar
             <Link
               to={homePath}
               activeOptions={{ exact: true }}
+              aria-current={onHome ? "page" : undefined}
               className="inline-flex h-9 items-center rounded-lg text-fd-foreground transition-opacity hover:opacity-75"
             >
               <BrandLockup />

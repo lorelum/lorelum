@@ -20,7 +20,10 @@ export function BlogNotFound({ lang }: BlogNotFoundProps) {
   const t = getStrings(lang);
 
   return (
-    <BlogSurface lang={lang}>
+    // No language control: the post is missing in both locales, so the switch
+    // would hand the reader another 404. The back link below and the footer
+    // carry the ways out.
+    <BlogSurface lang={lang} withLanguageToggle={false}>
       <h1 className="text-3xl font-semibold tracking-tight text-fd-foreground">
         {t.blogNotFoundTitle}
       </h1>

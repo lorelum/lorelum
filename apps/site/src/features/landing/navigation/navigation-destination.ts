@@ -43,6 +43,22 @@ export function destinationOf(
 }
 
 /**
+ * Whether one destination link is the reader's current one.
+ *
+ * This is the whole rule the navigation marks links with, kept as a pure
+ * function so both answers are testable: the decision is conditional on the
+ * destination, and a version that always said "yes" (every link claiming to be
+ * the current page) has to fail a test rather than only a probe.
+ */
+export function isCurrentDestination(
+  pathname: string,
+  destination: NavigationDestination,
+  languages: readonly string[],
+): boolean {
+  return destinationOf(pathname, languages) === destination;
+}
+
+/**
  * The path a destination is served at in one locale.
  *
  * The default language stays unprefixed, so the primary navigation keeps one

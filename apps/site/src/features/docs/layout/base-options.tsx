@@ -1,10 +1,10 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import type { DocsLayoutProps } from "fumadocs-ui/layouts/docs";
-import { BrandLockup } from "@/shared/ui/brand-lockup";
 import { gitConfig } from "@/shared/config/git";
 import { i18n } from "@/shared/i18n/config";
 import { DocsNavControls } from "./docs-nav-controls";
 import { DocsBlogBanner } from "./docs-blog-banner";
+import { DocsBrand } from "./docs-brand";
 
 interface BaseOptions {
   /**
@@ -31,7 +31,10 @@ export function baseOptions(
     i18n: false,
     searchToggle: withSearch ? undefined : { enabled: false },
     nav: {
-      title: <BrandLockup />,
+      // A component rather than a node: the title slot is what fumadocs wraps
+      // in its own link, and that link's prefix matching is what claimed the
+      // brand was the current page on every prefixed docs page.
+      title: DocsBrand,
       url: homeUrl,
     },
     themeSwitch: {
