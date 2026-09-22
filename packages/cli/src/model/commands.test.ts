@@ -1,5 +1,6 @@
 import type { BackendClient } from "@lorelum/backend/client";
 import {
+  BackendError,
   EMBEDDING_MODEL,
   ENCODING_ID,
   EmbeddingError,
@@ -118,5 +119,25 @@ test("model commands preserve embedding errors", async () => {
   expect(result.response.error).toEqual({
     code: "embedding.not-loaded",
     message: "Load the embedding model before encoding text.",
+  });
+});
+
+test("model status preserves compatibility recovery", async () => {
+  const recovery = {
+    action: "backend.stop-if-idle" as const,
+    automation: "auto" as const,
+    reason: "idle" as const,
+    retry: "original-command" as const,
+  };
+  const result = await invoke("model.status", {
+    createClient: async () => {
+      throw new BackendError("backend.protocol-mismatch", undefined, recovery);
+    },
+  });
+
+  expect(result.exitCode).toBe(2);
+  expect(result.response.error).toMatchObject({
+    code: "backend.protocol-mismatch",
+    recovery,
   });
 });
