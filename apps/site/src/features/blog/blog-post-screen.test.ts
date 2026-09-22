@@ -157,6 +157,34 @@ describe("blog not-found body", () => {
     expect(langRoute).toContain("notFoundComponent");
   });
 
+  test("the route turns an invisible post into not-found instead of rendering it", () => {
+    // Text pins, and they are the only coverage this layer has: the visibility rule
+    // is asserted behaviourally against the loader, but a route that read the source
+    // for itself would serve a draft in production without failing anything — and the
+    // prerendered artifact stays clean either way, because the crawl never visits a
+    // link that is not there. So the route must consult the loader and turn its
+    // absence into not-found.
+    //
+    // What these pins can and cannot hold, measured by the round-6 review: they
+    // accept a renamed local and a block-form throw (behaviour-identical rewordings),
+    // and comment-only lines are dropped so prose about the code does not fail the
+    // suite. They cannot see a route that reaches the source through another server
+    // module or a rebuilt registry — in those spellings the suite stays green while
+    // production serves the draft, which is a real limit of pinning text and is
+    // disclosed in the change's notes rather than papered over here.
+    const code = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !/^\s*(\/\/|\/?\*)/.test(line))
+        .join("\n");
+    for (const route of [code(enRoute), code(langRoute)]) {
+      expect(route).toMatch(/loadBlogPost\(data\)/);
+      expect(route).toMatch(/throw notFound\(\)/);
+      expect(route).not.toContain("blogSource");
+      expect(route).not.toContain("pickFrontmatter");
+    }
+  });
+
   test("the way out is not announced as the page the reader is on", () => {
     // Measured on the built 404 in both locales: the back link carried
     // `aria-current="page"` (prefix match on `/blog/no-such-post`), so the exit

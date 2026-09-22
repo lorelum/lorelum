@@ -13,6 +13,10 @@ import { blogSource } from "./source";
  * component: a category entry is a real, shareable URL, so the response the
  * reader receives — including one with no JavaScript — must already be the
  * filtered list.
+ *
+ * Visibility is the article loader's own rule (`isPostVisible`), with the same
+ * environment input: while developing, the index lists a draft because its URL
+ * answers; in a build it does not, because that URL 404s.
  */
 export function listBlogPosts(lang: string, category?: BlogCategory) {
   const records: BlogPostRecord[] = blogSource.getPages().map((page) => ({
@@ -21,5 +25,8 @@ export function listBlogPosts(lang: string, category?: BlogCategory) {
     data: pickFrontmatter(page.data),
   }));
 
-  return filterBlogIndex(buildBlogIndex(records, lang), category);
+  return filterBlogIndex(
+    buildBlogIndex(records, lang, { isDevelopment: import.meta.env.DEV }),
+    category,
+  );
 }

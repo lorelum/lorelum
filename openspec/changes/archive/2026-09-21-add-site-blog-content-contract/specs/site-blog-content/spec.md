@@ -34,7 +34,9 @@
 
 `draft: true` 的文章在非 dev 环境 MUST 对所有内容入口不可见：post loader MUST 返回 `undefined`，由各路由既有的 `notFound()` 产出 404；索引 MUST NOT 列出该条目；sitemap MUST NOT 收录该 slug。dev 环境下草稿 MUST 仍可访问与预览。
 
-可见性判定 MUST 有单一来源：索引、post loader 与 sitemap MUST NOT 各自实现互相独立的草稿过滤。
+可见性判定 MUST 有单一来源：索引、post loader 与 sitemap MUST 用同一个谓词判定，MUST NOT 各自实现互相独立的草稿过滤。索引与 post loader 传当前环境；sitemap MUST 以「非 dev」判定，因为 sitemap 是索引入口清单，任何环境都不收录草稿。
+
+dev 环境下索引 MUST 列出草稿，与「草稿的 URL 在 dev 可访问」一致：索引与文章 URL 对同一篇草稿 MUST 给出同一答案，不得出现「文章可读而索引不列」或反之。
 
 #### Scenario: A draft slug is not reachable outside dev
 
@@ -45,6 +47,11 @@
 
 - **WHEN** 同一篇 `draft: true` 文章在 dev 环境被访问
 - **THEN** 它 MUST 可见，以便作者在发布前预览
+
+#### Scenario: The index agrees with the article URL about a draft
+
+- **WHEN** 一篇 `draft: true` 文章在 dev 环境可访问
+- **THEN** 索引 MUST 在同一环境下列出它；而在非 dev 环境下文章 URL 返回 not-found 时，索引 MUST NOT 列出它
 
 #### Scenario: A published post is visible everywhere
 
@@ -144,6 +151,22 @@
 
 - **WHEN** 文章在另一语言没有对应版本
 - **THEN** 文章页 MUST NOT 渲染指向不存在译文的语言入口
+
+### Requirement: Long unbroken runs do not widen the page
+
+作者可填写的任一文字角色中的长不可断串（URL、哈希、标识符、无标点长句）MUST 在阅读列内换行，MUST NOT 把页面撑宽到出现横向滚动。该契约 MUST 覆盖文章的标题（含小节标题）、dek、metadata 行、索引行的标题与摘要、收尾块的相邻文章标题，以及正文段落；在 375px 起的各视口 MUST 成立。
+
+实现 MUST 满足两件事，缺一不可：换行声明落在博客 surface 上以便被继承；flex 行上的文字项 MUST 能被压到 min-content 以下（或给该行自己的容器设上限），因为 flex item 与 shrink-to-fit 盒都不会自动缩到内容最小宽度以下。
+
+#### Scenario: A long identifier in any text role stays inside the column
+
+- **WHEN** 一篇文章的标题、dek、作者名、小节标题，或索引行的标题/摘要，或收尾块的相邻文章标题里出现一个不可断的长串
+- **THEN** 页面 MUST NOT 出现横向滚动，且该角色的右边界 MUST NOT 越过视口
+
+#### Scenario: The wrap rule reaches the roles outside the reading column
+
+- **WHEN** 有人把换行声明只写在正文段落（`.blog-post__reading .prose p`）或只写在标题上
+- **THEN** dek / metadata 行 / 索引摘要 / 收尾块相邻标题 MUST 仍被覆盖，否则该宽度下的横向滚动 MUST 被验收矩阵测出
 
 ### Requirement: Blog surface excludes reduced-motion handling
 

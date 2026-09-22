@@ -1,3 +1,4 @@
+import { isPostVisible } from "./post-visibility";
 import type { BlogCategory, BlogFrontmatter } from "../content/frontmatter";
 
 /** One locale's version of a post, as read from the source index. */
@@ -10,24 +11,43 @@ export interface BlogPostRecord {
 /** One merged index entry for a locale's list page. */
 export interface BlogIndexEntry {
   readonly slug: string;
-  readonly locale: string;
   /**
-   * `false` when the entry is only available in the other language; the index
-   * still lists it (linked to the existing language) with a visible marker.
+   * The language this entry's file exists in. It is not always the list page's
+   * language: the index merges both locales, so an entry can be the other
+   * language's version, and the row builds its link from this field
+   * (`blogPostPath(entry.locale, entry.slug)`) and its language hint from
+   * `languageHintKey(entry.locale, lang)`.
    */
-  readonly translated: boolean;
+  readonly locale: string;
   readonly data: BlogFrontmatter;
+}
+
+/** The environment the index is being built for. */
+export interface BlogIndexOptions {
+  /**
+   * Required rather than defaulted: the index and the article's own URL must
+   * answer the same question about a draft, and a default would let a caller
+   * answer it silently. In development the index lists drafts — so the author
+   * can reach the page they are writing — and everywhere else it does not.
+   */
+  readonly isDevelopment: boolean;
 }
 
 /**
  * Merge both locales' records into one deterministic index:
  *
- * - drafts never appear;
+ * - a post is listed exactly when `isPostVisible` says its own URL is served, so
+ *   the index and the article URL agree in every environment;
  * - the requested locale's file wins when both exist; a slug that only exists
- *   in the other locale is still listed with `translated: false`;
+ *   in the other locale is still listed, carrying that language in `locale` so the
+ *   row links to the file that exists;
  * - entries sort by date descending, then slug ascending.
  */
-export function buildBlogIndex(records: readonly BlogPostRecord[], lang: string): BlogIndexEntry[] {
+export function buildBlogIndex(
+  records: readonly BlogPostRecord[],
+  lang: string,
+  { isDevelopment }: BlogIndexOptions,
+): BlogIndexEntry[] {
   const bySlug = new Map<string, BlogIndexEntry>();
 
   const localeRank = (locale: string) => (locale === lang ? 0 : 1);
@@ -36,13 +56,12 @@ export function buildBlogIndex(records: readonly BlogPostRecord[], lang: string)
   );
 
   for (const record of ordered) {
-    if (record.data.draft) continue;
+    if (!isPostVisible({ draft: record.data.draft, isDevelopment })) continue;
     if (bySlug.has(record.slug)) continue;
 
     bySlug.set(record.slug, {
       slug: record.slug,
       locale: record.locale,
-      translated: record.locale !== lang,
       data: record.data,
     });
   }

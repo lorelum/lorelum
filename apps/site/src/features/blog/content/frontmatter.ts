@@ -23,15 +23,25 @@ const isoDate = z
 /**
  * Frontmatter contract for blog posts. The description doubles as the
  * list-page summary, so it stays a plain factual sentence — no positioning copy.
+ *
+ * `updated` is a provenance signal, so a value earlier than `date` is a mistake:
+ * it would claim the post was revised before it was written. The comparison is a
+ * plain string compare, which is chronological for the `YYYY-MM-DD` shape both
+ * dates are already constrained to.
  */
-export const blogFrontmatterSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().min(1),
-  date: isoDate,
-  category: z.enum(blogCategories),
-  author: z.string().min(1),
-  updated: isoDate.optional(),
-  draft: z.boolean().default(false),
-});
+export const blogFrontmatterSchema = z
+  .object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    date: isoDate,
+    category: z.enum(blogCategories),
+    author: z.string().min(1),
+    updated: isoDate.optional(),
+    draft: z.boolean().default(false),
+  })
+  .refine((value) => value.updated === undefined || value.updated >= value.date, {
+    message: "updated must not be earlier than date",
+    path: ["updated"],
+  });
 
 export type BlogFrontmatter = z.output<typeof blogFrontmatterSchema>;

@@ -30,6 +30,23 @@ describe("blogFrontmatterSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  test("accepts an update dated on the publication day itself", () => {
+    const result = blogFrontmatterSchema.safeParse({ ...valid, updated: valid.date });
+
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects an update dated before the post was published", () => {
+    // `updated` is a provenance signal, so an earlier date would claim the post
+    // was revised before it was written; nothing downstream can notice that.
+    const result = blogFrontmatterSchema.safeParse({ ...valid, updated: "2026-09-17" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "updated")).toBe(true);
+    }
+  });
+
   test("rejects an impossible calendar date", () => {
     const result = blogFrontmatterSchema.safeParse({ ...valid, date: "2026-02-30" });
 

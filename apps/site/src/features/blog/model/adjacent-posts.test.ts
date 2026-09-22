@@ -6,7 +6,6 @@ import { adjacentPosts } from "./adjacent-posts";
 const entry = (slug: string, date: string): BlogIndexEntry => ({
   slug,
   locale: "en",
-  translated: false,
   data: {
     title: slug,
     description: `${slug} description`,
