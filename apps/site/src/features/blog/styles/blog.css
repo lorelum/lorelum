@@ -3,36 +3,17 @@
 /*
  * Fumadocs adapter for the blog surfaces.
  *
- * Mirrors the Docs feature adapter: the shared package owns semantic tokens,
- * while Fumadocs owns the generated markup and interaction behavior. The scope
- * wraps a screen's `<main>` — the site navbar and footer stay outside it and
- * keep the global landing Fumadocs theme, so chrome cannot disagree between
- * routes.
+ * The shared package owns semantic tokens and Fumadocs owns the generated markup
+ * and interaction behavior; the `--color-fd-*` set is bound to those tokens in one
+ * place (`styles/app.css`, on the design system's own scope), so this scope no
+ * longer re-binds it. The scope
+ * stays because the blog-local aliases and reading-column rules below belong to
+ * it. The navbar and footer still sit outside it — but they now resolve the same
+ * production tokens as everything else, instead of the Fumadocs defaults this
+ * comment used to describe as "the global landing theme".
  */
 
 .blog-scope {
-  --color-fd-background: var(--background);
-  --color-fd-foreground: var(--foreground);
-  --color-fd-muted: var(--muted);
-  --color-fd-muted-foreground: var(--muted-foreground);
-  --color-fd-popover: var(--popover);
-  --color-fd-popover-foreground: var(--popover-foreground);
-  --color-fd-card: var(--card);
-  --color-fd-card-foreground: var(--card-foreground);
-  --color-fd-border: var(--border);
-  --color-fd-primary: var(--primary);
-  --color-fd-primary-foreground: var(--primary-foreground);
-  --color-fd-secondary: var(--secondary);
-  --color-fd-secondary-foreground: var(--secondary-foreground);
-  --color-fd-accent: var(--accent);
-  --color-fd-accent-foreground: var(--accent-foreground);
-  --color-fd-ring: var(--ring);
-  --color-fd-overlay: var(--overlay);
-  --color-fd-info: var(--info);
-  --color-fd-warning: var(--warning);
-  --color-fd-error: var(--destructive);
-  --color-fd-success: var(--success);
-  --color-fd-idea: var(--primary);
 
   /*
    * Blog-local aliases, following the `--docs-*` precedent: compositions of

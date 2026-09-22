@@ -28,7 +28,7 @@ export function LanguageToggle({ lang, className }: { lang: string; className?: 
     <Link
       to={targetPath}
       aria-label={`${t.switchTo} ${targetLabel}`}
-      className={`site-language-toggle inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-fd-foreground transition-[color,background-color] duration-[160ms] ease-out hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_9%,transparent)] hover:text-fd-primary dark:hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_16%,transparent)] dark:hover:text-[color-mix(in_oklab,var(--color-fd-foreground)_72%,var(--color-fd-muted-foreground))] ${className ?? ""}`}
+      className={`site-language-toggle inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-fd-foreground transition-[color,background-color] duration-[160ms] ease-out hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_9%,transparent)] hover:text-[var(--site-link)] dark:hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_16%,transparent)] dark:hover:text-[color-mix(in_oklab,var(--color-fd-foreground)_72%,var(--color-fd-muted-foreground))] ${className ?? ""}`}
     >
       <Languages aria-hidden="true" className="size-4" />
       <span>{targetLabel}</span>

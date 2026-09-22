@@ -33,7 +33,11 @@ describe("blog style adapter", () => {
     expect(blogCss).not.toContain(":root");
   });
 
-  test("preserves the global landing Fumadocs theme", () => {
+  test("loads Fumadocs' own base styles once, from the global entry", () => {
+    // The name used to say "preserves the global landing Fumadocs theme", which
+    // stopped being true when the tokens moved to the document scope: the landing
+    // page is on the design system's palette now, and this assertion was never
+    // about that — it is about where Fumadocs' base stylesheet is imported.
     expect(appCss).toContain('@import "fumadocs-ui/css/neutral.css";');
     expect(blogCss).not.toContain('@import "fumadocs-ui/css/neutral.css";');
   });
@@ -92,6 +96,11 @@ describe("blog style adapter", () => {
   });
 
   test("maps every Fumadocs feedback role to a production semantic token", () => {
+    // The mapping is checked where the bindings live: the whole
+    // `--color-fd-*` set is bound once, in `app.css` on the design system's own
+    // scope. This assertion used to read the surface stylesheet, back when each
+    // surface kept its own copy of the mapping — the duplication this change
+    // removed. The six role-to-token pairs are unchanged.
     const mappings = {
       overlay: "overlay",
       info: "info",
@@ -102,7 +111,7 @@ describe("blog style adapter", () => {
     } as const;
 
     for (const [fumadocsRole, semanticRole] of Object.entries(mappings)) {
-      expect(blogCss).toContain(`--color-fd-${fumadocsRole}: var(--${semanticRole});`);
+      expect(appCss).toContain(`--color-fd-${fumadocsRole}: var(--${semanticRole});`);
     }
   });
 });

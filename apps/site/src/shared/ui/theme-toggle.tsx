@@ -30,7 +30,7 @@ export function ThemeToggle({ lang, className }: { lang: string; className?: str
       type="button"
       aria-label={t.toggleTheme}
       aria-pressed={isDark}
-      className={`site-theme-toggle inline-flex size-9 cursor-pointer items-center justify-center rounded-full p-0 text-fd-foreground transition-[color,background-color] duration-[160ms] ease-out hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_9%,transparent)] hover:text-fd-primary dark:hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_16%,transparent)] dark:hover:text-[color-mix(in_oklab,var(--color-fd-foreground)_72%,var(--color-fd-muted-foreground))] [&_svg]:size-4 ${className ?? ""}`}
+      className={`site-theme-toggle inline-flex size-9 cursor-pointer items-center justify-center rounded-full p-0 text-fd-foreground transition-[color,background-color] duration-[160ms] ease-out hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_9%,transparent)] hover:text-[var(--site-link)] dark:hover:bg-[color-mix(in_oklab,var(--color-fd-primary)_16%,transparent)] dark:hover:text-[color-mix(in_oklab,var(--color-fd-foreground)_72%,var(--color-fd-muted-foreground))] [&_svg]:size-4 ${className ?? ""}`}
       onClick={handleThemeChange}
     >
       {isDark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}

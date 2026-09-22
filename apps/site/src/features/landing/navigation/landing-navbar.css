@@ -52,15 +52,15 @@
  * The current destination is stated in text, not with an icon, underline or dot:
  * a weight step plus a tinted surface, the same formula the hover state uses.
  *
- * The weight carries the state, and the numbers are why. In this theme
- * `--color-fd-primary` is #171717 against a #0a0a0a foreground (light) and
- * #fafafa against #ebebeb (dark), so a colour-only state differs by about 13 of
- * 255 — measured, and not something a reader can rely on. The tint is therefore
- * a state surface rather than decoration: the reader is being told where they
- * are, which is the one thing this header previously never said.
+ * The weight carries the state, and the tint reinforces it. The text colour is
+ * `--site-link` rather than `--color-fd-primary`: primary is a *surface* role, and
+ * once the chrome stopped inheriting Fumadocs' neutral palette it resolved to
+ * `#168263`, which measures 4.08:1 as text on the 8% tint — below the 4.5:1 that
+ * 14px text needs. `--site-link` is the text-level brand green in both themes. The
+ * tint stays on primary, where a background wash belongs.
  */
 .landing-navbar__link[aria-current="page"] {
-  color: var(--color-fd-primary);
+  color: var(--site-link);
   font-weight: 600;
   background: color-mix(in oklab, var(--color-fd-primary) 8%, transparent);
 }
@@ -71,7 +71,7 @@
 
 .landing-navbar__link:hover {
   background: color-mix(in oklab, var(--color-fd-primary) 9%, transparent);
-  color: var(--color-fd-primary);
+  color: var(--site-link);
 }
 
 .landing-navbar__github-link {
@@ -90,7 +90,7 @@
 
 .landing-navbar__github-link:hover {
   background: color-mix(in oklab, var(--color-fd-primary) 9%, transparent);
-  color: var(--color-fd-primary);
+  color: var(--site-link);
 }
 
 .landing-navbar__github-stars {
