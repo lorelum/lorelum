@@ -17,9 +17,26 @@ function getCompactWidth() {
 }
 
 /**
- * Keep background attachment and hero shape transitions independent.
+ * Keep background attachment and shape transitions independent.
+ *
+ * `collapseTrigger` is for surfaces that have no hero: the landing page measures
+ * the hero's bottom edge, and every other route used to get no morph at all
+ * (the trigger was simply not created, so the navbar stayed full width however
+ * far the reader scrolled). A surface that passes an element gets the same
+ * compact state, entered when that element's bottom passes the navbar — the
+ * article passes its masthead. Surfaces that pass nothing are unchanged.
+ *
+ * It takes the element, not a ref: the article's masthead arrives with the
+ * suspended body, after the navbar's own effect has already run, so a ref read
+ * once at mount would be `null` and the morph would never be created (measured:
+ * the panel stayed 1425px and square however far the page scrolled). Passing the
+ * element makes the effect re-run when it appears.
  */
-export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, heroId: string) {
+export function useLandingNavbarMorph(
+  navRef: RefObject<HTMLElement | null>,
+  heroId: string,
+  collapseTrigger?: HTMLElement | null,
+) {
   useEffect(() => {
     const nav = navRef.current;
     const panel = nav?.querySelector<HTMLElement>(".landing-navbar__panel");
@@ -80,13 +97,15 @@ export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, her
         onLeaveBack: () => background.reverse(),
       });
 
-      // The morph is the part that needs a hero to measure, so it is the only
-      // thing skipped when there is none.
+      // The morph needs something to measure: the hero on the landing page, or
+      // whatever a hero-less surface hands over. Without either, the surface
+      // keeps the full-width navbar, which is what the docs surface wants.
+      const measured = hero ?? collapseTrigger ?? null;
       const scrollTrigger =
-        hero === null
+        measured === null
           ? undefined
           : ScrollTrigger.create({
-              trigger: hero,
+              trigger: measured,
               start: "bottom top+=56",
               onEnter: () => runMorph(true),
               onLeaveBack: () => runMorph(false),
@@ -101,5 +120,5 @@ export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, her
     }, nav);
 
     return () => ctx.revert();
-  }, [heroId, navRef]);
+  }, [heroId, navRef, collapseTrigger]);
 }

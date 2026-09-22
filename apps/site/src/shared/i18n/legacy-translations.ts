@@ -24,6 +24,9 @@ export interface LandingStrings {
   blogFilteredByPrefix: string;
   blogShowAll: string;
   blogNoPostsInCategory: string;
+  /** Sidebar section headings. */
+  blogAllPosts: string;
+  blogCategories: string;
   blogUpdatedOn: string;
   blogReadIn: string;
   blogLanguageEnglish: string;
@@ -133,6 +136,8 @@ const en: LandingStrings = {
   blogFilteredByPrefix: "Filtered by: ",
   blogShowAll: "Show all",
   blogNoPostsInCategory: "No posts in this category yet.",
+  blogAllPosts: "All posts",
+  blogCategories: "Categories",
   blogUpdatedOn: "Updated",
   blogReadIn: "Read in",
   blogLanguageEnglish: "English",
@@ -254,6 +259,8 @@ const zh: LandingStrings = {
   blogFilteredByPrefix: "分类：",
   blogShowAll: "显示全部",
   blogNoPostsInCategory: "该分类下暂无文章。",
+  blogAllPosts: "全部文章",
+  blogCategories: "分类",
   blogUpdatedOn: "更新于",
   blogReadIn: "阅读",
   blogLanguageEnglish: "English",

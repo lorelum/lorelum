@@ -24,20 +24,31 @@ interface LandingNavbarProps {
    * URL that answers 404.
    */
   readonly withLanguageToggle?: boolean;
+  /**
+   * Element whose bottom crossing collapses the panel into its compact state.
+   * Surfaces without a hero pass the first element the reader scrolls past — the
+   * blog screens pass the article's masthead. Absent means the landing page's
+   * hero-driven behaviour, or no collapse at all when there is no hero either.
+   */
+  readonly collapseTrigger?: HTMLElement | null;
 }
 
 /**
  * Three-zone product navigation: brand, primary destinations, and utilities.
  * The feature-local morph hook owns its Hero-driven scroll behavior.
  */
-export function LandingNavbar({ lang, withLanguageToggle = true }: LandingNavbarProps) {
+export function LandingNavbar({
+  lang,
+  withLanguageToggle = true,
+  collapseTrigger,
+}: LandingNavbarProps) {
   const homePath = lang === i18n.defaultLanguage ? "/" : `/${lang}`;
   const { pathname } = useLocation();
   // The brand leads home, so it states the home destination — from the pathname,
   // like the primary navigation, so `/en` and `/` answer the same way.
   const onHome = isCurrentDestination(pathname, "home", i18n.languages);
   const navRef = useRef<HTMLElement>(null);
-  useLandingNavbarMorph(navRef, heroId);
+  useLandingNavbarMorph(navRef, heroId, collapseTrigger);
 
   return (
     <nav

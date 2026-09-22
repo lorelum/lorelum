@@ -27,15 +27,19 @@ const pageLoader = createServerFn({ method: "GET" })
     const post = loadBlogPost(data);
     if (!post) throw notFound();
 
-    // The neighbours come from the post's own locale index, which the server
-    // already builds for the list page, so the screen never sees the source.
-    const adjacent = adjacentPosts(listBlogPosts(post.locale), post.slug);
+    // The neighbours and the shell's left column come from the post's own locale
+    // index — built once here, so the screen never sees the source and the
+    // sidebar lists exactly what the index lists.
+    const posts = listBlogPosts(post.locale);
+    const adjacent = adjacentPosts(posts, post.slug);
 
-    return { post, adjacent };
+    return { post, adjacent, posts };
   });
 
 function Page() {
   const { lang } = Route.useParams();
-  const { post, adjacent } = Route.useLoaderData();
-  return <BlogPostScreen lang={lang} post={post} adjacent={adjacent} />;
+  const { post, adjacent, posts } = Route.useLoaderData();
+  return (
+    <BlogPostScreen lang={lang} post={post} adjacent={adjacent} posts={posts} />
+  );
 }

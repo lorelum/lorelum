@@ -118,9 +118,13 @@ describe("blog style adapter", () => {
 
 describe("blog-local aliases", () => {
   const FROZEN = [
+    "--blog-figure-gutter",
     "--blog-hairline",
     "--blog-link",
+    "--blog-measure",
     "--blog-quiet-surface",
+    "--blog-shell-max",
+    "--blog-shell-sidebar",
     "--blog-sticky-offset",
     "--blog-toc-rail",
   ];
@@ -129,6 +133,15 @@ describe("blog-local aliases", () => {
   test("publishes exactly the frozen alias set", () => {
     // A new alias has to update this list and its stated reason, so an
     // unreviewed alias cannot appear quietly.
+    //
+    // `--blog-figure-gutter` came with the shell too: figures and tables span the
+    // middle column, and the space they keep from its edges needed a name.
+    //
+    // `--blog-shell-sidebar` was added when the editorial shell landed: the
+    // left column is the blog's own navigation and needed a width the shell can
+    // put in a track list. It is a separate name from `--blog-toc-rail` even
+    // though the value matches, because a rule that says "sidebar" should not
+    // have to know it is borrowing the rail's width.
     const declared = [...new Set(blogAliasDeclarations(blogCss).map((d) => d.name))].sort();
     expect(declared).toEqual(FROZEN);
   });
@@ -148,6 +161,10 @@ describe("blog-local aliases", () => {
   test("states size aliases as unit-bearing lengths", () => {
     const sizeDeclarations = blogAliasDeclarations(blogCss).filter((d) => !COLOUR.has(d.name));
     expect(sizeDeclarations.map((d) => d.name).sort()).toEqual([
+      "--blog-figure-gutter",
+      "--blog-measure",
+      "--blog-shell-max",
+      "--blog-shell-sidebar",
       "--blog-sticky-offset",
       "--blog-toc-rail",
     ]);

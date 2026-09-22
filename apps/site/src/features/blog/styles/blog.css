@@ -40,6 +40,51 @@
   --blog-toc-rail: 15rem;
 
   /*
+   * Width of the shell's left column — the blog's own navigation (all posts,
+   * categories). A separate alias from `--blog-toc-rail` because the two name
+   * different roles even though the value matches: a reviewer reading a rule
+   * that says "sidebar" should not have to know it is borrowing the rail's
+   * width. Both are literal lengths, as the size aliases are, because the
+   * production token set has no column width.
+   */
+  --blog-shell-sidebar: 15rem;
+
+  /*
+   * The shell's ceiling. Without one the shell spans the viewport and the middle
+   * track absorbs every spare pixel, which is what "the article looks squeezed in
+   * the middle" actually measured: at 1920px the text column was 664px inside a
+   * 1328px track — 332px of nothing on each side. Capping the shell brings that to
+   * tens of pixels beside a 742px column, which is the composition the reference
+   * pages use (their stage leaves roughly 220px of outer margin at 1914).
+   *
+   * 88rem is the smallest round value that does not squeeze the column: the three
+   * tracks plus both column gaps and the surface padding come to 1334px, and a
+   * ceiling below that would make the middle track narrower than the measure and
+   * shrink the text it is supposed to protect.
+   */
+  --blog-shell-max: 88rem;
+
+  /*
+   * The gutter a full-column figure or table keeps from the column's edges. Not a
+   * design token elsewhere — it exists so the block-level evidence does not touch
+   * the grid's rails. 2rem is the design system's `panel` spacing step.
+   */
+  --blog-figure-gutter: 2rem;
+
+  /*
+   * The blog's own reading measure. The production token is 68ch, which measures
+   * 664px at 16px Manrope; the blog reads wider because it is the only surface
+   * with a shell that also carries a left column, and 68ch left the text looking
+   * pinched between the wings. 76ch is ~742px and stays inside the usual 45–75ch
+   * guidance once optical margins are counted.
+   *
+   * It is a blog-local alias rather than a change to `--lore-reading-width`: the
+   * docs surface consumes that token (docs.css) and this change is about the blog.
+   */
+  --blog-measure: 76ch;
+
+
+  /*
    * The body font is bound here as a property rather than by rebinding
    * `--font-sans`. Custom properties resolve on the element that *uses* them,
    * and the site's `html { font-family: var(--default-font-family) }` chain
@@ -268,7 +313,7 @@
 
 /*
  * The frame holds the reading column and the table-of-contents rail side by
- * side. The measure stays on the column itself (`--lore-reading-width`), so the
+ * side. The measure stays on the column itself (`--blog-measure`), so the
  * rail never narrows the text; this only sets how much room both together need.
  *
  * The two literal terms are the surface's own chrome, not new design values:
@@ -281,8 +326,105 @@
  * than a descendant one — `.blog-scope .blog-post__frame` matches nothing at
  * all, which is how the first version of this rule shipped inert.
  */
-.blog-scope.blog-post__frame {
-  max-width: calc(var(--lore-reading-width) + var(--blog-toc-rail) + 2.5rem + 2rem);
+/*
+ * The editorial shell: left column, reading column, right column, spanning the
+ * whole surface.
+ *
+ * It replaces a max-width that computed the same three parts and centred them
+ * (`min(50vw …)`-style arithmetic: reading measure + rail + gaps), which made
+ * the blog a fixed island — measured at 1920px the rail sat 481px from the right
+ * edge and the index used 664px of a 1905px viewport. The tracks reference the
+ * aliases rather than repeating their values, and the reading column keeps its
+ * own measure inside the middle track, so widening the shell does not widen the
+ * text.
+ *
+ * The breakpoint sets are written here rather than as three arbitrary-value
+ * utility variants because each track list is a different composition of two
+ * aliases; in utilities that is four hand-written strings that must agree.
+ */
+.blog-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 1.5rem;
+  max-width: var(--blog-shell-max);
+  margin-inline: auto;
+}
+
+@media (min-width: 1024px) {
+  .blog-shell {
+    grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .blog-shell {
+    grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr) var(--blog-toc-rail);
+    column-gap: 2.5rem;
+  }
+}
+
+/*
+ * The middle column is a query container so its children can measure themselves
+ * against the column instead of the viewport.
+ */
+.blog-shell__body {
+  container-type: inline-size;
+}
+
+/*
+ * Figures and tables use the column, not the reading measure.
+ *
+ * A wide result table inside a 664px text column either overflows or scrolls
+ * inside its own box, and at 1920px that left ~324px of empty space on each side
+ * of the text while the table strained. Letting the block-level evidence — tables
+ * and figures — take the column is the ordinary editorial answer: prose keeps the
+ * measure that makes it readable, and the evidence gets the room it needs.
+ *
+ * The arithmetic is container-relative: `100cqw` is the middle column's width, so
+ * the element is inset by one gutter from each side, and the negative-ish inline
+ * margin re-centres it — the block is inside the measured text column, which is
+ * itself centred in the container, so the shift is half the difference. Below the
+ * shell's second breakpoint the container is the single column and the two terms
+ * cancel, leaving the block at its normal width.
+ */
+/* Two selectors rather than `:is(table, figure)`: the typing guard that keeps
+ * prose rules off the TOC entries splits selector lists on commas before matching,
+ * so a comma inside a functional pseudo-class would be read as two selectors and
+ * reported as a leak. Each part carries the scope on its own.
+ *
+ * The offset is computed from percentages, not from the measure alias: `ch`
+ * resolves against the font of the element it is used on, so using it here
+ * measured the figure's font instead of the column's and pushed blocks out of the
+ * page (measured: 78px of horizontal overflow at 375px).
+ * `100%` is the containing block, which is the measured column, so the two terms
+ * describe the same geometry in the same units.
+ *
+ * Gated so it only fires when the column is actually wider than the measure plus
+ * both gutters: below that the rule would shrink the block inside its own column.
+ */
+@container (min-width: 46rem) {
+  .blog-scope .blog-post__reading .prose > :has(> table),
+  .blog-scope .blog-post__reading .prose > figure {
+    width: calc(100cqw - 2 * var(--blog-figure-gutter));
+    margin-inline: calc((100% - 100cqw) / 2 + var(--blog-figure-gutter));
+  }
+}
+
+/* A column that is not rendered at a breakpoint must not hold a track. */
+.blog-shell__side {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .blog-shell__side {
+    display: block;
+  }
+}
+
+@media (min-width: 1280px) {
+  .blog-shell__rail {
+    display: block;
+  }
 }
 
 /*
@@ -371,6 +513,23 @@
  * weight; the rest sit between the muted and full foreground, the same formula
  * the docs sidebar already uses, so the two surfaces agree.
  */
+/*
+ * A marked link has one formula wherever it appears: the brand text colour, a
+ * weight step, and a tinted surface. The navbar's rows and the shell's rows are
+ * both rows of similar destinations, so a reader who learned the state in one
+ * reads it in the other. `aria-current` is the same attribute the navbar marks
+ * with, so assistive technology and the eye agree.
+ */
+.blog-scope .blog-nav-link[aria-current="page"] {
+  color: var(--site-link);
+  font-weight: 600;
+  background: color-mix(in oklab, var(--color-fd-primary) 8%, transparent);
+}
+
+.dark .blog-scope .blog-nav-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--color-fd-primary) 14%, transparent);
+}
+
 .blog-scope :is(.blog-toc, .blog-toc-disclosure) a[data-active="true"] {
   color: var(--primary);
   font-weight: 500;

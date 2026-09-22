@@ -58,7 +58,7 @@ describe("article page structure", () => {
   });
 
   test("the reading column carries the production measure, not a pixel constant", () => {
-    expect(postScreen).toContain("max-w-[var(--lore-reading-width)]");
+    expect(postScreen).toContain("max-w-[var(--blog-measure)]");
     expect(postScreen).not.toContain("max-w-[860px]");
     expect(postScreen).not.toContain("max-w-[1160px]");
   });
@@ -118,12 +118,16 @@ describe("article closing block", () => {
     // was told the index was the page they were on. The option has to sit on the
     // link that points at the index, so this asserts per link tag: counting the
     // option anywhere in the file would pass with it on the neighbour links.
+    // Two, not three: the metadata line's back link was removed on request. The
+    // invariant is unchanged — every Link that points at the index carries the
+    // option — and the count still catches a link added without it.
     const backTags = [
       ...(closing.match(/<Link\b[^>]*>/g) ?? []),
       ...(meta.match(/<Link\b[^>]*>/g) ?? []),
       ...(notFound.match(/<Link\b[^>]*>/g) ?? []),
     ].filter((tag) => tag.includes("to={blogIndexPath("));
-    expect(backTags.length).toBe(3);
+    expect(backTags.length).toBe(2);
+    expect(meta).not.toContain("to={blogIndexPath(");
     for (const tag of backTags) {
       expect(tag).toContain("activeOptions={{ exact: true }}");
     }
@@ -252,12 +256,22 @@ describe("article style adapter", () => {
     expect(rules).toMatch(/\.blog-post__reading \.prose p\s*\{[^}]*overflow-wrap:\s*break-word/);
   });
 
-  test("the frame reserves the reading column plus the rail", () => {
-    // Both classes live on the same `<main>`, so a descendant selector
-    // (`.blog-scope .blog-post__frame`) matches nothing and the rule ships
-    // inert — measured `max-width: none` before this was a compound selector.
-    expect(rules).toMatch(/\.blog-scope\.blog-post__frame\s*\{[^}]*--lore-reading-width/);
-    expect(rules).toMatch(/\.blog-scope\.blog-post__frame\s*\{[^}]*--blog-toc-rail/);
+  test("the shell reserves the left column, the reading column and the rail", () => {
+    // This pinned `.blog-scope.blog-post__frame`'s max-width, which computed
+    // `reading measure + rail + gaps` and centred it — the arithmetic behind the
+    // 976px island (measured: the rail sat 241px from the right edge at 1440 and
+    // 481px at 1920). The shell replaced it, so the assertion moves to the shell
+    // and keeps the same demand: the three columns must all have a track, and the
+    // side tracks must reference the aliases rather than repeat their values.
+    expect(rules).toMatch(
+      /@media \(min-width: 1280px\)\s*\{\s*\.blog-shell\s*\{[^}]*grid-template-columns:\s*var\(--blog-shell-sidebar\)\s+minmax\(0, 1fr\)\s+var\(--blog-toc-rail\)/,
+    );
+    expect(rules).toMatch(
+      /@media \(min-width: 1024px\)\s*\{\s*\.blog-shell\s*\{[^}]*grid-template-columns:\s*var\(--blog-shell-sidebar\)\s+minmax\(0, 1fr\)/,
+    );
+    // And the reading column keeps its own measure: the shell spans the
+    // surface, the text does not.
+    expect(postScreen).toContain("max-w-[var(--blog-measure)]");
   });
 
   test("contents entries take the brand channel when active", () => {
