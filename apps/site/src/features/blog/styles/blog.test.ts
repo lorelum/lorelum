@@ -5,6 +5,10 @@ const blogCss = readFileSync(new URL("./blog.css", import.meta.url), "utf8");
 const indexScreen = readFileSync(new URL("../blog-index-screen.tsx", import.meta.url), "utf8");
 const postScreen = readFileSync(new URL("../blog-post-screen.tsx", import.meta.url), "utf8");
 const surface = readFileSync(new URL("../components/blog-surface.tsx", import.meta.url), "utf8");
+const controls = readFileSync(new URL("../components/blog-index-controls.tsx", import.meta.url), "utf8");
+const sidebarSource = readFileSync(new URL("../components/blog-sidebar.tsx", import.meta.url), "utf8");
+const entryRow = readFileSync(new URL("../components/blog-entry-row.tsx", import.meta.url), "utf8");
+const cover = readFileSync(new URL("../components/blog-cover.tsx", import.meta.url), "utf8");
 const appCss = readFileSync(new URL("../../../styles/app.css", import.meta.url), "utf8");
 
 /** Comments carry prose about tokens and class names; rules are what count. */
@@ -358,10 +362,19 @@ describe("blog link contract", () => {
     expect(blogRules).toMatch(/:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--ring\)/);
   });
 
-  test("separates index rows with the inline hairline, not a structural border", () => {
-    expect(blogRules).toMatch(
-      /\.blog-entry-list > li \+ li\s*\{[^}]*border-top:\s*1px solid var\(--blog-hairline\)/,
-    );
+  test("presents index entries as cards, separated by spacing rather than a line", () => {
+    // This used to pin a hairline between rows, from when an entry was a row in a
+    // sequence rather than a card. Cards are bounded surfaces, so a line between
+    // them is wrong on its face: the separation is the gap, and the entry carries
+    // the surface and the `panel` radius. The rule it replaced is gone rather than
+    // left inert — a dead selector is what the `.blog-page` test above is for.
+    expect(blogRules).not.toContain(".blog-entry-list");
+    expect(indexScreen).toContain("space-y-");
+    expect(entryRow).toContain("bg-[var(--blog-quiet-surface)]");
+    expect(entryRow).toContain("rounded-[var(--lore-radius-panel)]");
+    // The whole card is clickable while the title stays the only interactive
+    // element: the link stretches over it instead of the card becoming a link.
+    expect(entryRow).toContain("after:absolute after:inset-0");
   });
 });
 
@@ -382,9 +395,63 @@ describe("blog index structure", () => {
     expect(blogRules).not.toContain(".blog-page");
   });
 
-  test("renders no filter chrome until a filter is active", () => {
-    // The filter row is conditional; a permanently visible filter bar is a
-    // control that occupies the page while doing nothing.
-    expect(indexScreen).toMatch(/category === undefined \? null :/);
+  test("renders filter and sort controls in the sidebar and above mobile cards", () => {
+    // This used to assert the opposite — no filter chrome until a filter is active,
+    // on the argument that a permanent bar occupies the page while doing nothing.
+    // The maintainer asked for the reference's pattern instead, and then for it to
+    // sit in the left column rather than in a strip above the content. Mobile has
+    // no visible sidebar, so it gets the same links above the cards instead.
+    expect(sidebarSource).toContain("<BlogIndexControls");
+    expect(sidebarSource).toContain("category={category}");
+    expect(sidebarSource).toContain("sort={sort}");
+    const mobileControlsIndex = indexScreen.indexOf('<div className="lg:hidden">');
+    const controlsIndex = indexScreen.indexOf("<BlogIndexControls", mobileControlsIndex);
+    const cardsIndex = indexScreen.indexOf('<ul className="mt-6 space-y-4">');
+    expect(mobileControlsIndex).toBeGreaterThan(-1);
+    expect(controlsIndex).toBeGreaterThan(mobileControlsIndex);
+    expect(controlsIndex).toBeLessThan(cardsIndex);
+    expect(indexScreen).toContain("lang={lang} posts={posts} category={category} sort={sort}");
+    // Both controls must survive without JavaScript, and now both are links
+    // carrying the full search state — a category click preserves the ordering,
+    // an ordering click preserves the category — so changing either is a plain
+    // navigation a no-JS reader can perform. (The ordering was a GET form with
+    // a native select until review rejected the select: its open popup is
+    // platform chrome no stylesheet reaches, so it read as foreign in both
+    // themes. The links keep the same no-JS property with nothing to apply.)
+    expect(controls).toMatch(/<Link[^>]*to=\{blogIndexPath\(lang\)\}/);
+    expect(controls).toContain("search={{ category, sort: candidate }}");
+    // The reset link strips both params explicitly: a Link without `search`
+    // inherits the current one, which left "reset" pointing at the very state
+    // it claims to clear (measured: it landed on `?sort=newest`).
+    expect(controls).toContain("search={{ category: undefined, sort: undefined }}");
+    expect(controls).not.toContain("<form");
+    expect(controls).not.toContain("<select");
+    // And they are sized as controls rather than as list text: the design
+    // system's touch size and the shared focus ring. (The `--input` border role
+    // left with the select it dressed; the remaining controls are links, and
+    // links take the ring.)
+    expect(controls).toContain("var(--lore-size-touch)");
+    expect(controls).toContain("var(--ring)");
+  });
+
+  test("keeps navigation and filter choices complete while restricting cards", () => {
+    expect(indexScreen).toContain("filteredPostSlugs?: readonly string[];");
+    expect(indexScreen).toContain("posts.filter((entry) => cardSlugs.has(entry.slug))");
+    expect(indexScreen).toContain("cardPosts.length === 0");
+    expect(indexScreen).toContain("cardPosts.map((entry) =>");
+  });
+
+  test("every index card carries cover art, generated when the post has none", () => {
+    // The reference indexes (OpenAI's and Claude's) ship no text-only card, and
+    // review called the text-only card childish. So the row renders the entry's
+    // cover unconditionally, and `BlogCover` — not the author — is what decides
+    // between the frontmatter `image` and the generated pattern, which keeps
+    // "every card has art" true even for a post with no art of its own.
+    expect(entryRow).toContain("<BlogCover");
+    expect(cover).toMatch(/entry\.data\.image !== undefined/);
+    expect(cover).toMatch(/coverCells\(entry\.slug\)/);
+    // The card is the reference's shape — art on one side, text on the other —
+    // rather than a text block with a picture nailed on top.
+    expect(entryRow).toMatch(/sm:flex-row/);
   });
 });

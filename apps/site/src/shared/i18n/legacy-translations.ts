@@ -26,6 +26,15 @@ export interface LandingStrings {
   blogNoPostsInCategory: string;
   /** Sidebar section headings. */
   blogAllPosts: string;
+  /** Index filter and sort controls. */
+  blogFilterCategory: string;
+  blogAllCategories: string;
+  blogSortBy: string;
+  blogSortNewest: string;
+  blogSortOldest: string;
+  blogSortTitleAsc: string;
+  blogSortTitleDesc: string;
+  blogReset: string;
   blogCategories: string;
   blogUpdatedOn: string;
   blogReadIn: string;
@@ -138,6 +147,14 @@ const en: LandingStrings = {
   blogNoPostsInCategory: "No posts in this category yet.",
   blogAllPosts: "All posts",
   blogCategories: "Categories",
+  blogFilterCategory: "Category",
+  blogAllCategories: "All",
+  blogSortBy: "Sort by",
+  blogSortNewest: "Newest",
+  blogSortOldest: "Oldest",
+  blogSortTitleAsc: "Title (A–Z)",
+  blogSortTitleDesc: "Title (Z–A)",
+  blogReset: "Reset",
   blogUpdatedOn: "Updated",
   blogReadIn: "Read in",
   blogLanguageEnglish: "English",
@@ -261,6 +278,14 @@ const zh: LandingStrings = {
   blogNoPostsInCategory: "该分类下暂无文章。",
   blogAllPosts: "全部文章",
   blogCategories: "分类",
+  blogFilterCategory: "分类",
+  blogAllCategories: "全部",
+  blogSortBy: "排序",
+  blogSortNewest: "最新",
+  blogSortOldest: "最早",
+  blogSortTitleAsc: "标题（A–Z）",
+  blogSortTitleDesc: "标题（Z–A）",
+  blogReset: "重置",
   blogUpdatedOn: "更新于",
   blogReadIn: "阅读",
   blogLanguageEnglish: "English",

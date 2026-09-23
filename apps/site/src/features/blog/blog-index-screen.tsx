@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { getStrings } from "@/shared/i18n/legacy-translations";
 import type { BlogCategory } from "./content/frontmatter";
-import { blogIndexPath } from "./model/blog-routes";
-import { categoryLabelKey } from "./model/category-label";
+import type { BlogSort } from "./model/sort-posts";
 import type { BlogIndexEntry } from "./model/list-posts";
 import { BlogEntryRow } from "./components/blog-entry-row";
+import { BlogIndexControls } from "./components/blog-index-controls";
 import { BlogShell } from "./components/blog-shell";
 import { BlogSidebar } from "./components/blog-sidebar";
 import { BlogSurface } from "./components/blog-surface";
@@ -12,10 +12,14 @@ import "./styles/blog.css";
 
 interface BlogIndexScreenProps {
   readonly lang: string;
-  /** Already filtered by the route when a category is active. */
+  /** All visible posts, ordered by the selected sort. */
   readonly posts: readonly BlogIndexEntry[];
+  /** Matching card slugs; omitted when no category is active. */
+  readonly filteredPostSlugs?: readonly string[];
   /** The active category filter, as validated from the search param. */
   readonly category?: BlogCategory;
+  /** The active ordering, as validated from the search param. */
+  readonly sort: BlogSort;
 }
 
 /**
@@ -31,13 +35,30 @@ interface BlogIndexScreenProps {
  * screens are one surface rather than two layouts. The reading column keeps its
  * measure inside the shell; the shell is what spans the viewport.
  */
-export function BlogIndexScreen({ lang, posts, category }: BlogIndexScreenProps) {
+export function BlogIndexScreen({
+  lang,
+  posts,
+  filteredPostSlugs,
+  category,
+  sort,
+}: BlogIndexScreenProps) {
   const t = getStrings(lang);
+  const cardSlugs =
+    filteredPostSlugs === undefined ? undefined : new Set(filteredPostSlugs);
+  const cardPosts =
+    cardSlugs === undefined ? posts : posts.filter((entry) => cardSlugs.has(entry.slug));
 
   return (
     <BlogSurface lang={lang}>
-      <BlogShell sidebar={<BlogSidebar lang={lang} posts={posts} category={category} />}>
-        <div className="mx-auto w-full max-w-[var(--blog-measure)]">
+      <BlogShell
+        sidebar={
+          <BlogSidebar lang={lang} posts={posts} category={category} sort={sort} />
+        }
+      >
+        {/* The entries are bounded panels, so they span the column; the reading
+            measure belongs to prose, and the card's own padding keeps the text at a
+            comfortable width without capping the panel. */}
+        <div className="w-full">
           <header>
             <h1 className="text-3xl font-semibold tracking-tight text-fd-foreground">
               {t.navBlog}
@@ -45,26 +66,11 @@ export function BlogIndexScreen({ lang, posts, category }: BlogIndexScreenProps)
             <p className="mt-3 text-fd-muted-foreground">{t.blogIndexDescription}</p>
           </header>
 
-          {/*
-           * The filter state only exists while a filter is active: an always-present
-           * filter bar would be a control that occupies the page while doing
-           * nothing, and at n=1 every one of its options returns the same list.
-           * The sidebar's category section is the standing entry point instead.
-           */}
-          {category === undefined ? null : (
-            <p className="mt-6 flex flex-wrap items-center gap-x-2 text-sm text-fd-muted-foreground">
-              <span>{t.blogFilteredByPrefix}</span>
-              <span className="font-medium text-fd-foreground">
-                {t[categoryLabelKey(category)]}
-              </span>
-              <span aria-hidden="true">·</span>
-              <Link to={blogIndexPath(lang)} className="blog-nav-link rounded-sm">
-                {t.blogShowAll}
-              </Link>
-            </p>
-          )}
+          <div className="lg:hidden">
+            <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} />
+          </div>
 
-          {posts.length === 0 ? (
+          {cardPosts.length === 0 ? (
             <p className="mt-8 text-fd-muted-foreground">
               {category === undefined ? t.blogEmpty : t.blogNoPostsInCategory}{" "}
               <Link
@@ -76,8 +82,8 @@ export function BlogIndexScreen({ lang, posts, category }: BlogIndexScreenProps)
               </Link>
             </p>
           ) : (
-            <ul className="blog-entry-list mt-8">
-              {posts.map((entry) => (
+            <ul className="mt-6 space-y-4">
+              {cardPosts.map((entry) => (
                 <BlogEntryRow key={`${entry.slug}-${entry.locale}`} entry={entry} lang={lang} />
               ))}
             </ul>

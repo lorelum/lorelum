@@ -1,0 +1,69 @@
+import type { BlogIndexEntry } from "../model/list-posts";
+import { coverCells, coverGrid } from "../model/cover-pattern";
+
+interface BlogCoverProps {
+  readonly entry: BlogIndexEntry;
+  readonly className?: string;
+}
+
+/**
+ * A card's cover art.
+ *
+ * The reference indexes the maintainer pointed at — OpenAI's and Claude's —
+ * ship no text-only card, so art here is not gated on an author supplying it:
+ * a post with frontmatter `image` renders that file, and a post without one
+ * gets a generated mosaic (see `cover-pattern.ts`), seeded by its slug so both
+ * locales of one post carry the same art.
+ *
+ * The generated branch is `aria-hidden` and the author image carries an empty
+ * alt: the frontmatter has no alt text to honour, and the title sits directly
+ * beside the art naming the same post, so a screen reader would only hear the
+ * title twice.
+ */
+export function BlogCover({ entry, className }: BlogCoverProps) {
+  if (entry.data.image !== undefined) {
+    return (
+      <img
+        src={entry.data.image}
+        alt=""
+        // Below the fold by construction (the index lists many cards), so the
+        // art never competes with the page's own content for bandwidth.
+        loading="lazy"
+        decoding="async"
+        className={className}
+      />
+    );
+  }
+
+  const pitch = 20;
+  const size = 18;
+  const cells = coverCells(entry.slug);
+
+  return (
+    <svg
+      viewBox={`0 0 ${coverGrid.columns * pitch} ${coverGrid.rows * pitch}`}
+      aria-hidden="true"
+      className={className}
+      preserveAspectRatio="xMidYMid slice"
+    >
+      <rect
+        width={coverGrid.columns * pitch}
+        height={coverGrid.rows * pitch}
+        fill="var(--color-fd-primary)"
+        opacity={0.05}
+      />
+      {cells.map((cell) => (
+        <rect
+          key={`${cell.column}-${cell.row}`}
+          x={1 + cell.column * pitch}
+          y={1 + cell.row * pitch}
+          width={size}
+          height={size}
+          rx={5}
+          fill="var(--color-fd-primary)"
+          opacity={cell.opacity}
+        />
+      ))}
+    </svg>
+  );
+}

@@ -62,6 +62,11 @@ const page = (
   },
 });
 
+const pageInCategory = (slug: string, category: "benchmark" | "packs"): FakePage => {
+  const post = page(slug, "en", false);
+  return { ...post, data: { ...post.data, category } };
+};
+
 /** Short slug and early date, so neither "long slugs" nor "recent posts" is assumed. */
 const shortOlder = () => page("notes", "en", false, { date: "2026-01-05" });
 const longRecent = () => page("zhongwen-bijiao", "zh", false);
@@ -85,8 +90,9 @@ mock.module(fileURLToPath(new URL("./source.ts", import.meta.url)), () => ({
 }));
 
 const { loadBlogPost } = await import("./load-blog-post");
-const { listBlogPosts } = await import("./list-blog-posts");
+const { listBlogIndex, listBlogPosts } = await import("./list-blog-posts");
 const { getPublishedBlogPages } = await import("./published-pages");
+const { offeredCategories } = await import("../model/sidebar-categories");
 
 const setDev = (dev: boolean) => {
   if (dev) process.env.DEV = "1";
@@ -152,6 +158,17 @@ describe("post visibility, through the server functions a reader reaches", () =>
     setDev(false);
     expect(listBlogPosts("en").map((entry) => entry.slug)).toContain("notes");
     expect(listBlogPosts("zh").map((entry) => entry.slug)).toContain("zhongwen-bijiao");
+  });
+
+  test("keeps every visible category available while cards are filtered", () => {
+    setPages(pageInCategory("benchmark-notes", "benchmark"), pageInCategory("pack-notes", "packs"));
+    setDev(false);
+
+    const index = listBlogIndex("en", "benchmark");
+
+    expect(index.posts.map((entry) => entry.slug)).toEqual(["benchmark-notes", "pack-notes"]);
+    expect(index.filteredPostSlugs).toEqual(["benchmark-notes"]);
+    expect(offeredCategories(index.posts)).toEqual(["benchmark", "packs"]);
   });
 
   test("the translation entry is symmetric: a draft in either language is not offered", () => {

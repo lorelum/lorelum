@@ -24,6 +24,12 @@ const isoDate = z
  * Frontmatter contract for blog posts. The description doubles as the
  * list-page summary, so it stays a plain factual sentence — no positioning copy.
  *
+ * `image` is the index card's cover art, as a site-public path (`/…`) served by
+ * the app itself. It is optional, and deliberately not a URL: the card renders
+ * it next to the post's own title, so a remote hop would make the index depend
+ * on a third party for its own layout. A post without one gets a generated
+ * cover, so the field is an upgrade, never a requirement.
+ *
  * `updated` is a provenance signal, so a value earlier than `date` is a mistake:
  * it would claim the post was revised before it was written. The comparison is a
  * plain string compare, which is chronological for the `YYYY-MM-DD` shape both
@@ -36,6 +42,12 @@ export const blogFrontmatterSchema = z
     date: isoDate,
     category: z.enum(blogCategories),
     author: z.string().min(1),
+    image: z
+      .string()
+      // A lookahead keeps the second character from being a slash, so
+      // protocol-relative URLs (`//cdn…`) are rejected alongside bare words.
+      .regex(/^\/(?!\/)[^\s?#]*[^/\s?#]$/, "image must be a site-public path like /blog/covers/art.svg")
+      .optional(),
     updated: isoDate.optional(),
     draft: z.boolean().default(false),
   })

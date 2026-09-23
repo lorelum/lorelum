@@ -268,16 +268,7 @@
   font-style: normal;
 }
 
-/*
- * Divider roles are not interchangeable: structural borders ("--border"),
- * inline separators ("--blog-hairline") and control boundaries ("--input") each
- * have their own token. Index rows are separated by the inline hairline, which
- * is why this is a rule here and not Tailwind's default `divide-y` — that
- * preflight colour resolves to `--color-fd-border`, the *structural* role.
- */
-.blog-entry-list > li + li {
-  border-top: 1px solid var(--blog-hairline);
-}
+
 
 /*
  * Evidence appendix: the documents a post's numbers rest on, all visible

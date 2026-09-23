@@ -36,3 +36,32 @@
 - [x] 6.2 文章头部的返回博客链接：**删除**（此前在元数据行被 `ms-auto` 推到最右）。既有断言从「3 个指向索引的链接」改为 2，并新增一条「meta 里不再有指向索引的链接」；不变式未变。收尾块里的返回链接**保留**（计划要求收尾块始终渲染），如需一并删除请说明。
 - [x] 6.3 中间正文两侧空 324px：**第 2 轮改为放宽正文到 742px + 壳加上限 88rem**（两侧空隙 53px）。图/表占满轨道的规则保留（见 4.1）——两者都对齐了「不要夹在中间」，但只有后者改变正文行长。
 - [x] 6.4 「跳转先出现 error 页」：**不是产品缺陷**，是我给的服务器不对——`matrix-serve.mjs` 只发预渲染文件、不跑服务端函数，客户端跳转的 `/_serverFn/...` 请求 404（响应体 `not found`）。`vite preview` 下同一个点击正常。新增 `.tmp/preview-up.mjs` 预检（重启预览 + 校验 HTML 引用的每个资源 200），因为 `vite preview` 在构建后不重启会对新 chunk 返回 404（实测过一次，读数因此无效）。
+
+## 7. 索引卡片化与 Filter & sort（维护者看效果后要求，参照 claude.com/blog）
+
+- [x] 7.1 条目改为**卡片**：色调面（`--blog-quiet-surface`）+ `panel` 圆角 + 24px 内边距 + 分层排版；整卡可点但**只有标题是交互元素**（`after:absolute after:inset-0` 拉伸）。实测 1 条=1 卡、圆角 20px、表面 `srgb 0.941 0.945 0.949 / 0.62`、无横向溢出。
+- [x] 7.2 **常驻筛选与排序栏**：分类为链接行（`aria-current` 标当前），排序为 GET 表单（`select` + 应用 + 复位）。两者都是 URL 状态并保留彼此：实测 `/zh/blog?category=benchmark&sort=title-desc` 的分类链接各自带同一排序值，排序控件回显选中档。
+- [x] 7.3 **服务端生效**：`?category=packs`（无文章）→ 服务端 HTML 里 **0 张卡 + 空状态文案**；排序在 `listBlogPosts` 内与筛选一起应用，因此无 JS 也成立。
+- [x] 7.4 侧栏去掉分类段（只留「全部文章」+ 文章列表）——同一状态不留两个控件。
+- [x] 7.5 两条既有断言按维护者同意**重指向到新行为**（不删、不降强度）：`renders no filter chrome until a filter is active` → `renders a standing filter and sort bar`；`separates index rows with the inline hairline` → `presents index entries as cards, separated by spacing rather than a line`。同时删掉那条已成死规则的 `.blog-entry-list` hairline。
+- [x] 7.6 纯逻辑与测试：`model/sort-posts.ts`（4 档 + 未知值回落默认）+ 5 条测试；`offeredCategories` 的测试仍覆盖分类来源。
+- [ ] 7.7 卡片/筛选栏的**键盘与触屏读数**（焦点环、触屏可点）尚未在浏览器里逐项测；表宽与 52 格矩阵的重跑（4.2）同样待办。
+
+## 8. 复核第 3 轮：控件移入左栏、卡片按资产仓库样式（维护者要求，参照 lorelum-assets）
+
+- [x] 8.1 依据 `lorelum-assets`（本地克隆 `D:\Projectsgents\.scratch\lorelum-assets`）的 `design/components.md` / `patterns.md` / `effects-tokens.css` 定样式，不自行发明：Card = surface + 分组间距 + 可选 line；控制台场景**不继承**「每行品牌装饰」与「以巨大空白制造高级感」；Input/Search = 可见 label + control-border + focus ring。
+- [x] 8.2 筛选与排序**移入左栏**（原先在内容上方成一条横条，维护者判「太难看」）。索引屏不再自己渲染控件；文章页不渲染（改了不影响该页的控件等于无控件）。
+- [x] 8.3 下拉框不再难看：`appearance:none` + 自绘 chevron（平台箭头无法调样式与间距）+ 控件边界角色 `--input` + 44px 高 + 焦点环。实测：h=44、边框 `rgb(124,131,138)`、`appearance=none`、自绘箭头在场。
+- [x] 8.4 「应用」不再独占一行的全宽按钮，与下拉框同一行（原先两段式读起来像两个不相干的控件）。
+- [x] 8.5 卡片占满中间轨道（带边框的面板），分类改为 Badge 胶囊（与文章页元数据行同一组件 `CategoryChip`），右上角常驻品牌绿箭头作为进入提示。**箭头不用 hover 显现**：`blog-identity.test.ts` 禁止阅读面上的 `group-hover`（触屏够不到），所以它是常驻的，悬停反馈落在卡片自身的 border/shadow。
+- [ ] 8.6 待办：卡片与左栏控件的**键盘/触屏逐项读数**（44px 已按 token 设定，但尚未在浏览器里逐项验证焦点环与点击目标）；以及 4.2 的 52 格矩阵重跑。
+
+## 9. 复核第 4 轮：下拉框根除 + 每张卡片配图（维护者要求，参照 openai/claude 官方博客）
+
+- [x] 9.1 **下拉框彻底移除**（8.3 只修了合拢态，展开的选项弹层是平台原生部件，样式表够不到，两种主题下都显得格格不入——即维护者截图所指）。排序改为与分类同构的**链接**（4 档胶囊，`aria-current` 标当前，整组一行内换行），点击即导航，无需「应用」。既有断言按维护者要求重指向：`<form method="get">` → 「每个选项都是携带完整 search 状态的链接（分类点击保留排序、排序点击保留分类）」，`--input` 边界角色断言随 select 一并退役（控件从输入变成链接，链接取焦点环）。`blogApply` 键删除（无消费者）。
+- [x] 9.2 **每张卡片配图**（参照两个官方博客：不出现纯文字卡）：frontmatter 新增可选 `image`（站点内公开路径，正则拒绝远程 URL/协议相对/尾斜杠/裸词），无图文章由 `BlogCover` 生成封面——`cover-pattern.ts` 按 slug 播种的 6×4 圆角格子场，单色（唯一品牌饱和通道，同分类胶囊的单色规则），1–3 格提升为高亮档保证每张封面有视觉锚点；同 slug 双语言共享同一封面。生成分支 `aria-hidden`、作者图 `alt=""`（frontmatter 无 alt 可言，标题就在旁边）。
+- [x] 9.3 **卡片改横向布局**（Claude 列表行的形状）：左封面右文字，`sm` 以下上下堆叠（16:9 全宽封面）。右上角常驻箭头**移除**——有封面后它成为多余装饰（两处参照均无此元素），悬停反馈仍落在卡片自身 border/shadow；整卡可点不变。
+- [x] 9.4 门禁：242 pass / 0 fail / 37 文件、lint 0 error / 21 warning、typecheck 恰好 2 个既有错误、build exit 0。新增 `cover-pattern.test.ts`（5 条：确定性、区分度、仅 slug 播种、网格恰好覆盖一遍且只用档位值、分布校验）与 frontmatter 的 `image` 正反例。
+- [ ] 9.5 待办：新封面与胶囊排序在浏览器里的亮/暗截图与读数（键盘焦点环、触屏目标、生成封面的两主题观感）。
+- [x] 9.6 **预渲染碰撞（本轮探针抓到的隐性缺陷，早于本轮存在）**：爬虫把 `/zh/blog?category=benchmark` 当独立任务，但输出文件名会剥掉查询串，于是**晚写**的过滤视图覆盖了无参页面的 `index.html`——无参页上每个控件都带着一个看不见的分类过滤（n=1 且恰为 benchmark 文章，列表内容完全相同，此前不可见）。修复：`vite.config.ts` 的 `prerender.filter` 排除带查询串的路径（按需 SSR，与未知 `?category=` 的既有行为一致）；实测重建后无参页 pills 只带 `?sort=`，点击「标题（Z–A）」落在 `?sort=title-desc`（无 category）。
+- [x] 9.7 **复位链接继承缺陷**：无 `search` 的 Link 继承当前 search，「重置」落在 `?sort=newest` 而非清空。改为显式 `search={{ category: undefined, sort: undefined }}`；实测点击后 category 被剥掉（剩余 `?sort=newest` 是 validateSearch 对默认值的规范序列化，即默认态本身，非残留过滤）。断言入 `blog.test.ts`。

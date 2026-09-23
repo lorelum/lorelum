@@ -72,4 +72,40 @@ describe("blogFrontmatterSchema", () => {
       expect(result.success).toBe(false);
     }
   });
+
+  test("accepts an optional cover image as a site-public path", () => {
+    const withImage = blogFrontmatterSchema.safeParse({
+      ...valid,
+      image: "/blog/covers/practice-injection-measurement.svg",
+    });
+
+    expect(withImage.success).toBe(true);
+    if (withImage.success) {
+      expect(withImage.data.image).toBe("/blog/covers/practice-injection-measurement.svg");
+    }
+
+    const withoutImage = blogFrontmatterSchema.safeParse(valid);
+    expect(withoutImage.success).toBe(true);
+    if (withoutImage.success) {
+      // Absent, not defaulted: `BlogCover` branches on `undefined` to decide
+      // between author art and the generated pattern.
+      expect(withoutImage.data.image).toBeUndefined();
+    }
+  });
+
+  test("rejects a cover image that is not a site-public path", () => {
+    // Remote URLs would make the index's own layout depend on a third party,
+    // and a bare word or trailing slash is not a path the app can serve.
+    for (const image of [
+      "",
+      "covers/art.svg",
+      "https://cdn.example.com/art.svg",
+      "//cdn.example.com/art.svg",
+      "/",
+      "/blog/covers/",
+    ]) {
+      const result = blogFrontmatterSchema.safeParse({ ...valid, image });
+      expect(result.success).toBe(false);
+    }
+  });
 });
