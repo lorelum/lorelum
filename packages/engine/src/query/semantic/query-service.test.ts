@@ -15,7 +15,7 @@ import type { EmbeddingPort } from "./encoding";
 import { SemanticIndexNotReadyError, SemanticIndexQueryError } from "./errors";
 import { createSemanticIndexService } from "./index/service";
 import { createEmbeddingProfile } from "./profile";
-import { createSemanticQueryService } from "./query-service";
+import { createSemanticCandidateTraceService, createSemanticQueryService } from "./query-service";
 
 const encodingId = "a".repeat(64);
 
@@ -165,6 +165,14 @@ function semantic(
   return createSemanticQueryService({ store, profile, embedding });
 }
 
+function semanticTrace(
+  store: FakeStore,
+  profile: ReturnType<typeof createEmbeddingProfile>,
+  embedding: EmbeddingPort,
+) {
+  return createSemanticCandidateTraceService({ store, profile, embedding });
+}
+
 test("returns complete semantic results with deterministic score and ID ordering", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [
@@ -191,6 +199,78 @@ test("returns complete semantic results with deterministic score and ID ordering
   });
 });
 
+test("collects N candidates before returning the unchanged top K order", async () => {
+  await withRoot(async (rootPath) => {
+    const practices = Array.from({ length: 24 }, (_, index) =>
+      practice(`platform.item-${String(index).padStart(2, "0")}`),
+    );
+    const store = createStore(rootPath, practices);
+    const embedding = port();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+
+    const trace = await semanticTrace(store, profile, embedding).query(
+      { rootPath },
+      { text: "baseline query", candidateWidth: 20, resultLimit: 5 },
+    );
+    const normal = await semantic(store, profile, embedding).query(
+      { rootPath },
+      { text: "baseline query", limit: 5 },
+    );
+
+    expect(trace.candidateIds).toHaveLength(20);
+    expect(trace.finalIds).toHaveLength(5);
+    expect(trace.finalIds).toEqual(trace.candidateIds.slice(0, 5));
+    expect(normal.results.map((hit) => hit.practiceId)).toEqual([...trace.finalIds]);
+    expect(Object.keys(normal).sort()).toEqual(["coverage", "mode", "profileId", "results"]);
+    expect(trace.candidateIds).toEqual(
+      Array.from({ length: 20 }, (_, index) => `platform.item-${String(index).padStart(2, "0")}`),
+    );
+  });
+});
+
+test("candidate width grows with K when K exceeds the ordinary minimum", async () => {
+  await withRoot(async (rootPath) => {
+    const store = createStore(
+      rootPath,
+      Array.from({ length: 53 }, (_, index) =>
+        practice(`platform.item-${String(index).padStart(2, "0")}`),
+      ),
+    );
+    const embedding = port();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+
+    const trace = await semanticTrace(store, profile, embedding).query(
+      { rootPath },
+      { text: "wide query", candidateWidth: 50, resultLimit: 50 },
+    );
+    const normal = await semantic(store, profile, embedding).query(
+      { rootPath },
+      { text: "wide query", limit: 50 },
+    );
+
+    expect(trace.candidateIds).toHaveLength(50);
+    expect(trace.finalIds).toHaveLength(50);
+    expect(normal.results.map((hit) => hit.practiceId)).toEqual([...trace.finalIds]);
+  });
+});
+
+test("rejects an internal benchmark window when K is wider than N", async () => {
+  await withRoot(async (rootPath) => {
+    const store = createStore(rootPath, [practice("platform.only")]);
+    const embedding = port();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+
+    await expect(
+      semanticTrace(store, profile, embedding).query(
+        { rootPath },
+        { text: "invalid window", candidateWidth: 1, resultLimit: 2 },
+      ),
+    ).rejects.toThrow("Semantic candidate width must be at least the result limit");
+  });
+});
 test("empty index does not call the embedding port", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, []);
@@ -293,6 +373,65 @@ test("candidate digest mismatch is a typed query failure", async () => {
   });
 });
 
+test("discards candidate IDs from a snapshot attempt that is retried", async () => {
+  await withRoot(async (rootPath) => {
+    const stale = practice("platform.a-stale");
+    const retained = [practice("platform.b-retained"), practice("platform.c-retained")];
+    const store = createStore(rootPath, [stale, ...retained]);
+    const embedding = port();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+    const readAtSnapshot = store.readEffectivePracticesAtSnapshot;
+    let reads = 0;
+    store.readEffectivePracticesAtSnapshot = async (root, expected, ids) => {
+      reads += 1;
+      if (reads === 1) {
+        const next = identity(rootPath, 2);
+        store.current = next;
+        store.practices = retained;
+        store.changes = {
+          identity: next,
+          deltas: [
+            { revision: 2, delta: { added: [], changed: [stale.practiceId], invalidated: [] } },
+          ],
+          currentPractices: retained,
+        };
+      }
+      return readAtSnapshot(root, expected, ids);
+    };
+
+    const trace = await semanticTrace(store, profile, embedding).query(
+      { rootPath },
+      { text: "retry query", candidateWidth: 20, resultLimit: 1 },
+    );
+
+    expect(reads).toBe(2);
+    expect(trace.candidateIds).toEqual(["platform.b-retained", "platform.c-retained"]);
+    expect(trace.candidateIds).not.toContain(stale.practiceId);
+    expect(trace.finalIds).toEqual(["platform.b-retained"]);
+  });
+});
+test("benchmark trace fails without returning IDs when every snapshot attempt changes", async () => {
+  await withRoot(async (rootPath) => {
+    const store = createStore(rootPath, [practice("platform.only")]);
+    const embedding = port();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+    let reads = 0;
+    store.readEffectivePracticesAtSnapshot = async () => {
+      reads += 1;
+      throw new StoreSnapshotChangedError();
+    };
+
+    await expect(
+      semanticTrace(store, profile, embedding).query(
+        { rootPath },
+        { text: "retry failure", candidateWidth: 20, resultLimit: 1 },
+      ),
+    ).rejects.toBeInstanceOf(StoreBusyError);
+    expect(reads).toBe(3);
+  });
+});
 test("Store changes during candidate read are retried three times", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [practice("platform.only")]);

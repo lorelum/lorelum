@@ -7,7 +7,10 @@ import { createEmbeddingProfile } from "../semantic";
 import { contentSemanticArtifactId, contentSemanticIndexPaths } from "./cache";
 import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
-import { createContentAddressedSemanticServices } from "./semantic";
+import {
+  createContentAddressedSemanticCandidateTraceService,
+  createContentAddressedSemanticServices,
+} from "./semantic";
 
 const encodingId = "a".repeat(64);
 
@@ -33,6 +36,26 @@ async function writeProject(root: string): Promise<void> {
   await writeFile(
     join(pack, "practices", "semantic.md"),
     "---\nid: platform.semantic\ntitle: Semantic project index\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When building a content addressed semantic index.\n---\nUse one reusable local vector.\n",
+  );
+}
+
+async function writeProjectCorpus(root: string, count: number): Promise<void> {
+  const pack = join(root, ".lorelum", "packs", "platform");
+  const practices = join(pack, "practices");
+  await mkdir(practices, { recursive: true });
+  await writeFile(join(pack, "pack.yaml"), "name: platform\nversion: 1.0.0\n");
+  await Promise.all(
+    Array.from({ length: count }, async (_, index) => {
+      const id = "platform.semantic-" + String(index).padStart(2, "0");
+      await writeFile(
+        join(practices, id.slice("platform.".length) + ".md"),
+        "---\nid: " +
+          id +
+          "\ntitle: Semantic project index " +
+          index +
+          "\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When building a content addressed semantic index.\n---\nUse one reusable local vector.\n",
+      );
+    }),
   );
 }
 
@@ -78,6 +101,37 @@ test("builds and queries one immutable ProjectContext semantic artifact", () =>
       access(contentSemanticIndexPaths(cache, current, profile.profileId).active),
     ).resolves.toBeNull();
     await expect(access(join(root, ".lorelum", "cache"))).rejects.toThrow();
+  }));
+
+test("uses the shared N/K candidate boundary for ProjectContext queries", () =>
+  fixture(async (root, cache) => {
+    await writeProjectCorpus(root, 24);
+    const current = await snapshot(root);
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const embedding = {
+      maxBatchSize: 8,
+      async embed(inputs: readonly string[]) {
+        return { encodingId, vectors: inputs.map(() => [1, 0]) };
+      },
+    };
+    const services = createContentAddressedSemanticServices(current, cache, profile, embedding);
+    await services.index.build(services.root);
+    const traceService = createContentAddressedSemanticCandidateTraceService(
+      current,
+      cache,
+      profile,
+      embedding,
+    );
+
+    const trace = await traceService.query(services.root, {
+      text: "semantic project index",
+      candidateWidth: 20,
+      resultLimit: 5,
+    });
+
+    expect(trace.candidateIds).toHaveLength(20);
+    expect(trace.finalIds).toHaveLength(5);
+    expect(trace.finalIds).toEqual(trace.candidateIds.slice(0, 5));
   }));
 
 test("uses one semantic artifact identity for equivalent directory snapshots", async () => {

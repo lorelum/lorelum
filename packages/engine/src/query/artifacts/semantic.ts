@@ -15,6 +15,10 @@ import {
 import { projectSemanticIndexDatabaseDefinition } from "../../persistence/definitions";
 import { contentSemanticIndexPaths } from "./cache";
 import type { ContentAddressedCorpus } from "./cache";
+import {
+  createSemanticCandidateTraceService,
+  type SemanticQueryDependencies,
+} from "../semantic/query-service";
 
 function identityFor(snapshot: ContentAddressedCorpus): StoreSnapshotIdentity {
   return Object.freeze({
@@ -49,6 +53,33 @@ export interface ContentAddressedSemanticServices {
   readonly root: StorageRoot;
   readonly index: SemanticIndexService;
   readonly query: SemanticQueryService;
+}
+
+/** Build query dependencies against one immutable ProjectContext snapshot. */
+function queryDependencies(
+  snapshot: ContentAddressedCorpus,
+  identity: StoreSnapshotIdentity,
+  paths: (root: StorageRoot, profileId: string) => ReturnType<typeof contentSemanticIndexPaths>,
+  profile: EmbeddingProfile,
+  embedding: EmbeddingPort,
+): SemanticQueryDependencies {
+  return {
+    profile,
+    embedding,
+    paths,
+    definition: projectSemanticIndexDatabaseDefinition,
+    store: {
+      async readSnapshotIdentity() {
+        return identity;
+      },
+      async readEffectivePracticeChanges() {
+        return undefined;
+      },
+      async readEffectivePracticesAtSnapshot(_root, expected, ids) {
+        return practicesAtSnapshot(snapshot, expected, ids);
+      },
+    },
+  };
 }
 
 /**
@@ -87,22 +118,23 @@ export function createContentAddressedSemanticServices(
       },
     },
   });
-  const query = createSemanticQueryService({
-    profile,
-    embedding,
-    paths,
-    definition: projectSemanticIndexDatabaseDefinition,
-    store: {
-      async readSnapshotIdentity() {
-        return identity;
-      },
-      async readEffectivePracticeChanges() {
-        return undefined;
-      },
-      async readEffectivePracticesAtSnapshot(_root, expected, ids) {
-        return practicesAtSnapshot(snapshot, expected, ids);
-      },
-    },
-  });
+  const query = createSemanticQueryService(
+    queryDependencies(snapshot, identity, paths, profile, embedding),
+  );
   return Object.freeze({ root, index, query });
+}
+
+/** Internal ProjectContext counterpart used to verify the shared N/K boundary. */
+export function createContentAddressedSemanticCandidateTraceService(
+  snapshot: ContentAddressedCorpus,
+  cacheRoot: string,
+  profile: EmbeddingProfile,
+  embedding: EmbeddingPort,
+) {
+  const identity = identityFor(snapshot);
+  const paths = (_root: StorageRoot, profileId: string) =>
+    contentSemanticIndexPaths(cacheRoot, snapshot, profileId);
+  return createSemanticCandidateTraceService(
+    queryDependencies(snapshot, identity, paths, profile, embedding),
+  );
 }

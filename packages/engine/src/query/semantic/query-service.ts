@@ -7,8 +7,14 @@ import {
 } from "../../local-store";
 import { revisionDeltaPracticeIds, type RevisionDelta } from "../../local-store/model";
 import type { QueryHit, QueryRequest } from "../types";
+import { InvalidQueryRequestError } from "../errors";
+import { parseQueryRequest } from "../request";
 import type { EmbeddingPort } from "./encoding";
-import { SemanticIndexIncompatibleError, SemanticIndexNotReadyError } from "./errors";
+import {
+  SemanticIndexIncompatibleError,
+  SemanticIndexNotReadyError,
+  SemanticIndexQueryError,
+} from "./errors";
 import {
   openSemanticIndexReader,
   openSemanticIndexReaderAt,
@@ -144,68 +150,163 @@ async function prepareCoverage(
 }
 
 function semanticCandidateIds(candidates: readonly SemanticCandidate[]): readonly string[] {
-  return candidates.map((candidate) => candidate.practiceId);
+  const ids = candidates.map((candidate) => candidate.practiceId);
+  if (new Set(ids).size !== ids.length) {
+    throw new SemanticIndexQueryError("Semantic candidates contain duplicate Practice IDs");
+  }
+  return Object.freeze(ids);
+}
+
+interface SemanticQueryWindow {
+  readonly request: Required<QueryRequest>;
+  readonly candidateWidth: number;
+  readonly resultLimit: number;
+}
+
+function semanticQueryWindow(
+  request: QueryRequest,
+  candidateWidth: number,
+  resultLimit: number,
+): SemanticQueryWindow {
+  const parsed = parseQueryRequest({ text: request.text, limit: resultLimit });
+  const parsedCandidateWidth = parseQueryRequest({
+    text: parsed.text,
+    limit: candidateWidth,
+  }).limit;
+  if (parsedCandidateWidth < parsed.limit) {
+    throw new InvalidQueryRequestError(
+      "Semantic candidate width must be at least the result limit",
+    );
+  }
+  return Object.freeze({
+    request: parsed,
+    candidateWidth: parsedCandidateWidth,
+    resultLimit: parsed.limit,
+  });
+}
+
+interface SemanticQueryExecution {
+  readonly result: SemanticQueryResult;
+  /** Internal raw candidate order, returned only through the benchmark-only seam below. */
+  readonly candidateIds: readonly string[];
+}
+
+async function executeSemanticQuery(
+  dependencies: SemanticQueryDependencies,
+  root: StorageRoot,
+  window: SemanticQueryWindow,
+): Promise<SemanticQueryExecution> {
+  const { store, profile, embedding } = dependencies;
+  const pathsFor = dependencies.paths;
+  const definition = dependencies.definition;
+
+  for (let attempt = 0; attempt < MAX_QUERY_RETRIES; attempt += 1) {
+    let reader: Awaited<ReturnType<typeof openSemanticIndexReader>> | undefined;
+    try {
+      if (pathsFor === undefined) {
+        // eslint-disable-next-line no-await-in-loop -- each retry reopens the active snapshot.
+        reader = await openSemanticIndexReader(root.rootPath, profile);
+      } else {
+        // eslint-disable-next-line no-await-in-loop -- each retry reopens the active snapshot.
+        reader = await openSemanticIndexReaderAt(
+          pathsFor(root, profile.profileId),
+          profile,
+          definition,
+        );
+      }
+      // eslint-disable-next-line no-await-in-loop -- coverage is bound to this retry's Store view.
+      const current = await store.readSnapshotIdentity(root);
+      // eslint-disable-next-line no-await-in-loop -- delta history is part of the same retry.
+      const coverage = await prepareCoverage(store, root, reader.metadata, current);
+
+      // eslint-disable-next-line no-await-in-loop -- the model admits one request at a time.
+      const candidates = await searchSemanticArtifact({
+        reader,
+        profile,
+        embedding,
+        request: { text: window.request.text, limit: window.candidateWidth },
+        excludedPracticeIds: coverage.excludedPracticeIds,
+      });
+      const candidateReadIds = candidates.map((candidate) => candidate.practiceId);
+      // eslint-disable-next-line no-await-in-loop -- final read validates this retry's snapshot.
+      const practices = await store.readEffectivePracticesAtSnapshot(
+        root,
+        coverage.identity,
+        candidateReadIds,
+      );
+      const assembled = assembleSemanticArtifactResult({
+        profile,
+        coverage: coverage.coverage,
+        practices,
+        candidates,
+      });
+      // Capture only after canonical Practice and snapshot validation, before final K truncation.
+      const candidateIds = semanticCandidateIds(candidates);
+      const results = Object.freeze(assembled.results.slice(0, window.resultLimit));
+      return Object.freeze({
+        result:
+          results.length === assembled.results.length
+            ? assembled
+            : Object.freeze({ ...assembled, results }),
+        candidateIds,
+      });
+    } catch (error) {
+      if (error instanceof StoreSnapshotChangedError) {
+        if (attempt + 1 < MAX_QUERY_RETRIES) continue;
+        throw new StoreBusyError("LocalStore changed repeatedly during semantic query");
+      }
+      throw error;
+    } finally {
+      reader?.close();
+    }
+  }
+  throw new StoreBusyError("LocalStore changed repeatedly during semantic query");
 }
 
 export function createSemanticQueryService(
   dependencies: SemanticQueryDependencies,
 ): SemanticQueryService {
-  const { store, profile, embedding } = dependencies;
-  const pathsFor = dependencies.paths;
-  const definition = dependencies.definition;
-
   return Object.freeze({
     async query(root: StorageRoot, request: QueryRequest): Promise<SemanticQueryResult> {
-      for (let attempt = 0; attempt < MAX_QUERY_RETRIES; attempt += 1) {
-        let reader: Awaited<ReturnType<typeof openSemanticIndexReader>> | undefined;
-        try {
-          // eslint-disable-next-line no-await-in-loop -- each retry reopens the active snapshot.
-          reader =
-            pathsFor === undefined
-              ? await openSemanticIndexReader(root.rootPath, profile)
-              : await openSemanticIndexReaderAt(
-                  pathsFor(root, profile.profileId),
-                  profile,
-                  definition,
-                );
-          // eslint-disable-next-line no-await-in-loop -- coverage is bound to this retry's Store view.
-          const current = await store.readSnapshotIdentity(root);
-          // eslint-disable-next-line no-await-in-loop -- delta history is part of the same retry.
-          const coverage = await prepareCoverage(store, root, reader.metadata, current);
+      const parsed = parseQueryRequest(request);
+      const resultLimit = parsed.limit;
+      const candidateWidth = Math.max(20, resultLimit);
+      return (
+        await executeSemanticQuery(
+          dependencies,
+          root,
+          semanticQueryWindow(parsed, candidateWidth, resultLimit),
+        )
+      ).result;
+    },
+  });
+}
 
-          // eslint-disable-next-line no-await-in-loop -- the model admits one request at a time.
-          const candidates = await searchSemanticArtifact({
-            reader,
-            profile,
-            embedding,
-            request,
-            excludedPracticeIds: coverage.excludedPracticeIds,
-          });
-
-          const ids = semanticCandidateIds(candidates);
-          // eslint-disable-next-line no-await-in-loop -- final read validates this retry's snapshot.
-          const practices = await store.readEffectivePracticesAtSnapshot(
-            root,
-            coverage.identity,
-            ids,
-          );
-          return assembleSemanticArtifactResult({
-            profile,
-            coverage: coverage.coverage,
-            practices,
-            candidates,
-          });
-        } catch (error) {
-          if (error instanceof StoreSnapshotChangedError) {
-            if (attempt + 1 < MAX_QUERY_RETRIES) continue;
-            throw new StoreBusyError("LocalStore changed repeatedly during semantic query");
-          }
-          throw error;
-        } finally {
-          reader?.close();
-        }
-      }
-      throw new StoreBusyError("LocalStore changed repeatedly during semantic query");
+/**
+ * Internal measurement seam for the repository-local benchmark harness.
+ * Deliberately not re-exported from the Engine package entry points.
+ */
+export function createSemanticCandidateTraceService(dependencies: SemanticQueryDependencies) {
+  return Object.freeze({
+    async query(
+      root: StorageRoot,
+      request: {
+        readonly text: string;
+        readonly candidateWidth: number;
+        readonly resultLimit: number;
+      },
+    ): Promise<{ readonly candidateIds: readonly string[]; readonly finalIds: readonly string[] }> {
+      const parsed = parseQueryRequest({ text: request.text, limit: request.resultLimit });
+      const resultLimit = parsed.limit;
+      const execution = await executeSemanticQuery(
+        dependencies,
+        root,
+        semanticQueryWindow(parsed, request.candidateWidth, resultLimit),
+      );
+      return Object.freeze({
+        candidateIds: execution.candidateIds,
+        finalIds: Object.freeze(execution.result.results.map((hit) => hit.practiceId)),
+      });
     },
   });
 }
