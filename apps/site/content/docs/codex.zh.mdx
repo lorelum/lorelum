@@ -38,6 +38,10 @@ codex plugin add lorelum@lorelum-plugins
 请在确定这个改动的计划前，用 Lorelum 查找相关指导。
 ```
 
+当 Plugin 和 CLI 都更新到包含这项功能的版本后，shell 命令成功执行 `lore get`，Lorelum 可以为当前对话留下简短的候选提示；脚本内部执行的 `lore get` 也一样。非 shell tool 会直接跳过。启动子 Agent 时，它可能看到候选的 ID、标题和适用条件，再自行决定是否读取。提示不是 Practice 正文，也不代表主 Agent 已采纳它；Hook 不自动 query 或 `get`，目前也不会在主 Agent compact 后恢复这些提示。
+
+这是尽力而为的机制：不在活动 shell-tool 窗口内执行的命令可能漏记；如果多个对话同时使用同一个目录，也可能漏记或归到另一个对话。使用提示前仍应通过 `lore get <practice-id>` 核对是否适用，不要把候选列表当成任务记录或权限依据。
+
 ## 更新
 
 ```sh

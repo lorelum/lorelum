@@ -17,6 +17,7 @@ import { frameworkErrorCodes, invalidInvocationError } from "./runtime/errors.js
 import { logLevels } from "./runtime/logger.js";
 import { createInstallCommand, createUpdateCommand } from "./install/install-command.js";
 import { createGetCommand } from "./get/get-command.js";
+import { defaultPracticeHintLedger } from "./practice-hints/ledger.js";
 import { createQueryCommand } from "./query/query-command.js";
 import { createProcessSemanticRuntimeClient } from "./query/runtime-client";
 import { createListCommand } from "./list/list-command.js";
@@ -362,6 +363,7 @@ export const commandRegistry = snapshotCommandDefinitions([
     store: sharedStore,
     storageRoot: sharedStorageRoot,
     resolveProjectContext: sharedProjectContextResolver,
+    practiceHints: defaultPracticeHintLedger,
   }),
   ...createProjectContextCommands({
     storageRoot: sharedStorageRoot,
