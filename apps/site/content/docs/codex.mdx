@@ -4,13 +4,11 @@ description: Install Lorelum in Codex and use it in your next coding task.
 icon: Plug
 ---
 
-The Lorelum Plugin makes engineering guidance available in Codex when it can
-help with the task at hand.
+The Lorelum Plugin makes engineering guidance available in Codex when it can help with the task at hand.
 
 ## Before you start
 
-Complete [Quickstart](./quickstart). The `lore` command must be available to
-Codex, and you need at least one installed Pack.
+Complete [Quickstart](./quickstart). The `lore` command must be available to Codex, and you need at least one installed Pack.
 
 ## Install
 
@@ -23,8 +21,7 @@ Approve the Plugin's Hook if Codex asks, then start a new task.
 
 ### Moving from an earlier alpha
 
-If you previously installed `lorelum@lorelum`, remove it and the old
-marketplace source before installing the current Plugin:
+If you previously installed `lorelum@lorelum`, remove it and the old marketplace source before installing the current Plugin:
 
 ```sh
 codex plugin remove lorelum@lorelum
@@ -35,12 +32,15 @@ codex plugin add lorelum@lorelum-plugins
 
 ## Use Lorelum
 
-In a new task, ask Codex to use Lorelum before it settles an important plan or
-implementation decision. For example:
+In a new task, ask Codex to use Lorelum before it settles an important plan or implementation decision. For example:
 
 ```text
 Use Lorelum to find guidance for this change before you finalize the plan.
 ```
+
+After updating both the Plugin and CLI to versions containing this feature, when a shell command successfully runs `lore get`, Lorelum can remember a short candidate hint for that conversation. This also works when the command runs a script containing `lore get`; non-shell tools are skipped. When a subagent starts, it may see the candidate IDs, titles, and applicability hints, then decide whether to read a Practice itself. The hint is not the Practice body or evidence that the parent adopted it. It does not automatically run a query or `get`, and it is not restored to the main agent after compaction yet.
+
+This is best-effort: commands outside an active shell-tool window may not be recorded. If multiple conversations use the same directory at the same time, an entry may be missed or attributed to the other conversation. Check relevance with `lore get <practice-id>` before using a hint; do not treat the candidate list as a task record or access-control boundary.
 
 ## Update
 

@@ -1,5 +1,5 @@
 {
-  "description": "Restore the compact Lorelum Installed Pack Catalog at supported Codex session boundaries.",
+  "description": "Restore the Installed Pack Catalog and share optional read-Practice hints with subagents.",
   "hooks": {
     "SessionStart": [
       {
@@ -11,6 +11,45 @@
             "timeout": 10,
             "additionalContextLimit": 5000,
             "commandWindows": "try { $output = & lore hook codex; if ($LASTEXITCODE -eq 0) { $output } else { '{\"continue\":true}' } } catch { '{\"continue\":true}' }"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if output=\"$(lore hook codex)\" && [ \"$output\" != '{\"continue\":true}' ]; then printf '%s\\n' \"$output\"; else printf '%s\\n' '{}'; fi",
+            "timeout": 10,
+            "commandWindows": "try { $output = & lore hook codex; if ($LASTEXITCODE -eq 0 -and $output -ne '{\"continue\":true}') { $output } else { '{}' } } catch { '{}' }"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if output=\"$(lore hook codex)\" && [ \"$output\" != '{\"continue\":true}' ]; then printf '%s\\n' \"$output\"; else printf '%s\\n' '{}'; fi",
+            "timeout": 10,
+            "commandWindows": "try { $output = & lore hook codex; if ($LASTEXITCODE -eq 0 -and $output -ne '{\"continue\":true}') { $output } else { '{}' } } catch { '{}' }"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if output=\"$(lore hook codex)\"; then printf '%s\\n' \"$output\"; else printf '%s\\n' '{}'; fi",
+            "timeout": 10,
+            "additionalContextLimit": 2000,
+            "commandWindows": "try { $output = & lore hook codex; if ($LASTEXITCODE -eq 0) { $output } else { '{}' } } catch { '{}' }"
           }
         ]
       }

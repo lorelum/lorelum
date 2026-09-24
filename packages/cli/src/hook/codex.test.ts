@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ListPackDetailsResult } from "@lorelum/engine";
+import type { ReadHint, ShellToolEvent } from "../practice-hints/ledger.js";
 
 import {
   parseCodexHookInvocation,
@@ -51,6 +52,129 @@ function services(overrides: Partial<CodexHookServices> = {}): CodexHookServices
 }
 
 describe("lore hook codex", () => {
+  test("routes Bash Pre/Post but ignores all non-shell tools", async () => {
+    const events: ShellToolEvent[] = [];
+    const hintServices = services({
+      practiceHints: {
+        async routeToolEvent(event) {
+          events.push(event);
+        },
+        async readRecentHints() {
+          return [];
+        },
+      },
+    });
+    for (const [hook_event_name, tool_name] of [
+      ["PreToolUse", "apply_patch"],
+      ["PostToolUse", "mcp__example__tool"],
+      ["PreToolUse", "Bash"],
+      ["PostToolUse", "Bash"],
+    ]) {
+      const stdout = new MemoryWriter();
+      await runCodexHook({
+        stdin: input(
+          JSON.stringify({
+            hook_event_name,
+            tool_name,
+            session_id: "parent",
+            tool_use_id: "tool",
+            cwd: "/work",
+          }),
+        ),
+        stdout,
+        stderr: new MemoryWriter(),
+        services: hintServices,
+      });
+      expect(stdout.value).toBe("{}\n");
+    }
+    expect(events).toEqual([
+      {
+        hostKey: "codex",
+        event: "pre",
+        toolKind: "shell",
+        sessionId: "parent",
+        toolUseId: "tool",
+        cwd: "/work",
+      },
+      {
+        hostKey: "codex",
+        event: "post",
+        toolKind: "shell",
+        sessionId: "parent",
+        toolUseId: "tool",
+        cwd: "/work",
+      },
+    ]);
+  });
+
+  test("injects bounded, optional metadata only for a matching SubagentStart session", async () => {
+    const hint: ReadHint = {
+      id: "sample.read",
+      digest: "private-digest",
+      title: "Review task boundary",
+      appliesWhen: "when delegating",
+      packs: ["sample"],
+    };
+    const hintServices = services({
+      practiceHints: {
+        async routeToolEvent() {},
+        async readRecentHints(host, sessionId) {
+          return host === "codex" && sessionId === "parent" ? [hint] : [];
+        },
+      },
+    });
+    const stdout = new MemoryWriter();
+    await runCodexHook({
+      stdin: input('{"hook_event_name":"SubagentStart","session_id":"parent"}'),
+      stdout,
+      stderr: new MemoryWriter(),
+      services: hintServices,
+    });
+    const response = JSON.parse(stdout.value);
+    expect(response.hookSpecificOutput.hookEventName).toBe("SubagentStart");
+    expect(response.hookSpecificOutput.additionalContext).toContain("sample.read");
+    expect(response.hookSpecificOutput.additionalContext).toContain("lore get <practice-id>");
+    expect(stdout.value).not.toContain(hint.digest);
+    const empty = new MemoryWriter();
+    await runCodexHook({
+      stdin: input('{"hook_event_name":"SubagentStart","session_id":"unrelated"}'),
+      stdout: empty,
+      stderr: new MemoryWriter(),
+      services: hintServices,
+    });
+    expect(empty.value).toBe("{}\n");
+  });
+
+  test("a failed candidate ledger does not block a Bash call or subagent", async () => {
+    const failing = services({
+      practiceHints: {
+        async routeToolEvent() {
+          throw new Error("optional hints unavailable");
+        },
+        async readRecentHints() {
+          throw new Error("optional hints unavailable");
+        },
+      },
+    });
+    for (const hook_event_name of ["PreToolUse", "SubagentStart"]) {
+      const stdout = new MemoryWriter();
+      await runCodexHook({
+        stdin: input(
+          JSON.stringify({
+            hook_event_name,
+            tool_name: "Bash",
+            session_id: "parent",
+            tool_use_id: "tool",
+            cwd: "/work",
+          }),
+        ),
+        stdout,
+        stderr: new MemoryWriter(),
+        services: failing,
+      });
+      expect(stdout.value).toBe("{}\n");
+    }
+  });
   test("renders the current Catalog through the raw Codex Hook envelope", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();

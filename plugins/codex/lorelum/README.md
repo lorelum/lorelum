@@ -9,9 +9,9 @@ The current host integration contract is [agent-integration](../../../openspec/s
 3. At a material task, decision, verification, recovery, or completion moment, Codex uses one targeted natural-language semantic query before deciding retrieval is not worth attempting.
 4. Before applying a Practice or claiming that work follows it, Codex reads the full Practice.
 
-The bundled runtime integration calls `lore hook codex`, the versioned Codex Hook ABI introduced in Lorelum CLI v0.1.0-alpha.1. It runs for supported `SessionStart` sources, including `compact`, so the Catalog is regenerated before Codex continues after compaction. The CLI reads the Hook payload from stdin and writes the Codex `hookSpecificOutput` envelope directly to stdout.
+The bundled runtime integration calls `lore hook codex`, the versioned Codex Hook ABI introduced in Lorelum CLI v0.1.0-alpha.1. It runs for supported `SessionStart` sources, including `compact`, so the Catalog is regenerated before Codex continues after compaction. The CLI also uses shell-only `PreToolUse`/`PostToolUse` windows to notice successful `lore get` reads (including reads inside scripts), then shares bounded metadata hints through `SubagentStart`. Other tools are skipped; the candidate ledger is shared CLI logic, not Codex-owned state. The CLI reads the Hook payload from stdin and writes the Codex `hookSpecificOutput` envelope directly to stdout when context is available.
 
-The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. If the CLI is unavailable or returns malformed data, the integration writes a diagnostic to stderr and lets the host continue without additional context.
+The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. Subagent hints likewise contain only candidate ID, title, applicability, and Pack names, never Practice bodies. They indicate that a Practice was read, not that it was adopted or proven effective. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. If the CLI is unavailable or returns malformed data, the integration writes a diagnostic to stderr and lets the host continue without additional context. Concurrent conversations in one directory may miss or misattribute hints; main-agent compact recovery is not included.
 
 ## Integration scope
 
@@ -23,7 +23,7 @@ This Plugin is deliberately CLI-first: it uses the compiled `lore` executable to
 
 ## Installation
 
-This Plugin is a Codex adapter. Ordinary users need Lorelum CLI v0.1.0-alpha.3 or later, available as `lore` on `PATH`; it does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows. See the [Codex installation guide](https://lorelum.com/en/docs/codex) for public marketplace commands and [the development guide](../../../docs/development/plugins.md) for a checkout-backed development install.
+This Plugin is a Codex adapter. Ordinary users need Lorelum CLI v0.1.0-alpha.3 or later for the existing Catalog, available as `lore` on `PATH`; read-Practice hints additionally need a CLI release containing the new ledger logic. An older CLI leaves the new Hooks empty without blocking work. The Plugin does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows. See the [Codex installation guide](https://lorelum.com/en/docs/codex) for public marketplace commands and [the development guide](../../../docs/development/plugins.md) for a checkout-backed development install.
 
 ### Windows notes
 

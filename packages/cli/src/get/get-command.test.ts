@@ -5,6 +5,7 @@ import {
   StoreBusyError,
   StoreRecoveryRequiredError,
   type EffectivePractice,
+  type ProjectContextSnapshot,
 } from "@lorelum/engine";
 
 import { run as runCli } from "../main.js";
@@ -112,6 +113,132 @@ test("returns the verified snapshot once with complete content and compact prove
     ],
   });
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
+});
+
+test("records successful reads from structured results without changing the get output", async () => {
+  const recorded: unknown[] = [];
+  const definition = createGetCommand({
+    store: {
+      async getEffectivePracticeWithPackRoots() {
+        return located;
+      },
+    },
+    storageRoot: { rootPath: "unused-default" },
+    practiceHints: {
+      async recordSuccessfulGet(cwd, hint) {
+        recorded.push({ cwd, hint });
+      },
+    },
+  });
+  const stdout = {
+    value: "",
+    write(message: string) {
+      this.value += message;
+    },
+  };
+  const exitCode = await run(["get", practice.id], {
+    registry: snapshotCommandDefinitions([definition]),
+    stdout,
+    stderr: { write() {} },
+  });
+  expect(exitCode).toBe(0);
+  expect(recorded).toEqual([
+    {
+      cwd: process.cwd(),
+      hint: {
+        id: practice.id,
+        digest: contentDigest,
+        title: practice.title,
+        appliesWhen: practice.applies_when,
+        packs: ["sample"],
+      },
+    },
+  ]);
+  expect(stdout.value).toContain("Keep the full body.");
+});
+
+test("candidate write failure never changes the successful get result", async () => {
+  const definition = createGetCommand({
+    store: {
+      async getEffectivePracticeWithPackRoots() {
+        return located;
+      },
+    },
+    storageRoot: { rootPath: "unused-default" },
+    practiceHints: {
+      async recordSuccessfulGet() {
+        throw new Error("optional ledger unavailable");
+      },
+    },
+  });
+  const stdout = {
+    value: "",
+    write(message: string) {
+      this.value += message;
+    },
+  };
+  expect(
+    await run(["get", practice.id], {
+      registry: snapshotCommandDefinitions([definition]),
+      stdout,
+      stderr: { write() {} },
+    }),
+  ).toBe(0);
+  expect(stdout.value).toContain("Keep the full body.");
+});
+
+test("does not record a project read that fails while resolving its Store source", async () => {
+  let records = 0;
+  const definition = createGetCommand({
+    store: {
+      async getEffectivePracticeWithPackRoots() {
+        return located;
+      },
+    },
+    storageRoot: { rootPath: "unused-default" },
+    resolveProjectContext: async () =>
+      ({
+        kind: "project",
+        projectRootId: "test-project",
+        projectRootPath: "/test-project",
+        layers: [],
+        effectiveConfig: { base: "user", packs: {} },
+        practices: [effective],
+        contextDigest: "test-context",
+        indexCorpusDigest: "test-index",
+        state: "ready",
+        warnings: [],
+        sources: [
+          {
+            scope: "store",
+            status: "active",
+            practiceId: practice.id,
+            packName: "sample",
+            sourcePath: "different-source.md",
+          },
+        ],
+      }) satisfies ProjectContextSnapshot,
+    practiceHints: {
+      async recordSuccessfulGet() {
+        records++;
+      },
+    },
+  });
+  const stdout = {
+    value: "",
+    write(message: string) {
+      this.value += message;
+    },
+  };
+  expect(
+    await run(["get", practice.id], {
+      registry: snapshotCommandDefinitions([definition]),
+      stdout,
+      stderr: { write() {} },
+    }),
+  ).toBe(2);
+  expect(JSON.parse(stdout.value).error.code).toBe("store.recovery-required");
+  expect(records).toBe(0);
 });
 
 test.each([
