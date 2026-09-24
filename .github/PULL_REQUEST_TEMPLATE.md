@@ -2,9 +2,9 @@
 
 <!-- What problem exists today, for whom, and what observable result should this PR deliver? A link to the issue is not a substitute for a short explanation here. -->
 
-## Linked issue
+## Related issue (if any)
 
-<!-- Closes #123 when this PR completes the issue; otherwise use Refs #123 and name the remaining work. -->
+<!-- Link an existing Issue only when relevant; omit this section otherwise. Do not create an Issue just for this PR. Use Closes #123 only when complete, or Refs #123 when work remains. -->
 
 ## What changed
 
@@ -36,7 +36,6 @@
 
 ## Checklist
 
-- [ ] Linked the relevant issue (`Closes #xxx` or `Refs #xxx` as appropriate)
 - [ ] If this changes a public contract, default, lifecycle, or integration, the required design alignment is linked
 - [ ] Covered changed behavior with proportionate tests or explained why a check does not apply
 - [ ] Reported checks actually run, their results, and any unrun/failing checks above

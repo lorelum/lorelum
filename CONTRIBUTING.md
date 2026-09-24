@@ -11,7 +11,7 @@ Thanks for your interest in contributing to Lorelum! This doc explains how we wo
 - [Code of Conduct](#code-of-conduct)
 - [Development environment](#development-environment)
 - [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
-- [How we work: issue-driven, design-first](#how-we-work-issue-driven-design-first)
+- [How we work: focused PRs, design-first](#how-we-work-focused-prs-design-first)
 - [Reporting bugs & proposing features](#reporting-bugs--proposing-features)
 - [Writing reviewable issues and PRs](#writing-reviewable-issues-and-prs)
 - [Development workflow](#development-workflow)
@@ -74,29 +74,9 @@ That signature covers **all** Lorelum repositories. You only sign once, ever.
 
 A PR cannot be merged until the CLA check passes. This protects the entire Lorelum codebase from IP contamination (a single unsigned contribution would break the licensing foundation).
 
-## How we work: issue-driven, design-first
+## How we work: focused PRs, design-first
 
-Lorelum uses **issue-driven development** with a **design-first** rule for anything that touches the product surface. Every change starts with an issue; changes to the Practice format, retrieval model, or CLI commands need design alignment _before_ code.
-
-**The flow at a glance:**
-
-```
-idea / bug
-   │
-   ▼
-Issue (structured: background, goal, acceptance criteria)
-   │
-   ▼  touches product surface? ──▶ discuss design in the issue / a Discussion
-   │                                  (align before coding)
-   ▼
-implementation (one branch per issue)
-   │
-   ▼
-PR (linked to issue, CI green, human review)
-   │
-   ▼
-merge → close issue
-```
+Use a focused PR for a self-contained change. Open an Issue when the problem needs separate discussion, coordination, or backlog tracking; do not create one just to duplicate the PR overview. Changes to the product surface still need design alignment before code, as described below.
 
 **What counts as "product surface"?** The Practice/Pack format, retrieval semantics, CLI commands and output, configuration/defaults, and host Skill/Plugin/Hook integration. Changes to these need design alignment first because users and Agents depend on the resulting contracts. Current local integrations remain CLI-first; they do not add an MCP tool interface.
 
@@ -148,17 +128,16 @@ Neither a draft nor an Issue automatically authorizes a Pack, Core, Skill, docs,
 
 ## Development workflow
 
-1. **Find or open an issue.** Every change starts with an issue.
-2. **Claim it.** Comment that you're working on it (or get assigned).
-3. **Branch.** From `main`: `feat/<scope>-<short>` or `fix/<scope>-<short>`.
+1. **Check scope and existing Issues.** Use an Issue when independent tracking or design discussion is needed; otherwise go directly to a focused PR. Claim an Issue if you take one on.
+2. **Branch.** From `main`: `feat/<scope>-<short>` or `fix/<scope>-<short>`.
    ```bash
    git checkout -b feat/cli-decide-command
    ```
-4. **Implement.** Follow [AGENTS.md](./AGENTS.md) for repo conventions. Keep PRs focused — one issue per PR.
-5. **Verify the changed boundary.** Add tests for new behavior and run relevant checks. Record the actual results, including failures or checks you could not run; don't claim an old result covers code changed afterward.
-6. **Open a PR.** Fill in the [PR template](./.github/PULL_REQUEST_TEMPLATE.md). Use `Closes #123` only when the PR completes the Issue; otherwise use `Refs #123` and say what remains.
-7. **Review.** A maintainer will review. Address feedback with new commits (don't force-push mid-review unless asked).
-8. **Merge.** Squash-merge into `main`.
+3. **Implement.** Follow [AGENTS.md](./AGENTS.md) for repo conventions. Keep the PR focused.
+4. **Verify the changed boundary.** Add tests for new behavior and run relevant checks. Record the actual results, including failures or checks you could not run; don't claim an old result covers code changed afterward.
+5. **Open a PR.** Fill in the [PR template](./.github/PULL_REQUEST_TEMPLATE.md). If it addresses an Issue, use `Closes #123` only when complete; otherwise use `Refs #123` and say what remains.
+6. **Review.** A maintainer will review. Address feedback with new commits (don't force-push mid-review unless asked).
+7. **Merge.** Squash-merge into `main`.
 
 **Branch naming:**
 
