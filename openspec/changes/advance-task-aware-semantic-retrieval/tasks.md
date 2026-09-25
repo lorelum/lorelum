@@ -7,6 +7,7 @@
 - [x] 1.3 在 Engine 内确定候选已通过必要 canonical 有效性与 snapshot 检查、即将进入最终排序的观察点；保证两份 ID 名单来自同一次检索和同一 snapshot。通过 Engine tests 验证 candidate IDs 唯一、final IDs 唯一、final IDs 属于 candidate IDs 且数量不超过 K。
 - [x] 1.4 实现固定 checkout 内的 stdin/stdout benchmark harness，并通过 Engine tests 验证有效/非法请求、成功/失败结构、无 labels 输入和不输出正文/query/相似度/score；测试不得读取开发者 Store。
 - [x] 1.5 为 Store snapshot 变化/重试增加回归测试：失败 attempt 收集的 candidate IDs 必须丢弃；最终成功时两份名单来自同一个成功 attempt，最终失败时不返回任何部分名单。
+- [x] 1.6 修正 harness 的 semantic index 路由：从 benchmark 专用 `LORELUM_BENCHMARK_CACHE_ROOT`（未设置时 `defaultQueryArtifactCacheRoot()`）打开与 Store-only `lore index build --cache-root` 相同的 content-addressed artifact，不再把请求里的 `storeRoot` 当作 index root；测试覆盖该 env 路由、默认回退、缺失/异源/跨 Profile artifact 的结构化失败与绝不回退 Store-local index，同时保持五字段 stdin、N/K 与 snapshot 语义、普通 `lore query` 输出和公开 exports 不变。
 
 ## 2. 校验并冻结改动前 baseline
 

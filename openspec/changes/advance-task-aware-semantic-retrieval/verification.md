@@ -28,6 +28,37 @@ benchmark runner 在固定 Lorelum checkout 中启动本地 harness，使用 std
 
 失败返回 `{"status":"error","errorCode":"..."}`，不返回部分名单；成功进程退出码为 0，结构化失败进程退出码为非零。输出不得包含 query、正文、向量相似度或内部 score。harness protocol version 由锁定 checkout 对应的内部 schema/version 约定与 benchmark provenance 固定，不额外增加公开产品协议字段。此 harness 不是 `lore` CLI 子命令，不新增包公开 exports 或产品 API。
 
+### 1.1 Derived cache 路由与真实冒烟
+
+固定 commit `6bf1e1b` 的本地 harness 把请求里的 `storeRoot` 当作 semantic index root，而 Store-only `lore index build --cache-root` 把 artifact 发布在 derived cache。两者不是同一目录时，CLI 可以报告 index `ready`，harness 仍返回 `index_unavailable`，benchmark 因此在进入召回/排序评分前全部失败。修正后 harness 从 benchmark 专用环境变量 `LORELUM_BENCHMARK_CACHE_ROOT`（未设置或为空时回退 `defaultQueryArtifactCacheRoot()`）打开同一 content-addressed artifact，`storeRoot` 只用于读取 canonical 语料；五字段 stdin、N/K 与 snapshot 语义、输出字段、普通 `lore query` 契约和公开 exports 均不变。
+
+定向验证（主仓库本地）：
+
+- `bun test packages/backend/src/benchmark`：15 pass / 0 fail。覆盖 env 路由与默认回退、非绝对路径拒绝、缺失或异源 artifact 的结构化失败、绝不回退 Store-local index，以及成功/失败响应只含约定字段。
+- `bun run typecheck`、`bun run lint`：通过；改动文件的 `oxfmt --check` 通过。（整仓 `bun run fmt:check` 在本机因 `core.autocrlf=true` 报告全部文件，属环境现象。）
+- `openspec validate advance-task-aware-semantic-retrieval --strict`：通过。
+
+真实冒烟（test-owned 输入，单次调用，不计入 baseline、不产生分数）：
+
+| 项目 | 值 |
+| --- | --- |
+| Store | benchmark test-owned `<benchmark worktree>/artifacts/retrieval-ranking/store-6bf1e1b-v4`：4 个 Pack、97 条完整 Practice、generation/effectiveRevision = 4/4 |
+| Derived cache | `<benchmark worktree>/artifacts/retrieval-ranking/cache-6bf1e1b-v4` |
+| Corpus / artifact identity | corpus digest `42af40921cfe49fd94d227fdc3e5be5446d83e78e61cd6db7688b86414493eab`；content-addressed artifact `c8f271b7ef3eba96cbc18578a4a0d030a9a470a757b1e5a59b48b26afe93bab7`（`query-artifacts/v1/artifacts/semantic/<artifactId>/active.sqlite`，由 Store-only CLI 构建发布） |
+| Profile | `72c7404af9d533dce3dd5f5e62987fcb225ffdfd180ae2951879d3a54044c2a5` |
+| N / K | 20 / 5 |
+| Query | 固定 revision 首例 `agentic-scope-direct` 的自然语言 query |
+| 结果 | exit 0、`status="ok"`、`candidateIds` 20 项、`finalIds` 5 项；两份名单来自同一次检索和 snapshot，且只含 ID |
+
+同一次冒烟的环境与协议控制：
+
+- 未设置该环境变量时回退默认 cache，并从默认 cache 中的同一 artifact 成功返回，证明回退路径可用。
+- 指向空 cache root 时返回 `index_unavailable`（exit 1），不读取 Store-local index，也不返回任何部分名单。
+- 指向非绝对路径时返回 `runtime_unavailable`（exit 1），不静默回退。
+- stdin 附带 `cacheRoot` 等额外字段时返回 `invalid_request`（exit 1），五字段契约保持不变。
+
+本节记录的是单次冒烟证据；全量案例、scorer 与 baseline 冻结仍由 benchmark 仓库执行（见下方 §4、§7、§8）。冒烟命令与固定 SHA 见交付说明；发布 SHA 另以干净 checkout 重跑同一命令核对。
+
 ## 2. N 与 K 的边界验证
 
 - Engine 在最终排序前收集至多 N 个通过必要有效性及 snapshot 检查的候选；正常最终排序最多返回 K 个 Practice summary。

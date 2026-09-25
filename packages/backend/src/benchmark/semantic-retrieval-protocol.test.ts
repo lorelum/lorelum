@@ -38,6 +38,8 @@ test("rejects malformed input, labels and invalid N/K without leaking fields", (
   for (const value of [
     "not json",
     input({ ...validInput, goldLabels: { core: ["secret"] } }),
+    // The derived cache is benchmark-only process configuration, never a request field.
+    input({ ...validInput, cacheRoot: validInput.storeRoot }),
     input({ ...validInput, candidateWidth: 4, resultLimit: 5 }),
     input({ ...validInput, storeRoot: "relative-store" }),
   ]) {

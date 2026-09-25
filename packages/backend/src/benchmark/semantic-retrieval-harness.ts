@@ -4,7 +4,10 @@ import { createEmbeddingService } from "../modules/embedding/service";
 import { createQueryEmbeddingAdapter } from "../modules/index/embedding-adapter";
 import { prepareModel } from "../models/prepare";
 import { createEmbeddingProcess } from "../runtime/embedding-process";
-import { createSemanticCandidateTraceService } from "../../../engine/src/query/semantic/query-service";
+import {
+  createBenchmarkSemanticTraceService,
+  resolveBenchmarkCacheRoot,
+} from "./semantic-index-routing";
 import {
   executeSemanticRetrievalHarnessRequest,
   parseSemanticRetrievalHarnessRequest,
@@ -40,6 +43,9 @@ async function run(): Promise<void> {
     if (parsed.status === "invalid") {
       response = parsed.response;
     } else {
+      // Resolve the derived cache before touching the model: a misconfigured
+      // harness environment must not pay for model preparation first.
+      const cacheRoot = resolveBenchmarkCacheRoot();
       const config = await loadBackendConfig();
       const resolvedEmbedding = resolveEmbeddingConfig(config.embedding);
       const benchmarkEmbedding = Object.freeze({
@@ -62,9 +68,9 @@ async function run(): Promise<void> {
         response = { status: "error", errorCode: "profile_mismatch" };
       } else {
         await embedding.load();
-        const store = createLocalStore();
-        const query = createSemanticCandidateTraceService({
-          store,
+        const query = createBenchmarkSemanticTraceService({
+          store: createLocalStore(),
+          cacheRoot,
           profile,
           embedding: createQueryEmbeddingAdapter(embedding),
         });

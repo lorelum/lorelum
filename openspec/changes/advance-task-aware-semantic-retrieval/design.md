@@ -61,6 +61,8 @@ failure response:
 
 成功响应只包含结构化状态、`candidateIds` 和有序 `finalIds`。不增加 response protocol version 字段；harness protocol version 由固定 checkout 对应的内部协议定义/runner provenance 固定。输出不包含 query、Practice 正文、相似度或内部 score。
 
+harness 的 derived semantic artifact 位置来自 benchmark 进程环境变量 `LORELUM_BENCHMARK_CACHE_ROOT`（未设置时回退 `defaultQueryArtifactCacheRoot()`），即与 Store-only `lore index build --cache-root` 相同的 content-addressed artifact；请求里的 Store root 只选择 canonical 语料。该变量只存在于固定 checkout 的被测进程环境，不进入五字段 stdin，也不是 CLI、公开 package export 或产品 API 的一部分。artifact 缺失、不兼容或不属于该 Store/Profile 时只返回结构化失败，绝不回退 Store-local `indexes/semantic/...`，也不自动构建、修复或迁移索引。
+
 ### 3. 候选 trace 必须属于同一次 Engine retrieval
 
 候选观察点位于候选完成必要 canonical 有效性和 snapshot 检查、即将交给最终排序之时；`candidateIds` 只记录实际进入排序的 distinct Practice IDs。`finalIds` 是同一次检索中正常排序后的前 K 个 ID，必须 distinct，且属于 `candidateIds`。N/K 语义、观测点和失败/成功结构由本仓库计划明确；Engine 自行选择最小内部接线方式，不扩展公开 exports 或产品 API。
