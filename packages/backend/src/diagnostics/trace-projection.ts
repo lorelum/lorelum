@@ -1,5 +1,12 @@
-import { defaultLogDirectory } from "@lorelum/config";
-import { collectTraceLogs, type LogContext, type LogRecord, type TraceId } from "@lorelum/log";
+import { defaultDiagnosticsFallbackDirectory, defaultLogDirectory } from "@lorelum/config";
+import {
+  collectTraceLogs,
+  deriveTraceEvidenceState,
+  type LogContext,
+  type LogRecord,
+  type TraceEvidenceState,
+  type TraceId,
+} from "@lorelum/log";
 
 export interface TraceDiagnosticFact {
   readonly event: string;
@@ -27,6 +34,8 @@ export interface TraceDiagnosticProjection {
   readonly traceId: TraceId;
   readonly facts: readonly TraceDiagnosticFact[];
   readonly missingEvidence: readonly string[];
+  /** The one trace-bound evidence state shared with `lore logs` and feedback. */
+  readonly evidence: TraceEvidenceState;
 }
 
 export interface ReadTraceDiagnosticFactsOptions {
@@ -34,6 +43,7 @@ export interface ReadTraceDiagnosticFactsOptions {
   readonly logDirectory?: string;
   /** @deprecated Test compatibility alias for the managed log root. */
   readonly runtimeDirectory?: string;
+  readonly fallbackLogDirectory?: string;
 }
 
 function text(context: LogContext | undefined, key: string): string | undefined {
@@ -88,11 +98,20 @@ export async function readTraceDiagnosticFacts(
   traceId: TraceId,
   options: ReadTraceDiagnosticFactsOptions = {},
 ): Promise<TraceDiagnosticProjection> {
+  const rootDirectory = options.logDirectory ?? options.runtimeDirectory ?? defaultLogDirectory();
+  // Explicit test overrides stay isolated from the real home fallback.
+  const fallbackRootDirectory =
+    options.fallbackLogDirectory ??
+    (options.logDirectory === undefined && options.runtimeDirectory === undefined
+      ? defaultDiagnosticsFallbackDirectory()
+      : undefined);
   const collection = await collectTraceLogs({
-    rootDirectory: options.logDirectory ?? options.runtimeDirectory ?? defaultLogDirectory(),
+    rootDirectory,
+    ...(fallbackRootDirectory === undefined ? {} : { fallbackRootDirectory }),
     traceId,
     limit: 1_000,
   });
+  const evidence = deriveTraceEvidenceState(collection);
   const direct = collection.directRecords.filter(
     (record) =>
       record.level === "error" ||
@@ -108,9 +127,10 @@ export async function readTraceDiagnosticFacts(
   return {
     traceId,
     facts,
-    missingEvidence:
-      facts.length === 0
-        ? [...new Set([...collection.missing, "trace-diagnostics-not-found"])]
-        : collection.missing,
+    // The evidence state is the single source: an empty fact list without a
+    // persisted "not persisted" outcome stays "no matching records", never an
+    // invented write-failure explanation.
+    missingEvidence: facts.length === 0 ? evidence.missingEvidence : collection.missing,
+    evidence,
   };
 }

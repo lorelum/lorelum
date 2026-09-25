@@ -26,3 +26,12 @@ export function defaultFeedbackDirectory(homeDirectory = homedir()): string {
 export function defaultLogDirectory(homeDirectory = homedir()): string {
   return join(resolveLorelumPaths(homeDirectory).rootDirectory, "logs");
 }
+
+/**
+ * Designed private fallback for diagnostics when the managed log root cannot
+ * be used safely. A sibling of the Lorelum root so a broken `~/.lorelum`
+ * cannot also break the fallback, and never a shared temporary directory.
+ */
+export function defaultDiagnosticsFallbackDirectory(homeDirectory = homedir()): string {
+  return join(homeDirectory, ".lorelum-diagnostics");
+}

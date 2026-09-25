@@ -66,6 +66,14 @@ lore query "authentication token session" --mode keyword
 
 Keyword search matches terms rather than meaning. Continue with the default natural-language query after resolving the semantic retrieval problem.
 
+## Diagnostic logs were not saved
+
+Lorelum heals its own log locations: a user-owned `~/.lorelum` whose permissions are simply too wide is tightened silently before writing, and a location that cannot be healed (a symlink, another user's directory) diverts that invocation's logs to the private fallback below `~/.lorelum-diagnostics/`. You should never need to run `chmod` or re-run an initialization command for logs.
+
+When either happens, the invocation says so through `diagnostics.logPersistence` in `--json` (and the same facts in text), including the attempted and used paths, the failure category, and the permission modes before and after a repair. Host hooks print a one-line notice on stderr; their stdout envelope does not change.
+
+If both locations are unavailable, the command still completes with its normal result and exit code, but that invocation's logs are not persisted. A later `lore logs --trace-id <traceId>` then reports honestly that no persisted evidence was found for the trace; it does not guess the original cause. `lore backend status` reports the same degradation for the local Backend through its `diagnostics` field while the service itself keeps running.
+
 ## Report a problem
 
 First create a local, reviewable draft from the selected trace if it helps explain the problem:

@@ -39,7 +39,13 @@ function isBackendStateInvalid(error: unknown): boolean {
   return error instanceof BackendError && error.code === "backend.state-invalid";
 }
 
-function numericSuffix(name: string, stem: string): number | undefined {
+/**
+ * The managed-file name grammar this sink family owns: a bare `stem` is the
+ * current file and `stem.N` (numeric N ≥ 0, no leading `-`) is a rotation.
+ * Everything else is foreign. Shared with the daemon's self-heal so a naming
+ * change can never make preflight and healing disagree (the F1 class of gap).
+ */
+export function managedRotationSuffix(name: string, stem: string): number | undefined {
   const prefix = `${stem}.`;
   if (!name.startsWith(prefix)) return undefined;
   const suffix = name.slice(prefix.length);
@@ -151,7 +157,7 @@ export class PrivateJsonlSink implements LogSink {
     const managed = new Map<number, string>();
     for (const entry of entries) {
       if (entry === stem) continue;
-      const suffix = numericSuffix(entry, stem);
+      const suffix = managedRotationSuffix(entry, stem);
       if (suffix !== undefined) managed.set(suffix, join(this.directory, entry));
     }
 

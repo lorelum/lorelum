@@ -41,6 +41,12 @@ test("trace-rooted draft writes local artifacts while stdout contains only the e
           },
         ],
         missingEvidence: [],
+        evidence: {
+          traceId,
+          status: "available",
+          roots: ["primary"],
+          missingEvidence: [],
+        },
       }),
       readTraceLogs: async (requestedTraceId, level) => {
         expect(requestedTraceId).toBe(traceId);
@@ -64,6 +70,13 @@ test("trace-rooted draft writes local artifacts while stdout contains only the e
               error: new Error("trace stack stays local"),
             }),
           ],
+          recordLocations: ["primary", "primary"],
+          evidence: {
+            traceId,
+            status: "available",
+            roots: ["primary"],
+            missingEvidence: [],
+          },
           missingEvidence: [],
         };
       },
@@ -117,7 +130,17 @@ test("debug trace logs are added after an explicit request", async () => {
       defaultOutputDirectory: () => parent,
       readInput: async () => "",
       publish: publishFeedbackArtifact,
-      readTraceDiagnostics: async () => ({ traceId, facts: [], missingEvidence: [] }),
+      readTraceDiagnostics: async () => ({
+        traceId,
+        facts: [],
+        missingEvidence: [],
+        evidence: {
+          traceId,
+          status: "no-matching-records",
+          roots: [],
+          missingEvidence: ["no-matching-records"],
+        },
+      }),
       readTraceLogs: async () => ({
         traceId,
         level: "debug",
@@ -130,7 +153,14 @@ test("debug trace logs are added after an explicit request", async () => {
             query: "selected detailed query",
           }),
         ],
+        recordLocations: ["primary"],
         missingEvidence: [],
+        evidence: {
+          traceId,
+          status: "available",
+          roots: ["primary"],
+          missingEvidence: [],
+        },
       }),
     });
     const stdout = new MemoryWriter();
@@ -172,7 +202,17 @@ test("explicit info keeps the default trace evidence selection", async () => {
       defaultOutputDirectory: () => parent,
       readInput: async () => "",
       publish: publishFeedbackArtifact,
-      readTraceDiagnostics: async () => ({ traceId, facts: [], missingEvidence: [] }),
+      readTraceDiagnostics: async () => ({
+        traceId,
+        facts: [],
+        missingEvidence: [],
+        evidence: {
+          traceId,
+          status: "no-matching-records",
+          roots: [],
+          missingEvidence: ["no-matching-records"],
+        },
+      }),
       readTraceLogs: async (_traceId, level) => {
         requestedLevels.push(level);
         return {
@@ -187,6 +227,13 @@ test("explicit info keeps the default trace evidence selection", async () => {
               query: "same default evidence",
             }),
           ],
+          recordLocations: ["primary"],
+          evidence: {
+            traceId,
+            status: "available",
+            roots: ["primary"],
+            missingEvidence: [],
+          },
           missingEvidence: [],
         };
       },
@@ -225,6 +272,12 @@ test("invalid feedback arguments publish no local artifact", async () => {
       traceId: "00000000-0000-4000-8000-000000000023" as never,
       facts: [],
       missingEvidence: [],
+      evidence: {
+        traceId: "00000000-0000-4000-8000-000000000023" as never,
+        status: "no-matching-records",
+        roots: [],
+        missingEvidence: ["no-matching-records"],
+      },
     }),
     publish: async () => {
       published++;

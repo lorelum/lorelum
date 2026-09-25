@@ -24,7 +24,7 @@ test("renders JSON success as the complete existing protocol envelope", () => {
 
   const response = JSON.parse(writer.value);
   expect(response).toEqual({
-    protocolVersion: 2,
+    protocolVersion: 3,
     toolVersion,
     command: "fixture.success",
     diagnostics: { traceId: "00000000-0000-4000-8000-000000000001" },

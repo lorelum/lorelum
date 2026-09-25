@@ -34,11 +34,32 @@ export {
   type LogEmitter,
   type LogSink,
 } from "./sink.js";
-export { JsonlFileSink } from "./sinks/jsonl.js";
+export { JsonlFileSink, type JsonlFileSinkOutcome } from "./sinks/jsonl.js";
+export {
+  evaluateManagedTarget,
+  hasCode,
+  inspectAndTightenDirectory,
+  inspectAndTightenExistingFile,
+  inspectAndTightenHandle,
+  ManagedLogLocationError,
+  walkManagedLocation,
+  type EvaluateManagedTargetOptions,
+  type InspectResult,
+  type ManagedLogLocationFailure,
+  type ManagedRepairFact,
+  type ManagedTargetFacts,
+  type ManagedTargetKind,
+  type ManagedTargetVerdict,
+  type UnsafeTargetReason,
+  type WalkManagedLocationOptions,
+} from "./sinks/safety.js";
 export {
   pruneManagedLogs,
   readManagedLogs,
+  type LocatedLogRecord,
   type ManagedLogReadResult,
+  type ManagedLogRoot,
+  type ManagedRootAvailability,
   type PruneManagedLogsOptions,
   type PruneManagedLogsResult,
   type ReadManagedLogsOptions,
@@ -48,3 +69,14 @@ export {
   type CollectTraceLogsOptions,
   type TraceLogCollection,
 } from "./trace.js";
+export {
+  deriveTraceEvidenceState,
+  persistenceRecordInput,
+  PERSISTENCE_MESSAGE,
+  type PersistenceFailureFact,
+  type PersistenceOutcomeFact,
+  type PersistenceRepairFact,
+  type TraceEvidenceInput,
+  type TraceEvidenceState,
+  type TraceEvidenceStatus,
+} from "./evidence.js";

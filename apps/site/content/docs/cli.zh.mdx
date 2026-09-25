@@ -68,7 +68,7 @@ lore logs --source hook.codex --level debug
 lore logs prune
 ```
 
-日志保存在 `~/.lorelum/logs/`。`lore logs` 不会启动 Backend/model；缺失、轮转或损坏文件会作为证据限制返回，不会用其他调用内容填充。完整的 trace、debug 重现和 feedback 路径见[故障排查](./troubleshooting)。
+日志保存在 `~/.lorelum/logs/`。当该位置无法安全使用且无法自愈（例如归其他用户所有）时，本次调用改写至预定的备用位置 `~/.lorelum-diagnostics/`，envelope 通过 `diagnostics.logPersistence` 报告该转移。`lore logs` 同时读取两个位置，并在 `locations` 中标注每条记录的来源；使用 `--trace-id` 时，结果还携带 `evidence`，区分"已读取但没有匹配记录""证据当时未持久化""文件不可读"和"读取被截断"。`lore logs` 不会启动 Backend/model；缺失、轮转或损坏文件会作为证据限制返回，不会用其他调用内容填充。完整的 trace、debug 重现和 feedback 路径见[故障排查](./troubleshooting)。
 
 ## JSON 响应结构
 
@@ -82,6 +82,7 @@ lore logs prune
 | `toolVersion`         | 已安装 CLI 的版本。                                        |
 | `command`             | 生成结果的命令标识。                                       |
 | `diagnostics.traceId` | 本次调用的本机关联 ID；它不是鉴权凭证，也不是公开分享 ID。 |
+| `diagnostics.logPersistence` | 仅在本次调用的本机诊断偏离安静路径时出现：日志位置权限被自动收紧、转移到备用位置，或日志未能持久化。包含尝试与实际使用的路径、失败类别，以及权限修复前后的 mode。 |
 | `ok`                  | 本次调用是否产生成功的命令结果。                           |
 | `data`                | 成功时的命令结果。                                         |
 | `error.code`          | 失败时的稳定错误标识。                                     |

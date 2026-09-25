@@ -1,7 +1,17 @@
 /* eslint-disable no-await-in-loop -- Wait for the exact test child to exit before testing recovery. */
 import { expect, test } from "bun:test";
 import { spawn } from "node:child_process";
-import { mkdtemp, realpath, rm, stat, readFile, mkdir, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  realpath,
+  rm,
+  stat,
+  readFile,
+  mkdir,
+  writeFile,
+  lstat,
+  link,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -346,14 +356,15 @@ test(
 );
 
 test.concurrent(
-  "failure after bind cannot be reported as a ready service",
+  "a repairable widened sink file self-heals and no longer blocks readiness",
   async () =>
     fixture(async (directory, port, command) => {
       await mkdir(directory, { mode: 0o700 });
       await mkdir(join(directory, "logs", "backend"), { recursive: true, mode: 0o700 });
       if (process.platform === "win32") {
-        // No mode bits to violate on Windows; a directory at the sink target is unusable.
-        await mkdir(join(directory, "logs", "backend", "current.jsonl"));
+        // No mode bits on Windows; keep the primary usable so readiness is the
+        // observable outcome, and let the fallback cover the unusable case below.
+        await writeFile(join(directory, "logs", "backend", "current.jsonl"), "", { mode: 0o600 });
       } else {
         await writeFile(
           join(directory, "logs", "backend", "current.jsonl"),
@@ -365,11 +376,58 @@ test.concurrent(
         buildIdentity: "integration-build",
         command,
         runtimeDirectory: directory,
+        fallbackLogDirectory: join(directory, "fallback-diagnostics"),
         baseUrl: `http://127.0.0.1:${port}`,
       });
-      await expect(controller.start()).rejects.toBeInstanceOf(Error);
-      expect(await readRecord(directory)).toBeUndefined();
-      expect((await controller.status()).state).toBe("stopped");
+      const status = await controller.start();
+      expect(status.state).toBe("ready");
+      expect(status.diagnostics?.persistence).toBe("enabled");
+      if (process.platform !== "win32") {
+        const sink = join(directory, "logs", "backend", "current.jsonl");
+        expect((await lstat(sink)).mode & 0o077).toBe(0);
+      }
+      await controller.stop();
+    }),
+  20_000,
+);
+
+test.concurrent(
+  "an unrepairable sink degrades to the designed fallback without blocking readiness",
+  async () =>
+    fixture(async (directory, port, command) => {
+      await mkdir(directory, { mode: 0o700 });
+      await mkdir(join(directory, "logs", "backend"), { recursive: true, mode: 0o700 });
+      const sink = join(directory, "logs", "backend", "current.jsonl");
+      const twin = join(directory, "twin.jsonl");
+      if (process.platform === "win32") {
+        // No mode bits or hard links to violate on Windows; a directory at the
+        // sink target is unusable and not repairable.
+        await mkdir(sink);
+      } else {
+        // A multi-linked 0644 file is neither private nor safely repairable.
+        await writeFile(twin, "preserve me", { mode: 0o644 });
+        await link(twin, sink);
+      }
+      const controller = createBackendSupervisor({
+        buildIdentity: "integration-build",
+        command,
+        runtimeDirectory: directory,
+        fallbackLogDirectory: join(directory, "fallback-diagnostics"),
+        baseUrl: `http://127.0.0.1:${port}`,
+      });
+      const status = await controller.start();
+      expect(status.state).toBe("ready");
+      expect(status.diagnostics?.persistence).toBe("enabled");
+      expect(status.diagnostics?.fallbackUsed).toBe(true);
+      expect(status.diagnostics?.failureCategory).toBe("backend.state-invalid");
+      expect(status.diagnostics?.usedDirectory).toBe(
+        join(directory, "fallback-diagnostics", "backend"),
+      );
+      if (process.platform !== "win32") {
+        expect((await lstat(sink)).mode & 0o777).toBe(0o644);
+        expect(await readFile(twin, "utf8")).toBe("preserve me");
+      }
+      await controller.stop();
     }),
   20_000,
 );

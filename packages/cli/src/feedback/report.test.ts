@@ -96,6 +96,12 @@ test("keeps trace facts but does not fabricate missing local evidence", () => {
       },
     ],
     missingEvidence: ["diagnostic-log-rotated"],
+    evidence: {
+      traceId,
+      status: "available",
+      roots: ["primary"],
+      missingEvidence: ["diagnostic-log-rotated"],
+    },
   });
   expect(report.evidence).toContainEqual(
     expect.objectContaining({ type: "diagnostic-facts", traceId }),
@@ -124,6 +130,12 @@ test("keeps real trace identities in the local Markdown view", () => {
       },
     ],
     missingEvidence: [],
+    evidence: {
+      traceId,
+      status: "available",
+      roots: ["primary"],
+      missingEvidence: [],
+    },
   });
   const markdown = renderReportMarkdown(report);
   expect(JSON.stringify(report)).toContain(nativeRunId);

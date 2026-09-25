@@ -22,7 +22,7 @@ import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "
 import { resolveOutputFormat } from "./output/format-selection.js";
 import { renderHelpText } from "./output/presentation.js";
 import { renderResult, type OutputFormat } from "./output/render.js";
-import type { OutputWriter } from "./output/protocol.js";
+import type { OutputWriter, ProtocolDiagnostics } from "./output/protocol.js";
 import {
   commandRegistry,
   describeCommand,
@@ -32,8 +32,13 @@ import {
   type KnownCommand,
 } from "./registry.js";
 import { toVisibleCliError } from "./runtime/errors.js";
-import { createProcessLogRuntime } from "./log/runtime.js";
-import { createTraceId, noopEmitter, type TraceId } from "@lorelum/log";
+import { createProcessLogRuntime, type ProcessLogRuntime } from "./log/runtime.js";
+import {
+  createTraceId,
+  noopEmitter,
+  type PersistenceOutcomeFact,
+  type TraceId,
+} from "@lorelum/log";
 
 export interface RunOptions {
   /** Complete registry replacement; omit to use the immutable built-in `commandRegistry`. */
@@ -56,6 +61,8 @@ export interface RunOptions {
   traceId?: TraceId;
   /** Source-test override for a private, disposable managed log root. */
   logDirectory?: string;
+  /** Source-test override for a private, disposable diagnostics fallback root. */
+  fallbackLogDirectory?: string;
 }
 
 /** Executes one argv invocation and owns its single protocol response and exit code. */
@@ -70,6 +77,9 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "codex",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.fallbackLogDirectory === undefined
+        ? {}
+        : { fallbackRootDirectory: options.fallbackLogDirectory }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -84,6 +94,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       log: runtime.log,
     });
     await runtime.flush();
+    emitPersistenceNotice(runtime, stderr);
     return exitCode;
   }
   const zcodeHook = parseZcodeHookInvocation(arguments_);
@@ -93,6 +104,9 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "zcode",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.fallbackLogDirectory === undefined
+        ? {}
+        : { fallbackRootDirectory: options.fallbackLogDirectory }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -107,6 +121,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       log: runtime.log,
     });
     await runtime.flush();
+    emitPersistenceNotice(runtime, stderr);
     return exitCode;
   }
   const cursorHook = parseCursorHookInvocation(arguments_);
@@ -116,6 +131,9 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "cursor",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.fallbackLogDirectory === undefined
+        ? {}
+        : { fallbackRootDirectory: options.fallbackLogDirectory }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -130,6 +148,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       log: runtime.log,
     });
     await runtime.flush();
+    emitPersistenceNotice(runtime, stderr);
     return exitCode;
   }
   const workbuddyHook = parseWorkbuddyHookInvocation(arguments_);
@@ -139,6 +158,9 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "workbuddy",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.fallbackLogDirectory === undefined
+        ? {}
+        : { fallbackRootDirectory: options.fallbackLogDirectory }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -155,6 +177,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       log: runtime.log,
     });
     await runtime.flush();
+    emitPersistenceNotice(runtime, stderr);
     return exitCode;
   }
   const invocationId = crypto.randomUUID();
@@ -169,6 +192,9 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       ? await createProcessLogRuntime(stderr, traceId, {
           debug: arguments_.includes("--debug"),
           ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+          ...(options.fallbackLogDirectory === undefined
+            ? {}
+            : { fallbackRootDirectory: options.fallbackLogDirectory }),
           persist:
             (options.stdout === undefined && options.stderr === undefined) ||
             options.logDirectory !== undefined,
@@ -208,7 +234,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
         command: "describe",
         data,
         textRenderer: renderHelpText,
-        diagnostics: { traceId },
+        diagnostics: diagnosticsWithPersistence(traceId, processRuntime?.initialPersistence),
       });
       diagnostics.emit({
         time: new Date().toISOString(),
@@ -228,6 +254,9 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
         exitCode: 0,
       });
       await processRuntime?.flush();
+      if (processRuntime?.persistenceOutcome() !== undefined) {
+        emitPersistenceNotice(processRuntime, stderr);
+      }
       return 0;
     }
     const program = createProgram(
@@ -265,6 +294,11 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       exitCode: commandExitCode,
     });
     await processRuntime?.flush();
+    // Success envelopes render before flush, so a mid-run deviation (and the
+    // text mode, which never renders diagnostics on success) is reported here.
+    if (processRuntime?.persistenceOutcome() !== undefined) {
+      emitPersistenceNotice(processRuntime, stderr);
+    }
     return commandExitCode;
   } catch (error) {
     const cliError = toVisibleCliError(error, visibleErrorCodes);
@@ -298,10 +332,46 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       code: cliError.code,
       message: cliError.message,
       ...(cliError.recovery === undefined ? {} : { recovery: cliError.recovery }),
-      diagnostics: { traceId },
+      diagnostics: diagnosticsWithPersistence(
+        traceId,
+        processRuntime?.persistenceOutcome() ?? processRuntime?.initialPersistence,
+      ),
     });
     return cliError.exitCode;
   }
+}
+
+function diagnosticsWithPersistence(
+  traceId: TraceId,
+  persistence: PersistenceOutcomeFact | undefined,
+): ProtocolDiagnostics {
+  return {
+    traceId,
+    ...(persistence === undefined ? {} : { logPersistence: persistence }),
+  };
+}
+
+/** Host Hook stdout is a locked ABI; a deviation notice may only reach stderr. */
+function emitPersistenceNotice(
+  runtime: ProcessLogRuntime,
+  stderr: { write(message: string): void },
+): void {
+  const outcome = runtime.persistenceOutcome();
+  if (outcome === undefined) return;
+  const repairs = outcome.repairs?.length ?? 0;
+  const failure = outcome.failure;
+  const failureCause =
+    failure === undefined
+      ? "unavailable location"
+      : failure.kind === "location-unavailable"
+        ? failure.reason
+        : failure.kind;
+  const detail = outcome.persisted
+    ? outcome.fallbackUsed
+      ? `diverted to the diagnostics fallback (${outcome.usedPath})`
+      : `log location self-healed (${repairs} permission repair${repairs === 1 ? "" : "s"})`
+    : `not persisted this invocation (${failureCause})`;
+  stderr.write(`lore diagnostics: ${detail}.\n`);
 }
 
 const standardInput: TextInput = {

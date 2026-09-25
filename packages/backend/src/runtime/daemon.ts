@@ -3,9 +3,8 @@ import { createEmbeddingService } from "../modules/embedding/service";
 import { createEmbeddingProcess } from "./embedding-process";
 import { consumeDaemonLaunch, resolveBackendSettings, resolveEmbeddingConfig } from "../config";
 import { createEmbeddingProfile, createLocalStore, createQueryService } from "@lorelum/engine";
-import { defaultLogDirectory, loadLoggingSettings } from "@lorelum/config";
-import { SinkLogEmitter, TraceDetailLogEmitter } from "@lorelum/log";
-import { join } from "node:path";
+import { loadLoggingSettings } from "@lorelum/config";
+import { FanoutLogSink, SinkLogEmitter, TraceDetailLogEmitter } from "@lorelum/log";
 import { BACKEND_HOST, MAX_BODY_BYTES } from "../protocol/constants";
 import { BackendError } from "../protocol/errors";
 import { createBackendApp } from "../app";
@@ -19,10 +18,17 @@ import { SemanticOperationJournal } from "../modules/query/project-operation-jou
 import { isSameProcess } from "./process-identity";
 import { removeActivityRecord, setRuntimeActivity, withActivityLock } from "./activity-state";
 import { readRecord, removeRecord, writeRecord } from "./runtime-state";
-import { createPrivateJsonlSink, type PrivateJsonlSink } from "./private-jsonl-sink";
+import { selectDaemonDiagnosticSink } from "./daemon-diagnostic-sink";
+import type { PrivateJsonlSink } from "./private-jsonl-sink";
 
 export async function runBackendDaemon(options: { readonly buildIdentity: string }): Promise<void> {
-  const { runtimeDirectory: directory, instanceId, port, logDirectory } = consumeDaemonLaunch();
+  const {
+    runtimeDirectory: directory,
+    instanceId,
+    port,
+    logDirectory,
+    fallbackLogDirectory,
+  } = consumeDaemonLaunch();
   // Bounded stdin launch grant ensures a dead starter cannot leave an unpublished daemon.
   const grant = await readGrant();
   const record = await readRecord(directory);
@@ -36,17 +42,17 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
   )
     throw new BackendError("backend.unauthorized");
   const settings = resolveBackendSettings(record.settings);
-  // This is a startup security boundary. An unsafe target remains a backend
-  // state failure; only I/O after a successful preflight degrades to a
-  // disabled diagnostic sink.
+  // An unavailable diagnostics location degrades this daemon's own logging;
+  // it never blocks startup. Runtime state keeps its strict boundary above.
   const loggingLevel = await loadLoggingSettings()
     .then((logging) => logging.level)
     .catch(() => "info" as const);
-  const diagnosticSink = await createPrivateJsonlSink({
-    directory: join(logDirectory ?? defaultLogDirectory(), "backend"),
-    fileName: "current.jsonl",
-  });
-  const diagnostics = new TraceDetailLogEmitter(loggingLevel, new SinkLogEmitter(diagnosticSink));
+  const diagnosticsSelection = await selectDaemonDiagnosticSink(logDirectory, fallbackLogDirectory);
+  const diagnosticSink = diagnosticsSelection.sink;
+  const diagnostics = new TraceDetailLogEmitter(
+    loggingLevel,
+    new SinkLogEmitter(diagnosticSink ?? new FanoutLogSink([])),
+  );
   const updateActivity = async (
     kind: "daemon-startup" | "model-preparation" | "index-operation",
     active: boolean,
@@ -89,6 +95,16 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     secret: record.secret,
     isReady: () => ready,
     modelState: () => embedding.status().state,
+    diagnostics: () => ({
+      persistence: diagnosticsSelection.degraded ? ("degraded" as const) : ("enabled" as const),
+      ...(diagnosticsSelection.usedDirectory === undefined
+        ? {}
+        : { usedDirectory: diagnosticsSelection.usedDirectory }),
+      fallbackUsed: diagnosticsSelection.fallbackUsed,
+      ...(diagnosticsSelection.failureCategory === undefined
+        ? {}
+        : { failureCategory: diagnosticsSelection.failureCategory }),
+    }),
     onStop: shutdown,
     onStopFailure: () => {
       process.exitCode = 1;
@@ -191,7 +207,11 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
 }
 
 /** A log flush is valuable, but never allowed to consume the shutdown deadline. */
-async function flushDiagnostics(sink: PrivateJsonlSink, deadline: number): Promise<void> {
+async function flushDiagnostics(
+  sink: PrivateJsonlSink | undefined,
+  deadline: number,
+): Promise<void> {
+  if (sink === undefined) return;
   const remaining = Math.max(1, deadline - Date.now());
   await Promise.race([sink.close(), Bun.sleep(remaining)]).catch(() => undefined);
 }

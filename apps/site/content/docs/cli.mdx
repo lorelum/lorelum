@@ -68,7 +68,7 @@ lore logs --source hook.codex --level debug
 lore logs prune
 ```
 
-Logs stay below `~/.lorelum/logs/`. `lore logs` does not start a Backend or model. Missing, rotated, or damaged files are reported as evidence limits instead of being silently replaced with unrelated records. Follow [Troubleshooting](./troubleshooting) for the complete trace, debug reproduction, and feedback path.
+Logs stay below `~/.lorelum/logs/`. If that location cannot be used safely and cannot be self-healed (for example it is owned by another user), the invocation writes to the designed fallback below `~/.lorelum-diagnostics/` instead, and the envelope reports the diversion through `diagnostics.logPersistence`. `lore logs` reads both locations and labels each record's origin in `locations`. With `--trace-id`, the result also carries `evidence`, which distinguishes a read that found no matching records from evidence that was never persisted, unreadable files, and truncated reads. `lore logs` does not start a Backend or model. Missing, rotated, or damaged files are reported as evidence limits instead of being silently replaced with unrelated records. Follow [Troubleshooting](./troubleshooting) for the complete trace, debug reproduction, and feedback path.
 
 ## JSON response envelope
 
@@ -82,6 +82,7 @@ Every `--json` CLI envelope includes `protocolVersion`, `toolVersion`, `command`
 | `toolVersion` | Version of the installed CLI. |
 | `command` | Identifier of the command that produced the result. |
 | `diagnostics.traceId` | Local correlation ID for this invocation. It is not an auth credential or public sharing ID. |
+| `diagnostics.logPersistence` | Present only when this invocation's local diagnostics deviated from the quiet path: a log-location permission repair, a diversion to the fallback location, or logs not being persisted. Includes the attempted and used paths, the failure category, and permission modes before and after any repair. |
 | `ok` | Whether the invocation produced a successful command result. |
 | `data` | Command-specific result on success. |
 | `error.code` | Stable error identifier on failure. |

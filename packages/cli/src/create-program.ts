@@ -2,7 +2,7 @@ import { Argument, Command, Option } from "commander";
 
 import { renderHelpText } from "./output/presentation.js";
 import { renderResult, type OutputFormat } from "./output/render.js";
-import type { OutputWriter } from "./output/protocol.js";
+import type { OutputWriter, ProtocolDiagnostics } from "./output/protocol.js";
 import {
   commandOptionAppliesTo,
   commandOptionKey,
@@ -24,6 +24,7 @@ import {
   createTraceId,
   type LogEmitter,
   type Logger as LocalLogger,
+  type PersistenceOutcomeFact,
   type TraceId,
 } from "@lorelum/log";
 
@@ -34,6 +35,8 @@ export interface CliRuntime {
   readonly log?: LocalLogger;
   readonly diagnostics?: LogEmitter;
   readonly logDirectory?: string;
+  /** Deviation facts known at initialization, reported in success envelopes. */
+  readonly initialPersistence?: PersistenceOutcomeFact;
 }
 
 /** Internal callbacks that let `run` own selected-command and process-exit state. */
@@ -53,6 +56,12 @@ export function createProgram(
 ): Command {
   const registry = snapshotCommandDefinitions(registryDefinitions);
   const describeFromRegistry: DescribeCommand = (command) => describeCommand(command, registry);
+  const protocolDiagnostics: ProtocolDiagnostics = {
+    traceId,
+    ...(runtime.initialPersistence === undefined
+      ? {}
+      : { logPersistence: runtime.initialPersistence }),
+  };
   const program = new Command();
 
   program
@@ -76,6 +85,7 @@ export function createProgram(
         discoveryCommandName,
         outputFormat,
         traceId,
+        protocolDiagnostics,
         runtime.diagnostics,
         runtime.log,
         runtime.logDirectory,
@@ -118,6 +128,7 @@ export function createProgram(
         definition.name,
         outputFormat,
         traceId,
+        protocolDiagnostics,
         runtime.diagnostics,
         runtime.log,
         runtime.logDirectory,
@@ -138,6 +149,7 @@ async function executeCommand(
   responseCommand: string,
   outputFormat: OutputFormat,
   traceId: TraceId,
+  protocolDiagnostics: ProtocolDiagnostics,
   diagnostics: LogEmitter | undefined,
   log: LocalLogger | undefined,
   logDirectory: string | undefined,
@@ -157,7 +169,7 @@ async function executeCommand(
       command: response.command,
       data: response.data,
       ...(response.textRenderer === undefined ? {} : { textRenderer: response.textRenderer }),
-      diagnostics: { traceId },
+      diagnostics: protocolDiagnostics,
     });
     return;
   }
@@ -167,7 +179,7 @@ async function executeCommand(
       command: discoveryCommandName,
       data: requireCommandDescription(describeFromRegistry, definition.name),
       textRenderer: renderHelpText,
-      diagnostics: { traceId },
+      diagnostics: protocolDiagnostics,
     });
     return;
   }
@@ -196,7 +208,7 @@ async function executeCommand(
     command: responseCommand,
     data: result.data,
     ...(definition.textRenderer === undefined ? {} : { textRenderer: definition.textRenderer }),
-    diagnostics: { traceId },
+    diagnostics: protocolDiagnostics,
   });
   if (exitCode === 1) lifecycle.setExitCode(1);
 }

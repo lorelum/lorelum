@@ -1,8 +1,12 @@
 import packageManifest from "../../package.json";
-import { createTraceId, type TraceId } from "@lorelum/log";
+import { createTraceId, type PersistenceOutcomeFact, type TraceId } from "@lorelum/log";
 
-/** Version of the process-envelope contract. */
-export const protocolVersion = 2;
+/**
+ * Version of the process-envelope contract. v3 adds the optional
+ * `diagnostics.logPersistence` deviation report (issue #224); the addition is
+ * not representable under the v2 schema's `additionalProperties: false`.
+ */
+export const protocolVersion = 3;
 /** Version of the CLI implementation emitting the envelope. */
 export const toolVersion = packageManifest.version;
 
@@ -40,6 +44,11 @@ interface EnvelopeBase {
 
 export interface ProtocolDiagnostics {
   readonly traceId: TraceId;
+  /**
+   * Present only when this invocation's diagnostics persistence deviated from
+   * the quiet normal path (repaired, diverted to the fallback, or failed).
+   */
+  readonly logPersistence?: PersistenceOutcomeFact;
 }
 
 export interface ProtocolSuccess<T extends JsonValue = JsonValue> extends EnvelopeBase {
@@ -63,6 +72,44 @@ export interface ErrorRecovery {
   readonly retry: "original-command";
 }
 
+const logPersistenceSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["persisted", "fallbackUsed", "attemptedPath", "usedPath"],
+  properties: {
+    persisted: { type: "boolean" },
+    fallbackUsed: { type: "boolean" },
+    attemptedPath: { type: "string" },
+    usedPath: { type: "string" },
+    fallbackAttemptPath: { type: "string" },
+    failure: {
+      type: "object",
+      additionalProperties: false,
+      required: ["kind", "path"],
+      properties: {
+        kind: { enum: ["location-unavailable", "location-error", "write-failed"] },
+        path: { type: "string" },
+        reason: { type: "string" },
+        error: { type: "string" },
+      },
+    },
+    repairs: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["path", "kind", "beforeMode", "afterMode"],
+        properties: {
+          path: { type: "string" },
+          kind: { type: "string" },
+          beforeMode: { type: "integer" },
+          afterMode: { type: "integer" },
+        },
+      },
+    },
+  },
+};
+
 /** Validates the outer response only; command `data` uses its registry result schema. */
 export const protocolResponseSchema = {
   oneOf: [
@@ -78,7 +125,10 @@ export const protocolResponseSchema = {
           type: "object",
           additionalProperties: false,
           required: ["traceId"],
-          properties: { traceId: { type: "string" } },
+          properties: {
+            traceId: { type: "string" },
+            logPersistence: logPersistenceSchema,
+          },
         },
         ok: { const: true },
         data: {},
@@ -96,7 +146,10 @@ export const protocolResponseSchema = {
           type: "object",
           additionalProperties: false,
           required: ["traceId"],
-          properties: { traceId: { type: "string" } },
+          properties: {
+            traceId: { type: "string" },
+            logPersistence: logPersistenceSchema,
+          },
         },
         ok: { const: false },
         error: {

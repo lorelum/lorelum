@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { join } from "node:path";
 import {
   releaseTypecheckConfig,
   resolveTypecheckWorkers,
@@ -11,7 +12,7 @@ test("uses the root native tsc binary for every configuration", () => {
   const command = typecheckCommand("packages/engine/tsconfig.json", "/repository");
 
   expect(command).toEqual([
-    "/repository/node_modules/.bin/tsc",
+    join("/repository", "node_modules", ".bin", "tsc"),
     "--noEmit",
     "-p",
     "packages/engine/tsconfig.json",

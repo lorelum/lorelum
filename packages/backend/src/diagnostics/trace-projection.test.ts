@@ -65,7 +65,10 @@ test("returns missing evidence without starting a runtime", async () => {
   const root = join(tmpdir(), `lorelum-missing-${crypto.randomUUID()}`);
   const projection = await readTraceDiagnosticFacts(traceId, { logDirectory: root });
   expect(projection.facts).toEqual([]);
-  expect(projection.missingEvidence).toEqual(["log-files-missing", "trace-diagnostics-not-found"]);
+  // The shared evidence state supplies the vocabulary: an empty readable
+  // store is "no matching records", never an invented write failure.
+  expect(projection.missingEvidence).toEqual(["log-files-missing", "no-matching-records"]);
+  expect(projection.evidence.status).toBe("no-matching-records");
 });
 
 test("follows shared lifecycle facts but never another trace's context", async () => {

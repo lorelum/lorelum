@@ -66,6 +66,14 @@ lore query "authentication token session" --mode keyword
 
 keyword 按词语匹配。解决 semantic 检索的问题后，再运行原来的自然语言 query。
 
+## 诊断日志未保存
+
+Lorelum 会自愈自己的日志位置：归当前用户所有、只是权限过宽的 `~/.lorelum` 会在写入前被静默收紧；无法安全修复的位置（符号链接、他人所有的目录）会让该次调用的日志改写到 `~/.lorelum-diagnostics/` 下的私有备用位置。你不应为此执行 `chmod` 或重跑任何初始化命令。
+
+发生上述情况时，本次调用会通过 `--json` 的 `diagnostics.logPersistence`（text 输出同样事实）说明：尝试与实际使用的路径、失败类别，以及权限修复前后的 mode。宿主 Hook 只在 stderr 给出一行提示，stdout envelope 不变。
+
+两个位置都不可用时，命令仍按原有结果和退出码完成，但该次调用的日志没有持久化。之后 `lore logs --trace-id <traceId>` 只会如实报告"未找到该 trace 的已持久化证据"，不会猜测当时的原因。本地 Backend 的同类降级由 `lore backend status` 的 `diagnostics` 字段报告，服务本身继续运行。
+
 ## 报告问题
 
 如果它有助于说明问题，先从选定 trace 生成一份本地、可审阅的草稿：

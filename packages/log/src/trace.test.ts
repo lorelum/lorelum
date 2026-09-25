@@ -53,3 +53,30 @@ test("collects exact-trace records and anonymous shared lifecycle relations only
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("collects a trace whose records were diverted to the fallback root", async () => {
+  const primary = await mkdtemp(join(tmpdir(), "lorelum-trace-primary-"));
+  const fallback = await mkdtemp(join(tmpdir(), "lorelum-trace-fallback-"));
+  const traceA = "00000000-0000-4000-8000-000000000041" as never;
+  try {
+    await mkdir(join(fallback, "cli"), { recursive: true });
+    const diverted = createLogRecord({
+      level: "info",
+      source: "cli.query",
+      message: "completed",
+      traceId: traceA,
+    });
+    await writeFile(join(fallback, "cli", "segment.jsonl"), `${JSON.stringify(diverted)}\n`);
+    const result = await collectTraceLogs({
+      rootDirectory: primary,
+      fallbackRootDirectory: fallback,
+      traceId: traceA,
+    });
+    expect(result.directRecords).toEqual([diverted]);
+    expect(result.directLocations).toEqual(["fallback"]);
+    expect(result.missing).toEqual([]);
+  } finally {
+    await rm(primary, { recursive: true, force: true });
+    await rm(fallback, { recursive: true, force: true });
+  }
+});

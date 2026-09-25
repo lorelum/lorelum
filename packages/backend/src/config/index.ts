@@ -4,6 +4,7 @@ export {
   defaultRuntimeDirectory,
   type LoadBackendConfigOptions,
 } from "./load";
+export { defaultDiagnosticsFallbackDirectory } from "@lorelum/config";
 export {
   DEFAULT_BACKEND_SETTINGS,
   backendSettingsSchema,

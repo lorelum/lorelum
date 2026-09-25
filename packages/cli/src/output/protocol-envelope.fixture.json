@@ -1,21 +1,58 @@
 [
   {
-    "protocolVersion": 2,
+    "protocolVersion": 3,
     "toolVersion": "0.1.0-alpha.4",
     "command": "fixture.success",
-    "diagnostics": { "traceId": "00000000-0000-4000-8000-000000000011" },
+    "diagnostics": {
+      "traceId": "00000000-0000-4000-8000-000000000011"
+    },
     "ok": true,
-    "data": { "value": "fixture" }
+    "data": {
+      "value": "fixture"
+    }
   },
   {
-    "protocolVersion": 2,
+    "protocolVersion": 3,
     "toolVersion": "0.1.0-alpha.4",
     "command": "fixture.failure",
-    "diagnostics": { "traceId": "00000000-0000-4000-8000-000000000012" },
+    "diagnostics": {
+      "traceId": "00000000-0000-4000-8000-000000000012"
+    },
     "ok": false,
     "error": {
       "code": "usage.invalid",
       "message": "The command invocation is invalid."
+    }
+  },
+  {
+    "protocolVersion": 3,
+    "toolVersion": "0.1.0-alpha.4",
+    "command": "fixture.persistence",
+    "diagnostics": {
+      "traceId": "00000000-0000-4000-8000-000000000019",
+      "logPersistence": {
+        "persisted": true,
+        "fallbackUsed": true,
+        "attemptedPath": "/home/example/.lorelum/logs/cli/2026-09-23/00000000-0000-4000-8000-000000000019.jsonl",
+        "usedPath": "/home/example/.lorelum-diagnostics/cli/2026-09-23/00000000-0000-4000-8000-000000000019.jsonl",
+        "failure": {
+          "kind": "location-unavailable",
+          "reason": "symlink",
+          "path": "/home/example/.lorelum/logs"
+        },
+        "repairs": [
+          {
+            "path": "/home/example/.lorelum",
+            "kind": "directory",
+            "beforeMode": 16877,
+            "afterMode": 16832
+          }
+        ]
+      }
+    },
+    "ok": true,
+    "data": {
+      "value": "fixture"
     }
   }
 ]

@@ -30,6 +30,16 @@ logger 会自动排除明确的 credential key 和 Bearer-like 值：Authorizati
 
 短命令与 Hook 使用各自的段文件，避免并发 append 混写；Backend 是长驻进程，使用轮转文件。自动创建的文件应为当前用户私有。普通写入、rotation、flush 或 cleanup I/O 故障只禁用对应 sink，不能改变已经完成的 query/index/model/Hook 结果；不安全的目标路径仍必须失败，不能写到未知位置。
 
+### 位置自愈、备用根与降级
+
+受管日志位置在写入前会做安全判定（`packages/log/src/sinks/safety.ts` 的 `evaluateManagedTarget`）：归当前用户所有、非符号链接、类型正确（文件另须 `nlink === 1`）且仅 group/other 位过宽的目标，会以掩码方式收紧（只清 group/other、保留所有者位，结果不可能增加任何权限），校验与收紧绑定同一打开的描述符。掩码后所有者权限不足（如 `0505` 目录）、符号链接、异主或多硬链接的目标不会被改动，也不会被写入。
+
+主位置不可安全修复时，该次调用整体转到固定备用根 `~/.lorelum-diagnostics/`（内部结构与安全规则同主位置）；位置只在持久化初始化时选择，运行期写入失败维持既有"禁用 sink"语义，不中途换根。两个位置都不可用时，业务结果、错误码与退出码不变，当次输出通过 envelope `diagnostics.logPersistence`（v3 协议）与 Hook 的 stderr 单行提示报告"本次诊断日志未保存"。偏离正常（修复/备用/失败）时，sink 会写一条与 traceId 绑定的 `log.persistence` 记录到最终可用位置。
+
+Backend daemon 启动时按"自愈 → 备用根 → 降级禁用 sink 继续 serving"处理自身日志位置（`packages/backend/src/runtime/daemon-diagnostic-sink.ts`），不再因日志位置抛 `backend.state-invalid`；降级事实经 `/internal/v1/status` 的 `diagnostics` 字段与 `lore backend status` 对用户可见。runtime state、锁、模型目录的严格检查不受影响。
+
+读取侧由 `packages/log/src/evidence.ts` 的 `deriveTraceEvidenceState` 提供唯一的 trace 证据状态（`available` / `not-persisted` / `no-matching-records` / `unreadable` / `truncated`），`lore logs`、feedback 读取与 Backend trace 投影都消费它；"未持久化"只在该 trace 存在 `log.persistence` 记录背书时才会报告，主备都失败的事后查询只如实说"未找到已持久化证据"。
+
 用户和开发者不要直接依赖 JSONL 行结构。使用 CLI：
 
 ```sh

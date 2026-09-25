@@ -1,10 +1,12 @@
-import { defaultLogDirectory } from "@lorelum/config";
+import { defaultDiagnosticsFallbackDirectory, defaultLogDirectory } from "@lorelum/config";
 import {
+  deriveTraceEvidenceState,
   isLogLevel,
   isTraceId,
   pruneManagedLogs,
   readManagedLogs,
   type LogLevel,
+  type TraceId,
 } from "@lorelum/log";
 
 import type { JsonSchema, JsonValue } from "../output/protocol.js";
@@ -14,11 +16,24 @@ import { frameworkErrorCodes, invalidInvocationError } from "../runtime/errors.j
 const recordsSchema: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["records", "missingEvidence", "truncated"],
+  required: ["records", "locations", "missingEvidence", "truncated"],
   properties: {
     records: { type: "array", items: { type: "object" } },
+    locations: { type: "array", items: { type: "string", enum: ["primary", "fallback"] } },
     missingEvidence: { type: "array", items: { type: "string" } },
     truncated: { type: "boolean" },
+    evidence: {
+      type: "object",
+      additionalProperties: false,
+      required: ["status", "locations", "missingEvidence"],
+      properties: {
+        status: {
+          enum: ["available", "not-persisted", "no-matching-records", "unreadable", "truncated"],
+        },
+        roots: { type: "array", items: { type: "string", enum: ["primary", "fallback"] } },
+        missingEvidence: { type: "array", items: { type: "string" } },
+      },
+    },
   },
 };
 
@@ -93,25 +108,55 @@ export function createLogCommands(): readonly CommandDefinition[] {
             invocation.options.limit !== undefined
           )
             throw invalidInvocationError();
+          const rootDirectory = invocation.logDirectory ?? defaultLogDirectory();
           const result = await pruneManagedLogs({
-            rootDirectory: invocation.logDirectory ?? defaultLogDirectory(),
+            rootDirectory,
+            // Explicit test overrides stay isolated from the real home fallback.
+            ...(invocation.logDirectory === undefined
+              ? { fallbackRootDirectory: defaultDiagnosticsFallbackDirectory() }
+              : {}),
           });
           return { data: { deletedFiles: result.deletedFiles, deletedBytes: result.deletedBytes } };
         }
         if (action !== undefined) throw invalidInvocationError();
         const parsedLimit = limit(invocation.options.limit);
+        const rootDirectory = invocation.logDirectory ?? defaultLogDirectory();
         const result = await readManagedLogs({
-          rootDirectory: invocation.logDirectory ?? defaultLogDirectory(),
+          rootDirectory,
+          ...(invocation.logDirectory === undefined
+            ? { fallbackRootDirectory: defaultDiagnosticsFallbackDirectory() }
+            : {}),
           ...(source === undefined ? {} : { source }),
           ...(traceId === undefined ? {} : { traceId }),
           ...(level === undefined ? {} : { level: level as LogLevel }),
           ...(parsedLimit === undefined ? {} : { limit: parsedLimit }),
         });
+        const evidence =
+          traceId === undefined
+            ? undefined
+            : deriveTraceEvidenceState({
+                traceId: traceId as TraceId,
+                directRecords: result.records,
+                directLocations: result.locations,
+                missing: result.missing,
+                truncated: result.truncated,
+                rootAvailability: result.rootAvailability,
+              });
         return {
           data: {
             records: result.records as unknown as JsonValue,
-            missingEvidence: result.missing,
+            locations: result.locations,
+            missingEvidence: evidence?.missingEvidence ?? result.missing,
             truncated: result.truncated,
+            ...(evidence === undefined
+              ? {}
+              : {
+                  evidence: {
+                    status: evidence.status,
+                    roots: evidence.roots,
+                    missingEvidence: evidence.missingEvidence,
+                  },
+                }),
           },
         };
       },

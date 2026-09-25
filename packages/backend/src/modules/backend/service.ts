@@ -6,6 +6,8 @@ export interface BackendServiceOptions {
   readonly secret: string;
   readonly isReady?: () => boolean;
   readonly modelState?: () => BackendStatus["model"];
+  /** Supplies the daemon's diagnostics persistence facts when it degraded. */
+  readonly diagnostics?: () => BackendStatus["diagnostics"];
   readonly onStop: () => void | Promise<void>;
   readonly onStopFailure?: (error: unknown) => void;
 }
@@ -24,6 +26,7 @@ export function createBackendService(options: BackendServiceOptions) {
     model: options.modelState?.() ?? "unloaded",
     instanceId,
     buildIdentity,
+    ...(options.diagnostics === undefined ? {} : { diagnostics: options.diagnostics() }),
   });
   return {
     authenticate: (credential: string) => constantTimeEqual(credential, options.secret),

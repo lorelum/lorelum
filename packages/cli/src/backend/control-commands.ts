@@ -4,6 +4,7 @@ import type { BackendSupervisor } from "@lorelum/backend/control";
 import {
   BackendError,
   backendErrorCodes,
+  diagnosticsPersistenceStates,
   statusSchema,
   type BackendStatus,
 } from "@lorelum/backend/protocol";
@@ -34,6 +35,17 @@ const backendStatusResultSchema: JsonSchema = {
     model: { enum: statusShape.model.options },
     instanceId: { type: "string" },
     buildIdentity: { type: "string" },
+    diagnostics: {
+      type: "object",
+      additionalProperties: false,
+      required: ["persistence", "fallbackUsed"],
+      properties: {
+        persistence: { enum: diagnosticsPersistenceStates },
+        usedDirectory: { type: "string" },
+        fallbackUsed: { type: "boolean" },
+        failureCategory: { type: "string" },
+      },
+    },
   },
 };
 const stopIfIdleResultSchema: JsonSchema = {
@@ -99,6 +111,7 @@ function toResult(status: BackendStatus): JsonValue {
     model: status.model,
     ...(status.instanceId === undefined ? {} : { instanceId: status.instanceId }),
     ...(status.buildIdentity === undefined ? {} : { buildIdentity: status.buildIdentity }),
+    ...(status.diagnostics === undefined ? {} : { diagnostics: status.diagnostics }),
   };
 }
 

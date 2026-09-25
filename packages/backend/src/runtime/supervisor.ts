@@ -2,9 +2,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createConnection } from "node:net";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import {
+  defaultDiagnosticsFallbackDirectory,
   defaultRuntimeDirectory,
   resolveBackendSettings,
   resolveEmbeddingConfig,
@@ -48,6 +49,8 @@ export interface BackendSupervisorOptions {
   readonly runtimeDirectory?: string;
   /** Internal lifecycle-test override; released CLIs retain the user-level log root. */
   readonly logDirectory?: string;
+  /** Internal lifecycle-test override for the designed diagnostics fallback. */
+  readonly fallbackLogDirectory?: string;
   readonly baseUrl?: string;
   readonly timeoutMs?: number;
   /** Internal lifecycle-test injection; never exposed through CLI configuration. */
@@ -83,6 +86,15 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
   const logDirectory =
     options.logDirectory ??
     (options.runtimeDirectory === undefined ? undefined : join(directory, "logs"));
+  // Explicit test-injected roots must stay isolated from the real home
+  // fallback (the CLI-side rule); production keeps the designed location.
+  const fallbackLogDirectory =
+    options.fallbackLogDirectory ??
+    (options.logDirectory !== undefined
+      ? join(dirname(options.logDirectory), "fallback-diagnostics")
+      : options.runtimeDirectory !== undefined
+        ? join(directory, "fallback-diagnostics")
+        : defaultDiagnosticsFallbackDirectory());
   const baseUrl = options.baseUrl ?? BACKEND_URL;
   const address = new URL(baseUrl);
   if (
@@ -338,6 +350,7 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
         instanceId,
         port: Number(address.port || 80),
         ...(logDirectory === undefined ? {} : { logDirectory }),
+        fallbackLogDirectory,
       }),
     });
     const exited = childCompletion(child);
