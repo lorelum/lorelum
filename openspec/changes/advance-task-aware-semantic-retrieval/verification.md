@@ -126,8 +126,40 @@ openspec validate advance-task-aware-semantic-retrieval --strict
 
 ## 8. 观察结果
 
-全量 baseline 尚未运行。单次 harness 冒烟只验证进程协议与真实 runtime，不计入 baseline，也不填入下表。baseline 冻结后用下表记录；CLI 独立观察不得和 harness trace 混同。
+baseline 已由 benchmark 侧在 `caecc53` 上冻结，记录见 benchmark 仓库 `results/records/retrieval-ranking-v1-baseline-caecc53.json`（replay record 一致）与其 `verification.md`：50 例全部 `status=ok`，core candidate recall 49/50、core final top-5 42/50、scope error 2。主仓库 §1.1 的单次冒烟只验证进程协议与真实 runtime，不计入 baseline。改动后本地对照见 §9；官方逐例对比由 benchmark 侧用新 run ID 执行，CLI 独立观察不得和 harness trace 混同。
 
 | Date | Lorelum commit/build | Eval revision / corpus digest | Harness protocol/scorer | Profile | N/K | Candidate core present? | Baseline rank | Updated rank | CLI IDs observed separately? | Scope | Cost / limitations | Test-owned artifacts removed? |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
+## 9. 任务感知最终排序（改动后）
+
+实现（design Decision 7）：`packages/engine/src/query/semantic/task-relevance.ts` 在同一次检索、同一 snapshot 内重排已经过 canonical 校验的候选。相似度是基础顺序；任务/阶段信号取自 canonical Practice 字段，用既有 keyword projection 与固定 keyword field weights 建立 request-private、离线的确定性 FTS5 BM25 打分，并在候选集合内归一化。最终顺序为 `similarity + SEMANTIC_TASK_SIGNAL_WEIGHT × taskStrength`，权重固定 0.05。`packages/engine/src/query/semantic/query-service.ts` 在读取 canonical Practices 之后、结果装配与 K 截断之前调用它，因此 `candidateIds` 与 `finalIds` 仍来自同一 attempt 和同一 snapshot。
+
+先更新 design/tasks 并运行 strict validation，再开始实现；未新增公开 export、CLI flag、协议字段或 Backend capability。
+
+定向与全量验证（主仓库本地）：
+
+- `bun test packages/engine/src/query/semantic`、`bun test packages/engine/src/query/artifacts`：通过；新增 `task-relevance.test.ts` 9 例（无匹配保持原序、近似平局由任务信号决定、清晰语义领先者保持领先、权重边界、确定性 tie-break、无 FTS5 回退、相邻阶段、领域补充不被过滤），`query-service.test.ts` 新增 3 例（任务感知排序、候选/最终同序、信号不可用时保持语义顺序），`artifacts/semantic.test.ts` 新增 1 例（content-addressed 路径共用同一排序规则）。
+- `bun test packages/engine`：267 pass / 2 skip；唯一 fail 是 `mutation-lock.test.ts` 的并发回收用例在整包负载下超出 5s 超时，单独运行与未改动的 `caecc53` checkout 均通过，属本机既有计时敏感项。
+- `bun test packages/backend/src/benchmark`：15 pass（harness 协议与路由未变）。
+- `bun run typecheck`、`bun run lint`：通过（lint 仅既有 warning）。改动文件 `oxfmt --check` 通过；整仓 `bun run fmt:check` 在本机 `core.autocrlf=true` 下对全部既有文件报错，属环境现象。
+- `openspec validate advance-task-aware-semantic-retrieval --strict`：通过。
+
+改动前后本地对照（**非官方 benchmark 结果**）：在与 baseline 相同的冻结输入上（Pack snapshot `3a48b6a`、corpus digest `61176ea9…`、97 条 Practice、同一 semantic artifact、Profile `72c7404a…`、N=20/K=5），用主仓库真实 engine 路径（content-addressed trace service）重放 50 例 query：
+
+| 指标 | baseline `caecc53` | 本次 build |
+| --- | --- | --- |
+| core final top-5 | 42/50 | 48/50 |
+| core candidate recall | 49/50 | 49/50 |
+| forbidden 出现在 core 之前 | 2 | 0 |
+| 排序失败被修复 | - | 6（goal-paraphrase 7→2、proportionate-validation 13→3、reuse-before-build 7→1、review-finding 9→3、supported-claim 6→1、readback-pack-context 9→2） |
+| 既有 top-5 命中被挤出的 case | - | 0 |
+
+灵敏度：把权重设为 0.03–0.06 得到同一组判定（core final top-5 48/50、forbidden 先于 core 0、无既有命中被挤出），0.08 起才出现 top-5 命中被挤出，说明结论不是单点调参；权重取值与依据见 design Decision 7。
+
+限制与非目标：
+
+- `agentic-acceptance-direct` 仍是 candidate miss：该 core 在 semantic reader 与任务信号下都不进 top-20，修复需要改变持久化投射或新增候选来源（即改变 Profile/index 表示），会与固定 Profile 及 baseline 失去可比性，本步不做（tasks 3.2）。
+- `agentic-limit-investigation` 在 baseline 已是排序失败（candidate rank 6），本步后被排得更低；它是本次唯一被负面影响的 case，故如实记录而不以总分掩盖。
+- 本表是主仓库本地对照，用于确认 build 行为与排除回归；官方改动前后对比由 benchmark 侧在同一 revision、同一 Profile、N/K 与 scorer 下重跑，主仓库不据此声明改善。

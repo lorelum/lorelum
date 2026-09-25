@@ -25,7 +25,7 @@
 - 不将 harness 做成普通 CLI 命令、包公开 export、产品 API 或用户可见诊断。
 - 不增加 `--explain`、新 CLI flag、产品 protocol field、诊断子命令或其它 CLI 功能。
 - 不把 gold labels、完整 query 集或 Knowledge-Pack 内容复制进主仓库。
-- 不引入 query analyzer、Hybrid、ANN、新 embedding 模型或专用 reranker，除非当前审核案例的结果证明有必要并另行完成设计对齐。
+- 不引入 query analyzer、Hybrid、ANN、新 embedding 模型或专用 reranker，除非当前审核案例的结果证明有必要并另行完成设计对齐（见 Decision 7）。
 
 ## Decisions
 
@@ -93,6 +93,17 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 ### 6. 保持 canonical 与索引兼容边界
 
 最终排序内容来自已通过 snapshot 检查的 canonical Practice；候选索引始终是派生状态。Store query 与 content-addressed ProjectContext query 共用同一 Engine 候选/排序规则。若所选排序仅使用当前 canonical 内容且不改变持久化表示，不升级 index schema/Profile；只有持久化 view/projection/chunk 改变时才按现有 staging、snapshot fence、atomic publication 路径迁移。
+
+### 7. 任务/阶段信号只在同一次检索内重排已有候选
+
+冻结 baseline（50 例：core candidate recall 49/50、core final top-5 42/50、2 例 scope error）显示失败集中在最终排序：7 例 core 已进入候选但停在 candidate rank 6–13，且都在结果边界 0.013 相似度以内；2 例仅领域或技术栈相似的 Practice 压过 core。因此本轮选择最小改动：不改 embedding、投射、索引 schema 或 Profile，只在同一次检索、同一 snapshot 内重排已经过 canonical 校验的候选。
+
+机制：
+
+- 相似度仍是基础顺序；任务/阶段信号取自 canonical Practice 字段，用既有 keyword projection 与固定的 keyword field weights（identity、title、applies_when 明显高于 tech stack、anti-pattern 与 body），在同一次请求内建立 request-private、离线的确定性 FTS5 BM25 打分，并在同一候选集合内归一化到 0–1。
+- 最终顺序按 `similarity + SEMANTIC_TASK_SIGNAL_WEIGHT × taskStrength` 排序，权重固定为 0.05 且显式有界：任务信号最多把候选移动 0.05，高于 baseline 中所有排序失败的 0.013 间距，低于清晰语义领先者相对后续候选的常见间距。因此任务/阶段匹配可以决定近似平局，但不能取代语义 reader。
+- Decision 1 的选项约束（“query analyzer / Hybrid / 专用 reranker 需先证明必要并完成设计对齐”）由此满足：baseline 证据要求处理任务/阶段错排，本节即其设计对齐。实现仍是单一 semantic 模式：候选只来自 semantic index，不新增 keyword 检索模式、不合并第二个候选来源、不改变 N/K 边界与候选观察点；`candidateIds` 是完成重排后的候选池，`finalIds` 仍是同一次检索的前 K。
+- 任务信号只是排序增强，不成为新的可用性门槛：运行时不提供 SQLite FTS5 时保持语义相似度顺序返回，而不是让 semantic query 失败，也不静默切换到 keyword retrieval。
 
 ## Risks / Trade-offs
 

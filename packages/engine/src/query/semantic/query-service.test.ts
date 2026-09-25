@@ -12,6 +12,7 @@ import {
 } from "../../local-store";
 import { canonicalizePractice, type RevisionDelta } from "../../local-store/model";
 import type { EmbeddingPort } from "./encoding";
+import { KeywordIndexUnavailableError } from "../errors";
 import { SemanticIndexNotReadyError, SemanticIndexQueryError } from "./errors";
 import { createSemanticIndexService } from "./index/service";
 import { createEmbeddingProfile } from "./profile";
@@ -39,6 +40,65 @@ function practice(id: string, body = id): EffectivePractice {
     severity: "warn",
   });
   return { practiceId: id, ...canonical, sources: [] };
+}
+
+function detailedPractice(input: {
+  readonly id: string;
+  readonly title: string;
+  readonly stage: string;
+  readonly techStack: readonly string[];
+  readonly appliesWhen: string;
+  readonly body: string;
+}): EffectivePractice {
+  const canonical = canonicalizePractice({
+    id: input.id,
+    title: input.title,
+    stage: input.stage,
+    tech_stack: [...input.techStack],
+    applies_when: input.appliesWhen,
+    body: input.body,
+    severity: "warn",
+  });
+  return { practiceId: input.id, ...canonical, sources: [] };
+}
+
+const domainPractice = detailedPractice({
+  id: "react.server.request-dedup-cache",
+  title: "Deduplicate Request-Scoped Work",
+  stage: "server",
+  techStack: ["react"],
+  appliesWhen:
+    "one server render calls the same request-scoped async work, such as session or record lookup, from more than one component or helper",
+  body: "Share one cached result for the request instead of repeating the lookup.",
+});
+
+const postPractice = detailedPractice({
+  id: "issue-pr-etiquette.pull-request.write-the-pr-body-for-a-cold-reviewer",
+  title: "Write the PR Body for a Cold Reviewer",
+  stage: "pull-request",
+  techStack: ["git"],
+  appliesWhen:
+    "a PR is about to be opened, and the author must write a body from which a reviewer with none of the author's context can verify the change",
+  body: "State the problem, the decision and the evidence in the post itself.",
+});
+
+const taskRequest =
+  "I am opening a PR that fixes a React cache bug; a reviewer will see it without our chat history, so make the context self-contained.";
+
+/** The domain Practice is the closer vector; only final ordering can promote the task match. */
+function nearTieVectors(text: string): readonly number[] {
+  if (text.includes(domainPractice.practiceId)) return [0.9, Math.sqrt(1 - 0.9 ** 2)];
+  if (text.includes(postPractice.practiceId)) return [0.88, Math.sqrt(1 - 0.88 ** 2)];
+  return [1, 0];
+}
+
+function nearTiePort(): EmbeddingPort {
+  return {
+    maxBatchSize: 8,
+    async embed(inputs) {
+      return { encodingId, vectors: inputs.map(nearTieVectors) };
+    },
+  };
 }
 
 function vectorFor(text: string): readonly number[] {
@@ -447,5 +507,75 @@ test("Store changes during candidate read are retried three times", async () => 
       semantic(store, profile, embedding).query({ rootPath }, { text: "anything" }),
     ).rejects.toBeInstanceOf(StoreBusyError);
     expect(reads).toBe(3);
+  });
+});
+
+test("orders final results by task relevance over the closer domain match", async () => {
+  await withRoot(async (rootPath) => {
+    const store = createStore(rootPath, [domainPractice, postPractice]);
+    const embedding = nearTiePort();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+
+    const taskAware = await semantic(store, profile, embedding).query(
+      { rootPath },
+      { text: taskRequest, limit: 2 },
+    );
+    expect(taskAware.results.map((hit) => hit.practiceId)).toEqual([
+      postPractice.practiceId,
+      domainPractice.practiceId,
+    ]);
+
+    const semanticOnly = await createSemanticQueryService({
+      store,
+      profile,
+      embedding,
+      taskSignal: { measure: () => new Map<string, number>() },
+    }).query({ rootPath }, { text: taskRequest, limit: 2 });
+    expect(semanticOnly.results.map((hit) => hit.practiceId)).toEqual([
+      domainPractice.practiceId,
+      postPractice.practiceId,
+    ]);
+  });
+});
+
+test("candidate and final lists keep one task-aware order inside the requested width", async () => {
+  await withRoot(async (rootPath) => {
+    const store = createStore(rootPath, [domainPractice, postPractice]);
+    const embedding = nearTiePort();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+
+    const trace = await semanticTrace(store, profile, embedding).query(
+      { rootPath },
+      { text: taskRequest, candidateWidth: 2, resultLimit: 1 },
+    );
+    expect(trace.candidateIds).toEqual([postPractice.practiceId, domainPractice.practiceId]);
+    expect(trace.finalIds).toEqual([postPractice.practiceId]);
+  });
+});
+
+test("keeps the semantic order when the runtime cannot measure the task signal", async () => {
+  await withRoot(async (rootPath) => {
+    const store = createStore(rootPath, [domainPractice, postPractice]);
+    const embedding = nearTiePort();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+
+    const service = createSemanticQueryService({
+      store,
+      profile,
+      embedding,
+      taskSignal: {
+        measure() {
+          throw new KeywordIndexUnavailableError();
+        },
+      },
+    });
+    const result = await service.query({ rootPath }, { text: taskRequest, limit: 2 });
+    expect(result.results.map((hit) => hit.practiceId)).toEqual([
+      domainPractice.practiceId,
+      postPractice.practiceId,
+    ]);
   });
 });

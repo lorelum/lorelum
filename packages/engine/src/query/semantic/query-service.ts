@@ -24,6 +24,7 @@ import type { SemanticIndexPaths } from "./index/paths";
 import type { SemanticIndexDatabaseDefinition } from "./index/database";
 import type { EmbeddingProfile } from "./profile";
 import { assembleSemanticArtifactResult, searchSemanticArtifact } from "./read";
+import { orderSemanticCandidatesByTaskRelevance, type SemanticTaskSignal } from "./task-relevance";
 
 const MAX_QUERY_RETRIES = 3;
 
@@ -61,6 +62,8 @@ export interface SemanticQueryDependencies {
   readonly embedding: EmbeddingPort;
   readonly paths?: (root: StorageRoot, profileId: string) => SemanticIndexPaths;
   readonly definition?: SemanticIndexDatabaseDefinition;
+  /** Test seam for the task/stage signal used by final ordering. */
+  readonly taskSignal?: SemanticTaskSignal;
 }
 
 interface QueryCoverage {
@@ -234,14 +237,22 @@ async function executeSemanticQuery(
         coverage.identity,
         candidateReadIds,
       );
+      // Final ordering stays inside this attempt: it reads only the canonical
+      // Practices proven current by this snapshot and never re-reads the Store.
+      const orderedCandidates = orderSemanticCandidatesByTaskRelevance({
+        text: window.request.text,
+        candidates,
+        practices,
+        ...(dependencies.taskSignal === undefined ? {} : { signal: dependencies.taskSignal }),
+      });
       const assembled = assembleSemanticArtifactResult({
         profile,
         coverage: coverage.coverage,
         practices,
-        candidates,
+        candidates: orderedCandidates,
       });
       // Capture only after canonical Practice and snapshot validation, before final K truncation.
-      const candidateIds = semanticCandidateIds(candidates);
+      const candidateIds = semanticCandidateIds(orderedCandidates);
       const results = Object.freeze(assembled.results.slice(0, window.resultLimit));
       return Object.freeze({
         result:
