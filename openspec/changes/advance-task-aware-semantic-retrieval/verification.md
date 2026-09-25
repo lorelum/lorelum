@@ -57,7 +57,9 @@ benchmark runner 在固定 Lorelum checkout 中启动本地 harness，使用 std
 - 指向非绝对路径时返回 `runtime_unavailable`（exit 1），不静默回退。
 - stdin 附带 `cacheRoot` 等额外字段时返回 `invalid_request`（exit 1），五字段契约保持不变。
 
-本节记录的是单次冒烟证据；全量案例、scorer 与 baseline 冻结仍由 benchmark 仓库执行（见下方 §4、§7、§8）。冒烟命令与固定 SHA 见交付说明；发布 SHA 另以干净 checkout 重跑同一命令核对。
+干净 checkout 复现：在独立 clone 中 `bun install`、`bun run build:native` 后，以同一请求、同一 `LORELUM_BENCHMARK_CACHE_ROOT` 和同一 N/K 运行 harness，stdout（sha256 `9f72786d70b9673008c41a1bfb52d24c75da09bc8652b87540bb28cbcf0beee6`）与主工作区逐字节一致，该 clone 内 `bun test packages/backend/src/benchmark` 为 15 pass / 0 fail。对照父提交 `6bf1e1b`，同一请求返回 `{"status":"error","errorCode":"index_unavailable"}`（exit 1）。
+
+本节记录的是单次冒烟证据；全量案例、scorer 与 baseline 冻结仍由 benchmark 仓库执行（见下方 §4、§7、§8）。冒烟命令与固定 SHA 见交付说明；该 SHA 已在干净 checkout 中按同一命令复现（见上）。
 
 ## 2. N 与 K 的边界验证
 
