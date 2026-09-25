@@ -163,3 +163,13 @@ baseline 已由 benchmark 侧在 `caecc53` 上冻结，记录见 benchmark 仓�
 - `agentic-acceptance-direct` 仍是 candidate miss：该 core 在 semantic reader 与任务信号下都不进 top-20，修复需要改变持久化投射或新增候选来源（即改变 Profile/index 表示），会与固定 Profile 及 baseline 失去可比性，本步不做（tasks 3.2）。
 - `agentic-limit-investigation` 在 baseline 已是排序失败（candidate rank 6），本步后被排得更低；它是本次唯一被负面影响的 case，故如实记录而不以总分掩盖。
 - 本表是主仓库本地对照，用于确认 build 行为与排除回归；官方改动前后对比由 benchmark 侧在同一 revision、同一 Profile、N/K 与 scorer 下重跑，主仓库不据此声明改善。
+
+干净 checkout 的 harness 对比（同一冻结 Store/cache、Profile、N=20/K=5，先在 `caecc53` 后在本次 build 各跑同一请求）：
+
+| case | baseline `finalIds` 前 3 | 本次 build `finalIds` 前 3 |
+| --- | --- | --- |
+| `issue-pr-body-scope-conflict` | `react.server.request-dedup-cache`（forbidden）、core、`react.server.no-module-request-state` | **core**（`issue-pr-etiquette.pull-request.write-the-pr-body-for-a-cold-reviewer`）、`react.server.request-dedup-cache`、`react.server.no-module-request-state` |
+| `issue-pr-readback-pack-context` | `pack-creator.release.verify-the-supported-install-path-before-claiming-release`、`…clean-markdown`、`pack-creator.review.run-subtractive-content-review` | `…clean-markdown`、**core**（`issue-pr-etiquette.communication.read-back-your-post-before-requesting-review`）、`pack-creator.release.verify-the-supported-install-path-before-claiming-release` |
+| `agentic-supported-claim` | `agentic-coding.verification.map-evidence-to-acceptance`、…、…（core 不在前 3） | **core**（`agentic-coding.delivery.claim-only-supported-outcome`）、`agentic-coding.implementation.confirm-product-surface-expansion`、`agentic-coding.verification.map-evidence-to-acceptance` |
+
+该 checkout 内 `bun test packages/engine/src/query/semantic packages/engine/src/query/artifacts` 为 48 pass / 1 skip，`git status` 干净；`bun install` 无依赖变化，因此同一 SHA 可直接重建运行，无需新的 Profile 或索引迁移。
