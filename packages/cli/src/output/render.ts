@@ -59,6 +59,7 @@ export function renderResult(
     return;
   }
 
+  const message = safeErrorMessage(result.message);
   if (format === "json") {
     writeLine(
       writer,
@@ -66,7 +67,7 @@ export function renderResult(
         createFailureEnvelope(
           result.command,
           result.code,
-          result.message,
+          message,
           result.recovery,
           result.diagnostics ?? { traceId: createTraceId() },
         ),
@@ -79,12 +80,29 @@ export function renderResult(
     renderStructuredText({
       error: {
         code: result.code,
-        message: result.message,
+        message,
         ...(result.recovery === undefined ? {} : { recovery: result.recovery }),
       },
       diagnostics: result.diagnostics ?? { traceId: createTraceId() },
     }),
   );
+}
+
+/** One safe, bounded message is shared by JSON consumers and terminal output. */
+function safeErrorMessage(value: string): string {
+  let visible = "";
+  for (const character of value) {
+    const point = character.codePointAt(0)!;
+    const unsafe =
+      point <= 0x1f ||
+      (point >= 0x7f && point <= 0x9f) ||
+      (point >= 0x2028 && point <= 0x202e) ||
+      (point >= 0x2066 && point <= 0x2069);
+    const segment = unsafe ? `\\u${point.toString(16).padStart(4, "0")}` : character;
+    if (visible.length + segment.length > 397) return `${visible}...`;
+    visible += segment;
+  }
+  return visible;
 }
 
 function writeLine(writer: OutputWriter, line: string): void {

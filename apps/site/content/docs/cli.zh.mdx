@@ -76,18 +76,41 @@ lore logs prune
 
 每个 `--json` CLI envelope 都包含 `protocolVersion`、`toolVersion`、`command`、`diagnostics.traceId` 和 `ok`。Hook 保持宿主自己的 envelope，不会暴露这项 trace metadata。
 
-| 字段                  | 含义                                                       |
-| --------------------- | ---------------------------------------------------------- |
-| `protocolVersion`     | JSON 协议版本。                                            |
-| `toolVersion`         | 已安装 CLI 的版本。                                        |
-| `command`             | 生成结果的命令标识。                                       |
+| 字段 | 含义 |
+| --- | --- |
+| `protocolVersion` | JSON 协议版本。 |
+| `toolVersion` | 已安装 CLI 的版本。 |
+| `command` | 生成结果的命令标识。 |
 | `diagnostics.traceId` | 本次调用的本机关联 ID；它不是鉴权凭证，也不是公开分享 ID。 |
-| `ok`                  | 本次调用是否产生成功的命令结果。                           |
-| `data`                | 成功时的命令结果。                                         |
-| `error.code`          | 失败时的稳定错误标识。                                     |
-| `error.message`       | 失败时供人阅读的原因说明。                                 |
+| `ok` | 本次调用是否产生成功的命令结果。 |
+| `data` | 成功时的命令结果。 |
+| `error.code` | 失败时的稳定错误标识。 |
+| `error.message` | 失败时供人阅读的原因说明。 |
+| `error.recovery` | 可用时提供 Backend 恢复操作。 |
 
 程序应按错误码分支，不解析错误消息。响应成功时，仍需检查命令的具体状态，才能判断异步工作是否完成。
+
+可纠正的失败会直接在 `error.message` 说明已知选项、允许值或范围，以及配置修复目标。例如，非法的 `--mode` 会指出 `semantic` 和 `keyword`，但不回显被拒绝的原始值。默认 text 的 stderr 展示同一消息：
+
+```text
+error:
+  code: usage.invalid
+  message: --min-coverage-percent must be an integer from 0 through 100.
+```
+
+对应的 JSON 失败响应没有第二个 details 字段：
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "usage.invalid",
+    "message": "--min-coverage-percent must be an integer from 0 through 100."
+  }
+}
+```
+
+协议仍为 version 2。未知失败使用安全的通用消息；程序应继续按 `error.code` 分支，不解析面向人的 message。
 
 ## 退出码
 

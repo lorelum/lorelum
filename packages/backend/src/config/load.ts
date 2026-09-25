@@ -23,22 +23,44 @@ const environmentKeys = {
   shutdownTimeoutMs: "LORELUM_BACKEND_SHUTDOWN_TIMEOUT_MS",
 } as const;
 
+function invalidSetting(source: string, key?: string): BackendError {
+  const target = key === undefined ? source : `${source} ${key}`;
+  return new BackendError(
+    "backend.config-invalid",
+    undefined,
+    undefined,
+    `Invalid ${target}. Correct or remove that setting, then retry.`,
+  );
+}
+
+function invalidSettings(source: string, issues: readonly { path: PropertyKey[] }[]): BackendError {
+  const key = issues[0]?.path[0];
+  const known = typeof key === "string" && key in DEFAULT_BACKEND_SETTINGS ? key : undefined;
+  return invalidSetting(source, known);
+}
+
 export function defaultRuntimeDirectory(homeDirectory = homedir()): string {
   return join(resolveLorelumPaths(homeDirectory).rootDirectory, "run", "backend");
 }
 
-/** Pure resolver for already-read sources; each source must be valid on its own. */
-export function resolveBackendSettings(...sources: readonly unknown[]): BackendSettings {
-  const values = sources.map((source) => {
-    const result = settingsSource.safeParse(source === undefined ? {} : source);
-    if (!result.success) throw new BackendError("backend.config-invalid");
+function resolveSettings(sources: readonly { value: unknown; label: string }[]): BackendSettings {
+  const values = sources.map(({ value, label }) => {
+    const result = settingsSource.safeParse(value === undefined ? {} : value);
+    if (!result.success) throw invalidSettings(label, result.error.issues);
     return result.data;
   });
   const resolved = backendSettingsSchema.safeParse(
     Object.assign({}, DEFAULT_BACKEND_SETTINGS, ...values),
   );
-  if (!resolved.success) throw new BackendError("backend.config-invalid");
+  if (!resolved.success) throw invalidSettings("backend settings", resolved.error.issues);
   return Object.freeze(resolved.data);
+}
+
+/** Pure resolver for already-read sources; each source must be valid on its own. */
+export function resolveBackendSettings(...sources: readonly unknown[]): BackendSettings {
+  return resolveSettings(
+    sources.map((value, index) => ({ value, label: `backend settings source ${index + 1}` })),
+  );
 }
 
 export interface LoadBackendConfigOptions extends LoadConfigOptions {
@@ -57,21 +79,25 @@ export async function loadBackendConfig(
   for (const [key, variable] of Object.entries(environmentKeys)) {
     const value = environment[variable];
     if (value === undefined) continue;
-    if (!/^[1-9][0-9]*$/.test(value)) throw new BackendError("backend.config-invalid");
+    if (!/^[1-9][0-9]*$/.test(value)) throw invalidSetting("environment variable", variable);
     fromEnvironment[key] = Number(value);
   }
   let document: Readonly<Record<string, unknown>>;
   try {
     document = await loadConfig(options);
   } catch (error) {
-    if (error instanceof ConfigError) throw new BackendError("backend.config-invalid");
+    if (error instanceof ConfigError) throw invalidSetting("configuration file");
     throw error;
   }
   const fromFile = document.backend;
   const embedding = resolveEmbeddingConfig(document.embedding, homeDirectory);
   return Object.freeze({
     runtimeDirectory: defaultRuntimeDirectory(homeDirectory),
-    settings: resolveBackendSettings(fromFile, fromEnvironment, options.overrides),
+    settings: resolveSettings([
+      { value: fromFile, label: "backend section in configuration file" },
+      { value: fromEnvironment, label: "backend environment" },
+      { value: options.overrides, label: "backend overrides" },
+    ]),
     ...(embedding === undefined ? {} : { embedding }),
   });
 }

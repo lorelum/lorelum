@@ -89,6 +89,19 @@ test("creates optional machine recovery without widening unrelated failures", ()
   expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 });
 
+test("rejects an undeclared details field with the exported schema", () => {
+  const response = createFailureEnvelope("query", "usage.invalid", "Invalid input.", undefined, {
+    traceId,
+  });
+  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
+  expect(
+    validateProtocolSchema(
+      { ...response, error: { ...response.error, details: [{ subject: "--top-k" }] } },
+      protocolResponseSchema,
+    ),
+  ).not.toEqual([]);
+});
+
 test("validates independent golden envelopes with the exported envelope schema", () => {
   for (const response of goldenEnvelopes) {
     expect(response.toolVersion).toBe(toolVersion);

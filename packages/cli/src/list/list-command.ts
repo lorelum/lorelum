@@ -175,10 +175,12 @@ export function createListCommand(services: ListCommandServices): CommandDefinit
     async handler(invocation) {
       const packName = invocation.positionals[0];
       const details = invocation.options.details;
-      if (details !== undefined && details !== true) throw invalidInvocationError();
-      if (packName !== undefined && (!PACK_NAME_REGEX.test(packName) || details === true)) {
-        throw invalidInvocationError();
-      }
+      if (details !== undefined && details !== true)
+        throw invalidInvocationError("--details is a flag and takes no value.");
+      if (packName !== undefined && !PACK_NAME_REGEX.test(packName))
+        throw invalidInvocationError("Provide a valid Pack name.");
+      if (packName !== undefined && details === true)
+        throw invalidInvocationError("Use a Pack name or --details, not both.");
 
       const storageRoot = resolveInvocationStorageRoot(
         invocation.options.storeRoot,

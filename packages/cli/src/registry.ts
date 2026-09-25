@@ -421,7 +421,8 @@ export function positionalValues(
 
 export function requireCommandDescription(describe: DescribeCommand, command?: string): JsonValue {
   const description = describe(command);
-  if (description === undefined) throw invalidInvocationError();
+  if (description === undefined)
+    throw invalidInvocationError("Unknown command. Run lore describe --help to list commands.");
   return description;
 }
 

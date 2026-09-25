@@ -45,8 +45,9 @@ export class BackendError extends Error {
     readonly code: BackendErrorCode,
     options?: ErrorOptions,
     readonly recovery?: BackendCompatibilityRecovery,
+    message = messages[code],
   ) {
-    super(messages[code], options);
+    super(message, options);
     this.name = "BackendError";
   }
 }

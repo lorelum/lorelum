@@ -62,7 +62,8 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
     exitCodes: [0, 2],
     async handler(invocation) {
       const id = invocation.positionals[0];
-      if (id === undefined || !ID_REGEX.test(id)) throw invalidInvocationError();
+      if (id === undefined || !ID_REGEX.test(id))
+        throw invalidInvocationError("Provide a valid Practice ID. Run lore get --help for usage.");
       const root = resolveInvocationStorageRoot(invocation.options.storeRoot, services.storageRoot);
       try {
         const project =
@@ -141,7 +142,8 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
             "The local Pack store requires recovery.",
           );
         }
-        if (error instanceof InvalidProjectRootError) throw invalidInvocationError();
+        if (error instanceof InvalidProjectRootError)
+          throw invalidInvocationError("--project-root must point to a valid project directory.");
         throw error;
       }
     },

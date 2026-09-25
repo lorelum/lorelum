@@ -86,8 +86,31 @@ Every `--json` CLI envelope includes `protocolVersion`, `toolVersion`, `command`
 | `data` | Command-specific result on success. |
 | `error.code` | Stable error identifier on failure. |
 | `error.message` | Human-readable explanation on failure. |
+| `error.recovery` | Optional Backend recovery action when one is available. |
 
 Branch on error codes instead of parsing messages. Within a successful result, inspect command-specific state before treating asynchronous work as complete.
+
+Correctable failures put the known option, allowed choices or range, or configuration repair target directly in `error.message`. For example, an invalid `--mode` names `semantic` and `keyword` without echoing the rejected value. The default text output shows the same message on stderr:
+
+```text
+error:
+  code: usage.invalid
+  message: --min-coverage-percent must be an integer from 0 through 100.
+```
+
+The corresponding JSON failure has no separate details field:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "usage.invalid",
+    "message": "--min-coverage-percent must be an integer from 0 through 100."
+  }
+}
+```
+
+The protocol remains at version 2. Unknown failures use a safe generic message; programs should continue to branch on `error.code`, not parse the human-readable message.
 
 ## Exit codes
 

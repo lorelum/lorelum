@@ -341,7 +341,7 @@ test.each(["1.5", "+2", "2x", ""])(
     expect(result.exitCode).toBe(2);
     expect(result.response.error).toEqual({
       code: "usage.invalid",
-      message: "The command invocation is invalid.",
+      message: "--top-k must be a non-negative integer.",
     });
   },
 );

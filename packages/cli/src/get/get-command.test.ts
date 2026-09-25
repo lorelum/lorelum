@@ -151,7 +151,7 @@ test.each(
   expect(result.exitCode).toBe(2);
   expect(result.response.error).toEqual({
     code: "usage.invalid",
-    message: "The command invocation is invalid.",
+    message: expect.stringMatching(/Practice ID|required argument|Too many arguments|store-root/),
   });
 });
 
