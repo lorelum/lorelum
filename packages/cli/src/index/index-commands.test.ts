@@ -300,3 +300,23 @@ test("index status preserves Store availability failures from the Backend bounda
     message: "The local Pack store is busy.",
   });
 });
+
+test("index status preserves compatibility recovery", async () => {
+  const recovery = {
+    action: "backend.stop-if-idle" as const,
+    automation: "defer" as const,
+    reason: "unknown-activity" as const,
+    retry: "original-command" as const,
+  };
+  const result = await invoke(["index", "status"], {
+    backend: backend(async () => {
+      throw new BackendError("backend.build-mismatch", undefined, recovery);
+    }),
+  });
+
+  expect(result.exitCode).toBe(2);
+  expect(result.response.error).toMatchObject({
+    code: "backend.build-mismatch",
+    recovery,
+  });
+});
