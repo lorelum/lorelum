@@ -1,4 +1,9 @@
-import { defaultLogDirectory, resolveLorelumPaths, resolveLoggingSettings } from "@lorelum/config";
+import {
+  defaultLogDirectory,
+  resolveLorelumPaths,
+  resolveLoggingSettings,
+  type LoadConfigOptions,
+} from "@lorelum/config";
 import {
   createLogger,
   FanoutLogSink,
@@ -48,13 +53,16 @@ interface LoggingFallbackFact {
  * override); a document-level failure stays silently fail-open because no
  * user-expressed value can be attributed to it.
  */
-async function resolveEffectiveLogging(debug: boolean): Promise<{
+async function resolveEffectiveLogging(
+  debug: boolean,
+  configOptions?: LoadConfigOptions,
+): Promise<{
   readonly level: "error" | "warn" | "info" | "debug";
   readonly fallback?: LoggingFallbackFact;
 }> {
   let resolved: Awaited<ReturnType<typeof resolveLoggingSettings>>;
   try {
-    resolved = await resolveLoggingSettings();
+    resolved = await resolveLoggingSettings(configOptions);
   } catch {
     // A malformed optional logging document must not prevent normal CLI recovery.
     return { level: debug ? "debug" : "info" };
@@ -94,12 +102,14 @@ export async function createProcessLogRuntime(
     readonly host?: string;
     readonly rootDirectory?: string;
     readonly persist?: boolean;
+    /** Source-test override for the persistent config location; production reads the real home. */
+    readonly configOptions?: LoadConfigOptions;
   } = {
     debug: false,
   },
 ): Promise<ProcessLogRuntime> {
   const source = options.source ?? "cli";
-  const effective = await resolveEffectiveLogging(options.debug);
+  const effective = await resolveEffectiveLogging(options.debug, options.configOptions);
   const level = effective.level;
   const rootDirectory = options.rootDirectory ?? defaultLogDirectory();
   const trustedDirectory =
