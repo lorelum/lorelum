@@ -7,24 +7,12 @@ import { createTraceId } from "@lorelum/log";
 
 import { createProcessLogRuntime } from "./runtime.js";
 
-function homeEnvironment(home: string): { apply(): void; restore(): void } {
-  const previousHome = process.env.HOME;
-  const previousProfile = process.env.USERPROFILE;
-  return {
-    apply() {
-      process.env.HOME = home;
-      process.env.USERPROFILE = home;
-    },
-    restore() {
-      if (previousHome === undefined) delete process.env.HOME;
-      else process.env.HOME = previousHome;
-      if (previousProfile === undefined) delete process.env.USERPROFILE;
-      else process.env.USERPROFILE = previousProfile;
-    },
-  };
-}
-
-async function withIsolatedHome(
+/**
+ * Writes an isolated config home. Tests pass it through the `configOptions`
+ * seam because mutating HOME/USERPROFILE in-process does not reliably change
+ * the resolved home on every platform Bun runs on.
+ */
+async function withConfigHome(
   config: string | undefined,
   run: (home: string) => Promise<void>,
 ): Promise<void> {
@@ -33,12 +21,9 @@ async function withIsolatedHome(
     await mkdir(join(home, ".lorelum"), { recursive: true });
     await writeFile(join(home, ".lorelum", "config.yaml"), config);
   }
-  const environment = homeEnvironment(home);
-  environment.apply();
   try {
     await run(home);
   } finally {
-    environment.restore();
     await rm(home, { recursive: true, force: true });
   }
 }
@@ -53,7 +38,7 @@ function daySegment(): string {
 }
 
 test("an invalid logging level surfaces one notice, one stderr line, and one warn record", async () => {
-  await withIsolatedHome("logging:\n  level: noisy\n", async (home) => {
+  await withConfigHome("logging:\n  level: noisy\n", async (home) => {
     const logs = await mkdtemp(join(tmpdir(), "lorelum-runtime-logs-"));
     try {
       const stderr = stderrCollector();
@@ -61,6 +46,7 @@ test("an invalid logging level surfaces one notice, one stderr line, and one war
       const runtime = await createProcessLogRuntime(stderr, traceId, {
         debug: false,
         rootDirectory: logs,
+        configOptions: { homeDirectory: home },
       });
 
       expect(runtime.notices.length).toBe(1);
@@ -100,7 +86,7 @@ test("an invalid logging level surfaces one notice, one stderr line, and one war
 });
 
 test("a --debug override keeps effective debug while still reporting the rejected level", async () => {
-  await withIsolatedHome("logging:\n  level: noisy\n", async () => {
+  await withConfigHome("logging:\n  level: noisy\n", async (home) => {
     const logs = await mkdtemp(join(tmpdir(), "lorelum-runtime-logs-"));
     try {
       const stderr = stderrCollector();
@@ -108,6 +94,7 @@ test("a --debug override keeps effective debug while still reporting the rejecte
       const runtime = await createProcessLogRuntime(stderr, traceId, {
         debug: true,
         rootDirectory: logs,
+        configOptions: { homeDirectory: home },
       });
 
       expect(runtime.notices.length).toBe(1);
@@ -130,13 +117,14 @@ test("a --debug override keeps effective debug while still reporting the rejecte
 });
 
 test("a valid logging level stays silent", async () => {
-  await withIsolatedHome("logging:\n  level: debug\n", async () => {
+  await withConfigHome("logging:\n  level: debug\n", async (home) => {
     const logs = await mkdtemp(join(tmpdir(), "lorelum-runtime-logs-"));
     try {
       const stderr = stderrCollector();
       const runtime = await createProcessLogRuntime(stderr, createTraceId(), {
         debug: false,
         rootDirectory: logs,
+        configOptions: { homeDirectory: home },
       });
       expect(runtime.notices.length).toBe(0);
       expect(stderr.lines.length).toBe(0);
@@ -148,13 +136,14 @@ test("a valid logging level stays silent", async () => {
 });
 
 test("a document-level failure keeps the silent fail-open behavior", async () => {
-  await withIsolatedHome("logging: [unclosed\n", async () => {
+  await withConfigHome("logging: [unclosed\n", async (home) => {
     const logs = await mkdtemp(join(tmpdir(), "lorelum-runtime-logs-"));
     try {
       const stderr = stderrCollector();
       const runtime = await createProcessLogRuntime(stderr, createTraceId(), {
         debug: false,
         rootDirectory: logs,
+        configOptions: { homeDirectory: home },
       });
       expect(runtime.notices.length).toBe(0);
       expect(stderr.lines.length).toBe(0);
@@ -166,11 +155,12 @@ test("a document-level failure keeps the silent fail-open behavior", async () =>
 });
 
 test("persistence disabled still surfaces the notice and stderr line", async () => {
-  await withIsolatedHome("logging:\n  level: noisy\n", async () => {
+  await withConfigHome("logging:\n  level: noisy\n", async (home) => {
     const stderr = stderrCollector();
     const runtime = await createProcessLogRuntime(stderr, createTraceId(), {
       debug: false,
       persist: false,
+      configOptions: { homeDirectory: home },
     });
     expect(runtime.notices.length).toBe(1);
     expect(stderr.lines.length).toBe(1);
@@ -179,7 +169,7 @@ test("persistence disabled still surfaces the notice and stderr line", async () 
 });
 
 test("an unavailable log directory still surfaces the notice without failing", async () => {
-  await withIsolatedHome("logging:\n  level: noisy\n", async () => {
+  await withConfigHome("logging:\n  level: noisy\n", async (home) => {
     const blockerRoot = await mkdtemp(join(tmpdir(), "lorelum-runtime-blocked-"));
     try {
       // A file where a directory is required makes every sink path unavailable
@@ -190,6 +180,7 @@ test("an unavailable log directory still surfaces the notice without failing", a
       const runtime = await createProcessLogRuntime(stderr, createTraceId(), {
         debug: false,
         rootDirectory: join(blocker, "logs"),
+        configOptions: { homeDirectory: home },
       });
       expect(runtime.notices.length).toBe(1);
       expect(stderr.lines.length).toBe(1);

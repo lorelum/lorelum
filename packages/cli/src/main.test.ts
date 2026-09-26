@@ -241,34 +241,16 @@ diagnostics:
 `);
 });
 
-function isolatedHomeEnvironment(home: string): { apply(): void; restore(): void } {
-  const previousHome = process.env.HOME;
-  const previousProfile = process.env.USERPROFILE;
-  return {
-    apply() {
-      process.env.HOME = home;
-      process.env.USERPROFILE = home;
-    },
-    restore() {
-      if (previousHome === undefined) delete process.env.HOME;
-      else process.env.HOME = previousHome;
-      if (previousProfile === undefined) delete process.env.USERPROFILE;
-      else process.env.USERPROFILE = previousProfile;
-    },
-  };
-}
-
 test("surfaces a logging.level fallback notice in success and failure envelopes", async () => {
   const home = await mkdtemp(join(tmpdir(), "lorelum-main-home-"));
   const logs = await mkdtemp(join(tmpdir(), "lorelum-main-logs-"));
   await mkdir(join(home, ".lorelum"), { recursive: true });
   await writeFile(join(home, ".lorelum", "config.yaml"), "logging:\n  level: noisy\n");
-  const environment = isolatedHomeEnvironment(home);
-  environment.apply();
+  const configOptions = { homeDirectory: home };
   try {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
-    expect(await run(["--json"], { stdout, stderr, logDirectory: logs })).toBe(0);
+    expect(await run(["--json"], { stdout, stderr, logDirectory: logs, configOptions })).toBe(0);
     const lines = stdout.value.split("\n").filter((line) => line.length > 0);
     expect(lines.length).toBe(1);
     const response = JSON.parse(lines[0]!);
@@ -291,16 +273,19 @@ test("surfaces a logging.level fallback notice in success and failure envelopes"
 
     const failureStdout = new MemoryWriter();
     const failureStderr = new MemoryWriter();
-    expect(await run(["--json", "unknown"], { stdout: failureStdout, stderr: failureStderr })).toBe(
-      2,
-    );
+    expect(
+      await run(["--json", "unknown"], {
+        stdout: failureStdout,
+        stderr: failureStderr,
+        configOptions,
+      }),
+    ).toBe(2);
     const failureResponse = JSON.parse(failureStdout.value);
     expect(failureResponse.ok).toBe(false);
     expect(failureResponse.error.code).toBe("usage.invalid");
     expect(failureResponse.diagnostics.notices?.[0]?.subject).toBe("logging.level");
     expect(validateProtocolSchema(failureResponse, protocolResponseSchema)).toEqual([]);
   } finally {
-    environment.restore();
     await rm(home, { recursive: true, force: true });
     await rm(logs, { recursive: true, force: true });
   }
@@ -309,18 +294,16 @@ test("surfaces a logging.level fallback notice in success and failure envelopes"
 test("keeps envelope diagnostics byte-identical without a fallback", async () => {
   const home = await mkdtemp(join(tmpdir(), "lorelum-main-home-"));
   const logs = await mkdtemp(join(tmpdir(), "lorelum-main-logs-"));
-  const environment = isolatedHomeEnvironment(home);
-  environment.apply();
+  const configOptions = { homeDirectory: home };
   try {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
-    expect(await run(["--json"], { stdout, stderr, logDirectory: logs })).toBe(0);
+    expect(await run(["--json"], { stdout, stderr, logDirectory: logs, configOptions })).toBe(0);
     const response = JSON.parse(stdout.value);
     expect(response.diagnostics).toEqual({ traceId: response.diagnostics.traceId });
     expect(Object.keys(response.diagnostics)).toEqual(["traceId"]);
     expect(stderr.value).toBe("");
   } finally {
-    environment.restore();
     await rm(home, { recursive: true, force: true });
     await rm(logs, { recursive: true, force: true });
   }

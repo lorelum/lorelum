@@ -76,6 +76,8 @@
 
 `packages/cli/integration/support/process.ts` 的 `runProcess()` 增加 `env` 选项（合并而非替换进程必需变量），fixture 按 `git-test-support.ts` 先例同时设置 `HOME` 与 `USERPROFILE` 指向 mkdtemp 目录，写入 `config.yaml` 后以 `bun packages/cli/src/main.ts` 为入口跑完整链路：text、`--json`、取 `traceId` 后 `feedback draft --include-logs debug`、`--debug` 组合。日志不可写降级路径在 Windows 上无可靠的目录权限语义，用 `RunOptions.logDirectory`/`persist` test seam 在 source-level 单测覆盖，process fixture 不假装覆盖该平台分支（并在任务中注明）。
 
+源级（进程内）单测不依赖 env：CI 实测表明进程内修改 `HOME` 无法在所有平台上改变 Bun 的 `os.homedir()` 解析（Linux 失败、Windows 恰好通过），因此 `createProcessLogRuntime` 与 `RunOptions` 提供 `configOptions` test seam 直通 `resolveLoggingSettings(options)`，与既有 `logDirectory`/`traceId` seam 同风格；env 覆盖只用于子进程 fixture（issue #230 的复现步骤本身即以子进程 `HOME=<isolated-home>` 表达，该通道已由 issue 在 macOS 上实证）。
+
 ## Risks / Trade-offs
 
 - [与 `feat/cli-error-details` 的合并冲突] 两者都修改 `protocol.ts` 的 envelope schema 邻接区域 → 词汇与工厂模式刻意同构以缩小冲突面；合并顺序无论先后，各自 schema 扩展互不依赖（`error.details` vs `diagnostics.notices`），rebase 成本低。
