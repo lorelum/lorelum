@@ -29,6 +29,23 @@ test("forwards optional standard input before collecting process output", async 
   });
 });
 
+test("merges environment overrides while keeping parent variables", async () => {
+  const probe = `
+const home = process.env.LORELUM_INTEGRATION_HOME ?? "missing";
+const path = typeof process.env.PATH === "string" ? "path-present" : "path-missing";
+console.log(home + "," + path);
+`;
+  await expect(
+    runProcess([bunExecutable, "-e", probe], 60_000, undefined, {
+      LORELUM_INTEGRATION_HOME: "isolated-home",
+    }),
+  ).resolves.toEqual({
+    exitCode: 0,
+    stderr: "",
+    stdout: "isolated-home,path-present\n",
+  });
+});
+
 test("terminates a timed-out process before rejecting", async () => {
   try {
     await runProcess(

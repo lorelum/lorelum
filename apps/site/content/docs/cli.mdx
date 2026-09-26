@@ -58,6 +58,8 @@ Model configuration and Backend runtime remain user-level. See [Configuration](.
 
 Set `logging.level: debug` in `~/.lorelum/config.yaml` for persistent release/Hook debugging. `lore --debug` also carries its one-invocation detail override to the associated authenticated Backend request and lifecycle; it does not change the daemon's global level or any concurrent request. This is separate from `--log-level`, which only changes stderr presentation.
 
+An invalid `logging.level` does not block normal commands. That invocation falls back to `info`, prints one warning line to stderr, and reports the same fact under `diagnostics.notices` in the `--json` envelope, including the received value, the allowed levels, and the level actually in effect. Correct the value in `config.yaml` to apply it again; `--debug` overrides the invalid setting for its own invocation and says so in the same notice.
+
 ## Local logs
 
 Every normal text failure prints `diagnostics.traceId`; a `--json` response carries the same field in its envelope. Copy that ID to inspect the original invocation without reading Backend-private files directly:
@@ -82,6 +84,7 @@ Every `--json` CLI envelope includes `protocolVersion`, `toolVersion`, `command`
 | `toolVersion` | Version of the installed CLI. |
 | `command` | Identifier of the command that produced the result. |
 | `diagnostics.traceId` | Local correlation ID for this invocation. It is not an auth credential or public sharing ID. |
+| `diagnostics.notices` | Optional structured non-fatal facts, present only in the invocations they describe — for example an invalid persistent `logging.level` that fell back for this invocation. |
 | `ok` | Whether the invocation produced a successful command result. |
 | `data` | Command-specific result on success. |
 | `error.code` | Stable error identifier on failure. |

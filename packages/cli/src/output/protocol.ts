@@ -1,6 +1,12 @@
 import packageManifest from "../../package.json";
 import { createTraceId, type TraceId } from "@lorelum/log";
 
+import {
+  invocationNoticeBudgets,
+  invocationNoticeSchema,
+  type InvocationNotice,
+} from "./notices.js";
+
 /** Version of the process-envelope contract. */
 export const protocolVersion = 2;
 /** Version of the CLI implementation emitting the envelope. */
@@ -40,7 +46,25 @@ interface EnvelopeBase {
 
 export interface ProtocolDiagnostics {
   readonly traceId: TraceId;
+  /** Non-fatal invocation facts, e.g. a rejected logging.level. Omitted when empty. */
+  readonly notices?: readonly InvocationNotice[];
 }
+
+/** Diagnostics schema shared by the success and failure envelope branches. */
+const diagnosticsSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["traceId"],
+  properties: {
+    traceId: { type: "string" },
+    notices: {
+      type: "array",
+      minItems: 1,
+      maxItems: invocationNoticeBudgets.maxNotices,
+      items: invocationNoticeSchema,
+    },
+  },
+} as const satisfies JsonSchema;
 
 export interface ProtocolSuccess<T extends JsonValue = JsonValue> extends EnvelopeBase {
   ok: true;
@@ -74,12 +98,7 @@ export const protocolResponseSchema = {
         protocolVersion: { const: protocolVersion },
         toolVersion: { type: "string" },
         command: { type: "string" },
-        diagnostics: {
-          type: "object",
-          additionalProperties: false,
-          required: ["traceId"],
-          properties: { traceId: { type: "string" } },
-        },
+        diagnostics: diagnosticsSchema,
         ok: { const: true },
         data: {},
       },
@@ -92,12 +111,7 @@ export const protocolResponseSchema = {
         protocolVersion: { const: protocolVersion },
         toolVersion: { type: "string" },
         command: { type: "string" },
-        diagnostics: {
-          type: "object",
-          additionalProperties: false,
-          required: ["traceId"],
-          properties: { traceId: { type: "string" } },
-        },
+        diagnostics: diagnosticsSchema,
         ok: { const: false },
         error: {
           type: "object",

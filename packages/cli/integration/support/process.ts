@@ -19,17 +19,24 @@ export class ProcessTimeoutError extends Error {
   }
 }
 
-/** Run a child process, preserving output and waiting for termination after a timeout. */
+/**
+ * Run a child process, preserving output and waiting for termination after a
+ * timeout. An optional `env` mapping is merged over the parent environment so
+ * fixtures can isolate HOME/USERPROFILE without dropping process-essential
+ * variables.
+ */
 export async function runProcess(
   command: readonly string[],
   timeoutMs = 60_000,
   input?: string,
+  env?: Readonly<Record<string, string>>,
 ): Promise<ProcessResult> {
   const child = Bun.spawn({
     cmd: [...command],
     stdin: input === undefined ? "ignore" : "pipe",
     stderr: "pipe",
     stdout: "pipe",
+    ...(env === undefined ? {} : { env: { ...process.env, ...env } }),
   });
   if (input !== undefined) {
     child.stdin.write(input);
