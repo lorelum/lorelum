@@ -20,6 +20,7 @@ import {
 } from "./hook/workbuddy.js";
 import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
 import { resolveOutputFormat } from "./output/format-selection.js";
+import { composeDiagnostics } from "./output/notices.js";
 import { renderHelpText } from "./output/presentation.js";
 import { renderResult, type OutputFormat } from "./output/render.js";
 import type { OutputWriter } from "./output/protocol.js";
@@ -208,7 +209,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
         command: "describe",
         data,
         textRenderer: renderHelpText,
-        diagnostics: { traceId },
+        diagnostics: composeDiagnostics(traceId, runtime.notices),
       });
       diagnostics.emit({
         time: new Date().toISOString(),
@@ -298,7 +299,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       code: cliError.code,
       message: cliError.message,
       ...(cliError.recovery === undefined ? {} : { recovery: cliError.recovery }),
-      diagnostics: { traceId },
+      diagnostics: composeDiagnostics(traceId, runtime.notices),
     });
     return cliError.exitCode;
   }

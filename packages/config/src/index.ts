@@ -10,8 +10,10 @@ export {
   DEFAULT_LOGGING_SETTINGS,
   loadLoggingSettings,
   loggingLevels,
+  resolveLoggingSettings,
   type LoggingLevel,
   type LoggingSettings,
+  type ResolvedLoggingSettings,
 } from "./logging";
 export {
   initializeProjectConfig,
