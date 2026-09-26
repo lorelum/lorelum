@@ -1,5 +1,60 @@
 # Tasks
 
+## 跨设备交接：先分析再实施（2026-09-26）
+
+本节保存维护者确认的下一轮范围，不是新排序实现授权。下方历史勾选和 verification.md 的结论仍需核实，不能认定 #236 已全部完成。
+
+### 固定版本和结果
+
+- 主仓库 `lorelum/lorelum`，分支 `codex/advance-task-aware-semantic-retrieval`。开始前核实 HEAD、工作区和远端，不 rebase 或合并无关提交。
+- baseline：`caecc53694d3162bd145e30f3bc5628ee6902b0c`。
+- 第一轮排序：`09e64be914dc93124230f06483c8dfc4c164a61a`；代码提交为 `63ec6640fd5c52e3130b51fd30cc5db9175e4b98`。
+- benchmark `retrieval-ranking/v2`，50 query、4 Pack / 97 Practice，N=20、K=5，harness protocol v1。
+- Profile：`72c7404af9d533dce3dd5f5e62987fcb225ffdfd180ae2951879d3a54044c2a5`。
+- 维护者转交的 benchmark 结果：core candidate recall 49/50 → 49/50；core final top-5 42/50 → 48/50；candidate miss 1 → 1；final-ranking miss 7 → 1；明确 forbidden 进入前五的案例 2 → 2。candidate/replay 全部成功，逐例一致。
+- 原有 42 条前五命中没有丢失，但部分名次下降。不能写“没有任何退步”或“scope error 已解决”。
+
+### 新设备证据入口
+
+先读适用 AGENTS.md、当前工作流（若存在 CHANGE_WORKFLOW 则读取）和本 change。下述相对路径在新设备自己的 checkout 内解析。
+
+主仓库重点：`packages/engine/src/query/semantic/task-relevance.ts`、`query-service.ts`（同目录）、`packages/engine/src/query/artifacts/semantic.ts`、`packages/backend/src/benchmark/semantic-index-routing.ts`、`docs/development/semantic-retrieval-benchmark-harness.md`，以及本 change 的 design/specs/tasks/verification。
+
+benchmark 仓库 `lorelum/lorelum-benchmark`，分支 `codex/retrieval-ranking-benchmark`，交接时报告 HEAD `0ff6d2dbfd2e22a10eab3eb9b6b246f1d207abff`，关联 Draft PR #223。只读其 `openspec/changes/retrieval-ranking-benchmark/verification.md`、`results/records/`。逐例 artifacts 在 `artifacts/retrieval-ranking/`，被 Git 忽略，record 保存路径与 hash；新设备不能假定它们随 Git 到达。缺失时报告并请求按 hash 传递，不重跑来替代原始记录。上述摘要可作为分析起点。
+
+已有 `docs/research/task-aware-retrieval-evolution.md` 是研究资料，之前未跟踪。不要覆盖、删除或顺手提交，也不把它当成已批准合同。
+
+### 先核实实现边界
+
+1. 候选观察点：上一轮将 `semanticCandidateIds(candidates)` 改为 `semanticCandidateIds(orderedCandidates)`，部分测试改为 finalIds 是 candidateIds 的前缀。原约定是 canonical 和 snapshot 校验通过后、最终排序前观察。核实是显式换名单还是原地排序污染，确认 digest 校验实际时机。不得把返回位置直接称作原始召回名次。先说明修正和兼容影响，不增加字段或升级协议。
+2. 公开类型：`SemanticQueryDependencies` 新增 `taskSignal?`，核实是否经 barrel 公开导出。不能因为未改 index.ts 就声称公开 API 未变。
+3. 错误语义：FTS5 不可用时是否静默恢复纯语义顺序，是否符合合同、造成环境间不可见的排序差异？先提建议，不扩大诊断接口。
+4. 核实 `similarity + 0.05 × taskStrength`、候选池内 BM25 归一化及字段权重。词面匹配不等于任务/阶段识别，较高字段权重不保证领域词不会占优势。
+
+### 未解决的问题
+
+- 排序：`agentic-limit-investigation`，query 为 “I keep following references into more files, but I cannot name the decision each file will change.”；core `agentic-coding.implementation.limit-investigation-to-current-decision`。两版均召回但未进前五，返回 candidateIds 位置 6 → 11。先核实名单语义；decision 等词让 Pack 类加分只是待验证假设。
+- 召回：`agentic-acceptance-direct`，core `agentic-coding.requirements.define-acceptance-and-non-goals`，两版均未进候选。池内重排不能找回池外 Practice。撤回“修复必然需要改变持久化投射/Profile”的未经证明断言；比较候选来源和表示方案再决定。新增候选来源不必然改变 embedding Profile，被测配置变化也不等于题库 revision 必须变化。确需不同 Profile 时先协调兼容和对照边界。
+- Scope：`issue-pr-body-scope-conflict` 的 core final #1，forbidden `react.server.request-dedup-cache` #2；`issue-pr-readback-pack-context` 的 core #2，forbidden `pack-creator.release.preserve-versioned-content-and-provenance` #4。相对顺序改善不等于 forbidden 离开前五，不得一律过滤 React、Pack 或领域 Practice。
+
+### 分析和实验纪律
+
+同时检查剩余失败、修好的 6 条、名次下降案例和两条 scope error，解释原始相似度、BM25、归一化及最终排序的贡献。逐词/字段因果归因区分观测与推断。优先评估现有信号修正空间，证据说明不足后再考虑适用性重排或召回补充。
+
+用小型合成 fixture 检查无词面重合、中英文、相邻阶段、领域冲突、直接有用的领域补充、稳定 tie-break 和 snapshot/retry。不写 case/Practice ID 或 query 特例，不扩大 N/K，不围绕一例调大 0.05。
+
+上一轮在要求“不先重跑 benchmark”时读取完整 query/labels，进行了参数扫描及真实 Engine 重放。题集已参与方法选择，后来同题集重跑不是未见数据上的泛化验证；参数区间稳定也不能证明无过拟合。不得沿用旧交付的过度结论。
+
+内部诊断可用主仓库测试或临时程序，不扩展 harness、CLI、公开 exports 或产品 API。额外执行冻结案例的实验先明确范围并确认，不自行重跑全套 benchmark。只读 benchmark 证据，不修改其 query、labels、scorer、corpus 或历史结果。
+
+核查旧记录中“先设计/strict validation 后实现”、独立 CLI 观察、产物清理、测试/格式检查、任务勾选及 v1/v2 引用是否真实准确。先列出需更正项，不伪造完成，不把旧测试结果当新 build 结果。
+
+### 下一份交付
+
+先交付可讨论方案：问题及代码/实验依据；观测/合同错误与算法不足的区分；推荐修改层次和替代方案；对既有命中、跨语言、成本和失败路径的影响；固定对照和 benchmark 分工；未完成任务和应撤回/限定的旧结论。
+
+当前只授权分析和方案整理。讨论确认后才实现、测试并交付新的可 fetch 固定 SHA；benchmark 再用新 run ID 独立对比。不要再次要求维护者决定“剩余失败是否接受”：方向是继续优化，但不能写测试特例。
+
 ## 1. N/K 边界与本地 harness
 
 - [x] 1.1 在 Engine semantic query 中定义独立候选宽度 `N` 与最终结果数量 `K`；先只拆分候选截断和最终截断，保持当前排序顺序不变。通过 Engine query tests 验证 `N > K` 时排序前候选可超过 K、最终结果仍至多 K，且 Store/ProjectContext 两条路径都使用同一边界；相同输入的旧 final K 结果须符合旧排序行为。
