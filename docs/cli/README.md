@@ -62,3 +62,5 @@ lore pack list --details --json
 `model load` 的 stdout 在任务最终完成前保持沉默；stderr 使用 `model: resolving`、`model: downloading 50% (attempt 1)`、`model: verifying` 和 `model: starting` 这样的文案，只输出发生变化的阶段、百分比或 attempt。被取消、下载失败或 native 启动失败在默认格式以 text error 返回，在 `--json` 格式以最终 failure envelope 返回；两者都不把 202 接受状态当作命令成功。
 
 每个 `--json` CLI envelope 的 `diagnostics.traceId` 是该次调用的本机排障关联 ID；普通 text failure 也会在 stderr 中显示同一个 ID。它可用于 `lore logs --trace-id <traceId>` 或后续生成本地 feedback 草稿；它不是鉴权 token，也不会出现在 Codex/ZCode/Cursor/WorkBuddy Hook envelope。`--debug` 不改变 stdout 单行 JSON、progress 输出、已接受后台 operation 或退出码；`--log-level` 仍只控制 stderr。面向用户的排查顺序见[站点故障排查说明](../../apps/site/content/docs/troubleshooting.mdx)。
+
+`diagnostics.notices` 是同一 envelope 的可选字段，承载本次调用的非致命运行事实：当持久 `logging.level` 写入非法值时，业务命令按默认 `info` 继续完成，但每个 entry 以封闭 schema 携带 `kind`、`subject`、`reason`、`received`、`expected`、`effective` 与 `source`，同次调用的 stderr（text 与 `--json` 相同）会输出同一事实的单行提示，同 trace 的本机日志中有一条 `warn` 级 `logging.level-fallback` 记录。该字段只在发生此类事实的 invocation 出现：正常调用整体省略该字段并保持既有 envelope 形状，`protocolVersion` 保持 `2`；`--debug` 覆盖时 `effective` 为 `debug`，同时仍说明持久配置未生效。

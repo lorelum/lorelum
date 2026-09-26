@@ -12,6 +12,11 @@ import {
   requireSuccessData,
 } from "../support/protocol.js";
 
+/** Compare full envelope output while masking the per-invocation random traceId. */
+function withoutTraceId(stdout: string): string {
+  return stdout.replace(/"traceId":"[0-9a-f-]{36}"/u, '"traceId":"<trace>"');
+}
+
 /** Verify persisted `get` content and keyword-query behavior in the compiled CLI. */
 export async function verifyGetAndQueryScenario(
   compiledBinary: string,
@@ -91,7 +96,7 @@ export async function verifyGetAndQueryScenario(
     "before",
   );
   assert.equal(before.exitCode, 0);
-  assert.equal(before.stdout, first.stdout);
+  assert.equal(withoutTraceId(before.stdout), withoutTraceId(first.stdout));
   const after = await runGet(
     compiledBinary,
     fixture.primaryPracticeId,
@@ -99,7 +104,7 @@ export async function verifyGetAndQueryScenario(
     "after",
   );
   assert.equal(after.exitCode, 0);
-  assert.equal(after.stdout, first.stdout);
+  assert.equal(withoutTraceId(after.stdout), withoutTraceId(first.stdout));
 
   const absent = await runGet(compiledBinary, "integration.retrieval.absent", fixture.storageRoot);
   assert.equal(absent.exitCode, 2);

@@ -58,6 +58,8 @@ lore --store-root /path/to/store query "评审一个局部 UI 修改的需求范
 
 若要让发行版或自动 Hook 持续记录详细信息，可在 `~/.lorelum/config.yaml` 设置 `logging.level: debug`。`lore --debug` 还会把这一次调用的 detail 只传给关联的 authenticated Backend request 和 lifecycle；它不会改写 daemon 全局等级，也不会影响并发调用。它和仅控制 stderr 的 `--log-level` 是两件事。
 
+`logging.level` 写了非法值也不会阻塞正常命令：该次调用回退为 `info`，在 stderr 打印一行提示，并在 `--json` envelope 的 `diagnostics.notices` 中报告同一事实，包括收到的值、允许的等级和本次实际生效等级。把 `config.yaml` 中的值改回合法值即可重新生效；`--debug` 会用自身覆盖这次调用的无效配置，并在同一条 notice 中如实说明。
+
 ## 本机日志
 
 普通 text failure 会显示 `diagnostics.traceId`，`--json` 响应也会在 envelope 中携带同一字段。复制该 ID 后即可查看原始调用，不必直接读取 Backend 私有文件：
@@ -76,16 +78,17 @@ lore logs prune
 
 每个 `--json` CLI envelope 都包含 `protocolVersion`、`toolVersion`、`command`、`diagnostics.traceId` 和 `ok`。Hook 保持宿主自己的 envelope，不会暴露这项 trace metadata。
 
-| 字段                  | 含义                                                       |
-| --------------------- | ---------------------------------------------------------- |
-| `protocolVersion`     | JSON 协议版本。                                            |
-| `toolVersion`         | 已安装 CLI 的版本。                                        |
-| `command`             | 生成结果的命令标识。                                       |
+| 字段 | 含义 |
+| --- | --- |
+| `protocolVersion` | JSON 协议版本。 |
+| `toolVersion` | 已安装 CLI 的版本。 |
+| `command` | 生成结果的命令标识。 |
 | `diagnostics.traceId` | 本次调用的本机关联 ID；它不是鉴权凭证，也不是公开分享 ID。 |
-| `ok`                  | 本次调用是否产生成功的命令结果。                           |
-| `data`                | 成功时的命令结果。                                         |
-| `error.code`          | 失败时的稳定错误标识。                                     |
-| `error.message`       | 失败时供人阅读的原因说明。                                 |
+| `diagnostics.notices` | 可选的结构化非致命事实，只在发生该事实的调用中出现——例如无效的持久 `logging.level` 在本次调用中被回退。 |
+| `ok` | 本次调用是否产生成功的命令结果。 |
+| `data` | 成功时的命令结果。 |
+| `error.code` | 失败时的稳定错误标识。 |
+| `error.message` | 失败时供人阅读的原因说明。 |
 
 程序应按错误码分支，不解析错误消息。响应成功时，仍需检查命令的具体状态，才能判断异步工作是否完成。
 

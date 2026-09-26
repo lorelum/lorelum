@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { isInternalBackendDaemonLaunch, isInternalBackendServeInvocation, run } from "./main.js";
 import { protocolResponseSchema, toolVersion, type JsonSchema } from "./output/protocol.js";
@@ -240,4 +243,72 @@ test("writes default failures to stderr as complete text", async () => {
 diagnostics:
   traceId: 00000000-0000-4000-8000-000000000004
 `);
+});
+
+test("surfaces a logging.level fallback notice in success and failure envelopes", async () => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-main-home-"));
+  const logs = await mkdtemp(join(tmpdir(), "lorelum-main-logs-"));
+  await mkdir(join(home, ".lorelum"), { recursive: true });
+  await writeFile(join(home, ".lorelum", "config.yaml"), "logging:\n  level: noisy\n");
+  const configOptions = { homeDirectory: home };
+  try {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    expect(await run(["--json"], { stdout, stderr, logDirectory: logs, configOptions })).toBe(0);
+    const lines = stdout.value.split("\n").filter((line) => line.length > 0);
+    expect(lines.length).toBe(1);
+    const response = JSON.parse(lines[0]!);
+    expect(response.ok).toBe(true);
+    expect(response.diagnostics.notices).toEqual([
+      {
+        kind: "configuration",
+        subject: "logging.level",
+        reason: "invalid-value",
+        received: "noisy",
+        expected: { kind: "enum", values: ["error", "warn", "info", "debug"] },
+        effective: "info",
+        source: join(home, ".lorelum", "config.yaml"),
+      },
+    ]);
+    expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
+    expect(stderr.value).toBe(
+      'warning: logging.level "noisy" is invalid (allowed: error, warn, info, debug); using "info" for this invocation.\n',
+    );
+
+    const failureStdout = new MemoryWriter();
+    const failureStderr = new MemoryWriter();
+    expect(
+      await run(["--json", "unknown"], {
+        stdout: failureStdout,
+        stderr: failureStderr,
+        configOptions,
+      }),
+    ).toBe(2);
+    const failureResponse = JSON.parse(failureStdout.value);
+    expect(failureResponse.ok).toBe(false);
+    expect(failureResponse.error.code).toBe("usage.invalid");
+    expect(failureResponse.diagnostics.notices?.[0]?.subject).toBe("logging.level");
+    expect(validateProtocolSchema(failureResponse, protocolResponseSchema)).toEqual([]);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+    await rm(logs, { recursive: true, force: true });
+  }
+});
+
+test("keeps envelope diagnostics byte-identical without a fallback", async () => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-main-home-"));
+  const logs = await mkdtemp(join(tmpdir(), "lorelum-main-logs-"));
+  const configOptions = { homeDirectory: home };
+  try {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    expect(await run(["--json"], { stdout, stderr, logDirectory: logs, configOptions })).toBe(0);
+    const response = JSON.parse(stdout.value);
+    expect(response.diagnostics).toEqual({ traceId: response.diagnostics.traceId });
+    expect(Object.keys(response.diagnostics)).toEqual(["traceId"]);
+    expect(stderr.value).toBe("");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+    await rm(logs, { recursive: true, force: true });
+  }
 });
