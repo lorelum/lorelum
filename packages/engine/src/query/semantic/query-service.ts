@@ -62,7 +62,10 @@ export interface SemanticQueryDependencies {
   readonly embedding: EmbeddingPort;
   readonly paths?: (root: StorageRoot, profileId: string) => SemanticIndexPaths;
   readonly definition?: SemanticIndexDatabaseDefinition;
-  /** Test seam for the task/stage signal used by final ordering. */
+}
+
+/** Only the non-barrel benchmark trace exposes request-local test injection. */
+interface SemanticQueryExecutionDependencies extends SemanticQueryDependencies {
   readonly taskSignal?: SemanticTaskSignal;
 }
 
@@ -195,7 +198,7 @@ interface SemanticQueryExecution {
 }
 
 async function executeSemanticQuery(
-  dependencies: SemanticQueryDependencies,
+  dependencies: SemanticQueryExecutionDependencies,
   root: StorageRoot,
   window: SemanticQueryWindow,
 ): Promise<SemanticQueryExecution> {
@@ -237,28 +240,31 @@ async function executeSemanticQuery(
         coverage.identity,
         candidateReadIds,
       );
-      // Final ordering stays inside this attempt: it reads only the canonical
-      // Practices proven current by this snapshot and never re-reads the Store.
+      // Validate all N canonical candidates before observing or ranking them.
+      const assembled = assembleSemanticArtifactResult({
+        profile,
+        coverage: coverage.coverage,
+        practices,
+        candidates,
+      });
+      const candidateIds = semanticCandidateIds(candidates);
+      // Both observations belong to this successful snapshot attempt. Sorting
+      // never mutates the reader order and never re-reads canonical state.
       const orderedCandidates = orderSemanticCandidatesByTaskRelevance({
         text: window.request.text,
         candidates,
         practices,
         ...(dependencies.taskSignal === undefined ? {} : { signal: dependencies.taskSignal }),
       });
-      const assembled = assembleSemanticArtifactResult({
-        profile,
-        coverage: coverage.coverage,
-        practices,
-        candidates: orderedCandidates,
-      });
-      // Capture only after canonical Practice and snapshot validation, before final K truncation.
-      const candidateIds = semanticCandidateIds(orderedCandidates);
-      const results = Object.freeze(assembled.results.slice(0, window.resultLimit));
+      const summaries = new Map(assembled.results.map((hit) => [hit.practiceId, hit]));
+      const results = Object.freeze(
+        orderedCandidates.slice(0, window.resultLimit).map((candidate) =>
+          // Ordering preserves membership of the already-validated candidate set.
+          summaries.get(candidate.practiceId)!,
+        ),
+      );
       return Object.freeze({
-        result:
-          results.length === assembled.results.length
-            ? assembled
-            : Object.freeze({ ...assembled, results }),
+        result: Object.freeze({ ...assembled, results }),
         candidateIds,
       });
     } catch (error) {
@@ -297,7 +303,9 @@ export function createSemanticQueryService(
  * Internal measurement seam for the repository-local benchmark harness.
  * Deliberately not re-exported from the Engine package entry points.
  */
-export function createSemanticCandidateTraceService(dependencies: SemanticQueryDependencies) {
+export function createSemanticCandidateTraceService(
+  dependencies: SemanticQueryExecutionDependencies,
+) {
   return Object.freeze({
     async query(
       root: StorageRoot,

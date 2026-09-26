@@ -94,7 +94,7 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 
 最终排序内容来自已通过 snapshot 检查的 canonical Practice；候选索引始终是派生状态。Store query 与 content-addressed ProjectContext query 共用同一 Engine 候选/排序规则。若所选排序仅使用当前 canonical 内容且不改变持久化表示，不升级 index schema/Profile；只有持久化 view/projection/chunk 改变时才按现有 staging、snapshot fence、atomic publication 路径迁移。
 
-### 7. 任务/阶段信号只在同一次检索内重排已有候选
+### 7. 第一轮候选内词面排序（历史实现，以下第 8 节修订）
 
 冻结 baseline（50 例：core candidate recall 49/50、core final top-5 42/50、2 例 scope error）显示失败集中在最终排序：7 例 core 已进入候选但停在 candidate rank 6–13，且都在结果边界 0.013 相似度以内；2 例仅领域或技术栈相似的 Practice 压过 core。因此本轮选择最小改动：不改 embedding、投射、索引 schema 或 Profile，只在同一次检索、同一 snapshot 内重排已经过 canonical 校验的候选。
 
@@ -104,6 +104,30 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 - 最终顺序按 `similarity + SEMANTIC_TASK_SIGNAL_WEIGHT × taskStrength` 排序，权重固定为 0.05 且显式有界：任务信号最多把候选移动 0.05，高于 baseline 中所有排序失败的 0.013 间距，低于清晰语义领先者相对后续候选的常见间距。因此任务/阶段匹配可以决定近似平局，但不能取代语义 reader。
 - Decision 1 的选项约束（“query analyzer / Hybrid / 专用 reranker 需先证明必要并完成设计对齐”）由此满足：baseline 证据要求处理任务/阶段错排，本节即其设计对齐。实现仍是单一 semantic 模式：候选只来自 semantic index，不新增 keyword 检索模式、不合并第二个候选来源、不改变 N/K 边界与候选观察点；`candidateIds` 是完成重排后的候选池，`finalIds` 仍是同一次检索的前 K。
 - 任务信号只是排序增强，不成为新的可用性门槛：运行时不提供 SQLite FTS5 时保持语义相似度顺序返回，而不是让 semantic query 失败，也不静默切换到 keyword retrieval。
+
+### 8. 修复观察点与词面证据放大（本轮已确认方向）
+
+维护者在查阅有限诊断结论后确认继续：先修复候选观察点、错误词匹配和加分放大；召回补充与适用性判断继续验证，不混入本轮算法提交。诊断证据与限制见 [analysis.md](./analysis.md)。本节替代第 7 节关于候选顺序、归一化、测试注入和降级的决定，不改 N=20/K=5、embedding Profile、持久化 keyword/semantic 表示或 harness v1 字段。
+
+**观察点。** 在同一 query attempt 中先用现有 canonical result assembly 校验全部 N 个候选的存在性、digest 和 summary，再采集 reader 顺序的 distinct candidateIds；之后重排，仅对已验证 summary 重新排列并截 K。这样复用已有校验规则，避免排序前后各维护一套 digest 检查。重试仍丢弃整次 attempt，失败不返回名单。
+
+**内部边界。** `SemanticQueryDependencies` 恢复原公开类型，不再暴露 taskSignal。测试注入只留在不经 barrel 导出的内部 candidate trace 依赖和排序函数中。旧分支已经暴露的可选属性被收回，属于恢复原接口边界，而不是声称类型从未变过。辅助 FTS 失败转为已有 SemanticIndexQueryError，harness 使用既有 retrieval_failed，普通 CLI/API 保持既有错误 envelope；不再成功返回另一套隐藏排序。
+
+**词面证据。** 新的 tokenizer 只用于请求私有的 semantic task signal。普通词复用现有 NFKC、标识符拆词与 CJK bigram；斜线连接的技术名称及 C++/C# 类后缀保持原子，不拆成代词。过滤一组保守的英文代词、冠词、介词与助动词，保留否定词、动作词、C/R 等独立技术名称，不做逐案例词表。query 和七个 canonical 字段使用同一规则。经可逆的纯字母 token 编码后复用现有内存 FTS5 adapter，避免底层 tokenizer 再拆原子，也不改持久化 keyword tokenizer 或 Profile。
+
+**强度。** 令 Q 为去重后的有效 query tokens，D 为候选所有 canonical 字段 tokens 的并集，m 为匹配的不同有效词数量，b 为现有 BM25 正分值，bmax 为当前池最大正分值：
+
+```text
+m = |Q ∩ D|
+strength = (m / (m + 1)) × b / bmax
+relevance = similarity + 0.05 × strength
+```
+
+Q 为空、无匹配或 bmax 不为正时强度为零。所有分值有限且 strength 在 [0,1]。匹配数量的自然饱和限制孤立词的影响：一个词至多半额，更多独立词增加证据但边际收益递减。b/bmax 保留原有字段与 BM25 相对证据，不再把最小分数扣除后拉满差值。近同分且匹配词数相同的候选获得近同加分。m 只计算已有匹配，因此追加对全池都未命中的背景词不会削弱已有词面证据；新增词若命中别的候选，仍可能改变相对分数。此公式不保证理解任务或阶段，不消除池内 BM25 统计依赖，也不声称解决所有 scope/recall 问题。
+
+选择这个无新可调参数的修正，而不使用 `b/(b+c)`：FTS5 在小候选池中可能把词的 IDF 压到极小值，固定绝对尺度 c 会同时抹掉真实匹配。不提高 0.05，不在冻结题集上扫描权重；匹配数量饱和和相对分数的选择由上述合成不变量验证。曾试用 m/|Q|，但它会仅因追加未命中说明而稀释证据，且有限回放发现已有命中退步，因此未交付该中间实现；不是按某个案例另设阈值。没有词面重合时保持语义顺序，跨语言收益仍来自 embedding。
+
+**验证与后续。** 新回归使用虚构 Practice 与受控向量，覆盖 pronoun/技术缩写冲突与真实技术任务、无重合/中文、近等分、部分命中唯一 hit、强任务匹配、直接有用的领域内容、tie-break、输入不变，以及 digest-before-signal、retry 和失败不返回名单。旧复制真实案例的测试材料改为独立合成 fixture，保留其合同断言；不把 final 是 candidate 前缀当成一般约束。改动后不在主仓跑全量 benchmark。固定新 build 交由 benchmark 独立对照；是否保住六例收益、修复剩余排序与 scope 仍需实测。
 
 ## Risks / Trade-offs
 

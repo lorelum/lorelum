@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import type { EffectivePractice } from "../../local-store";
 import { canonicalizePractice } from "../../local-store/model";
 import { KeywordIndexUnavailableError } from "../errors";
+import { SemanticIndexQueryError } from "./errors";
 import type { SemanticCandidate } from "./index/reader";
 import {
   SEMANTIC_TASK_SIGNAL_WEIGHT,
@@ -46,27 +47,20 @@ const noSignal: SemanticTaskSignal = Object.freeze({
 });
 
 const domainPractice = practice({
-  id: "react.server.request-dedup-cache",
-  title: "Deduplicate Request-Scoped Work",
-  stage: "server",
-  techStack: ["react"],
-  appliesWhen:
-    "one server render calls the same request-scoped async work, such as session or record lookup, from more than one component or helper",
-  body: "Share one cached result for the request instead of repeating the lookup.",
+  id: "sample.throughput",
+  title: "Measure throughput",
+  stage: "performance",
+  techStack: ["database"],
+  appliesWhen: "Measure throughput during sustained traffic.",
 });
-
 const postPractice = practice({
-  id: "issue-pr-etiquette.pull-request.write-the-pr-body-for-a-cold-reviewer",
-  title: "Write the PR Body for a Cold Reviewer",
-  stage: "pull-request",
-  techStack: ["git"],
-  appliesWhen:
-    "a PR is about to be opened, and the author must write a body from which a reviewer with none of the author's context can verify the change",
-  body: "State the problem, the decision and the evidence in the post itself.",
+  id: "sample.rollback",
+  title: "Audit rollback",
+  stage: "review",
+  techStack: ["database"],
+  appliesWhen: "Audit rollback before approving deployment.",
 });
-
-const request =
-  "I am opening a PR that fixes a React cache bug; a reviewer will see it without our chat history, so make the context self-contained.";
+const request = "Audit rollback";
 
 test("keeps the semantic order when no Practice shares a term with the request", () => {
   const candidates = [candidate("platform.beta", 0.9), candidate("platform.alpha", 0.8)];
@@ -177,55 +171,43 @@ test("orders equal relevance deterministically by Practice ID", () => {
   ).toEqual(["platform.alpha", "platform.beta"]);
 });
 
-test("keeps the semantic order when the runtime has no SQLite FTS5", () => {
-  const candidates = [
-    candidate(domainPractice.practiceId, 0.9),
-    candidate(postPractice.practiceId, 0.88),
-  ];
-  const ordered = orderSemanticCandidatesByTaskRelevance({
-    text: request,
-    candidates,
-    practices: [domainPractice, postPractice],
-    signal: {
-      measure() {
-        throw new KeywordIndexUnavailableError();
+test("reports unavailable task scoring as a semantic query failure", () => {
+  expect(() =>
+    orderSemanticCandidatesByTaskRelevance({
+      text: request,
+      candidates: [
+        candidate(domainPractice.practiceId, 0.9),
+        candidate(postPractice.practiceId, 0.88),
+      ],
+      practices: [domainPractice, postPractice],
+      signal: {
+        measure() {
+          throw new KeywordIndexUnavailableError();
+        },
       },
-    },
-  });
-  expect(ordered).toEqual(candidates);
+    }),
+  ).toThrow(SemanticIndexQueryError);
 });
 
-test("prefers the stage named by the request when one domain has several moments", () => {
-  const reviewFinding = practice({
-    id: "agentic-coding.review.validate-findings-before-action",
-    title: "Validate Findings Before Action",
-    stage: "review",
-    techStack: ["typescript"],
-    appliesWhen:
-      "a human, agent, analyzer, or review has raised a finding, and the agent is about to change the current artifact without first establishing whether the finding is true and in scope",
-  });
-  const verification = practice({
-    id: "agentic-coding.verification.map-evidence-to-acceptance",
-    title: "Map Evidence to Acceptance",
+test("prefers the matching stage among synthetic Practices about one domain", () => {
+  const verify = practice({
+    id: "sample.verification",
+    title: "Verify outcomes",
     stage: "verification",
-    techStack: ["typescript"],
-    appliesWhen:
-      "implementation is ready for verification, actual checks or observations are available, and the agent is about to decide whether the accepted behavior is covered",
+    techStack: ["database"],
+    appliesWhen: "Verify outcomes after deployment.",
   });
   const ordered = orderSemanticCandidatesByTaskRelevance({
-    text: "A review comment says the migration is unsafe; check the claim against the code and tests before changing anything.",
-    candidates: [
-      candidate(verification.practiceId, 0.9),
-      candidate(reviewFinding.practiceId, 0.88),
-    ],
-    practices: [reviewFinding, verification],
+    text: request,
+    candidates: [candidate(verify.practiceId, 0.9), candidate(postPractice.practiceId, 0.88)],
+    practices: [verify, postPractice],
   });
-  expect(ids(ordered)).toEqual([reviewFinding.practiceId, verification.practiceId]);
+  expect(ids(ordered)).toEqual([postPractice.practiceId, verify.practiceId]);
 });
 
 test("keeps a domain Practice first when the request is actually about that domain", () => {
   const ordered = orderSemanticCandidatesByTaskRelevance({
-    text: "The server render calls the same request-scoped async work twice, so deduplicate it.",
+    text: "Measure throughput",
     candidates: [
       candidate(postPractice.practiceId, 0.9),
       candidate(domainPractice.practiceId, 0.88),
@@ -249,4 +231,98 @@ test("measures the task signal from canonical Practice fields", () => {
     strength.get(domainPractice.practiceId) ?? 0,
   );
   expect(canonicalPracticeTaskSignal.measure({ text: request, practices: [] }).size).toBe(0);
+});
+
+function synthetic(id: string, title: string, body = ""): EffectivePractice {
+  return practice({ id, title, body, stage: "engineering", techStack: [], appliesWhen: "" });
+}
+
+test("a pronoun cannot match a fragment of a technical compound", () => {
+  const debugging = synthetic(
+    "sample.debugging",
+    "Diagnose failures",
+    "Debugging unexplained defects",
+  );
+  const storage = synthetic("sample.storage", "Storage throughput", "Profile I/O latency");
+  const candidates = Object.freeze([
+    candidate(debugging.practiceId, 0.84),
+    candidate(storage.practiceId, 0.83),
+  ]);
+  const strength = canonicalPracticeTaskSignal.measure({
+    text: "I investigate unexpected behavior",
+    practices: [debugging, storage],
+  });
+  expect(strength.get(storage.practiceId) ?? 0).toBe(0);
+  expect(
+    ids(
+      orderSemanticCandidatesByTaskRelevance({
+        text: "I investigate unexpected behavior",
+        candidates,
+        practices: [debugging, storage],
+      }),
+    ),
+  ).toEqual(ids(candidates));
+  expect(
+    ids(
+      orderSemanticCandidatesByTaskRelevance({
+        text: "I/O throughput",
+        candidates,
+        practices: [debugging, storage],
+      }),
+    )[0],
+  ).toBe(storage.practiceId);
+});
+
+test("nearly equal lexical evidence cannot amplify a tiny length difference into a maximum bonus gap", () => {
+  const left = synthetic("sample.left", "Checkpoint", "padding ".repeat(100));
+  const right = synthetic("sample.right", "Checkpoint", "padding ".repeat(101));
+  const ps = [left, right];
+  const strength = canonicalPracticeTaskSignal.measure({ text: "checkpoint", practices: ps });
+  expect(Math.abs(strength.get(left.practiceId)! - strength.get(right.practiceId)!)).toBeLessThan(
+    0.01,
+  );
+  const candidates = Object.freeze([
+    candidate(right.practiceId, 0.845),
+    candidate(left.practiceId, 0.84),
+  ]);
+  expect(
+    ids(orderSemanticCandidatesByTaskRelevance({ text: "checkpoint", candidates, practices: ps })),
+  ).toEqual(ids(candidates));
+});
+
+test("an isolated matching word cannot receive the full bonus", () => {
+  const match = synthetic("sample.marker", "Checkpoint");
+  const other = synthetic("sample.other", "Dashboard");
+  const strength = canonicalPracticeTaskSignal.measure({
+    text: "checkpoint telemetry rollback",
+    practices: [match, other],
+  });
+  expect(strength.get(match.practiceId)).toBeGreaterThan(0);
+  expect(strength.get(match.practiceId)).toBeLessThanOrEqual(0.5);
+  expect(strength.has(other.practiceId)).toBe(false);
+});
+
+test("function-word-only and cross-language non-overlap queries add no lexical evidence", () => {
+  const ps = [
+    synthetic("sample.first", "This is a dashboard"),
+    synthetic("sample.second", "I/O throughput"),
+  ];
+  for (const text of ["I am in the", "调查异常行为"]) {
+    expect(canonicalPracticeTaskSignal.measure({ text, practices: ps }).size).toBe(0);
+  }
+});
+
+test("unmatched background cannot dilute existing lexical evidence", () => {
+  const match = synthetic("sample.marker", "Checkpoint");
+  const other = synthetic("sample.other", "Dashboard");
+  const short = canonicalPracticeTaskSignal.measure({
+    text: "checkpoint",
+    practices: [match, other],
+  });
+  const verbose = canonicalPracticeTaskSignal.measure({
+    text: "checkpoint telemetry rollback observability",
+    practices: [match, other],
+  });
+  expect(verbose.get(match.practiceId)).toBe(short.get(match.practiceId));
+  expect(short.get(match.practiceId)).toBeLessThanOrEqual(0.5);
 });

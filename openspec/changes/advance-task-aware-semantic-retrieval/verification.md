@@ -1,6 +1,6 @@
 # Verification Plan
 
-> 本文件记录 Lorelum 主仓库实现的验证方案；完整 query 集、gold labels 和正式 benchmark record 由关联 benchmark 工作流维护，不复制进 Core 测试目录。
+> 本文件记录 Lorelum 主仓库实现的验证方案；完整 query 集、gold labels 和正式 benchmark record 由关联 benchmark 工作流维护，不复制进 Core 测试目录。§1–9 是历史记录；下列核查限制与 §10 的新实现验证优先，不应将旧作者陈述视为本轮重新验证。
 
 ## 1. Harness 协议与版本
 
@@ -126,7 +126,7 @@ openspec validate advance-task-aware-semantic-retrieval --strict
 
 ## 8. 观察结果
 
-baseline 已由 benchmark 侧在 `caecc53` 上冻结，记录见 benchmark 仓库 `results/records/retrieval-ranking-v1-baseline-caecc53.json`（replay record 一致）与其 `verification.md`：50 例全部 `status=ok`，core candidate recall 49/50、core final top-5 42/50、scope error 2。主仓库 §1.1 的单次冒烟只验证进程协议与真实 runtime，不计入 baseline。改动后本地对照见 §9；官方逐例对比由 benchmark 侧用新 run ID 执行，CLI 独立观察不得和 harness trace 混同。
+baseline 已由 benchmark 侧在 `caecc53` 上冻结，记录见 benchmark 仓库 `results/records/retrieval-ranking-v2-baseline-caecc53.json`（replay record 一致）与其 `verification.md`：50 例全部 `status=ok`，core candidate recall 49/50、core final top-5 42/50、scope error 2。主仓库 §1.1 的单次冒烟只验证进程协议与真实 runtime，不计入 baseline。改动后本地对照见 §9；官方逐例对比由 benchmark 侧用新 run ID 执行，CLI 独立观察不得和 harness trace 混同。
 
 | Date | Lorelum commit/build | Eval revision / corpus digest | Harness protocol/scorer | Profile | N/K | Candidate core present? | Baseline rank | Updated rank | CLI IDs observed separately? | Scope | Cost / limitations | Test-owned artifacts removed? |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -136,7 +136,7 @@ baseline 已由 benchmark 侧在 `caecc53` 上冻结，记录见 benchmark 仓�
 
 实现（design Decision 7）：`packages/engine/src/query/semantic/task-relevance.ts` 在同一次检索、同一 snapshot 内重排已经过 canonical 校验的候选。相似度是基础顺序；任务/阶段信号取自 canonical Practice 字段，用既有 keyword projection 与固定 keyword field weights 建立 request-private、离线的确定性 FTS5 BM25 打分，并在候选集合内归一化。最终顺序为 `similarity + SEMANTIC_TASK_SIGNAL_WEIGHT × taskStrength`，权重固定 0.05。`packages/engine/src/query/semantic/query-service.ts` 在读取 canonical Practices 之后、结果装配与 K 截断之前调用它，因此 `candidateIds` 与 `finalIds` 仍来自同一 attempt 和同一 snapshot。
 
-先更新 design/tasks 并运行 strict validation，再开始实现；未新增公开 export、CLI flag、协议字段或 Backend capability。
+历史作者曾记录“先更新设计并 strict validation 后实现”；本轮没有原始执行日志，无法从同一提交内的文件证明该顺序。CLI flag、协议字段未增加，但公开导出的 SemanticQueryDependencies 曾增加 taskSignal 属性，本轮收回。
 
 定向与全量验证（主仓库本地）：
 
@@ -156,12 +156,12 @@ baseline 已由 benchmark 侧在 `caecc53` 上冻结，记录见 benchmark 仓�
 | 排序失败被修复 | - | 6（goal-paraphrase 7→2、proportionate-validation 13→3、reuse-before-build 7→1、review-finding 9→3、supported-claim 6→1、readback-pack-context 9→2） |
 | 既有 top-5 命中被挤出的 case | - | 0 |
 
-灵敏度：把权重设为 0.03–0.06 得到同一组判定（core final top-5 48/50、forbidden 先于 core 0、无既有命中被挤出），0.08 起才出现 top-5 命中被挤出，说明结论不是单点调参；权重取值与依据见 design Decision 7。
+灵敏度：把权重设为 0.03–0.06 得到同一组判定（core final top-5 48/50、forbidden 先于 core 0、无既有命中被挤出），0.08 起才出现 top-5 命中被挤出，这只是历史作者的参数扫描记录，题集已参与方法选择，不能据此证明无过拟合或未见数据泛化。权重取值的历史依据见 design Decision 7。
 
 限制与非目标：
 
-- `agentic-acceptance-direct` 仍是 candidate miss：该 core 在 semantic reader 与任务信号下都不进 top-20，修复需要改变持久化投射或新增候选来源（即改变 Profile/index 表示），会与固定 Profile 及 baseline 失去可比性，本步不做（tasks 3.2）。
-- `agentic-limit-investigation` 在 baseline 已是排序失败（candidate rank 6），本步后被排得更低；它是本次唯一被负面影响的 case，故如实记录而不以总分掩盖。
+- `agentic-acceptance-direct` 仍是 candidate miss：该 core 在 semantic reader 与任务信号下都不进 top-20，池内重排不能修复。此前将新增候选来源直接等同 Profile/index 变化的判断已撤回；需比较来源与查询处理，只有实际改变持久化表示时才处理兼容迁移（tasks 3.2）。
+- `agentic-limit-investigation` 在 baseline 已是排序失败（candidate rank 6），返回 candidateIds 位置由 6 到 11，但两版观察顺序不同，不能称原始召回下降。另有四个仍命中的 final 名次下降，见 analysis.md；不能称它是唯一负面影响。
 - 本表是主仓库本地对照，用于确认 build 行为与排除回归；官方改动前后对比由 benchmark 侧在同一 revision、同一 Profile、N/K 与 scorer 下重跑，主仓库不据此声明改善。
 
 干净 checkout 的 harness 对比（同一冻结 Store/cache、Profile、N=20/K=5，先在 `caecc53` 后在本次 build 各跑同一请求）：
@@ -173,3 +173,28 @@ baseline 已由 benchmark 侧在 `caecc53` 上冻结，记录见 benchmark 仓�
 | `agentic-supported-claim` | `agentic-coding.verification.map-evidence-to-acceptance`、…、…（core 不在前 3） | **core**（`agentic-coding.delivery.claim-only-supported-outcome`）、`agentic-coding.implementation.confirm-product-surface-expansion`、`agentic-coding.verification.map-evidence-to-acceptance` |
 
 该 checkout 内 `bun test packages/engine/src/query/semantic packages/engine/src/query/artifacts` 为 48 pass / 1 skip，`git status` 干净；`bun install` 无依赖变化，因此同一 SHA 可直接重建运行，无需新的 Profile 或索引迁移。
+
+
+## 10. 候选观察与词面证据修正
+
+维护者确认方向后，先更新 design §8、spec 和 tasks，并执行 OpenSpec strict，再修改实现。先加入回归测试：原实现有 7 个定向失败，分别暴露 FTS 隐藏降级、I/O 片段误匹配、微差放大、孤立词满额、无有效词仍加分、candidate 顺序和 digest 校验时序。之后另外用独立合成输入发现“追加未命中背景词会稀释证据”，在中间 coverage 实现上产生 1 个失败；按 design §8 的匹配数自然饱和修正后通过。没有修改冻结题面或按真实 query/Practice ID 写特例。
+
+最终实现的验证：
+
+| 检查 | 结果 |
+| --- | --- |
+| `bun test packages/engine packages/backend/src/benchmark packages/backend/src/modules/index packages/cli/src/query` | 325 pass、1 skip、0 fail；跳过项仅 Windows 文件关闭/rename 场景 |
+| 定向 tokenizer / task relevance / query service / ProjectContext / harness tests | 52 pass、0 fail |
+| `bun run typecheck` | 通过 |
+| `bun run lint` | 通过，保留无关文件既有 warnings |
+| `bun run fmt:check` | 通过 |
+| `openspec validate advance-task-aware-semantic-retrieval --strict` | 通过 |
+| `git diff --check` | 通过 |
+
+首次阅读阶段缺依赖的 0 pass / 3 errors 与本次安装锁定依赖后的结果分开记录；未修改依赖 manifests 或 lockfile。公开 SemanticQueryDependencies 不再包含 taskSignal；测试注入保留在非 barrel 的内部 trace。普通 keyword tokenizer、embedding projection/Profile、持久化 schema、N/K 和 harness v1 字段未改。
+
+FTS 不可用现在返回已有 SemanticIndexQueryError，harness 映射 retrieval_failed，不再悄悄换回纯语义顺序。这是明确的失败行为修正，并非性能或质量提升证据。旧 candidateIds 的位置按历史语义解释，新实现恢复 reader 顺序；两版候选集合的比较与 final 排名比较仍须分开。
+
+临时诊断只运行经维护者批准的 13 个 query 和预设合成对照；没有运行全量 benchmark。最初比例覆盖度公式的局部回退已导致该中间方案被否决，最终匹配数饱和公式按独立合成不变量冻结，不继续围绕该题集扫描。现有模型的 title+applies_when 单视角试验也被否决，未进入产品表示或 active index，详见 analysis.md。
+
+新 build 的正式 candidate recall、final hit、四条降序、六条收益保留及 scope error 均待 benchmark 使用新 run ID 独立对照。不能继承 09e64be 的 48/50 或宣称 #236 完成。历史独立 CLI 观察和清理仍未补证；本轮的机器路径、诊断脚本、模型、向量、Store/cache、query/labels 和日志不进入提交。

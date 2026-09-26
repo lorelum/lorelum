@@ -63,27 +63,22 @@ function detailedPractice(input: {
 }
 
 const domainPractice = detailedPractice({
-  id: "react.server.request-dedup-cache",
-  title: "Deduplicate Request-Scoped Work",
-  stage: "server",
-  techStack: ["react"],
-  appliesWhen:
-    "one server render calls the same request-scoped async work, such as session or record lookup, from more than one component or helper",
-  body: "Share one cached result for the request instead of repeating the lookup.",
+  id: "sample.throughput",
+  title: "Measure throughput",
+  stage: "performance",
+  techStack: ["database"],
+  appliesWhen: "Measure throughput during sustained traffic.",
+  body: "Inspect latency and capacity.",
 });
-
 const postPractice = detailedPractice({
-  id: "issue-pr-etiquette.pull-request.write-the-pr-body-for-a-cold-reviewer",
-  title: "Write the PR Body for a Cold Reviewer",
-  stage: "pull-request",
-  techStack: ["git"],
-  appliesWhen:
-    "a PR is about to be opened, and the author must write a body from which a reviewer with none of the author's context can verify the change",
-  body: "State the problem, the decision and the evidence in the post itself.",
+  id: "sample.rollback",
+  title: "Audit rollback",
+  stage: "review",
+  techStack: ["database"],
+  appliesWhen: "Audit rollback before approving deployment.",
+  body: "Inspect recovery procedures.",
 });
-
-const taskRequest =
-  "I am opening a PR that fixes a React cache bug; a reviewer will see it without our chat history, so make the context self-contained.";
+const taskRequest = "Audit rollback";
 
 /** The domain Practice is the closer vector; only final ordering can promote the task match. */
 function nearTieVectors(text: string): readonly number[] {
@@ -526,20 +521,17 @@ test("orders final results by task relevance over the closer domain match", asyn
       domainPractice.practiceId,
     ]);
 
-    const semanticOnly = await createSemanticQueryService({
+    const semanticOnly = await createSemanticCandidateTraceService({
       store,
       profile,
       embedding,
       taskSignal: { measure: () => new Map<string, number>() },
-    }).query({ rootPath }, { text: taskRequest, limit: 2 });
-    expect(semanticOnly.results.map((hit) => hit.practiceId)).toEqual([
-      domainPractice.practiceId,
-      postPractice.practiceId,
-    ]);
+    }).query({ rootPath }, { text: taskRequest, candidateWidth: 2, resultLimit: 2 });
+    expect(semanticOnly.finalIds).toEqual([domainPractice.practiceId, postPractice.practiceId]);
   });
 });
 
-test("candidate and final lists keep one task-aware order inside the requested width", async () => {
+test("candidate trace keeps reader order while final results use task ordering", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
@@ -550,19 +542,18 @@ test("candidate and final lists keep one task-aware order inside the requested w
       { rootPath },
       { text: taskRequest, candidateWidth: 2, resultLimit: 1 },
     );
-    expect(trace.candidateIds).toEqual([postPractice.practiceId, domainPractice.practiceId]);
+    expect(trace.candidateIds).toEqual([domainPractice.practiceId, postPractice.practiceId]);
     expect(trace.finalIds).toEqual([postPractice.practiceId]);
   });
 });
 
-test("keeps the semantic order when the runtime cannot measure the task signal", async () => {
+test("trace fails instead of returning another order when task scoring is unavailable", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
     await build(rootPath, store, profile, embedding);
-
-    const service = createSemanticQueryService({
+    const service = createSemanticCandidateTraceService({
       store,
       profile,
       embedding,
@@ -572,10 +563,34 @@ test("keeps the semantic order when the runtime cannot measure the task signal",
         },
       },
     });
-    const result = await service.query({ rootPath }, { text: taskRequest, limit: 2 });
-    expect(result.results.map((hit) => hit.practiceId)).toEqual([
-      domainPractice.practiceId,
-      postPractice.practiceId,
-    ]);
+    await expect(
+      service.query({ rootPath }, { text: taskRequest, candidateWidth: 2, resultLimit: 2 }),
+    ).rejects.toBeInstanceOf(SemanticIndexQueryError);
+  });
+});
+
+test("digest mismatch is rejected before the task signal sees candidates", async () => {
+  await withRoot(async (rootPath) => {
+    const store = createStore(rootPath, [domainPractice, postPractice]);
+    const embedding = nearTiePort();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+    store.practices = [domainPractice, { ...postPractice, contentDigest: "f".repeat(64) }];
+    let measured = false;
+    const service = createSemanticCandidateTraceService({
+      store,
+      profile,
+      embedding,
+      taskSignal: {
+        measure() {
+          measured = true;
+          return new Map<string, number>();
+        },
+      },
+    });
+    await expect(
+      service.query({ rootPath }, { text: taskRequest, candidateWidth: 2, resultLimit: 1 }),
+    ).rejects.toBeInstanceOf(SemanticIndexQueryError);
+    expect(measured).toBe(false);
   });
 });

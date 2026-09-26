@@ -1,18 +1,12 @@
 import type { EffectivePractice } from "../../local-store";
-import { KeywordIndexUnavailableError } from "../errors";
+import { KeywordIndexError } from "../errors";
+import { SemanticIndexQueryError } from "./errors";
 import { buildKeywordIndex } from "../keyword/keyword-index";
-import { projectKeywordPractice } from "../keyword/projection";
+import { projectKeywordPractice, type KeywordDocument } from "../keyword/projection";
+import { encodeTaskSignalToken, taskSignalTokens } from "./task-tokens";
 import type { SemanticCandidate } from "./index/reader";
 
-/**
- * How far the request's task signal may move one Practice on the same 0..1
- * similarity scale. The adjustment is bounded on purpose: similarity remains
- * the base order, and the task signal decides near ties rather than replacing
- * the semantic reader. The bound is small relative to the margin a clear
- * semantic winner has over the next candidate and still larger than the
- * near-ties that the frozen retrieval baseline failed to order; the evidence
- * is recorded in the advance-task-aware-semantic-retrieval change.
- */
+/** Maximum lexical evidence adjustment; semantic similarity remains the base score. */
 export const SEMANTIC_TASK_SIGNAL_WEIGHT = 0.05;
 
 export interface SemanticTaskMeasurement {
@@ -22,37 +16,64 @@ export interface SemanticTaskMeasurement {
   readonly practices: readonly EffectivePractice[];
 }
 
-/** One request's relative task/stage strength per Practice, normalized to 0..1. */
+/** Request-local lexical evidence per Practice, bounded to 0..1. */
 export interface SemanticTaskSignal {
   measure(request: SemanticTaskMeasurement): ReadonlyMap<string, number>;
 }
 
+function taskDocument(practice: EffectivePractice): {
+  readonly document: KeywordDocument;
+  readonly terms: ReadonlySet<string>;
+} {
+  const projected = projectKeywordPractice(practice);
+  const terms = new Set<string>();
+  const encode = (text: string): string =>
+    taskSignalTokens(text)
+      .map((token) => {
+        terms.add(token);
+        return encodeTaskSignalToken(token);
+      })
+      .join(" ");
+  return {
+    document: {
+      ...projected,
+      id: encode(projected.id),
+      title: encode(projected.title),
+      appliesWhen: encode(projected.appliesWhen),
+      techStack: encode(projected.techStack),
+      stage: encode(projected.stage),
+      antiPatterns: encode(projected.antiPatterns),
+      body: encode(projected.body),
+    },
+    terms,
+  };
+}
+
 /**
- * Task signal derived from the canonical Practice fields the keyword
- * projection already owns. The fixed keyword field weights make identity,
- * title and applicability dominate technology names and prose, so a Practice
- * that only shares a domain, tech stack or entity with the request cannot
- * build as strong a signal as one whose stated moment matches it.
- *
- * The index is request-private, offline and deterministic; Practices with no
- * term overlap are absent from the returned map.
+ * Canonical lexical evidence, not a task or stage classifier. Saturating the
+ * count of distinct matches limits isolated overlaps; relative BM25 retains the field weights
+ * without stretching near-equal scores to the full adjustment range.
  */
 export const canonicalPracticeTaskSignal: SemanticTaskSignal = Object.freeze({
   measure(request: SemanticTaskMeasurement) {
-    if (request.practices.length === 0) return new Map<string, number>();
-    const index = buildKeywordIndex(request.practices.map(projectKeywordPractice));
+    const queryTerms = [...new Set(taskSignalTokens(request.text))];
+    if (request.practices.length === 0 || queryTerms.length === 0) return new Map<string, number>();
+    const documents = request.practices.map(taskDocument);
+    const byId = new Map(documents.map(({ document, terms }) => [document.practiceId, terms]));
+    const index = buildKeywordIndex(documents.map(({ document }) => document));
     try {
-      const hits = index.search(request.text, request.practices.length);
-      if (hits.length === 0) return new Map<string, number>();
-      let strongest = Number.NEGATIVE_INFINITY;
-      let weakest = Number.POSITIVE_INFINITY;
-      for (const hit of hits) {
-        strongest = Math.max(strongest, hit.score);
-        weakest = Math.min(weakest, hit.score);
-      }
-      const spread = strongest - weakest;
+      const hits = index.search(
+        queryTerms.map(encodeTaskSignalToken).join(" "),
+        request.practices.length,
+      );
+      const strongest = Math.max(0, ...hits.map((hit) => hit.score));
+      if (strongest <= 0) return new Map<string, number>();
       return new Map(
-        hits.map((hit) => [hit.practiceId, spread === 0 ? 1 : (hit.score - weakest) / spread]),
+        hits.map((hit) => {
+          const terms = byId.get(hit.practiceId)!;
+          const matches = queryTerms.filter((term) => terms.has(term)).length;
+          return [hit.practiceId, (matches / (matches + 1)) * (hit.score / strongest)];
+        }),
       );
     } finally {
       index.close();
@@ -89,9 +110,11 @@ export function orderSemanticCandidatesByTaskRelevance(
   try {
     strength = signal.measure({ text: input.text, practices: input.practices });
   } catch (error) {
-    // A runtime without SQLite FTS5 keeps the semantic ordering instead of
-    // failing the query; the task signal never becomes a new availability gate.
-    if (error instanceof KeywordIndexUnavailableError) return input.candidates;
+    if (error instanceof KeywordIndexError) {
+      throw new SemanticIndexQueryError("Cannot measure semantic lexical evidence", {
+        cause: error,
+      });
+    }
     throw error;
   }
   const ranked = input.candidates.map((candidate) =>

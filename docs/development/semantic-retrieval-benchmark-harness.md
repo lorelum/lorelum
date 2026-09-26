@@ -82,6 +82,12 @@ harness 先从选定 Store root 读取一次 canonical corpus（Practice 内容 
 - `candidateIds` 按 Engine 当前 semantic reader 的候选顺序排列。仅当候选完成 canonical Practice 校验和 Store snapshot 检查后才可返回。
 - `finalIds` 是同一次 Engine 检索中当前正常排序的前 `K` 个 ID。第一阶段只拆开 `N`/`K`，不引入新的排序策略；普通 `lore query` 的结果 envelope 不变。
 - 两份名单来自同一个成功 query attempt 和 snapshot。若 Store 变化触发 retry，前一 attempt 的名单丢弃；最终失败不能返回部分候选结果。
-- `candidateIds` 与 `finalIds` 都必须无重复；`finalIds` 必须是 `candidateIds` 的子集且长度不超过 `K`。违反协议的结果属于 `invalid_result`，不能作为召回或排序错误评分。
+- `candidateIds` 与 `finalIds` 都必须无重复；`finalIds` 必须是 `candidateIds` 的子集且长度不超过 `K`，不要求是它的前缀。违反协议的结果属于 `invalid_result`，不能作为召回或排序错误评分。
 
 benchmark runner 在进程外读取 gold labels 并评分；labels 永不发送给 harness。runner 应校验结构化响应、退出码和 ID 约束，并将协议/运行失败与相关性失败分开记录。
+
+## 第一轮排序记录的解释限制
+
+`63ec664` 至 `8e97b00` 的实现将重排后的数组作为 candidateIds，排序前观察点没有保持。其历史结果仍可用于判断候选集合命中与 final 排名，但 candidateIds 的位置不能解释为 reader 原始召回名次。后续修复恢复本协议既有 reader 顺序，不升级五字段请求或响应结构，也不改写历史记录。
+
+恢复观察点后的实现先校验全部候选的 canonical digest，再保存 reader 顺序，随后重排。辅助词面评分的 FTS 能力失败使用既有 `retrieval_failed`，不返回另一套隐藏排序或部分名单；普通查询仍沿用既有错误 envelope。
