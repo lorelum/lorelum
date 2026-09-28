@@ -45,8 +45,11 @@ export function BlogEntryRow({ entry, lang }: BlogEntryRowProps) {
         {/* The cover is inset, not bleeding to the card's edge: the reference
             thumbs are framed blocks inside their cards, and the hairline keeps
             the generated branch — flat tints — from dissolving into the card's
-            own tonal surface. */}
-        <div className="aspect-[16/9] w-full shrink-0 overflow-hidden rounded-[var(--lore-radius)] border border-[var(--blog-hairline)] sm:aspect-square sm:w-44">
+            own tonal surface. The ratio steps with the layout: full-width 16/9
+            when stacked, a 16/10 thumb beside the text at the row's first
+            breakpoint, and the reference's square from md up — one composition
+            change fewer for the eye to re-parse across 640px. */}
+        <div className="aspect-[16/9] w-full shrink-0 overflow-hidden rounded-[var(--lore-radius)] border border-[var(--blog-hairline)] sm:aspect-[16/10] sm:w-44 md:aspect-square">
           <BlogCover entry={entry} className="h-full w-full object-cover" />
         </div>
 

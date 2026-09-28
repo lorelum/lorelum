@@ -59,11 +59,16 @@ export function BlogIndexScreen({
             measure belongs to prose, and the card's own padding keeps the text at a
             comfortable width without capping the panel. */}
         <div className="w-full">
-          <header>
-            <h1 className="text-3xl font-semibold tracking-tight text-fd-foreground">
+          {/* A masthead at headline scale, not a form label: the index is an
+              editorial surface, and while it is short a page-sized title reads
+              as a first issue rather than as an empty page. The dek is gone by
+              review — on a production index the sentence read as scaffolding.
+              Rhythm follows the spacing roles — panel below the header, block
+              once the viewport has room. */}
+          <header className="mb-8 md:mb-10">
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight text-fd-foreground sm:text-5xl">
               {t.navBlog}
             </h1>
-            <p className="mt-3 text-fd-muted-foreground">{t.blogIndexDescription}</p>
           </header>
 
           <div className="lg:hidden">

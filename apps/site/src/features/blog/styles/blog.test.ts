@@ -416,13 +416,16 @@ describe("blog index structure", () => {
     expect(controlsIndex).toBeGreaterThan(mobileControlsIndex);
     expect(controlsIndex).toBeLessThan(cardsIndex);
     expect(indexScreen).toContain("lang={lang} posts={posts} category={category} sort={sort}");
-    // Both controls must survive without JavaScript, and now both are links
-    // carrying the full search state — a category click preserves the ordering,
-    // an ordering click preserves the category — so changing either is a plain
-    // navigation a no-JS reader can perform. (The ordering was a GET form with
-    // a native select until review rejected the select: its open popup is
-    // platform chrome no stylesheet reaches, so it read as foreign in both
-    // themes. The links keep the same no-JS property with nothing to apply.)
+    // Both controls are links carrying the full search state — a category click
+    // preserves the ordering, an ordering click preserves the category — so
+    // changing either is one plain navigation. The navigation works without
+    // JavaScript; the narrowed list does not: a query URL is answered by the
+    // prerendered static index, and the filtering renders once scripts run. The
+    // spec states this; the earlier "the page arrives filtered with no
+    // JavaScript" claim was wrong and is gone. (The ordering was a GET form
+    // with a native select until review rejected the select: the select's open
+    // popup is platform chrome no stylesheet reaches, so it read as foreign in
+    // both themes.)
     expect(controls).toMatch(/<Link[^>]*to=\{blogIndexPath\(lang\)\}/);
     expect(controls).toContain("search={{ category, sort: candidate }}");
     // The reset link strips both params explicitly: a Link without `search`
@@ -444,6 +447,12 @@ describe("blog index structure", () => {
   });
 
   test("keeps navigation and filter choices complete while restricting cards", () => {
+    // The masthead sits at headline scale (text-4xl, text-5xl from sm) rather
+    // than at a form-label size: the index is an editorial surface, and while
+    // the list is short a page-sized title reads as a first issue rather than
+    // as an empty page.
+    expect(indexScreen).toContain("text-4xl font-semibold");
+    expect(indexScreen).toContain("sm:text-5xl");
     expect(indexScreen).toContain("filteredPostSlugs?: readonly string[];");
     expect(indexScreen).toContain("posts.filter((entry) => cardSlugs.has(entry.slug))");
     expect(indexScreen).toContain("cardPosts.length === 0");
@@ -462,6 +471,11 @@ describe("blog index structure", () => {
     // The card is the reference's shape — art on one side, text on the other —
     // rather than a text block with a picture nailed on top.
     expect(entryRow).toMatch(/sm:flex-row/);
+    // The cover's ratio steps with the layout — 16/9 stacked, 16/10 beside the
+    // text at sm, square from md — so crossing 640px changes the composition
+    // once less at a stroke.
+    expect(entryRow).toContain("sm:aspect-[16/10]");
+    expect(entryRow).toContain("md:aspect-square");
   });
 
   test("calibrates the generated cover's tier strengths per theme", () => {
