@@ -40,7 +40,7 @@ codex plugin add lorelum@lorelum-plugins
 
 当 Plugin 和 CLI 都更新到包含这项功能的版本后，shell tool 中成功执行的 `lore get` 可以为当前对话留下简短候选提示；脚本或管道中执行也一样。非 shell tool 会直接跳过。启动子 Agent 时，它可能看到候选 ID、标题和适用条件，再自行决定是否读取。提示不是 Practice 正文，也不代表主 Agent 已采纳它；Hook 不自动 query 或 `get`，目前也不会在主 Agent compact 后恢复这些提示。
 
-这份可选列表由现有本机 Backend 管理，存放在 `~/.lorelum/sessions/<宿主>/<会话 ID>/practice-reads.jsonl`；目录直接使用宿主的会话 ID，将来也可以分别存放其他会话数据。删除 worktree 或重启 Backend 不会清掉已记录的候选。Hook 打开 shell-tool 窗口、`get` 报告读取时，Backend 都需要已经运行且可连接；它们不会仅为了记录提示而启动 Backend。Backend 不可达或读取不在活动窗口内时可能漏记，但不影响 `get` 的结果。依赖窗口归属时，同一路径下同时运行多个对话可能漏记或误归属。使用提示前仍应通过 `lore get <practice-id>` 核对是否适用，不要把候选列表当成任务记录或权限依据。
+这份可选列表由现有本机 Backend 管理，存放在 `~/.lorelum/sessions/<宿主>/<会话 ID>/practice-reads.jsonl`；目录直接使用宿主的会话 ID，将来也可以分别存放其他会话数据。删除 worktree 或重启 Backend 不会清掉已记录的候选。macOS 上，已信任的 Bash Hook 将会话 ID 传给命令，本地脚本和管道也能继承；它不会在每条 shell 命令前连接 Backend。成功的 `get` 只向已经运行的 Backend 报告。Hook 未获信任或命令主动清空环境时，可能漏记。Linux 和 Windows 暂时沿用 shell Pre/Post 活动窗口：打开窗口和报告读取时 Backend 都需要已经运行；同一路径下多个对话同时工作时，这条后备路径可能漏记或误归属。上述情况都不影响 `get` 的结果。使用提示前仍应通过 `lore get <practice-id>` 核对是否适用，不要把候选列表当成任务记录或权限依据。
 
 ## 更新
 

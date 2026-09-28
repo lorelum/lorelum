@@ -11,6 +11,7 @@ import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import { renderPackCatalog } from "./pack-catalog.js";
 import type { Logger } from "@lorelum/log";
 import type { ReadHint, ShellToolEvent } from "@lorelum/backend/client";
+import { sessionRefSchema } from "@lorelum/backend/client";
 import { defaultPracticeHints } from "../practice-hints/backend.js";
 import { renderReadHints } from "../practice-hints/render.js";
 
@@ -28,13 +29,17 @@ export interface HostHookInput {
   readonly tool_name?: unknown;
   readonly tool_use_id?: unknown;
   readonly cwd?: unknown;
+  readonly tool_input?: unknown;
 }
 
 export interface HostHookResponse {
-  readonly hookSpecificOutput?: {
-    readonly hookEventName: HostHookEvent;
-    readonly additionalContext: string;
-  };
+  readonly hookSpecificOutput?:
+    | { readonly hookEventName: HostHookEvent; readonly additionalContext: string }
+    | {
+        readonly hookEventName: "PreToolUse";
+        readonly permissionDecision: "allow";
+        readonly updatedInput: Record<string, unknown>;
+      };
   readonly continue?: boolean;
 }
 
@@ -54,6 +59,7 @@ export interface HostHookServices {
     routeToolEvent(event: ShellToolEvent): Promise<void>;
     readRecentHints(hostKey: string, sessionId: string): Promise<readonly ReadHint[]>;
   };
+  readonly platform?: NodeJS.Platform;
 }
 
 export interface RunHostHookOptions {
@@ -175,7 +181,11 @@ function respondToHostHook(
   storeRoot?: string,
 ): Promise<HostHookResponse | CursorHookResponse> {
   if (host === "codex" && input.hook_event_name !== "SessionStart") {
-    return respondToCodexPracticeHint(input, services.practiceHints ?? defaultPracticeHints);
+    return respondToCodexPracticeHint(
+      input,
+      services.practiceHints ?? defaultPracticeHints,
+      services.platform,
+    );
   }
   if (input.hook_event_name !== supportedSessionEvent(host)) {
     throw new Error(`Lorelum ${hostLabel(host)} Hook received an unsupported event.`);
@@ -193,6 +203,7 @@ function respondToHostHook(
 async function respondToCodexPracticeHint(
   input: HostHookInput,
   hints: NonNullable<HostHookServices["practiceHints"]>,
+  platform: NodeJS.Platform = process.platform,
 ): Promise<HostHookResponse> {
   if (input.hook_event_name === "SubagentStart") {
     if (typeof input.session_id !== "string" || !input.session_id) return {};
@@ -207,6 +218,29 @@ async function respondToCodexPracticeHint(
     // Codex calls this tool "Bash" for both shell and unified exec. Other tools
     // never enter the generic ledger route, even if a matcher is broadened.
     if (input.tool_name !== "Bash") return {};
+    if (platform === "darwin") {
+      if (input.hook_event_name === "PostToolUse") return {};
+      const session = sessionRefSchema.safeParse({
+        hostKey: "codex",
+        sessionId: input.session_id,
+      });
+      if (!session.success || !isRecord(input.tool_input)) return {};
+      const command = input.tool_input.command;
+      if (typeof command !== "string") return {};
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "allow",
+          updatedInput: {
+            ...input.tool_input,
+            command:
+              `export LORELUM_HOST_KEY='codex'\n` +
+              `export LORELUM_HOST_SESSION_ID=${shellQuote(session.data.sessionId)}\n` +
+              command,
+          },
+        },
+      };
+    }
     if (
       typeof input.session_id !== "string" ||
       !input.session_id ||
@@ -227,6 +261,10 @@ async function respondToCodexPracticeHint(
     return {};
   }
   throw new Error("Lorelum Codex Hook received an unsupported event.");
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 export async function createHostHookResponse(

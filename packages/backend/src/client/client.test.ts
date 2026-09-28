@@ -641,6 +641,16 @@ describe("createBackendClient", () => {
         { headers: { host: authority } },
       );
       expect(unauthorizedRead.status).toBe(401);
+      const unauthorizedSession = { hostKey: "codex", sessionId: "unauthorized-session" } as const;
+      const unauthorizedGetReport = await fetch(`${url}/internal/v1/practice-hints/reads`, {
+        method: "POST",
+        headers: { host: authority, "content-type": "application/json" },
+        body: JSON.stringify({ cwd, hint, session: unauthorizedSession }),
+      });
+      expect(unauthorizedGetReport.status).toBe(401);
+      expect(
+        await client.readRecentHints(unauthorizedSession.hostKey, unauthorizedSession.sessionId),
+      ).toEqual([]);
 
       await client.routeToolEvent({ ...event, toolKind: "other" });
       await client.recordSuccessfulGet(cwd, hint);

@@ -52,9 +52,10 @@ function services(overrides: Partial<CodexHookServices> = {}): CodexHookServices
 }
 
 describe("lore hook codex", () => {
-  test("routes Bash Pre/Post but ignores all non-shell tools", async () => {
+  test.each(["linux", "win32"] as const)("keeps the %s Bash window fallback", async (platform) => {
     const events: ShellToolEvent[] = [];
     const hintServices = services({
+      platform,
       practiceHints: {
         async routeToolEvent(event) {
           events.push(event);
@@ -107,6 +108,83 @@ describe("lore hook codex", () => {
     ]);
   });
 
+  test("macOS passes the session to Bash without changing other tool input fields", async () => {
+    const events: ShellToolEvent[] = [];
+    const hintServices = services({
+      platform: "darwin",
+      practiceHints: {
+        async routeToolEvent(event) {
+          events.push(event);
+        },
+        async readRecentHints() {
+          return [];
+        },
+      },
+    });
+    const original = {
+      command: "pwd | cat; exit 23",
+      workdir: "/work/tree",
+      timeout_ms: 8000,
+      yield_time_ms: 1000,
+      extra: { unchanged: true },
+    };
+    const stdout = new MemoryWriter();
+    await runCodexHook({
+      stdin: input(
+        JSON.stringify({
+          hook_event_name: "PreToolUse",
+          tool_name: "Bash",
+          session_id: "parent'one",
+          tool_input: original,
+        }),
+      ),
+      stdout,
+      stderr: new MemoryWriter(),
+      services: hintServices,
+    });
+    const response = JSON.parse(stdout.value);
+    expect(response.hookSpecificOutput).toEqual({
+      hookEventName: "PreToolUse",
+      permissionDecision: "allow",
+      updatedInput: {
+        ...original,
+        command:
+          "export LORELUM_HOST_KEY='codex'\n" +
+          "export LORELUM_HOST_SESSION_ID='parent'\"'\"'one'\n" +
+          original.command,
+      },
+    });
+    expect(events).toEqual([]);
+
+    for (const payload of [
+      {
+        hook_event_name: "PostToolUse",
+        tool_name: "Bash",
+        session_id: "parent",
+        tool_input: original,
+      },
+      {
+        hook_event_name: "PreToolUse",
+        tool_name: "apply_patch",
+        session_id: "parent",
+        tool_input: original,
+      },
+      { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: original },
+      { hook_event_name: "PreToolUse", tool_name: "Bash", session_id: "parent", tool_input: {} },
+    ]) {
+      const empty = new MemoryWriter();
+      // eslint-disable-next-line no-await-in-loop -- Check each independent no-op payload and its output.
+      await runCodexHook({
+        stdin: input(JSON.stringify(payload)),
+        stdout: empty,
+        stderr: new MemoryWriter(),
+        services: hintServices,
+      });
+      expect(empty.value).toBe("{}\n");
+    }
+    expect(events).toEqual([]);
+  });
+
   test("injects bounded, optional metadata only for a matching SubagentStart session", async () => {
     const hint: ReadHint = {
       id: "sample.read",
@@ -148,6 +226,7 @@ describe("lore hook codex", () => {
 
   test("an unavailable candidate Backend does not block a Bash call or subagent", async () => {
     const failing = services({
+      platform: "linux",
       practiceHints: {
         async routeToolEvent() {
           throw new Error("optional hints unavailable");

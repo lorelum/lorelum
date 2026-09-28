@@ -106,6 +106,44 @@ test("uses explicit session identity ahead of a conflicting window", async () =>
   }
 });
 
+test("isolates parallel explicit sessions sharing the same workspace", async () => {
+  const directory = await temporaryDirectory();
+  const sessionsDirectory = join(directory, "sessions");
+  const workspace = join(directory, "workspace");
+  try {
+    await mkdir(workspace, { mode: 0o700 });
+    const sessions = createSessionService({ sessionsDirectory });
+    const service = createPracticeHintService({ sessions });
+    const firstSession = { hostKey: "codex", sessionId: "parallel-session-a" } as const;
+    const secondSession = { hostKey: "codex", sessionId: "parallel-session-b" } as const;
+
+    await Promise.all([
+      service.routeToolEvent(
+        event({ sessionId: firstSession.sessionId, toolUseId: "parallel-tool-a", cwd: workspace }),
+      ),
+      service.routeToolEvent(
+        event({ sessionId: secondSession.sessionId, toolUseId: "parallel-tool-b", cwd: workspace }),
+      ),
+    ]);
+    await Promise.all([
+      service.recordSuccessfulGet(workspace, hint("read-by-a"), firstSession),
+      service.recordSuccessfulGet(workspace, hint("read-by-b"), secondSession),
+    ]);
+
+    expect(
+      await Promise.all([
+        service.readRecentHints(firstSession.hostKey, firstSession.sessionId),
+        service.readRecentHints(secondSession.hostKey, secondSession.sessionId),
+      ]),
+    ).toEqual([[hint("read-by-a")], [hint("read-by-b")]]);
+    expect(sessions.sessionDirectory(firstSession)).not.toBe(
+      sessions.sessionDirectory(secondSession),
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("persists raw host session directories across service restart and workspace removal", async () => {
   const directory = await temporaryDirectory();
   const sessionsDirectory = join(directory, "sessions");
