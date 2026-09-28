@@ -142,12 +142,15 @@ export async function runHostHook(options: RunHostHookOptions): Promise<0> {
       options.log?.debug("hook.payload.invalid", { byteLength: Buffer.byteLength(serialized) });
       throw new Error(`Lorelum ${hostLabel(options.host)} Hook input must be valid JSON.`);
     }
-    const input = parseHostHookInput(serialized, options.host);
+    if (!isRecord(parsed)) {
+      throw new Error(`Lorelum ${hostLabel(options.host)} Hook input must be a JSON object.`);
+    }
+    const input: HostHookInput = parsed;
     eventName = input.hook_event_name;
     options.log?.debug("hook.payload.received", {
       byteLength: Buffer.byteLength(serialized),
-      ...(isRecord(parsed) && typeof parsed.hook_event_name === "string"
-        ? { hookEventName: parsed.hook_event_name }
+      ...(typeof input.hook_event_name === "string"
+        ? { hookEventName: input.hook_event_name }
         : {}),
     });
     const response = await respondToHostHook(
@@ -317,14 +320,6 @@ function catalogEntries(details: ListPackDetailsResult) {
 /** The native event literal each host sends on its raw session Hook. */
 function supportedSessionEvent(host: HostHookName): HostHookEvent | CursorHookEvent {
   return host === "cursor" ? "sessionStart" : "SessionStart";
-}
-
-function parseHostHookInput(serialized: string, host: HostHookName): HostHookInput {
-  const parsed: unknown = JSON.parse(serialized);
-  if (!isRecord(parsed)) {
-    throw new Error(`Lorelum ${hostLabel(host)} Hook input must be a JSON object.`);
-  }
-  return parsed;
 }
 
 function hostLabel(host: HostHookName): "Codex" | "Cursor" | "Workbuddy" | "Zcode" {

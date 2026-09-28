@@ -40,14 +40,6 @@ function windowKey(event: Pick<ShellToolEvent, "hostKey" | "sessionId" | "toolUs
   return JSON.stringify([event.hostKey, event.sessionId, event.toolUseId]);
 }
 
-function inWorkspace(cwd: string, workspace: string): boolean {
-  const difference = relative(workspace, cwd);
-  return (
-    difference === "" ||
-    (difference !== ".." && !difference.startsWith(`..${sep}`) && !difference.startsWith(sep))
-  );
-}
-
 function isWithin(parent: string, child: string): boolean {
   const difference = relative(parent, child);
   return difference !== ".." && !difference.startsWith(`..${sep}`) && !isAbsolute(difference);
@@ -103,12 +95,9 @@ export function createSessionService(options: CreateSessionServiceOptions = {}):
       pruneWindows(time);
       const workingDirectory = resolve(cwd);
       const window = [...windows.values()]
-        .filter((candidate) => inWorkspace(workingDirectory, candidate.cwd))
+        .filter((candidate) => isWithin(candidate.cwd, workingDirectory))
         .sort(
-          (left, right) =>
-            right.cwd.length - left.cwd.length ||
-            right.startedAt - left.startedAt ||
-            right.toolUseId.localeCompare(left.toolUseId),
+          (left, right) => right.cwd.length - left.cwd.length || right.startedAt - left.startedAt,
         )[0];
       if (window === undefined) return undefined;
       return { hostKey: window.hostKey, sessionId: window.sessionId };
