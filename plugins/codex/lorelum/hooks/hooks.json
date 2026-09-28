@@ -1,9 +1,23 @@
 {
-  "description": "Restore the compact Lorelum Installed Pack Catalog at supported Codex session boundaries.",
+  "description": "Restore the compact Lorelum Installed Pack Catalog at supported Codex session boundaries and for fork-none subagents that do not inherit the parent Catalog.",
   "hooks": {
     "SessionStart": [
       {
         "matcher": "^(startup|resume|clear|compact)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if output=\"$(lore hook codex)\"; then printf '%s\\n' \"$output\"; else printf '%s\\n' '{\"continue\":true}'; fi",
+            "timeout": 10,
+            "additionalContextLimit": 5000,
+            "commandWindows": "try { $output = & lore hook codex; if ($LASTEXITCODE -eq 0) { $output } else { '{\"continue\":true}' } } catch { '{\"continue\":true}' }"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "^(fork-none)$",
         "hooks": [
           {
             "type": "command",
