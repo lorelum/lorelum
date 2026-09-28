@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ListPackDetailsResult } from "@lorelum/engine";
-import type { ReadHint, ShellToolEvent } from "../practice-hints/ledger.js";
+import type { ReadHint, ShellToolEvent } from "@lorelum/backend/client";
 
 import {
   parseCodexHookInvocation,
@@ -113,7 +113,6 @@ describe("lore hook codex", () => {
       digest: "private-digest",
       title: "Review task boundary",
       appliesWhen: "when delegating",
-      packs: ["sample"],
     };
     const hintServices = services({
       practiceHints: {
@@ -134,6 +133,8 @@ describe("lore hook codex", () => {
     expect(response.hookSpecificOutput.hookEventName).toBe("SubagentStart");
     expect(response.hookSpecificOutput.additionalContext).toContain("sample.read");
     expect(response.hookSpecificOutput.additionalContext).toContain("lore get <practice-id>");
+    expect(response.hookSpecificOutput.additionalContext).not.toContain("Pack");
+    expect(response.hookSpecificOutput.additionalContext).not.toContain("packs");
     expect(stdout.value).not.toContain(hint.digest);
     const empty = new MemoryWriter();
     await runCodexHook({
@@ -145,7 +146,7 @@ describe("lore hook codex", () => {
     expect(empty.value).toBe("{}\n");
   });
 
-  test("a failed candidate ledger does not block a Bash call or subagent", async () => {
+  test("an unavailable candidate Backend does not block a Bash call or subagent", async () => {
     const failing = services({
       practiceHints: {
         async routeToolEvent() {

@@ -10,7 +10,8 @@ import type { OutputWriter } from "../output/protocol.js";
 import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import { renderPackCatalog } from "./pack-catalog.js";
 import type { Logger } from "@lorelum/log";
-import { defaultPracticeHintLedger, type PracticeHintLedger } from "../practice-hints/ledger.js";
+import type { ReadHint, ShellToolEvent } from "@lorelum/backend/client";
+import { defaultPracticeHints } from "../practice-hints/backend.js";
 import { renderReadHints } from "../practice-hints/render.js";
 
 /** Hosts with a versioned raw session Hook ABI (`lore hook <host>`). */
@@ -49,7 +50,10 @@ export interface TextInput {
 export interface HostHookServices {
   readonly list: Pick<ListService, "listPackDetails">;
   readonly storageRoot: StorageRoot;
-  readonly practiceHints?: Pick<PracticeHintLedger, "routeToolEvent" | "readRecentHints">;
+  readonly practiceHints?: {
+    routeToolEvent(event: ShellToolEvent): Promise<void>;
+    readRecentHints(hostKey: string, sessionId: string): Promise<readonly ReadHint[]>;
+  };
 }
 
 export interface RunHostHookOptions {
@@ -70,7 +74,7 @@ export interface HostHookInvocation {
 const defaultServices: HostHookServices = Object.freeze({
   list: createListService(),
   storageRoot: defaultStorageRoot(),
-  practiceHints: defaultPracticeHintLedger,
+  practiceHints: defaultPracticeHints,
 });
 
 /**
@@ -171,7 +175,7 @@ function respondToHostHook(
   storeRoot?: string,
 ): Promise<HostHookResponse | CursorHookResponse> {
   if (host === "codex" && input.hook_event_name !== "SessionStart") {
-    return respondToCodexPracticeHint(input, services.practiceHints ?? defaultPracticeHintLedger);
+    return respondToCodexPracticeHint(input, services.practiceHints ?? defaultPracticeHints);
   }
   if (input.hook_event_name !== supportedSessionEvent(host)) {
     throw new Error(`Lorelum ${hostLabel(host)} Hook received an unsupported event.`);
@@ -188,11 +192,11 @@ function respondToHostHook(
 
 async function respondToCodexPracticeHint(
   input: HostHookInput,
-  ledger: Pick<PracticeHintLedger, "routeToolEvent" | "readRecentHints">,
+  hints: NonNullable<HostHookServices["practiceHints"]>,
 ): Promise<HostHookResponse> {
   if (input.hook_event_name === "SubagentStart") {
     if (typeof input.session_id !== "string" || !input.session_id) return {};
-    const context = renderReadHints(await ledger.readRecentHints("codex", input.session_id));
+    const context = renderReadHints(await hints.readRecentHints("codex", input.session_id));
     return context === undefined
       ? {}
       : {
@@ -212,7 +216,7 @@ async function respondToCodexPracticeHint(
       !input.cwd
     )
       return {};
-    await ledger.routeToolEvent({
+    await hints.routeToolEvent({
       hostKey: "codex",
       event: input.hook_event_name === "PreToolUse" ? "pre" : "post",
       toolKind: "shell",

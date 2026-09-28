@@ -24,4 +24,7 @@ export const BACKEND_ROUTES = {
   indexBuild: `${INTERNAL_API_PREFIX}/index/build`,
   indexRebuild: `${INTERNAL_API_PREFIX}/index/rebuild`,
   indexOperation: `${INTERNAL_API_PREFIX}/index/operations/:operationId`,
+  practiceHintToolEvents: `${INTERNAL_API_PREFIX}/practice-hints/tool-events`,
+  practiceHintReads: `${INTERNAL_API_PREFIX}/practice-hints/reads`,
+  practiceHintSessions: `${INTERNAL_API_PREFIX}/practice-hints/sessions`,
 } as const;

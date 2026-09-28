@@ -150,14 +150,29 @@ test("records successful reads from structured results without changing the get 
         digest: contentDigest,
         title: practice.title,
         appliesWhen: practice.applies_when,
-        packs: ["sample"],
       },
     },
   ]);
+  expect(JSON.parse(stdout.value)).toMatchObject({
+    command: "get",
+    ok: true,
+    protocolVersion: 2,
+    data: {
+      practice,
+      contentDigest,
+      sources: [
+        {
+          packName: "sample",
+          sourcePath: "practices/exact.md",
+          packRoot: "/verified-store/packs/p-sample/example",
+        },
+      ],
+    },
+  });
   expect(stdout.value).toContain("Keep the full body.");
 });
 
-test("candidate write failure never changes the successful get result", async () => {
+test("candidate report failure never changes the successful get result", async () => {
   const definition = createGetCommand({
     store: {
       async getEffectivePracticeWithPackRoots() {
@@ -167,7 +182,7 @@ test("candidate write failure never changes the successful get result", async ()
     storageRoot: { rootPath: "unused-default" },
     practiceHints: {
       async recordSuccessfulGet() {
-        throw new Error("optional ledger unavailable");
+        throw new Error("optional Backend unavailable");
       },
     },
   });
@@ -185,6 +200,43 @@ test("candidate write failure never changes the successful get result", async ()
     }),
   ).toBe(0);
   expect(stdout.value).toContain("Keep the full body.");
+});
+
+test("candidate report failure never changes human-readable get output", async () => {
+  async function read(practiceHints?: GetCommandServices["practiceHints"]): Promise<string> {
+    const stdout = {
+      value: "",
+      write(message: string) {
+        this.value += message;
+      },
+    };
+    const definition = createGetCommand({
+      store: {
+        async getEffectivePracticeWithPackRoots() {
+          return located;
+        },
+      },
+      storageRoot: { rootPath: "unused-default" },
+      ...(practiceHints === undefined ? {} : { practiceHints }),
+    });
+    expect(
+      await runCli(["get", practice.id], {
+        registry: snapshotCommandDefinitions([definition]),
+        stdout,
+        stderr: { write() {} },
+      }),
+    ).toBe(0);
+    return stdout.value;
+  }
+
+  const baseline = await read();
+  const unavailable = await read({
+    async recordSuccessfulGet() {
+      throw new Error("optional Backend unavailable");
+    },
+  });
+  expect(unavailable).toBe(baseline);
+  expect(unavailable).toContain("Keep the full body.");
 });
 
 test("does not record a project read that fails while resolving its Store source", async () => {

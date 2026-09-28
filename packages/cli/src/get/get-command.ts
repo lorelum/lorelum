@@ -6,6 +6,7 @@ import {
   type StorageRoot,
 } from "@lorelum/engine";
 import { ID_REGEX } from "@lorelum/format";
+import type { ReadHint } from "@lorelum/backend/client";
 
 import type { CommandDefinition } from "../registry.js";
 import {
@@ -20,7 +21,6 @@ import {
   type ProjectContextResolver,
 } from "../project-context/service.js";
 import { getResultSchema } from "./result-schema.js";
-import type { ReadHint } from "../practice-hints/ledger.js";
 
 export interface GetCommandServices {
   readonly store: Pick<LocalStore, "getEffectivePracticeWithPackRoots">;
@@ -127,7 +127,6 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
             digest: practice.contentDigest,
             title: practice.practice.title,
             appliesWhen: practice.practice.applies_when,
-            packs: [...new Set(activeSources.map((source) => source.packName))],
           });
           return response;
         }
@@ -143,7 +142,6 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
           digest: result.effectivePractice.contentDigest,
           title: result.effectivePractice.practice.title,
           appliesWhen: result.effectivePractice.practice.applies_when,
-          packs: [...new Set(result.sources.map((source) => source.packName))],
         });
         return {
           data: {

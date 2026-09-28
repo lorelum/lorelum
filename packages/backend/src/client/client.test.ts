@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   MemoryLogSink,
   SinkLogEmitter,
@@ -20,6 +23,8 @@ import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
 import { createBackendClient } from "./client";
 import { createContentAddressedSemanticRuntimeStub } from "../modules/query/content-addressed-semantic-runtime.test-helper";
 import type { ContentAddressedSemanticRuntimePort } from "../modules/query/content-addressed-semantic-runtime";
+import { createPracticeHintService } from "../modules/practice-hints/service";
+import type { ReadHint, ShellToolEvent } from "../modules/practice-hints/model";
 
 const identity = Object.freeze({
   instanceId: "test-instance",
@@ -39,6 +44,7 @@ function runningApp(
   embedding?: EmbeddingService,
   semanticRuntime: ContentAddressedSemanticRuntimePort = createContentAddressedSemanticRuntimeStub(),
   diagnostics?: LogEmitter,
+  practiceHints?: ReturnType<typeof createPracticeHintService>,
 ): {
   readonly app: ReturnType<typeof createBackendApp>;
   readonly url: string;
@@ -54,6 +60,7 @@ function runningApp(
     keywordQueryService: keywordService,
     semanticRuntime,
     ...(diagnostics === undefined ? {} : { diagnostics }),
+    ...(practiceHints === undefined ? {} : { practiceHints }),
   });
   apps.push(app);
   app.listen({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: 65_536 });
@@ -584,6 +591,89 @@ describe("createBackendClient", () => {
     await expect(client.indexOperation(operationId)).rejects.toMatchObject({
       code: "backend.operation-expired",
     });
+  });
+
+  test("uses the authenticated Practice-hint routes for shell windows and session reads", async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "lorelum-practice-hint-client-")));
+    try {
+      const practiceHints = createPracticeHintService({
+        sessionsDirectory: join(root, ".lorelum", "sessions"),
+      });
+      const { url } = runningApp(
+        undefined,
+        identity,
+        undefined,
+        undefined,
+        undefined,
+        practiceHints,
+      );
+      const client = createBackendClient({
+        identity,
+        secret,
+        buildIdentity: identity.buildIdentity,
+        baseUrl: url,
+      });
+      const cwd = join(root, "workspace");
+      const event: ShellToolEvent = {
+        hostKey: "codex",
+        event: "pre",
+        toolKind: "shell",
+        sessionId: "client-test-session",
+        toolUseId: "tool-1",
+        cwd,
+      };
+      const hint: ReadHint = {
+        id: "api.boundary",
+        digest: "a".repeat(64),
+        title: "Authenticated route fixture",
+        appliesWhen: "When testing the Backend client contract",
+      };
+      const authority = new URL(url).host;
+
+      const unauthorized = await fetch(`${url}/internal/v1/practice-hints/tool-events`, {
+        method: "POST",
+        headers: { host: authority, "content-type": "application/json" },
+        body: JSON.stringify(event),
+      });
+      expect(unauthorized.status).toBe(401);
+      const unauthorizedRead = await fetch(
+        `${url}/internal/v1/practice-hints/sessions?hostKey=codex&sessionId=client-test-session`,
+        { headers: { host: authority } },
+      );
+      expect(unauthorizedRead.status).toBe(401);
+
+      await client.routeToolEvent({ ...event, toolKind: "other" });
+      await client.recordSuccessfulGet(cwd, hint);
+      expect(await client.readRecentHints("codex", event.sessionId)).toEqual([]);
+
+      const explicitSession = { hostKey: "codex", sessionId: "explicit-client-session" } as const;
+      await client.recordSuccessfulGet(cwd, hint, explicitSession);
+      expect(await client.readRecentHints("codex", explicitSession.sessionId)).toEqual([hint]);
+      expect(await client.readRecentHints("codex", event.sessionId)).toEqual([]);
+
+      await client.routeToolEvent(event);
+      await client.recordSuccessfulGet(cwd, hint);
+      expect(await client.readRecentHints("codex", event.sessionId)).toEqual([hint]);
+
+      for (let index = 0; index < 300; index += 1) {
+        // eslint-disable-next-line no-await-in-loop -- Populate a long session before testing the bounded HTTP read.
+        await practiceHints.recordSuccessfulGet(cwd, {
+          ...hint,
+          id: `bulk-${index}`,
+          title: "x".repeat(1_200),
+        });
+      }
+      const recent = await client.readRecentHints("codex", event.sessionId);
+      expect(recent).toHaveLength(100);
+      expect(recent[0]?.id).toBe("bulk-299");
+      expect(Buffer.byteLength(JSON.stringify(recent), "utf8")).toBeLessThanOrEqual(262_144);
+
+      await client.routeToolEvent({ ...event, event: "post" });
+      await client.recordSuccessfulGet(cwd, { ...hint, id: "after-post" });
+      expect((await client.readRecentHints("codex", event.sessionId))[0]?.id).toBe("bulk-299");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
 

@@ -7,6 +7,8 @@ import type { BackendService } from "./modules/backend/service";
 import { queryController } from "./modules/query/controller";
 import { indexController } from "./modules/index/controller";
 import type { ContentAddressedSemanticRuntimePort } from "./modules/query/content-addressed-semantic-runtime";
+import { practiceHintController } from "./modules/practice-hints/controller";
+import type { PracticeHintService } from "./modules/practice-hints/service";
 import { localBoundary, reject } from "./plugins/local-auth";
 import { BACKEND_HOST, BACKEND_PORT } from "./protocol/constants";
 import { noopEmitter, type LogEmitter } from "@lorelum/log";
@@ -16,6 +18,7 @@ export interface CreateBackendAppOptions {
   readonly embedding?: EmbeddingService;
   readonly keywordQueryService: QueryService;
   readonly semanticRuntime: ContentAddressedSemanticRuntimePort;
+  readonly practiceHints?: PracticeHintService;
   readonly diagnostics?: LogEmitter;
   /** Internal test injection; production always uses the fixed IPv4 endpoint. */
   readonly host?: string;
@@ -50,6 +53,11 @@ export function createBackendApp(options: CreateBackendAppOptions) {
         : new Elysia(),
     )
     .use(indexController(options.semanticRuntime, backend.available, diagnostics))
+    .use(
+      options.practiceHints
+        ? practiceHintController(options.practiceHints, backend.available)
+        : new Elysia(),
+    )
     .use(
       queryController(
         {

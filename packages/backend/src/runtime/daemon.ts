@@ -9,6 +9,8 @@ import { join } from "node:path";
 import { BACKEND_HOST, MAX_BODY_BYTES } from "../protocol/constants";
 import { BackendError } from "../protocol/errors";
 import { createBackendApp } from "../app";
+import { createPracticeHintService } from "../modules/practice-hints/service";
+import { createSessionService } from "../modules/sessions/service";
 import { createBackendService } from "../modules/backend/service";
 import {
   createEmbeddingAdapter,
@@ -110,12 +112,14 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     (active) => updateActivity("index-operation", active),
     diagnostics,
   );
+  const sessions = createSessionService();
   const app = createBackendApp({
     backend,
     embedding,
     port,
     keywordQueryService: createQueryService({ store }),
     semanticRuntime,
+    practiceHints: createPracticeHintService({ sessions }),
     diagnostics,
   });
   const signalHandler = () => {

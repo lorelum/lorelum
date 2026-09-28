@@ -84,6 +84,15 @@ function backend(
     indexOperation: async () => {
       throw new Error("build command must use the runtime client");
     },
+    routeToolEvent: async () => {
+      throw new Error("index command must not report Practice hints");
+    },
+    recordSuccessfulGet: async () => {
+      throw new Error("index command must not report Practice hints");
+    },
+    readRecentHints: async () => {
+      throw new Error("index command must not read Practice hints");
+    },
   };
 }
 

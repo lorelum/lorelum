@@ -58,6 +58,16 @@ import { ENCODING_ID } from "../modules/embedding/model";
 import type { EmbeddingResult } from "../modules/embedding/model";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
 import type { QueryRequest, StorageRoot } from "@lorelum/engine";
+import type { SessionRef } from "../modules/sessions/model";
+import {
+  practiceHintAckSchema,
+  readHintsQuerySchema,
+  readHintsResponseSchema,
+  shellToolEventSchema,
+  successfulGetReportSchema,
+  type ReadHint,
+  type ShellToolEvent,
+} from "../modules/practice-hints/model";
 
 export type BackendQueryRequest = QueryRequest & {
   readonly mode?: QueryMode;
@@ -122,6 +132,18 @@ export interface BackendClient {
   buildIndex(root: StorageRoot, options?: BackendIndexRequestOptions): Promise<IndexOperation>;
   rebuildIndex(root: StorageRoot, options?: BackendIndexRequestOptions): Promise<IndexOperation>;
   indexOperation(operationId: string, options?: BackendRequestOptions): Promise<IndexOperation>;
+  routeToolEvent(event: ShellToolEvent, options?: BackendRequestOptions): Promise<void>;
+  recordSuccessfulGet(
+    cwd: string,
+    hint: ReadHint,
+    session?: SessionRef,
+    options?: BackendRequestOptions,
+  ): Promise<void>;
+  readRecentHints(
+    hostKey: string,
+    sessionId: string,
+    options?: BackendRequestOptions,
+  ): Promise<ReadHint[]>;
 }
 
 function validatedLoopbackUrl(value: string): URL {
@@ -472,6 +494,37 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       return request(
         BACKEND_ROUTES.indexOperation.replace(":operationId", operationId),
         indexOperationSchema,
+        requestOptions,
+      );
+    },
+    async routeToolEvent(event, requestOptions) {
+      const parsed = shellToolEventSchema.safeParse(event);
+      if (!parsed.success) throw new BackendError("backend.invalid-request");
+      if (parsed.data.toolKind !== "shell") return;
+      await request(BACKEND_ROUTES.practiceHintToolEvents, practiceHintAckSchema, {
+        payload: parsed.data,
+        ...requestOptions,
+      });
+    },
+    async recordSuccessfulGet(cwd, hint, session, requestOptions) {
+      const payload = { cwd, hint, ...(session === undefined ? {} : { session }) };
+      if (!successfulGetReportSchema.safeParse(payload).success) {
+        throw new BackendError("backend.invalid-request");
+      }
+      await request(BACKEND_ROUTES.practiceHintReads, practiceHintAckSchema, {
+        payload,
+        ...requestOptions,
+      });
+    },
+    readRecentHints(hostKey, sessionId, requestOptions) {
+      const query = { hostKey, sessionId };
+      if (!readHintsQuerySchema.safeParse(query).success) {
+        return Promise.reject(new BackendError("backend.invalid-request"));
+      }
+      const search = new URLSearchParams(query);
+      return request(
+        `${BACKEND_ROUTES.practiceHintSessions}?${search.toString()}`,
+        readHintsResponseSchema,
         requestOptions,
       );
     },

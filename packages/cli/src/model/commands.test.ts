@@ -76,6 +76,15 @@ function fakeClient(calls: string[]): BackendClient {
       state: "ready",
       index: { state: "ready", profileId: "a".repeat(64) },
     }),
+    routeToolEvent: async () => {
+      throw new Error("model command must not report Practice hints");
+    },
+    recordSuccessfulGet: async () => {
+      throw new Error("model command must not report Practice hints");
+    },
+    readRecentHints: async () => {
+      throw new Error("model command must not read Practice hints");
+    },
   };
 }
 
