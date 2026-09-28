@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { fumadocsMdx } from "fumadocs-mdx/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { shouldPrerenderPage } from "./prerender-path-filter";
 
 export default defineConfig({
   server: {
@@ -24,7 +25,7 @@ export default defineConfig({
         // states of a dynamic index, not pages of their own: they are excluded
         // from prerendering and render on request, which is how an unknown
         // `?category=` already behaves.
-        filter: (page) => !page.path.includes("?"),
+        filter: shouldPrerenderPage,
       },
     }),
     react(),

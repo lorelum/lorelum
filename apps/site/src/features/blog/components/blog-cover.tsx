@@ -1,5 +1,5 @@
 import type { BlogIndexEntry } from "../model/list-posts";
-import { coverCells, coverGrid } from "../model/cover-pattern";
+import { coverCells, coverGrid, coverTierIndex } from "../model/cover-pattern";
 
 interface BlogCoverProps {
   readonly entry: BlogIndexEntry;
@@ -43,7 +43,10 @@ export function BlogCover({ entry, className }: BlogCoverProps) {
     <svg
       viewBox={`0 0 ${coverGrid.columns * pitch} ${coverGrid.rows * pitch}`}
       aria-hidden="true"
-      className={className}
+      // The adapter styles each tier's strength per theme through this hook
+      // (see the cover rules in `styles/blog.css`); the rects' own opacity
+      // attributes remain as the no-CSS baseline.
+      className={`blog-cover-art ${className ?? ""}`}
       preserveAspectRatio="xMidYMid slice"
     >
       <rect
@@ -62,6 +65,7 @@ export function BlogCover({ entry, className }: BlogCoverProps) {
           rx={5}
           fill="var(--color-fd-primary)"
           opacity={cell.opacity}
+          data-tier={coverTierIndex(cell.opacity)}
         />
       ))}
     </svg>

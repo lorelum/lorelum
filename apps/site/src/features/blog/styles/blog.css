@@ -111,6 +111,54 @@
 }
 
 /*
+ * The generated cover's four tiers, calibrated per theme. The pattern model
+ * owns the tier *vocabulary* — its numbers are what the rects carry as their
+ * opacity attribute, the no-CSS baseline. How strong each tier *reads* is this
+ * adapter's decision, because the two themes pair optically rather than
+ * inverting mechanically: on the dark card surface the baseline alphas
+ * measured ≈1.1:1 for the lower half of the band, which read as art that
+ * failed to render rather than as a quiet field. Dark lifts the band until all
+ * four tiers stay perceptible; light rises one step so both themes carry the
+ * same number of visible tiers.
+ *
+ * Keyed by the rects' data-tier attribute rather than by a new --blog-* alias:
+ * these are presentation rules, not compositions of production tokens, and the
+ * frozen-alias contract in blog.test.ts is exactly about keeping the alias set
+ * to named roles.
+ */
+.blog-scope .blog-cover-art [data-tier="1"] {
+  opacity: 0.14;
+}
+
+.blog-scope .blog-cover-art [data-tier="2"] {
+  opacity: 0.22;
+}
+
+.blog-scope .blog-cover-art [data-tier="3"] {
+  opacity: 0.36;
+}
+
+.blog-scope .blog-cover-art [data-tier="4"] {
+  opacity: 0.62;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="1"] {
+  opacity: 0.28;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="2"] {
+  opacity: 0.42;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="3"] {
+  opacity: 0.58;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="4"] {
+  opacity: 0.78;
+}
+
+/*
  * Headings take the site's display face, as they do on every other surface.
  * That face has no CJK coverage, so a Chinese heading would otherwise mix
  * Bricolage latin glyphs with system Chinese ones — which reads as a failed
@@ -267,7 +315,6 @@
 .blog-scope .blog-post__reading .prose blockquote:not([class~="not-prose"]) {
   font-style: normal;
 }
-
 
 
 /*

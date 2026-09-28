@@ -375,6 +375,11 @@ describe("blog link contract", () => {
     // The whole card is clickable while the title stays the only interactive
     // element: the link stretches over it instead of the card becoming a link.
     expect(entryRow).toContain("after:absolute after:inset-0");
+    // The title sits at the title role's weight: on the latin side the display
+    // face already carries the hierarchy, but the zh heading falls back to the
+    // reading face (no CJK glyphs in the display face), where this weight step
+    // is the only contrast the title has.
+    expect(entryRow).toContain("text-xl font-semibold");
   });
 });
 
@@ -432,6 +437,10 @@ describe("blog index structure", () => {
     // links take the ring.)
     expect(controls).toContain("var(--lore-size-touch)");
     expect(controls).toContain("var(--ring)");
+    // In the sidebar's column the orderings sit as a two-column grid: wrapped
+    // pills there stranded a lone last row (52/52/105/105px over two rows at
+    // 1440) while the same group fits one row above the mobile cards at 390.
+    expect(controls).toContain("lg:grid lg:grid-cols-2");
   });
 
   test("keeps navigation and filter choices complete while restricting cards", () => {
@@ -453,5 +462,22 @@ describe("blog index structure", () => {
     // The card is the reference's shape — art on one side, text on the other —
     // rather than a text block with a picture nailed on top.
     expect(entryRow).toMatch(/sm:flex-row/);
+  });
+
+  test("calibrates the generated cover's tier strengths per theme", () => {
+    // The rects keep the pattern's own opacity as the no-CSS baseline; how
+    // strong each tier reads is the adapter's decision, because the baseline
+    // band measured ≈1.1:1 against the dark card surface for its lower half —
+    // the art read as unrendered rather than quiet. Both themes style all four
+    // tiers, dark above light, so each theme carries four perceptible tiers.
+    expect(cover).toContain("blog-cover-art");
+    expect(cover).toContain("data-tier={coverTierIndex(cell.opacity)}");
+
+    const tierRules = [...blogRules.matchAll(/\[data-tier="([1-4])"\]\s*\{\s*opacity:\s*[\d.]+;/g)];
+    expect(tierRules.length).toBe(8); // four tiers × two themes
+    expect(blogRules).toMatch(/\.blog-scope \.blog-cover-art \[data-tier="1"\][^}]*opacity:\s*0\.14/);
+    expect(blogRules).toMatch(/\.dark \.blog-scope \.blog-cover-art \[data-tier="1"\][^}]*opacity:\s*0\.28/);
+    expect(blogRules).toMatch(/\.blog-scope \.blog-cover-art \[data-tier="4"\][^}]*opacity:\s*0\.62/);
+    expect(blogRules).toMatch(/\.dark \.blog-scope \.blog-cover-art \[data-tier="4"\][^}]*opacity:\s*0\.78/);
   });
 });

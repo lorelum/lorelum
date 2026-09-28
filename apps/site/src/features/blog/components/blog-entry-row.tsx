@@ -51,7 +51,11 @@ export function BlogEntryRow({ entry, lang }: BlogEntryRowProps) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <h2 lang={entry.locale} className="text-xl font-medium leading-snug">
+          {/* The design system's title role is weight 600. On the latin side the
+              display face carries the hierarchy; on the zh side the heading falls
+              back to the reading face (the display face has no CJK glyphs), so
+              there the weight step is the only contrast the title has left. */}
+          <h2 lang={entry.locale} className="text-xl font-semibold leading-snug">
             <Link
               to={blogPostPath(entry.locale, entry.slug)}
               hrefLang={entry.locale}
@@ -61,14 +65,14 @@ export function BlogEntryRow({ entry, lang }: BlogEntryRowProps) {
             </Link>
           </h2>
 
-          {hintKey ? (
-            <p className="mt-1 text-sm text-fd-muted-foreground">{t[hintKey]}</p>
-          ) : null}
+          {hintKey ? <p className="mt-1 text-xs text-fd-muted-foreground">{t[hintKey]}</p> : null}
 
           {/* The category is a Badge in the design system's sense — short text that
               does not pretend to be a button — and it is the same chip the article's
-              metadata line renders, so the two surfaces agree. */}
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-fd-muted-foreground">
+              metadata line renders, so the two surfaces agree. The line sits at the
+              caption size so date and chip read as metadata under a title whose face
+              or weight already marks it as the card's peak. */}
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-fd-muted-foreground">
             <time dateTime={entry.data.date} className="tabular-nums">
               {entry.data.date}
             </time>

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { coverCells, coverGrid } from "./cover-pattern";
+import { coverCells, coverGrid, coverTierIndex } from "./cover-pattern";
 
 describe("coverCells", () => {
   test("is deterministic for a slug", () => {
@@ -55,5 +55,16 @@ describe("coverCells", () => {
     expect(lit).toBeGreaterThan(0);
     expect(lit).toBeLessThanOrEqual(4);
     expect(quiet).toBeGreaterThan(opacities.length / 3);
+  });
+});
+
+describe("coverTierIndex", () => {
+  test("maps each tier of the vocabulary to its 1-based index", () => {
+    // The adapter's per-theme rules key on the tier, so the index — not the
+    // opacity value — is the renderer-facing contract. Every opacity a cell
+    // can carry comes from the vocabulary, so every cell lands in 1..4.
+    const indices = coverGrid.tiers.map((tier) => coverTierIndex(tier));
+
+    expect(indices).toEqual([1, 2, 3, 4]);
   });
 });

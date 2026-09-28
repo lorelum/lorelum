@@ -23,11 +23,16 @@ const sortLabelKey = {
  * reads as chrome. In the column they sit with the rest of the navigation, where a
  * reader already looks for "what else is here".
  *
- * Both are URL state, not component state: a filtered or re-sorted list is a link a
- * reader can share, and the server renders it, so the page arrives filtered with no
- * JavaScript. Every option — category and ordering alike — is a plain link carrying
- * the full search state, so changing either is one navigation, with nothing to
- * apply and nothing that only works scripted.
+ * Both are URL state, not component state: a filtered or re-sorted list is a
+ * link a reader can share, and every option — category and ordering alike — is
+ * a plain link carrying the full search state, so changing either is one
+ * navigation, with nothing to apply and nothing that only works scripted.
+ *
+ * What a query URL serves is the prerendered index: the static assets answer
+ * it before any server function runs, so the narrowed list renders once
+ * scripts hydrate. A no-JS reader who follows the link gets the full index —
+ * never an error, never a half-applied state — which is the honest floor this
+ * deployment gives, and the spec states it the same way.
  *
  * The ordering was a GET form with a native select until review rejected the
  * select's open state: the popup is platform chrome no stylesheet reaches, so it
@@ -103,7 +108,12 @@ export function BlogIndexControls({ lang, posts, category, sort }: BlogIndexCont
 
       <section>
         <p className="text-fd-muted-foreground">{t.blogSortBy}</p>
-        <ul className="mt-2 flex flex-wrap gap-1.5">
+        {/* In the sidebar's column the four orderings become a two-column grid:
+          wrapped pills there stranded a lone last row (measured at 1440:
+          52/52/105/105px over two rows, the second half-empty), while the same
+          group fits one row at 390px above the cards. Below the sidebar's
+          breakpoint the strip spans the page, so it keeps the wrapping row. */}
+        <ul className="mt-2 flex flex-wrap gap-1.5 lg:grid lg:grid-cols-2 lg:gap-1.5">
           {blogSorts.map((candidate) => (
             <li key={candidate}>
               <Link

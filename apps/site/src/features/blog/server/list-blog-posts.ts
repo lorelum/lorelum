@@ -12,7 +12,10 @@ import { blogSource } from "./source";
  *
  * The category match is computed here and returned as slugs beside the complete
  * visible list. The screen can render only matching cards while keeping every
- * valid category and article link available, including with no JavaScript.
+ * valid category and article link available. This narrowing describes what the
+ * renderer receives when it actually runs: on the prerendered canonical index
+ * there is no category, and a query URL is answered by that static page before
+ * any server function sees one (see the controls' comment for the full picture).
  *
  * Visibility is the article loader's own rule (`isPostVisible`), with the same
  * environment input: while developing, the index lists a draft because its URL

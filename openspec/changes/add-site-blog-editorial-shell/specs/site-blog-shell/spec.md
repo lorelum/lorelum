@@ -66,7 +66,7 @@
 
 索引 SHALL 以「有界的卡片」呈现每个条目（色调表面 + `panel` 圆角 + 内边距 + `--blog-hairline` 细线），条目之间以间距分隔而不是分隔线；卡片是带边框的面板，SHALL 占满中间轨道（正文的 68ch 度量属于正文，不属于面板）。分类 SHALL 以 Badge（胶囊）呈现，与文章页元数据行使用同一组件。卡片 SHALL 整卡可点，但**只有标题是交互元素**（链接以拉伸覆盖层覆盖卡片，而不是把卡片本身变成链接）。
 
-索引 SHALL 常驻渲染筛选与排序控件：视口 ≥ 1024px 时放在左栏，视口 < 1024px 时放在卡片列表上方，且同一时刻只显示一组。分类 SHALL 是链接行，排序 SHALL 是 4 个链接胶囊；每个链接 SHALL 保留另一项搜索状态，复位链接 SHALL 显式清除两项状态。控件 MUST NOT 使用原生 `<select>` 或 GET 表单。两者 SHALL 是 URL 状态（`?category=`、`?sort=`），无需 JavaScript 即可导航，并由服务端/预渲染渲染结果列表；未知取值 SHALL 回落为默认而不是报错。链接 SHALL 不小于 `--lore-size-touch` 并使用共享焦点环，而不是输入控件边界角色。文章页 SHALL NOT 渲染这些控件（改了不影响该页的控件等于无控件）。
+索引 SHALL 常驻渲染筛选与排序控件：视口 ≥ 1024px 时放在左栏，视口 < 1024px 时放在卡片列表上方，且同一时刻只显示一组。分类 SHALL 是链接行，排序 SHALL 是 4 个链接胶囊；每个链接 SHALL 保留另一项搜索状态，复位链接 SHALL 显式清除两项状态。控件 MUST NOT 使用原生 `<select>` 或 GET 表单。两者 SHALL 是 URL 状态（`?category=`、`?sort=`），每个选项 SHALL 是携带完整搜索状态的普通链接。查询串 URL 由静态预渲染的索引应答：无脚本的读者与爬虫拿到完整未过滤索引（不报错、无待应用状态），过滤/排序后的结果列表 SHALL 在脚本水合后渲染；未知取值 SHALL 回落为默认而不是报错。链接 SHALL 不小于 `--lore-size-touch` 并使用共享焦点环，而不是输入控件边界角色。文章页 SHALL NOT 渲染这些控件（改了不影响该页的控件等于无控件）。
 
 #### Scenario: 卡片与分隔方式
 
@@ -85,10 +85,10 @@
 - **WHEN** 检查索引卡片的悬停与聚焦样式
 - **THEN** 反馈 SHALL 是卡片自身的边框与抬升（`--lore-shadow-lift`），MUST NOT 使用 `group-hover` 或任何只在悬停时出现的元素——该约定由 `blog-identity.test.ts` 守住
 
-#### Scenario: 无 JavaScript 也能筛选与排序
+#### Scenario: 无 JavaScript 时查询 URL 的行为如实
 
-- **WHEN** 关闭 JavaScript 后访问 `?category=<空分类>`
-- **THEN** 服务端返回的 HTML 已不含任何条目并显示空状态文案
+- **WHEN** 关闭 JavaScript 后访问 `?category=<分类>` 或 `?sort=<排序>`
+- **THEN** 应答的是预渲染索引的完整列表（无条目被剔除、无空状态、不报错）；过滤/排序后的列表仅在有脚本时呈现
 
 #### Scenario: 排序反映在控件状态里
 

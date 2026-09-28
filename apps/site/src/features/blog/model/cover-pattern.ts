@@ -24,6 +24,16 @@ export const coverGrid = {
   tiers: [0.1, 0.18, 0.32, 0.55] as const,
 } as const;
 
+/**
+ * The tier a cell's opacity puts it in, 1-based. The blog adapter styles cells
+ * by tier (each theme calibrates how strong a tier reads), so the renderer
+ * needs the tier's index, not its value — and the mapping stays here, next to
+ * the vocabulary it interprets.
+ */
+export function coverTierIndex(opacity: number): number {
+  return coverGrid.tiers.findIndex((tier) => tier === opacity) + 1;
+}
+
 /** FNV-1a: a short, stable string hash — the pattern must not drift. */
 function seedFrom(text: string): number {
   let hash = 0x811c9dc5;
