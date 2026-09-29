@@ -74,27 +74,32 @@ test("rotation keeps a hard file-count and per-file byte bound", async () =>
     expect(files.length * 256).toBeLessThanOrEqual(768);
   }));
 
-test("unsafe existing targets are rejected during preflight", async () =>
-  fixture(async (directory) => {
-    await rm(directory, { recursive: true, force: true });
-    await rm(join(directory, "backend.log"), { force: true });
-    // Create the directory through the sink's normal preflight path first.
-    const safe = await createPrivateJsonlSink({ directory });
-    await safe.write(event(0));
-    await safe.close();
-    const elsewhere = join(directory, "elsewhere");
-    await writeFile(elsewhere, "not a sink", { mode: 0o600 });
-    await rm(join(directory, "backend.log"));
-    await symlink(elsewhere, join(directory, "backend.log"));
+// Creating a symlink needs Developer Mode or admin on Windows, so this
+// scenario cannot be constructed there without privileges.
+test.skipIf(process.platform === "win32")(
+  "unsafe existing targets are rejected during preflight",
+  async () =>
+    fixture(async (directory) => {
+      await rm(directory, { recursive: true, force: true });
+      await rm(join(directory, "backend.log"), { force: true });
+      // Create the directory through the sink's normal preflight path first.
+      const safe = await createPrivateJsonlSink({ directory });
+      await safe.write(event(0));
+      await safe.close();
+      const elsewhere = join(directory, "elsewhere");
+      await writeFile(elsewhere, "not a sink", { mode: 0o600 });
+      await rm(join(directory, "backend.log"));
+      await symlink(elsewhere, join(directory, "backend.log"));
 
-    const sink = new PrivateJsonlSink({ directory });
-    await expect(sink.preflight()).rejects.toMatchObject({
-      code: "backend.state-invalid",
-    });
-    await expect(sink.preflight()).rejects.toMatchObject({
-      code: "backend.state-invalid",
-    });
-  }));
+      const sink = new PrivateJsonlSink({ directory });
+      await expect(sink.preflight()).rejects.toMatchObject({
+        code: "backend.state-invalid",
+      });
+      await expect(sink.preflight()).rejects.toMatchObject({
+        code: "backend.state-invalid",
+      });
+    }),
+);
 
 test.skipIf(process.platform === "win32")(
   "permissive existing targets are rejected during preflight",

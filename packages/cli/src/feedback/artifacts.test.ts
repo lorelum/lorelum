@@ -81,18 +81,23 @@ test("refuses a regular-file output target without replacing it", async () => {
   }
 });
 
-test("refuses a symlink output directory without writing a draft", async () => {
-  const parent = await realpath(await mkdtemp(join(tmpdir(), "lorelum-feedback-unsafe-")));
-  const target = join(parent, "target");
-  const redirected = join(parent, "redirected");
-  try {
-    await Bun.write(target, "not a directory");
-    await symlink(target, redirected);
-    const value = report();
-    await expect(
-      publishFeedbackArtifact(redirected, value, renderReportMarkdown(value)),
-    ).rejects.toThrow("unsafe");
-  } finally {
-    await rm(parent, { recursive: true, force: true });
-  }
-});
+// Creating a symlink needs Developer Mode or admin on Windows, so this
+// scenario cannot be constructed there without privileges.
+test.skipIf(process.platform === "win32")(
+  "refuses a symlink output directory without writing a draft",
+  async () => {
+    const parent = await realpath(await mkdtemp(join(tmpdir(), "lorelum-feedback-unsafe-")));
+    const target = join(parent, "target");
+    const redirected = join(parent, "redirected");
+    try {
+      await Bun.write(target, "not a directory");
+      await symlink(target, redirected);
+      const value = report();
+      await expect(
+        publishFeedbackArtifact(redirected, value, renderReportMarkdown(value)),
+      ).rejects.toThrow("unsafe");
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  },
+);
