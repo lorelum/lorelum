@@ -6,11 +6,47 @@ Silicon, Linux x64, and Windows x64 archives before it creates a **draft** GitHu
 Publishing, checksums, and the supported installer smoke are separate gates; do not describe a
 queued run, an Actions artifact, or an unpublished draft as released or installable.
 
+## Release-note coverage
+
+Before the version-preparation PR is ready for review, take the **complete commit range from the
+previous published version tag to the proposed release commit**. Read every commit subject and body,
+including merge, fixup, documentation, test, and CI commits; inspect the associated PR descriptions,
+linked Issues, and relevant verification or benchmark records. Account for every commit in the
+review, even when several commits belong to one user-facing change or a maintainer-only fixup does
+not deserve its own note. Recheck the range if the candidate commit moves before tagging.
+
+Write [`scripts/release/release-notes.md`](../../scripts/release/release-notes.md) as a reader-facing
+summary of that evidence, not a list of `feat` commits or a copy of the Git log. Cover the categories
+that actually changed:
+
+- New capabilities, with host-specific availability where it differs.
+- Changes to existing behavior, such as defaults or text output.
+- Bug fixes. Describe the problem a user encountered and the result after the fix; do not bury fixes
+  under a generic “improvements” sentence. Include diagnostic or privacy fixes when applicable.
+- Performance changes when supported by comparable before/after measurements. Give the workload,
+  environment and method or link to a PR/record that does; distinguish measured results from expected
+  benefits and avoid turning one machine's result into a platform guarantee.
+- Upgrade or compatibility steps. Say which existing users need to act.
+- Known material limitations or unresolved problems. Do not imply a separate Issue was fixed by a
+  related change.
+- Contributor-facing changes when they are substantial enough to help someone using the repository.
+
+Keep the install commands, supported assets, checksums, previous-tag comparison link, and release
+verification boundary accurate. Link the relevant PRs or Issues for detail; omit empty categories and
+routine fixup commits from the published narrative after accounting for them in the review. Avoid
+speculative benefits, incidental implementation details with no reader action, private evidence, and
+temporary PR/CI status in the release notes. In the preparation PR body or a dedicated verification
+record, keep a compact inventory for **every SHA in the reviewed range**: the associated PR/Issue
+(when one exists), the change's reader impact, and whether it appears in the notes, is grouped with
+another entry, or is omitted as a non-user-facing fixup. State which claims still need release-run
+verification. This inventory makes coverage reviewable without dumping the entire Git log into the
+published notes.
+
 ## Normal prerelease path
 
-1. Merge the version-preparation PR only after its checks pass. Confirm that `origin/main` contains
-   the intended CLI version, release notes, every public Plugin/marketplace version surface, and
-   user documentation.
+1. Merge the version-preparation PR only after its checks pass and its release-note coverage has been
+   reviewed against the full range above. Confirm that `origin/main` contains the intended CLI
+   version, release notes, every public Plugin/marketplace version surface, and user documentation.
 2. Create and push an **annotated** `v<CLI version>` tag at that exact merged commit. The workflow
    verifies that the tag is annotated, resolves to the packaged commit, and matches
    `packages/cli/package.json`.
@@ -28,6 +64,10 @@ queued run, an Actions artifact, or an unpublished draft as released or installa
    - `lore-<version>-linux-x64.tar.gz` and `.metadata.json`
    - `lore-<version>-win32-x64.zip` and `.metadata.json`
    - `SHA256SUMS`
+
+   Check the release-note links as a reader would. When a note links to a newly added site section,
+   verify that section is live before publishing; merging the source does not deploy the site. Use
+   the [site deployment workflow](./site-deploy.md) when that public page must be updated.
 
 6. Publish the verified draft, then use the public installer in an isolated temporary directory and
    confirm the installed `lore --version` reports that exact version. Only after this smoke may a
