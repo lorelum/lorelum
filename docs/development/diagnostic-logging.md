@@ -57,6 +57,8 @@ logging:
 
 前者只作用于这一次调用；当它进入 Backend 时，detail 也只会传给同一条 authenticated request 及其关联 request、operation、preparation 和 native lifecycle，不会改写 daemon 的全局等级或影响并发调用。后者适合由宿主自动执行的 Hook 和长期复现。既有 `--log-level` 仍然只控制 stderr 呈现，不能替代这两个收集开关。Hook 在 debug 下可以记录 payload handling、解析、Catalog 渲染和 degraded 原因，但 stdout 必须仍是原宿主 ABI；畸形的非结构化 payload 只记录大小，不原样落盘。
 
+若持久 `logging.level` 写入非法值（例如 `noisy`），本次调用仍按默认 `info` 完成业务命令（fail open 不变），但不再静默：envelope 的 `diagnostics.notices` 携带完整事实组——setting、收到的值、允许 enum、实际生效 level 与 config 来源；同次调用的 stderr 输出一条单行提示（含收到值、允许 enum 与实际生效 level），同 trace 落盘一条 `warn` 级 `logging.level-fallback` 记录（含 setting、收到值、实际生效 level 与 config 来源）。三个入口指向同一回退事实，因此 `lore logs --trace-id` 和 `lore feedback draft --include-logs ...` 能解释"为什么没有预期级别的记录"。`--debug` 覆盖时实际生效等级是 `debug`，提示同时说明持久配置未生效。Lorelum 不会自动改写用户 config；按提示把值改回 `error`/`warn`/`info`/`debug` 即可。
+
 ## Feedback 的日志选择
 
 `lore feedback draft --trace-id ...` 默认保留同 trace 的完整 `error`、`warn`、`info` 调用链，以及由 correlation IDs 安全关联的匿名 lifecycle records。它保留普通 query、Practice、结果、路径、原生输出、自由 context、原始 correlation IDs 与已序列化的 Error stack；只有明确 credential 会在日志写入时自动排除。diagnostic facts 仍保留为摘要，不取代完整记录。

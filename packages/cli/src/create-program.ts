@@ -20,6 +20,8 @@ import {
 } from "./registry.js";
 import { invalidInvocationError } from "./runtime/errors.js";
 import { Logger, logLevels, type LogLevel } from "./runtime/logger.js";
+import { composeDiagnostics, type InvocationNotice } from "./output/notices.js";
+import type { ProtocolDiagnostics } from "./output/protocol.js";
 import {
   createTraceId,
   type LogEmitter,
@@ -34,6 +36,8 @@ export interface CliRuntime {
   readonly log?: LocalLogger;
   readonly diagnostics?: LogEmitter;
   readonly logDirectory?: string;
+  /** Non-fatal invocation facts surfaced in public response diagnostics. */
+  readonly notices?: readonly InvocationNotice[];
 }
 
 /** Internal callbacks that let `run` own selected-command and process-exit state. */
@@ -53,6 +57,7 @@ export function createProgram(
 ): Command {
   const registry = snapshotCommandDefinitions(registryDefinitions);
   const describeFromRegistry: DescribeCommand = (command) => describeCommand(command, registry);
+  const responseDiagnostics = composeDiagnostics(traceId, runtime.notices);
   const program = new Command();
 
   program
@@ -76,6 +81,7 @@ export function createProgram(
         discoveryCommandName,
         outputFormat,
         traceId,
+        responseDiagnostics,
         runtime.diagnostics,
         runtime.log,
         runtime.logDirectory,
@@ -124,6 +130,7 @@ export function createProgram(
         definition.name,
         outputFormat,
         traceId,
+        responseDiagnostics,
         runtime.diagnostics,
         runtime.log,
         runtime.logDirectory,
@@ -144,6 +151,7 @@ async function executeCommand(
   responseCommand: string,
   outputFormat: OutputFormat,
   traceId: TraceId,
+  responseDiagnostics: ProtocolDiagnostics,
   diagnostics: LogEmitter | undefined,
   log: LocalLogger | undefined,
   logDirectory: string | undefined,
@@ -163,7 +171,7 @@ async function executeCommand(
       command: response.command,
       data: response.data,
       ...(response.textRenderer === undefined ? {} : { textRenderer: response.textRenderer }),
-      diagnostics: { traceId },
+      diagnostics: responseDiagnostics,
     });
     return;
   }
@@ -173,7 +181,7 @@ async function executeCommand(
       command: discoveryCommandName,
       data: requireCommandDescription(describeFromRegistry, definition.name),
       textRenderer: renderHelpText,
-      diagnostics: { traceId },
+      diagnostics: responseDiagnostics,
     });
     return;
   }
@@ -204,7 +212,7 @@ async function executeCommand(
     command: responseCommand,
     data: result.data,
     ...(definition.textRenderer === undefined ? {} : { textRenderer: definition.textRenderer }),
-    diagnostics: { traceId },
+    diagnostics: responseDiagnostics,
   });
   if (exitCode === 1) lifecycle.setExitCode(1);
 }

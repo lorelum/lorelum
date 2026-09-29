@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { hasDaemonLaunchEnvironment } from "@lorelum/backend/config";
+import type { LoadConfigOptions } from "@lorelum/config";
 import { createProgram, type CliRuntime } from "./create-program.js";
 import {
   parseCodexHookInvocation,
@@ -20,6 +21,7 @@ import {
 } from "./hook/workbuddy.js";
 import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
 import { resolveOutputFormat } from "./output/format-selection.js";
+import { composeDiagnostics } from "./output/notices.js";
 import { renderHelpText } from "./output/presentation.js";
 import { renderResult, type OutputFormat } from "./output/render.js";
 import type { OutputWriter } from "./output/protocol.js";
@@ -56,6 +58,8 @@ export interface RunOptions {
   traceId?: TraceId;
   /** Source-test override for a private, disposable managed log root. */
   logDirectory?: string;
+  /** Source-test override for the persistent config location; production reads the real home. */
+  configOptions?: LoadConfigOptions;
 }
 
 /** Executes one argv invocation and owns its single protocol response and exit code. */
@@ -70,6 +74,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "codex",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.configOptions === undefined ? {} : { configOptions: options.configOptions }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -93,6 +98,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "zcode",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.configOptions === undefined ? {} : { configOptions: options.configOptions }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -116,6 +122,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "cursor",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.configOptions === undefined ? {} : { configOptions: options.configOptions }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -139,6 +146,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       source: "hook",
       host: "workbuddy",
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      ...(options.configOptions === undefined ? {} : { configOptions: options.configOptions }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
@@ -169,6 +177,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       ? await createProcessLogRuntime(stderr, traceId, {
           debug: arguments_.includes("--debug"),
           ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+          ...(options.configOptions === undefined ? {} : { configOptions: options.configOptions }),
           persist:
             (options.stdout === undefined && options.stderr === undefined) ||
             options.logDirectory !== undefined,
@@ -208,7 +217,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
         command: "describe",
         data,
         textRenderer: renderHelpText,
-        diagnostics: { traceId },
+        diagnostics: composeDiagnostics(traceId, runtime.notices),
       });
       diagnostics.emit({
         time: new Date().toISOString(),
@@ -298,7 +307,7 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       code: cliError.code,
       message: cliError.message,
       ...(cliError.recovery === undefined ? {} : { recovery: cliError.recovery }),
-      diagnostics: { traceId },
+      diagnostics: composeDiagnostics(traceId, runtime.notices),
     });
     return cliError.exitCode;
   }

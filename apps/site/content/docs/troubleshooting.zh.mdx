@@ -18,6 +18,8 @@ lore logs --trace-id <traceId> --limit 100
 
 该命令只读取已经与这次调用关联的 Lorelum 管理日志；不会启动 Backend 或模型、下载内容、重新执行 query，也不会查看其他调用。`missingEvidence` 表示保留下来的证据存在限制：文件缺失、已轮转、已损坏，或此前没有记录 debug，都不能证明另一个原因。
 
+如果调用提示 `logging.level` 无效，说明该持久配置从未生效：本次调用实际使用的是 `info`（仅 `--debug` 时为 `debug`），因此需要更详细等级（例如 `debug`）的记录才会缺失。把 `~/.lorelum/config.yaml` 中的 `logging.level` 改为 `error`、`warn`、`info` 或 `debug` 之一，再重新复现即可。
+
 如果现有记录仍无法解释问题，并且你能控制安全的最小复现，再使用 `--debug`：
 
 ```sh

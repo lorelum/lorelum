@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createInstalledPacksFixture } from "./fixtures/installed-packs.js";
 import { verifyGetAndQueryScenario } from "./scenarios/get-query.js";
 import { verifyCodexHookScenario } from "./scenarios/hook-codex.js";
+import { verifyLoggingFallbackScenario } from "./scenarios/logging-fallback.js";
 import { verifyWorkbuddyHookScenario } from "./scenarios/hook-workbuddy.js";
 import { verifyZcodeHookScenario } from "./scenarios/hook-zcode.js";
 import { verifyListPacksScenario } from "./scenarios/list-packs.js";
@@ -28,6 +29,7 @@ async function main(): Promise<void> {
 
     const fixture = await createInstalledPacksFixture(directory);
     await verifyListPacksScenario(executable, fixture, directory);
+    await verifyLoggingFallbackScenario(executable, directory, [bunExecutable, entrypoint]);
     await verifyCodexHookScenario(executable, fixture, directory);
     await verifyWorkbuddyHookScenario(executable, fixture, directory);
     await verifyZcodeHookScenario(executable, fixture, directory);
@@ -40,7 +42,7 @@ async function main(): Promise<void> {
 async function verifySourceEntrypoint(bunExecutable: string, directory: string): Promise<void> {
   const defaultVersion = await runProcess([bunExecutable, entrypoint, "--version"]);
   assert.equal(defaultVersion.exitCode, 0);
-  assert.match(defaultVersion.stdout, /^Lorelum .+ \(protocol 1\)\n$/u);
+  assert.match(defaultVersion.stdout, /^Lorelum .+ \(protocol 2\)\n$/u);
   assert.equal(defaultVersion.stderr, "");
 
   const source = await runProcess([bunExecutable, entrypoint, "--version", "--json"]);
