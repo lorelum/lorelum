@@ -1,12 +1,25 @@
 ---
 title: 配置
-description: 选择 Store，并配置本地模型和服务。
+description: 配置 Agent Hook、Store、本地模型和服务。
 icon: Settings
 ---
 
 Lorelum 默认即可使用。用户级配置保存在 `~/.lorelum/config.yaml`，并由所有 Store 共享。
 
-支持 shell 会话身份注入的 Agent 共用 `agent.shellSessionInjection`。目前只有 Codex 集成会改写 shell 命令，其他集成不会仅凭这项配置就启用注入。默认只检测外层命令文本；需要覆盖脚本内部间接执行的 `lore get` 时，参见 [Codex 指南](./codex#控制哪些命令注入会话身份)。
+## Agent shell 会话身份
+
+`agent.shellSessionInjection` 是支持 shell 会话绑定的 Agent 集成共用的配置，决定哪些 shell 命令会得到会话身份。默认 `lore-only`：只检查外层命令文本是否含独立的 `lore` 字样。直接调用、管道和命令替换中的 `lore` 都能匹配；Hook 不解析命令，也不读取脚本文件。例如外层只有 `sh script.sh` 时，即使脚本内部调用了 `lore get`，这次读取也可能无法关联到对话。反过来，外层文本只是提到 `lore` 也可能触发注入。
+
+需要覆盖本地脚本内的间接调用时，在 `~/.lorelum/config.yaml` 加入：
+
+```yaml
+agent:
+  shellSessionInjection: all-shell
+```
+
+`all-shell` 为每个受支持的 shell tool 命令传递身份，不影响非 shell tool。删除该字段或设为 `lore-only` 即恢复默认。支持此功能的 Hook 会在下一次调用时读取改动，无需重启 Backend。配置无效时，该次 Hook 不改写命令，也不阻塞工具。两种模式下 Hook 仍会在每次匹配的 shell 调用中运行；默认模式减少的是命令改写和变量可见性，不是 Hook 进程开销。
+
+这是 Agent 共用配置，不属于 Codex。**目前只有 Codex 集成实现了 shell 会话绑定，其他集成不会仅凭设置该字段就启用注入。**会话已读候选的共用行为见[接入 Agent](./agent-setup#会话中的已读候选)，具体支持的 Hook 以各宿主指南为准。
 
 ## 选择 Store
 
@@ -54,7 +67,7 @@ lore backend stop
 lore backend start
 ```
 
-配置无效时会明确报错。修改配置后重启 Backend 才会生效。
+Backend 或模型配置无效时会明确报错，修改后需要重启 Backend；Agent Hook 的配置在下一次 Hook 调用时生效。
 
 ## 模型设置
 

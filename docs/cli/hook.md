@@ -28,10 +28,16 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | lore hook zcode --store-root /absolute/path/to/isolated-store
 ```
 
+## 共用的会话关联
+
+`lore get` 成功后的候选报告由 CLI 发往已经运行的 Backend，Backend 负责把可关联的读取保存在通用会话目录；宿主 Hook 只映射事件、传递会话身份或读取有界候选提示。无法关联或 Backend 不可达时可漏记，`get` 的结果与退出码不变。Backend 的[公共会话模块](../../packages/backend/src/modules/sessions/README.md)拥有显式身份与活动窗口后备，不在某个宿主 Plugin 里另存清单。
+
+`agent.shellSessionInjection` 是 Agent 共用的会话身份注入策略，不属于 Codex 协议。支持 shell 命令改写的宿主在调用对应 Hook 时读取它：默认 `lore-only` 只匹配外层命令文本中的独立 `lore` 字样，`all-shell` 涵盖该宿主每次有效的 shell tool 调用。它不解析脚本，也不控制非 shell tool、SessionStart Catalog 或子 Agent 提示；无效配置在消费它的 Hook 中以非阻塞 no-op 降级。目前只有 Codex 实现了这条改写路径，其他宿主不因共用配置存在而改变行为。
+
 ## 宿主差异
 
 - Codex Plugin 在 `hooks.json` 中内联调用 `lore hook codex`，并提供 PowerShell 的 `commandWindows` 变体与 `additionalContextLimit`。
-- Codex 的 `PreToolUse` 只处理 `Bash` tool。CLI 在每次调用时读取 Agent 共用的用户级 `agent.shellSessionInjection`；缺省 `lore-only` 只对 `tool_input.command` 中出现独立 `lore` 字样的文本返回 `updatedInput`，显式 `all-shell` 对每次有效的 Bash 调用返回改写。这里不解析 shell 或脚本文件；无效配置返回非阻塞 no-op，`SessionStart` 与 `SubagentStart` 不受此设置影响。两种模式都仍启动 Pre Hook 进程。其他宿主目前只使用 Catalog Hook，不消费这个设置。
+- Codex 的 `PreToolUse` 只处理 `Bash` tool，保留其他输入字段，在符合共享策略时返回 `updatedInput` 与宿主要求的 `permissionDecision: "allow"`；macOS/Linux 使用 Unix `export`，原生 Windows PowerShell 使用 `$env:`。两种模式都仍启动 Codex Pre Hook 进程。Codex `SubagentStart` 根据同会话的 Backend 已读候选注入有界元数据，不自动读取正文；通用的候选存储和 CLI 成功 `get` 报告由 Backend/CLI 拥有，不是 Codex Hook 的私有状态。
 - Cursor Plugin 以事件名 `sessionStart`（camelCase）与顶层 `additional_context` envelope 调用 `lore hook cursor`；宿主对该事件是 fire-and-forget，`{ "continue": true }` 降级输出为无害 no-op。
 - WorkBuddy Plugin 与 Codex 同型：`command` 字符串 + `commandWindows` PowerShell 变体 + fallback + `additionalContextLimit`；其 `hooks.json` 由宿主自动发现，manifest 中的 `hooks` 字段反而是 inline 对象或精确文件路径语义，不得使用。WorkBuddy 对 SessionStart matcher 按 `|` 切分后逐 token 精确匹配，matcher 必须使用非锚定列表形式。
 - ZCode 不支持 `commandWindows` 与 `additionalContextLimit`；其 Plugin 使用宿主原生的 `process` Hook，以 argv 形式直接运行 `lore hook zcode`，不经过 shell、Git Bash 或平台包装脚本。上下文预算由 CLI 渲染器的 4000 字符上限保证，与 Codex 共享同一实现。

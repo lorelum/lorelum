@@ -1,12 +1,25 @@
 ---
 title: Configuration
-description: Choose a Store and configure the local model and service.
+description: Configure Agent hooks, the Store, local model, and service.
 icon: Settings
 ---
 
 Lorelum runs with defaults. User-level settings live in `~/.lorelum/config.yaml` and apply to every Store.
 
-The shared `agent.shellSessionInjection` setting controls which supported Agent shell commands receive session identity. Currently Codex uses it; other integrations do not rewrite shell commands. The default checks only the outer command text; see the [Codex guide](./codex#choose-which-commands-receive-a-session-identity) to cover indirect `lore get` calls inside scripts.
+## Agent shell session identity
+
+The shared `agent.shellSessionInjection` setting controls when an Agent integration that supports shell session binding passes a conversation identity to its shell commands. The default, `lore-only`, checks whether the outer command text contains `lore` as a separate word. Direct calls, pipelines, and command substitutions containing `lore` match; the Hook does not parse the command or read script files. For example, `sh script.sh` does not match even if that script calls `lore get`, so the read may not be associated with the conversation. Merely mentioning `lore` in the outer text may match without executing it.
+
+To cover indirect calls inside local scripts, add this to `~/.lorelum/config.yaml`:
+
+```yaml
+agent:
+  shellSessionInjection: all-shell
+```
+
+`all-shell` passes the identity to every supported shell tool command, not to non-shell tools. Remove the field or set it to `lore-only` to restore the default. Supporting Hooks read changes on their next invocation; a Backend restart is not needed. Invalid configuration leaves that Hook call unchanged and does not block the tool. Both modes still run the Hook on each matched shell call; the default reduces command rewriting and variable visibility, not Hook process overhead.
+
+This is a shared setting for agent integrations, not a Codex-specific one. **Codex currently implements shell session binding; other integrations do not gain it merely by setting this field.** See [Agent integration](./agent-setup#session-read-hints) for the shared read-hint behavior and each host's guide for its supported Hooks.
 
 ## Store scope
 
@@ -45,7 +58,7 @@ lore backend stop
 lore backend start
 ```
 
-Semantic commands start Backend when needed. Standalone model commands require it to be running, so start it explicitly when preparing the model in advance. `model load` waits for preparation and loading; `unload` releases the runtime but keeps the cache. Restart Backend after changing configuration.
+Semantic commands start Backend when needed. Standalone model commands require it to be running, so start it explicitly when preparing the model in advance. `model load` waits for preparation and loading; `unload` releases the runtime but keeps the cache. Restart Backend after changing model or Backend settings; Agent Hook settings take effect on the next Hook call.
 
 ## Embedding settings
 
