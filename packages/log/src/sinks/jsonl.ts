@@ -118,9 +118,10 @@ export class JsonlFileSink implements LogSink {
     }
     try {
       // A segment this process created is set to the intended mode regardless
-      // of umask; an existing one is verified and tightened on the same
-      // descriptor the record is written through.
-      if (created) await file.chmod(0o600);
+      // of umask on platforms with mode semantics; an existing one is verified
+      // and tightened on the same descriptor the record is written through.
+      // Windows has no mode semantics and no chmod on the design boundary.
+      if (created && process.platform !== "win32") await file.chmod(0o600);
       const verdict = await inspectAndTightenHandle(file, this.path, "file");
       if (verdict.verdict === "unsafe") {
         throw new ManagedLogLocationError(verdict.reason, this.path);

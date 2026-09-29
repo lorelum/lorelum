@@ -226,9 +226,13 @@ async function ensureManagedSegment(directory: string): Promise<void> {
     } catch (retryError) {
       throw new ManagedLogLocationError(await openFailureReason(directory, retryError), directory);
     }
-    if (created) await handle.chmod(0o700);
   }
   try {
+    // A segment this process created is set to the intended mode regardless of
+    // umask — on platforms with mode semantics. Windows has none, and fchmod
+    // on a directory handle is EPERM there, so creating stays as-is (privacy
+    // comes from the profile's ACL boundary).
+    if (created && process.platform !== "win32") await handle.chmod(0o700);
     const verdict = await inspectAndTightenHandle(handle, directory, "directory");
     if (verdict.verdict === "unsafe") {
       throw new ManagedLogLocationError(verdict.reason, directory);
