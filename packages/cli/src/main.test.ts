@@ -274,6 +274,8 @@ test("every registered command has one actionable message for invalid invocation
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
 
+    // Each invocation checks shared command behavior in registry order.
+    // oxlint-disable-next-line no-await-in-loop
     expect(await run(["--json", ...args], { stdout, stderr })).toBe(2);
     const response = JSON.parse(stdout.value);
     expect(response).toMatchObject({
@@ -287,6 +289,8 @@ test("every registered command has one actionable message for invalid invocation
     expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 
     const text = new MemoryWriter();
+    // Keep the text response paired with the JSON response above.
+    // oxlint-disable-next-line no-await-in-loop
     expect(await run(args, { stdout: new MemoryWriter(), stderr: text })).toBe(2);
     expect(text.value).toContain(`message: ${message}`);
   }
