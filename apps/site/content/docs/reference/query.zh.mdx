@@ -6,7 +6,7 @@ description: 为 AI coding task 和 moment 找到合适的已安装 Practice。
 `query` 搜索当前 query context，返回按相关性排序的 Practice 摘要。默认使用 semantic relevance；`keyword` 是明确指定的离线路径。当前目录或父目录中的有效项目 `.lorelum/` 会按父到子继承并合并；选中的 Store root 永远不是项目 layer。没有有效项目 layer（包括整条路径没有 `.lorelum/` 的普通目录）时，query 只使用 selected Store；`--no-project` 可强制该 Store-only 行为。
 
 ```sh
-lore query <text> [--mode semantic|keyword] [--top-k <n>] [--store-root <path>] [--project-root <path>] [--no-project] [--cache-root <path>]
+lore query <text> [--mode semantic|keyword] [--top-k <n>] [--store-root <path>] [--project-root <path>] [--no-project] [--cache-root <path>] [--verbose] [--json]
 ```
 
 `text` 必填，去除首尾空白后不能为空，最多 4,096 个 Unicode 码点。`--top-k` 接受 1–50 的整数，默认 5。`--mode` 可选 `semantic`（默认）或 `keyword`。`--store-root` 选择 Store 基础语料，`--project-root` 选择直接包含项目 `.lorelum/` 的目录，不能指向 selected Store root；`--cache-root` 选择用户级派生 cache（默认 `~/.lorelum/cache`），不会写入项目目录；`--max-wait-ms` 与 `--min-coverage-percent` 覆盖用户级等待/partial 策略，`--require-complete` 只接受完整结果。
@@ -17,7 +17,9 @@ lore query "授权边界" --top-k 10
 lore query "token session cookie" --mode keyword
 ```
 
-首次 semantic query 会自动提交或加入当前语料的后台 index operation，而不是要求先运行 `lore index build`。成功结果包含 `mode` 和 `results`。每项包含 `practiceId`、`title`、`stage`、`techStack`、`appliesWhen`、`severity`、`contentDigest`；将该 `practiceId` 传给 [`get`](./get)。Semantic 结果还包含 `profileId` 与 `coverage`：`complete` 表示完整 artifact 与当前 Practice 完全一致；`partial` 只检索已验证的 current progress rows，并报告 `indexedPracticeCount`、`totalPracticeCount` 和 `operationId`。变更、删除、shadowed 或 ignored 的 Practice 不会从旧 artifact 泄漏。
+首次 semantic query 会自动提交或加入当前语料的后台 index operation，而不是要求先运行 `lore index build`。完整结果 data 包含 `mode` 和 `results`。每项包含 `practiceId`、`title`、`stage`、`techStack`、`appliesWhen`、`severity`、`contentDigest`；将该 `practiceId` 传给 [`get`](./get)。Semantic 结果还包含 `profileId` 与 `coverage`：`complete` 表示完整 artifact 与当前 Practice 完全一致；`partial` 只检索已验证的 current progress rows，并报告 `indexedPracticeCount`、`totalPracticeCount` 和 `operationId`。变更、删除、shadowed 或 ignored 的 Practice 不会从旧 artifact 泄漏。
+
+默认 text 是决策视图：ready 结果显示每个命中的 ID、标题、stage、非空 tech stack 和适用时机，只有非默认 severity 才显示。Keyword 结果标明 mode；partial coverage 保留状态和进度计数，ProjectContext warning 仍可见。默认视图省略 digest、Profile ID 和 ready 结果的 operation ID。使用 `--verbose` 可将完整结果 data 输出为 text。`--json` 无论是否同时传入 `--verbose`，都返回完整 envelope 和 data；机器调用方应使用 JSON，不解析 text。
 
 模型仍在准备时，data 为 `{ "state": "preparing", "preparationId": "...", "message": "..." }`，进程退出码为 `1`；查看 `lore model status`，用 `lore model load` 等待后重试。若当前 progress 尚未达到所需覆盖率，data 为 `{ "state": "indexing", "operationId": "...", "indexedPracticeCount": 50, "totalPracticeCount": 100 }`，同样退出 `1`。两者都只表示非终态；已确认的模型或 index 失败会以 typed error 和 exit `2` 返回，不会继续显示 `indexing`。等待超时不会取消 operation。
 

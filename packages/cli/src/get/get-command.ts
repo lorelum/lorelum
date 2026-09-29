@@ -21,6 +21,7 @@ import {
   type ProjectContextResolver,
 } from "../project-context/service.js";
 import { getResultSchema } from "./result-schema.js";
+import { renderGetDecisionText } from "./text.js";
 
 export interface GetCommandServices {
   readonly store: Pick<LocalStore, "getEffectivePracticeWithPackRoots">;
@@ -61,7 +62,13 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
     name: "get",
     summary: "Read one current Practice by its exact ID from the selected query context.",
     positionals: [{ name: "practice-id", required: true }],
-    options: [],
+    options: [
+      {
+        longFlag: "--verbose",
+        description: "Show every result field in text output; JSON is always complete.",
+        optionRequired: false,
+      },
+    ],
     resultSchema: getResultSchema,
     errorCodes: [
       ...frameworkErrorCodes,
@@ -71,6 +78,9 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
     ],
     exitCodes: [0, 2],
     async handler(invocation) {
+      if (invocation.options.verbose !== undefined && invocation.options.verbose !== true)
+        throw invalidInvocationError("--verbose is a flag and takes no value.");
+      const textRenderer = invocation.options.verbose === true ? undefined : renderGetDecisionText;
       const id = invocation.positionals[0];
       if (id === undefined || !ID_REGEX.test(id))
         throw invalidInvocationError("Provide a valid Practice ID. Run lore get --help for usage.");
@@ -122,6 +132,7 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
                     : requiredStorePackRoot(storeRoots, source.packName, source.sourcePath ?? ""),
               })),
             },
+            ...(textRenderer === undefined ? {} : { textRenderer }),
           };
           await recordHint(services, {
             id,
@@ -154,6 +165,7 @@ export function createGetCommand(services: GetCommandServices): CommandDefinitio
               packRoot,
             })),
           },
+          ...(textRenderer === undefined ? {} : { textRenderer }),
         };
       } catch (error) {
         if (error instanceof StoreBusyError) {

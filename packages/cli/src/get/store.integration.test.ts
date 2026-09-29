@@ -102,6 +102,26 @@ async function get(directory: string, rootName = "store", practiceId = id) {
   return { exitCode, response, output: stdout.value };
 }
 
+async function getText(directory: string, practiceId = id): Promise<string> {
+  const stdout = {
+    value: "",
+    write(message: string) {
+      this.value += message;
+    },
+  };
+  const definition = createGetCommand({
+    store: createLocalStore(),
+    storageRoot: { rootPath: join(directory, "unused-default") },
+  });
+  expect(
+    await runCli(["get", practiceId, "--store-root", join(directory, "store")], {
+      registry: snapshotCommandDefinitions([definition]),
+      stdout,
+    }),
+  ).toBe(0);
+  return stdout.value;
+}
+
 test("returns canonical defaults, author order and merged sources independent of install order", async () => {
   await withDirectory(async (directory) => {
     const root = await install(directory, "z-pack");
@@ -214,7 +234,7 @@ test("resource-only upgrade keeps the current locator while updating resource by
       directory,
       "resource-pack",
       "store",
-      "Complete guidance.\n",
+      "Read [API details](resource:references/api.md) when needed.\n",
       id,
       "first resource bytes\n",
     );
@@ -238,6 +258,10 @@ test("resource-only upgrade keeps the current locator while updating resource by
     expect(await readFile(join(secondSource.packRoot, "references", "api.md"), "utf8")).toBe(
       "second resource bytes\n",
     );
+    const text = await getText(directory);
+    expect(text).toContain("[API details](resource:references/api.md)");
+    expect(text).toContain(`packRoot: ${secondSource.packRoot}`);
+    expect(text).not.toContain("contentDigest:");
   });
 });
 

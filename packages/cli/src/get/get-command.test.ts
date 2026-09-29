@@ -115,6 +115,42 @@ test("returns the verified snapshot once with complete content and compact prove
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
+test("default get text preserves source root while verbose restores all canonical fields", async () => {
+  const stdout = {
+    value: "",
+    write(message: string) {
+      this.value += message;
+    },
+  };
+  const definition = createGetCommand({
+    store: {
+      async getEffectivePracticeWithPackRoots() {
+        return located;
+      },
+    },
+    storageRoot: { rootPath: "isolated" },
+  });
+  const registry = snapshotCommandDefinitions([definition]);
+  expect(await runCli(["get", practice.id], { registry, stdout })).toBe(0);
+  expect(stdout.value).toContain("Keep the full body.");
+  expect(stdout.value).toContain("packRoot: /verified-store/packs/p-sample/example");
+  expect(stdout.value).not.toContain("contentDigest:");
+  expect(stdout.value).not.toContain("stage:");
+
+  stdout.value = "";
+  expect(await runCli(["get", practice.id, "--verbose"], { registry, stdout })).toBe(0);
+  expect(stdout.value).toContain("contentDigest: " + contentDigest);
+  expect(stdout.value).toContain("stage: testing");
+
+  stdout.value = "";
+  expect(await runCli(["get", practice.id, "--verbose", "--json"], { registry, stdout })).toBe(0);
+  expect(JSON.parse(stdout.value).data).toEqual({
+    practice,
+    contentDigest,
+    sources: located.sources,
+  });
+});
+
 test("records successful reads from structured results without changing the get output", async () => {
   const recorded: unknown[] = [];
   const definition = createGetCommand({

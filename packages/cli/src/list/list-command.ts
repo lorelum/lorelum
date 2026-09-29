@@ -12,6 +12,7 @@ import { listErrorCodes, throwListVisibleError } from "./errors.js";
 import type { CommandDefinition } from "../registry.js";
 import { invalidInvocationError } from "../runtime/errors.js";
 import { resolveInvocationStorageRoot } from "../store/storage-root.js";
+import { renderPackDetailsText, renderPackListText, renderPackPracticesText } from "./text.js";
 
 export interface ListCommandServices {
   readonly list: ListService;
@@ -168,6 +169,11 @@ export function createListCommand(services: ListCommandServices): CommandDefinit
         description: "Include rich metadata for every installed Pack.",
         optionRequired: false,
       },
+      {
+        longFlag: "--verbose",
+        description: "Show every result field in text output; JSON is always complete.",
+        optionRequired: false,
+      },
     ],
     resultSchema,
     errorCodes: listErrorCodes,
@@ -175,8 +181,11 @@ export function createListCommand(services: ListCommandServices): CommandDefinit
     async handler(invocation) {
       const packName = invocation.positionals[0];
       const details = invocation.options.details;
+      const verbose = invocation.options.verbose === true;
       if (details !== undefined && details !== true)
         throw invalidInvocationError("--details is a flag and takes no value.");
+      if (invocation.options.verbose !== undefined && invocation.options.verbose !== true)
+        throw invalidInvocationError("--verbose is a flag and takes no value.");
       if (packName !== undefined && !PACK_NAME_REGEX.test(packName))
         throw invalidInvocationError("Provide a valid Pack name.");
       if (packName !== undefined && details === true)
@@ -189,13 +198,23 @@ export function createListCommand(services: ListCommandServices): CommandDefinit
 
       try {
         if (details === true) {
-          return { data: toRichPackListData(await services.list.listPackDetails({ storageRoot })) };
+          const result = await services.list.listPackDetails({ storageRoot });
+          return {
+            data: toRichPackListData(result),
+            ...(verbose ? {} : { textRenderer: () => renderPackDetailsText(result) }),
+          };
         }
         if (packName === undefined) {
-          return { data: toPackListData(await services.list.list({ storageRoot })) };
+          const result = await services.list.list({ storageRoot });
+          return {
+            data: toPackListData(result),
+            ...(verbose ? {} : { textRenderer: () => renderPackListText(result) }),
+          };
         }
+        const result = await services.list.listPack({ packName, storageRoot });
         return {
-          data: toPracticeCatalogData(await services.list.listPack({ packName, storageRoot })),
+          data: toPracticeCatalogData(result),
+          ...(verbose ? {} : { textRenderer: () => renderPackPracticesText(result) }),
         };
       } catch (error) {
         throwListVisibleError(error);

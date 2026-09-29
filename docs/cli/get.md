@@ -1,6 +1,6 @@
 # Read an installed Practice
 
-当前可观察合同见 [practice read OpenSpec](../../openspec/specs/practice-read/spec.md)；本页说明 CLI 参数、默认 text、JSON machine output 与恢复操作。
+当前可观察合同见 [practice read OpenSpec](../../openspec/specs/practice-read/spec.md)；本页说明 CLI 参数、精简默认 text、完整 text、JSON machine output 与恢复操作。
 
 `lore get <practice-id>` retrieves one complete canonical Practice by its exact ID from the selected query context. A discovered ProjectContext returns its current local winner; `--no-project` preserves Store-only behavior. The public command contract was agreed in [issue #49](https://github.com/lorelum/lorelum/issues/49); ADR 0011 preserves historical reasoning for the point-read consistency boundary.
 
@@ -20,9 +20,9 @@ The ID must follow the existing dotted Practice ID format. Lookup is exact: ther
 
 ## Result
 
-默认输出会以树形 text 完整显示下面所有 data 字段，包括 `contentDigest` 与每个 source 的 `packRoot`。需要程序读取这些字段时，使用 `lore get <practice-id> --json`。
+默认 text 保留 Practice 的 ID、标题、适用时机、完整 body、非空 tech stack，以及非空 anti-pattern 的名称和描述；仅显示非默认 severity。它省略 stage、digest、anti-pattern identity IDs 和默认 severity 等非决策字段。使用 `--verbose` 可在 text 中查看完整现有 data；`--json` 始终返回完整 JSON envelope 和 data，且不受 `--verbose` 影响。
 
-The existing protocol envelope contains `command: "get"`, `ok: true`, and:
+The complete result data in the protocol envelope contains `command: "get"`, `ok: true`, and:
 
 ```text
 data: {
@@ -37,9 +37,9 @@ data: {
 
 `practice` is the canonical runtime representation defined by ADR 0007. It includes the complete Markdown body, LF-normalized text, and expanded defaults: `severity: "warn"`, `body: ""`, `anti_patterns: []`, and `severity: "warn"` on anti-patterns whose authors omitted severity. Author array order is preserved. The reserved, undefined anti-pattern `check` field is excluded by canonicalization.
 
-`contentDigest` is the SHA-256 digest of the canonical content, not a publisher signature. Identical content provided under the same ID by multiple active Packs returns one Practice with all sources, ordered by Pack name and source path. Each `sourcePath` is relative to its source's `packRoot`; a caller can derive the on-disk Practice location as `packRoot/sourcePath`, so the response does not repeat it as `practicePath`.
+`contentDigest` is the SHA-256 digest of the canonical content, not a publisher signature. Identical content provided under the same ID by multiple active Packs returns one Practice with all sources, ordered by Pack name and source path. For a Store source, `sourcePath` is relative to its `packRoot`; a caller can derive that Store Practice's on-disk location as `packRoot/sourcePath`, so the response does not repeat it as `practicePath`.
 
-For a Store source, `packRoot` is the source Pack's absolute, readable `packs/p-<pack-name>/current` view, not its internal digest artifact directory. It is a public locator for a caller that needs to read a Pack-native resource linked by the Practice, such as `[compatibility matrix](resource:references/api-compatibility.md)`. Resolve the portion after `resource:` from that Store source's `packRoot`. For a ProjectContext source, `packRoot` is a safe logical root such as `project-layer-0`, never an absolute project path; it is provenance only, not a filesystem locator. A resource link is a recommendation about when to use extra material, not a file-access allowlist.
+For a Store source, `packRoot` is the source Pack's absolute, readable `packs/p-<pack-name>/current` view, not its internal digest artifact directory. It is a public locator for a caller that needs to read a Pack-native resource linked by the Practice, such as `[compatibility matrix](resource:references/api-compatibility.md)`. Resolve the portion after `resource:` from that Store source's `packRoot`. The default text always retains `packName`, `sourcePath`, and `packRoot` for every source, even when the Practice has no `resource:` link; it never merges or chooses among sources. For a ProjectContext source, `packRoot` is a safe logical root such as `project-layer-0`, never an absolute project path or filesystem locator. Default text explicitly marks it as logical provenance with `rootKind`; do not join it to a resource path in any output mode. A resource link is a recommendation about when to use extra material, not a file-access allowlist.
 
 When `sources` has more than one item, their roots remain distinct. Do not silently select the first source or combine their `references/`, `assets/`, or `scripts/` directories. Select a source using the current task's Pack context, or preserve the ambiguity for the caller. `packRoot` is a mutable current view: after a Pack mutation the same path may resolve to newer bytes, or disappear after removal. If the current source/Practice matters after a mutation, call `lore get` again (or explicitly select a Pack with `lore pack list <name>`) instead of deriving a replacement from Store internals.
 
@@ -53,7 +53,7 @@ Separate invocations can observe different Store revisions or project source sta
 
 ## Errors and exit codes
 
-Success exits `0`. Failures exit `2`。默认成功写完整 text 到 stdout，默认失败写 `error.code`、message 和存在时的 recovery 到 stderr；`--json` 时 success/failure 都在 stdout 写一行 envelope。
+Success exits `0`. Failures exit `2`。默认成功写保留完整指导正文与来源 locator 的精简 text 到 stdout；`--verbose` 显示完整旧 data 的 text。默认失败写 `error.code`、message 和存在时的 recovery 到 stderr；`--json` 时 success/failure 都在 stdout 写完整 envelope 和 data。
 
 | Code | Meaning |
 | --- | --- |

@@ -6,7 +6,7 @@ description: 按精确 ID 读取一个当前生效的 Practice。
 从当前 query context 读取完整 Practice。本命令只访问本地数据，不需要 Backend、模型或网络。发现 ProjectContext 时返回当前局部 winner；`--no-project` 强制只使用选中的 Store。
 
 ```sh
-lore get <practice-id> [--store-root <path>] [--project-root <path>] [--no-project]
+lore get <practice-id> [--store-root <path>] [--project-root <path>] [--no-project] [--verbose] [--json]
 ```
 
 使用 [`query`](./query) 或 `lore pack list <pack>` 返回的精确 `id`；不接受标题、前缀或文件名。
@@ -15,7 +15,9 @@ lore get <practice-id> [--store-root <path>] [--project-root <path>] [--no-proje
 lore get example.practice-id
 ```
 
-成功 data 包含 `practice`（全文及元数据）、`contentDigest` 和 `sources`（`packName`、`sourcePath`、`packRoot`）。对于 Store source，`sourcePath` 相对其可读取的 `packRoot` current view，因此无需重复提供 `practicePath`，并可用该 root 解析 Practice 中的 `resource:references/api-compatibility.md` 这类 link。对于 ProjectContext source，`packRoot` 是 `project-layer-0` 这类安全逻辑 provenance，不是绝对文件路径，也不能作为 resource locator。
+成功 data 包含 `practice`（全文及元数据）、`contentDigest` 和 `sources`（`packName`、`sourcePath`、`packRoot`）。默认 text 保留完整指导正文、当前决策需要的字段和每个来源 locator，但省略 digest、stage、默认 severity 和 anti-pattern identity ID 等元数据。`--verbose` 会以 text 输出完整现有结果 data；`--json` 无论是否同时传入 `--verbose`，都返回完整 envelope 和 data。
+
+对于 Store source，`sourcePath` 相对其可读取的 `packRoot` current view，因此无需重复提供 `practicePath`，并可用该 root 解析 Practice 中的 `resource:references/api-compatibility.md` 这类 link。即使 Practice 没有 `resource:` link，默认 text 也会保留每个 source 的 `packName`、`sourcePath` 和 `packRoot`，不会合并多个来源。对于 ProjectContext source，`packRoot` 是 `project-layer-0` 这类安全逻辑 provenance，不是绝对文件路径，也不能作为 resource locator。默认 text 会用 `rootKind` 明确标记它是逻辑来源；任何输出格式下都不要把它当作文件路径。
 
 同一 Practice 有多个 source 时，应保持各自的 root，不能静默选中一个或合并多个 Pack 的资源。后续 Pack mutation 可能让相同的 current 路径解析到新 bytes，或随着 Pack 被移除而消失；应重新调用 `get`，或用 `lore pack list <pack-name>` 明确选择 Pack 后再使用，不能依赖 Store 内部实现推导新路径。reference 的读取、asset 的复制和 script 的显式运行规则见 [Pack 格式](./pack-format)。
 

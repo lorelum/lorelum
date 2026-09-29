@@ -6,7 +6,7 @@ description: Read one current Practice by its exact ID.
 Read a complete Practice from the current query context. The command is local and does not need the Backend, model, or network. A discovered ProjectContext returns its current local winner; `--no-project` uses only the selected Store.
 
 ```sh
-lore get <practice-id> [--store-root <path>] [--project-root <path>] [--no-project]
+lore get <practice-id> [--store-root <path>] [--project-root <path>] [--no-project] [--verbose] [--json]
 ```
 
 Use the exact `id` returned by [`query`](./query) or `lore pack list <pack>`; titles, prefixes, and filenames are not accepted.
@@ -15,7 +15,9 @@ Use the exact `id` returned by [`query`](./query) or `lore pack list <pack>`; ti
 lore get example.practice-id
 ```
 
-Success data contains `practice` (the full Practice and metadata), `contentDigest`, and `sources` (`packName`, `sourcePath`, and `packRoot`). For a Store source, `sourcePath` is relative to its readable `packRoot` current view, so a separate `practicePath` is unnecessary; that root can resolve a Practice link such as `resource:references/api-compatibility.md`. For a ProjectContext source, `packRoot` is safe logical provenance such as `project-layer-0`, not an absolute filesystem path or resource locator.
+Success data contains `practice` (the full Practice and metadata), `contentDigest`, and `sources` (`packName`, `sourcePath`, and `packRoot`). Default text keeps the complete guidance body, selected decision fields, and every source locator, but omits metadata such as the digest, stage, default severity, and anti-pattern identity IDs. `--verbose` renders the complete existing result data as text; `--json` returns the complete envelope and data regardless of `--verbose`.
+
+For a Store source, `sourcePath` is relative to its readable `packRoot` current view, so a separate `practicePath` is unnecessary; that root can resolve a Practice link such as `resource:references/api-compatibility.md`. Default text preserves each source's `packName`, `sourcePath`, and `packRoot` even when the Practice has no `resource:` link, and never combines multiple sources. For a ProjectContext source, `packRoot` is safe logical provenance such as `project-layer-0`, not an absolute filesystem path or resource locator. Default text labels it as logical provenance with `rootKind`; do not treat it as a file path in any output format.
 
 If one Practice has multiple sources, retain each root separately: do not silently choose one source or combine resources from several Packs. A later Pack mutation can make the same current path resolve to newer bytes, or remove it with the Pack; call `get` again, or explicitly select a Pack with `lore pack list <pack-name>`, before treating it as the current source. Never derive a path from Store internals. See [Pack format](./pack-format) for how to read references, copy assets, and explicitly run scripts.
 

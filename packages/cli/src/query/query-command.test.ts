@@ -102,6 +102,40 @@ test("passes the exact text, parsed top-k, and selected Store root to keyword Qu
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
+test("query verbose restores complete text and JSON ignores the text view", async () => {
+  const stdout = {
+    value: "",
+    write(message: string) {
+      this.value += message;
+    },
+  };
+  const definition = createQueryCommand({
+    queryService: {
+      async query() {
+        return queryResult;
+      },
+    },
+    createClient: async () => {
+      throw new Error("keyword query must stay offline");
+    },
+    storageRoot: { rootPath: "isolated" },
+  });
+  const registry = snapshotCommandDefinitions([definition]);
+  const args = ["query", "React auth", "--mode", "keyword"];
+  expect(await runCli(args, { registry, stdout })).toBe(0);
+  expect(stdout.value).toContain("mode: keyword");
+  expect(stdout.value).not.toContain("contentDigest:");
+
+  stdout.value = "";
+  expect(await runCli([...args, "--verbose"], { registry, stdout })).toBe(0);
+  expect(stdout.value).toContain("contentDigest: " + "a".repeat(64));
+  expect(stdout.value).toContain("severity: warn");
+
+  stdout.value = "";
+  expect(await runCli([...args, "--verbose", "--json"], { registry, stdout })).toBe(0);
+  expect(JSON.parse(stdout.value).data).toEqual(queryResult);
+});
+
 test("resolves an explicit Store root and omits the optional limit by default", async () => {
   let request: unknown;
   let rootPath = "";

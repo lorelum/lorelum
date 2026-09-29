@@ -199,11 +199,12 @@ async function executeCommand(
   if (!definition.exitCodes.includes(exitCode)) {
     throw new Error(`Command "${definition.name}" returned undeclared exit code ${exitCode}.`);
   }
+  const textRenderer = result.textRenderer ?? definition.textRenderer;
   renderResult(output, outputFormat, {
     kind: "success",
     command: responseCommand,
     data: result.data,
-    ...(definition.textRenderer === undefined ? {} : { textRenderer: definition.textRenderer }),
+    ...(textRenderer === undefined ? {} : { textRenderer }),
     diagnostics: { traceId },
   });
   if (exitCode === 1) lifecycle.setExitCode(1);

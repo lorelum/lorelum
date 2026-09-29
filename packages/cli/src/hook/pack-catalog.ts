@@ -1,7 +1,5 @@
 export interface InstalledPackCatalogEntry {
   readonly name: string;
-  readonly version: string;
-  readonly packRoot: string;
   readonly description?: string;
   readonly appliesTo: readonly string[];
 }
@@ -36,27 +34,12 @@ function normalizeText(value: string): string {
     .trim();
 }
 
-/** Preserve a usable local path while preventing it from injecting Catalog lines. */
-function normalizePath(value: string): string {
-  return value
-    .split("")
-    .map((character) => {
-      const code = character.charCodeAt(0);
-      return code >= 0x20 && code !== 0x7f ? character : `\\u${code.toString(16).padStart(4, "0")}`;
-    })
-    .join("");
-}
-
 function comparePacks(left: InstalledPackCatalogEntry, right: InstalledPackCatalogEntry): number {
-  if (left.name !== right.name) return left.name < right.name ? -1 : 1;
-  return left.version < right.version ? -1 : left.version > right.version ? 1 : 0;
+  return left.name < right.name ? -1 : left.name > right.name ? 1 : 0;
 }
 
 function renderPack(pack: InstalledPackCatalogEntry, includeSummary = true): string {
-  const lines = [
-    `- ${normalizeText(pack.name)} (${normalizeText(pack.version)})`,
-    `  Pack root: ${normalizePath(pack.packRoot)}`,
-  ];
+  const lines = [`- ${normalizeText(pack.name)}`];
   if (includeSummary) {
     const appliesTo = pack.appliesTo.map(normalizeText).filter(Boolean);
     if (appliesTo.length > 0) lines.push(`  Stack scope: ${appliesTo.join(", ")}`);
@@ -98,8 +81,6 @@ export function renderPackCatalog(
     if (name !== "" && !uniquePacks.has(name)) {
       uniquePacks.set(name, {
         name,
-        version: normalizeText(pack.version),
-        packRoot: normalizePath(pack.packRoot),
         ...(pack.description === undefined ? {} : { description: normalizeText(pack.description) }),
         appliesTo: Object.freeze(pack.appliesTo.map(normalizeText).filter(Boolean)),
       });
@@ -131,8 +112,8 @@ export function renderPackCatalog(
       continue;
     }
     if (required.length <= available) {
-      // Preserve a complete usable locator even when the Pack summary no
-      // longer fits in the bounded SessionStart context.
+      // Preserve the complete Pack name even when its summary no longer fits
+      // in the bounded SessionStart context.
       compactEntries.push(required);
       continue;
     }

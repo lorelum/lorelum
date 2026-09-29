@@ -40,6 +40,7 @@ import {
 import { queryResultSchema } from "./result-schema.js";
 import type { SemanticRuntimeClient, SemanticRuntimeResult } from "./runtime-client.js";
 import { DEFAULT_QUERY_SETTINGS, type QuerySettings } from "./settings.js";
+import { renderQueryDecisionText } from "./text.js";
 import type { TraceId } from "@lorelum/log";
 
 interface QueryIndexingResult {
@@ -296,12 +297,19 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
         description: "Return only a complete semantic result for this invocation.",
         optionRequired: false,
       },
+      {
+        longFlag: "--verbose",
+        description: "Show every result field in text output; JSON is always complete.",
+        optionRequired: false,
+      },
     ],
     resultSchema: queryResultSchema,
     errorCodes: queryErrorCodes,
     exitCodes: [0, 1, 2],
     async handler(invocation) {
       try {
+        if (invocation.options.verbose !== undefined && invocation.options.verbose !== true)
+          throw invalidInvocationError("--verbose is a flag and takes no value.");
         const text = invocation.positionals[0];
         if (text === undefined)
           throw invalidInvocationError("Provide query text. Run lore query --help for usage.");
@@ -364,7 +372,11 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
                 ...backendProjectTargetOptions(projectOptions),
               });
         const data = toQueryResult(result, project);
-        return { data, ...(dataIsPending(data) ? { exitCode: 1 as const } : {}) };
+        return {
+          data,
+          ...(dataIsPending(data) ? { exitCode: 1 as const } : {}),
+          ...(invocation.options.verbose === true ? {} : { textRenderer: renderQueryDecisionText }),
+        };
       } catch (error) {
         throwVisibleQueryError(error);
       }

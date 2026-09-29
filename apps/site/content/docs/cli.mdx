@@ -4,7 +4,7 @@ description: Command discovery, default text output, JSON machine responses, and
 icon: Terminal
 ---
 
-The `lore` CLI defaults to complete, readable text on stdout, including Help and version. It is a visual representation of the command's public `data`, not a summary: source locators, IDs, state, progress, diagnostics, and metadata remain visible. Agents read this default text directly. Use `--json` only to diagnose an unexpected result, inspect protocol details, or let a script or CI job programmatically parse the complete one-line JSON envelope. Diagnostics and progress go to stderr; default command failures also go to stderr and include a local `diagnostics.traceId` for that original invocation.
+The `lore` CLI defaults to readable text on stdout, including Help and version. For `pack list`, `query`, and `get`, that text is a concise decision view: it retains the guidance, state, and source locators needed at that step without repeating every metadata field. Use `--verbose` on those commands for the complete result data as text, or `--json` for the complete one-line machine-readable envelope. Agents can read the default text directly, but must not parse its layout. Diagnostics and progress go to stderr; default command failures also go to stderr and include a local `diagnostics.traceId` for that original invocation.
 
 ## Commands
 
@@ -72,7 +72,7 @@ Logs stay below `~/.lorelum/logs/`. `lore logs` does not start a Backend or mode
 
 ## JSON response envelope
 
-The fields below exist only when `--json` is selected. Do not parse default text. JSON and text use the same handler result and exit code; only the envelope itself is omitted from text.
+The envelope fields below exist only when `--json` is selected. Do not parse default text. JSON and text use the same handler result and exit code; the three decision views omit non-decision data fields as described in their command references. `--verbose` restores their complete data in text and does not change JSON.
 
 Every `--json` CLI envelope includes `protocolVersion`, `toolVersion`, `command`, `diagnostics.traceId`, and `ok`. Hooks keep their separate host envelope and do not expose this trace metadata.
 

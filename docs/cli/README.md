@@ -1,6 +1,6 @@
 # CLI 文档
 
-Lorelum CLI 的普通命令默认在 stdout 输出完整、可读的 text：它可视化同一次公开 `data`，不隐藏 identity、状态、source、ID、进度或 metadata。传入 `--json` 时，stdout 才输出单行 JSON envelope；成功包含 `command`、`ok: true` 和 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, recovery? }`。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。
+Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`、`query`、`get` 的默认 text 是按当前决策用途精简后的视图，不保证逐字段呈现公开 `data`；这三个命令可用 `--verbose` 查看完整 data 的 text。传入 `--json` 时，stdout 输出完整 JSON envelope；成功包含 `command`、`ok: true` 和完整 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, recovery? }`。`--json` 的内容不受 `--verbose` 影响。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。
 
 普通命令正常成功退出码为 `0`，可见命令错误为 `2`。机器调用方必须传 `--json` 并按稳定的 `error.code` 处理结果，不解析 message 或 text；`error.message` 面向人解释原因及修正方向，text 与 JSON 使用同一消息。`lore describe --json` 返回当前 protocol 命令和每个 `resultSchema`，可用于动态发现未来新增的普通命令；宿主 Hook ABI 使用各自的专门文档定义的输出。
 
@@ -26,9 +26,9 @@ Lorelum CLI 的普通命令默认在 stdout 输出完整、可读的 text：它�
 
 ## Output formats
 
-默认 text 是 JSON `data` 的完整视觉表现，不是摘要或第二套协议。array、空集合、`null`、多行正文和嵌套 metadata 都会显示；text 的字段排版不保证可解析。只有 JSON envelope 外壳不在 text 中重复。Help 和 version 可以采用更适合终端浏览的布局，但仍来自相同公开 data。
+默认 text 是给人和 Agent 阅读的视图，不是可解析的协议。`pack list`、`query`、`get` 会隐藏当前决策不需要的字段；对这些命令传 `--verbose` 可在 text 中完整展开原有 data。传 `--json` 始终返回完整 envelope 和 data，且优先于 `--verbose`。其他命令按各自文档呈现 text；Help 和 version 可以采用更适合终端浏览的布局。
 
-Agent 与 Skill 在普通检索中直接阅读默认 text，它已完整显示 `data` 中的公开字段，但不得解析其排版。只有排查异常、核对 protocol envelope 时，或脚本/CI 确实需要以程序方式读取 `data`、`error.code`、`sources[].packRoot`、coverage 或 operation ID 时，才显式传 `--json`：
+Agent 与 Skill 在普通检索中直接阅读默认 text，不要把 text 排版当作机器协议。人工需要核对完整字段时，对 `pack list`、`query` 或 `get` 使用 `--verbose`；脚本、CI 或其他程序调用方使用 `--json`，以读取完整 `data`、`error.code`、`sources[].packRoot`、coverage 或 operation ID：
 
 ```sh
 lore query "verify the release" --json

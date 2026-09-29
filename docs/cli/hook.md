@@ -9,7 +9,7 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' | lore hook workbuddy
 printf '%s\n' '{"hook_event_name":"SessionStart"}' | lore hook zcode
 ```
 
-成功时，Codex、WorkBuddy 与 ZCode 的 stdout 是包含 `hookSpecificOutput.hookEventName` 和受限 `additionalContext` 的对象；Cursor 的 stdout 是单行 JSON 对象，顶层直接含字符串字段 `additional_context`，不使用 `hookSpecificOutput` 包装。Catalog 包含已安装 Pack 的名称、版本、可选 description、`appliesTo` 与当前 `packRoot`；它只是 Pack-level 的检索路由提示，不是完整 Practice 内容，也不包含 resource 文件清单或内容。`packRoot` 是可直接读取的 `current` view，而不是内部 digest 路径；后续 mutation 后它可能解析到新 bytes 或消失。需要按当前 source 使用资源时运行 `lore get` 或 `lore pack list` 刷新，不要推导 Store 内部路径。
+成功时，Codex、WorkBuddy 与 ZCode 的 stdout 是包含 `hookSpecificOutput.hookEventName` 和受限 `additionalContext` 的对象；Cursor 的 stdout 是单行 JSON 对象，顶层直接含字符串字段 `additional_context`，不使用 `hookSpecificOutput` 包装。Catalog 包含已安装 Pack 的名称、可选 description 和非空 `appliesTo`，不注入版本或 `packRoot`；它只是 Pack-level 的检索路由提示，不是完整 Practice 内容，也不包含 resource 文件清单或内容。需要按当前 Practice source 读取资源时，从 `lore get` 对应 Store source 获取可读 root；明确浏览一个 Pack 时用 `lore pack list <name>`。Store root 是可变的 `current` view，后续 mutation 后可能解析到新 bytes 或消失；ProjectContext 的 `project-layer-N` 是逻辑来源而非文件路径。不要推导 Store 内部路径。
 
 每个命令只支持其宿主的原生启动事件：Codex、WorkBuddy 与 ZCode 为 `SessionStart`，Cursor 为 `sessionStart`。生命周期来源（例如 `compact`）由各宿主 Plugin 的 `hooks.json` matcher 决定，CLI 不推断启动、恢复、清理或 compact 时机。它们不会主动 query/get Practice、启动 Backend、下载模型、构建 index 或修改 Store。
 

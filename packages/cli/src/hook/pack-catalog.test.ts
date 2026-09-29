@@ -7,21 +7,15 @@ describe("renderPackCatalog", () => {
     const output = renderPackCatalog([
       {
         name: "react-fullstack",
-        version: "0.1.0",
-        packRoot: "/store/packs/p-react-fullstack/current",
         appliesTo: ["react", "typescript"],
         description: "React\nengineering   practices.",
       },
       {
         name: "agentic-coding",
-        version: "0.2.0",
-        packRoot: "/store/packs/p-agentic-coding/current",
         appliesTo: ["agentic-coding"],
       },
       {
         name: "react-fullstack",
-        version: "9.9.9",
-        packRoot: "/ignored/duplicate",
         appliesTo: [],
       },
     ]);
@@ -30,8 +24,8 @@ describe("renderPackCatalog", () => {
     expect(output.indexOf("agentic-coding")).toBeLessThan(output.indexOf("react-fullstack"));
     expect(output).toContain("Stack scope: react, typescript");
     expect(output).toContain("Description: React engineering practices.");
-    expect(output).toContain("Pack root: /store/packs/p-react-fullstack/current");
-    expect(output).not.toContain("9.9.9");
+    expect(output).not.toContain("Pack root:");
+    expect(output).not.toContain("0.1.0");
     expect(output.length).toBeLessThanOrEqual(DEFAULT_MAX_CHARACTERS);
   });
 
@@ -46,8 +40,6 @@ describe("renderPackCatalog", () => {
       [
         {
           name: "frontend",
-          version: "0.1.0",
-          packRoot: "/store/packs/p-frontend/current",
           appliesTo: [],
           description: "x".repeat(500),
         },
@@ -62,10 +54,8 @@ describe("renderPackCatalog", () => {
     const output = renderPackCatalog(
       [
         {
-          name: "frontend",
-          version: "0.1.0",
-          packRoot: "/store/packs/p-frontend/current",
-          appliesTo: [],
+          name: "frontend-pack-name-that-must-remain-whole",
+          appliesTo: ["typescript"],
           description: "x".repeat(2_000),
         },
       ],
@@ -75,7 +65,10 @@ describe("renderPackCatalog", () => {
     expect(output.length).toBeLessThanOrEqual(512);
     expect(output).toContain("Catalog entries truncated.");
     expect(output).toContain("lore pack list --details");
-    expect(output).toContain("Pack root: /store/packs/p-frontend/current");
+    expect(output).toContain("- frontend-pack-name-that-must-remain-whole");
     expect(output).not.toContain("Description:");
+    expect(output).not.toContain("Stack scope:");
+    expect(output).not.toContain("Pack root:");
+    expect(output).not.toContain("version");
   });
 });

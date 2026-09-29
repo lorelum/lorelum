@@ -1,6 +1,6 @@
 # Discover installed Packs with `lore pack list`
 
-`lore pack list` browses Pack data in the selected LocalStore. Use it to see installed Packs, inspect rich Pack metadata for an integration, or narrow to the Practice summaries provided by one Pack before reading a full Practice with `lore get`. The contract is defined in [ADR 0014](../adr/0014-list-catalog-contract.md).
+`lore pack list` browses Pack data in the selected LocalStore. Use it to see installed Packs, inspect rich Pack metadata for an integration, or narrow to the Practice summaries provided by one Pack before reading a full Practice with `lore get`. Its default text is a decision view; `--verbose` restores full result data, while `--json` always returns the complete JSON envelope. The contract is defined in [ADR 0014](../adr/0014-list-catalog-contract.md).
 
 ```sh
 lore pack list
@@ -15,7 +15,7 @@ The global `--store-root` option can appear before or after the command. Relativ
 
 ## Installed Pack catalog
 
-Without an argument, default text contains the complete following data in readable form. `lore pack list --json` wraps the same data in `command: "pack.list"`, `ok: true`, and:
+Without an argument, default text shows each Pack's `name` and `version` only. It omits snapshot identifiers, Practice counts, and Pack roots. The complete response data is available as full text with `--verbose` or in the JSON envelope with `--json`; JSON output does not change when `--verbose` is also present. For `lore pack list --json`, the envelope contains `command: "pack.list"`, `ok: true`, and:
 
 ```text
 data: {
@@ -53,6 +53,8 @@ data: {
 
 This mode is intended for integrations that build a Pack index. `description` is omitted when the Pack does not declare it. `appliesTo` is always an array; a missing `applies_to` becomes `[]`, meaning that the Pack declares no technology-stack restriction. Rich metadata does not include `practiceCount`.
 
+In default text, `--details` shows each Pack's name, version, declared description, and non-empty applicable scope. It remains the rich-metadata view, not a general full-data switch; use `--verbose` for the complete text representation. The `--json` response continues to include the full data, including `packRoot`.
+
 ## Practice catalog
 
 `lore pack list <pack>` returns:
@@ -70,11 +72,13 @@ data: {
 
 Practice entries are sorted by exact `id`. The returned `id` can be passed directly to `lore get`. Full Practice bodies, anti-patterns, and source details remain part of `get`; compact summaries do not repeat `practicePath` or individual resource paths. An installed Pack with zero Practices is successful and returns an empty `practices` array.
 
+The default text for a named Pack includes its current `packRoot` and each Practice's ID, title, and applicability. This root remains visible without `--verbose`; full text and JSON also retain the complete result data.
+
 `packRoot` is an absolute `current` locator for the Pack active at this command's Store snapshot. A caller can browse this explicitly selected Pack root, or resolve a Practice resource target such as `resource:references/checklist.md` from it. It must not guess a root from a Pack name or depend on SQLite/projection layout. After install, update, remove, or recovery changes the Pack state, the same path can resolve to newer bytes or disappear; rerun the relevant `lore pack list` command or `lore get` before treating it as the current source.
 
 ## Errors and boundaries
 
-Success exits `0`. Failures exit `2`。默认成功写完整 text 到 stdout，默认失败写 text error 到 stderr；自动化必须传 `--json` 并按 envelope 的 `error.code` 处理。
+Success exits `0`. Failures exit `2`。默认成功写当前命令的精简 text 到 stdout；`--verbose` 会在 text 中完整展开结果 data。默认失败写 text error 到 stderr；自动化必须传 `--json` 并按 envelope 的 `error.code` 处理。
 
 | Code | Meaning |
 | --- | --- |

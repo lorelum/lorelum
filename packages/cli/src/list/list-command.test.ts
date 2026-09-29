@@ -119,6 +119,7 @@ test("describes the LocalStore-backed Pack catalog command contract", () => {
       { name: "--log-level <level>", required: false },
       { name: "--store-root <path>", required: false },
       { name: "--details", required: false },
+      { name: "--verbose", required: false },
     ],
     errorCodes: [
       "usage.invalid",
@@ -129,6 +130,68 @@ test("describes the LocalStore-backed Pack catalog command contract", () => {
     ],
     exitCodes: [0, 2],
   });
+});
+
+test("default Pack text keeps routing fields and explicit browse roots; verbose restores full data", async () => {
+  const stdout = new MemoryWriter();
+  const definitions = snapshotCommandDefinitions([
+    createListCommand({ list: service(), storageRoot: defaultStorageRoot() }),
+  ]);
+
+  expect(await runCli(["pack", "list"], { registry: definitions, stdout })).toBe(0);
+  expect(stdout.value).toContain("name: agentic-coding");
+  expect(stdout.value).toContain("version: 0.3.0");
+  expect(stdout.value).not.toContain("packRoot:");
+  expect(stdout.value).not.toContain("practiceCount:");
+  expect(stdout.value).not.toContain("generation:");
+
+  stdout.value = "";
+  expect(await runCli(["pack", "list", "--verbose"], { registry: definitions, stdout })).toBe(0);
+  expect(stdout.value).toContain("practiceCount: 31");
+  expect(stdout.value).toContain("packRoot: /store/packs/p-agentic-coding/current");
+  expect(stdout.value).toContain("effectiveRevision: 2");
+
+  stdout.value = "";
+  expect(await runCli(["pack", "list", "--details"], { registry: definitions, stdout })).toBe(0);
+  expect(stdout.value).toContain("description: Agentic coding practices.");
+  expect(stdout.value).toContain("appliesTo:");
+  expect(stdout.value).not.toContain("packRoot:");
+  expect(stdout.value).not.toContain("practiceCount:");
+
+  stdout.value = "";
+  expect(await runCli(["pack", "list", "agentic-coding"], { registry: definitions, stdout })).toBe(
+    0,
+  );
+  expect(stdout.value).toContain("packRoot: /store/packs/p-agentic-coding/current");
+  expect(stdout.value).toContain("applies_when: a focused test fails");
+  expect(stdout.value).not.toContain("effectiveRevision:");
+
+  stdout.value = "";
+  expect(
+    await runCli(["pack", "list", "--details", "--verbose", "--json"], {
+      registry: definitions,
+      stdout,
+    }),
+  ).toBe(0);
+  expect(JSON.parse(stdout.value).data.packs[0].packRoot).toBe(
+    "/store/packs/p-agentic-coding/current",
+  );
+});
+
+test("an empty Store remains an explicit successful empty Pack list", async () => {
+  const stdout = new MemoryWriter();
+  const definitions = snapshotCommandDefinitions([
+    createListCommand({
+      list: service({
+        async list() {
+          return { generation: 0, effectiveRevision: 0, packs: [] };
+        },
+      }),
+      storageRoot: defaultStorageRoot(),
+    }),
+  ]);
+  expect(await runCli(["pack", "list"], { registry: definitions, stdout })).toBe(0);
+  expect(stdout.value).toBe("packs: []\n");
 });
 
 test("returns all list modes through their result schema", async () => {

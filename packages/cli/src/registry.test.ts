@@ -100,6 +100,7 @@ test("discovers the supported Pack lifecycle and catalog commands", () => {
     "--log-level <level>",
     "--store-root <path>",
     "--details",
+    "--verbose",
   ]);
   expect(list.errorCodes).toContain("pack.not-installed");
 });

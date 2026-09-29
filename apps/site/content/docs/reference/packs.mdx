@@ -51,9 +51,11 @@ lore pack list --details
 lore pack list agentic-coding
 ```
 
-The first command lists installed Packs and returns each Pack's current local `packRoot`; `--details` adds metadata for discovery and also returns the Pack locator. A Pack name lists that Pack's Practices and returns its `packRoot` on the `pack` object. Use a returned ID with [get](./get). Practice summaries deliberately do not repeat per-Practice paths or resource paths.
+`lore pack list` default text shows Pack names and versions. `--details` keeps its rich-metadata role and shows declared descriptions and non-empty applicable scopes; it is not a general expansion flag. Use `--verbose` to render the complete result data as text, or `--json` to receive the complete envelope and data. JSON is unchanged when `--verbose` is also present. A Pack name lists that Pack's Practices and returns its `packRoot` on the `pack` object. Use a returned ID with [get](./get). Practice summaries deliberately do not repeat per-Practice paths or resource paths.
 
-`packRoot` is useful when the caller explicitly chose a Pack to browse or maintain. It is not injected into query results, but the Pack Catalog injected by the Codex and ZCode Plugins includes it for every installed Pack. The Catalog still does not load or enumerate Pack resources automatically. It is a mutable `current` view, not an artifact digest path: after a mutation the same path may resolve to newer bytes or disappear after removal. Rerun `pack list` or `get` before treating it as current, rather than deriving a root from a Pack name or Store layout. See [Pack format](./pack-format).
+When explicitly browsing a Pack, `lore pack list <name>` shows its current `packRoot` in default text alongside its Practice summaries. For ordinary query-and-read workflows, use the `packRoot` on the relevant Store source returned by [get](./get); each source has its own locator. The SessionStart Pack Catalog contains names, descriptions, and applicable scopes, but no Pack roots, and does not load or enumerate resources automatically.
+
+A Store `packRoot` is a mutable `current` view, not an artifact digest path: after a mutation the same path may resolve to newer bytes or disappear after removal. Rerun `lore get` or explicitly browse with `lore pack list <name>` before treating it as current, rather than deriving a root from a Pack name or Store layout. See [Pack format](./pack-format).
 
 ## Update and remove
 

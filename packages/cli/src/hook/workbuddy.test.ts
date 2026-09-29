@@ -73,7 +73,11 @@ describe("lore hook workbuddy", () => {
         additionalContext: expect.stringContaining("Engineering guidance."),
       },
     });
-    expect(stdout.value).toContain("Pack root: /private/store/packs/p-agentic-coding/current");
+    expect(stdout.value).toContain("- agentic-coding");
+    expect(stdout.value).toContain("Stack scope: typescript");
+    expect(stdout.value).not.toContain("Pack root:");
+    expect(stdout.value).not.toContain("/private/store");
+    expect(stdout.value).not.toContain("0.1.0");
   });
 
   test.each([

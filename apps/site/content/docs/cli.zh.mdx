@@ -4,7 +4,7 @@ description: 命令发现、默认 text 输出、JSON 机器响应和退出码�
 icon: Terminal
 ---
 
-`lore` CLI 默认向 stdout 输出完整、可读的 text，包括 help 和 version。它是命令公开 `data` 的可视化，而不是摘要：source locator、ID、状态、进度、diagnostic 和 metadata 都会保留。Agent 直接阅读默认 text；只有结果异常、需要排查或核对 protocol 细节，以及脚本或 CI 需要程序化解析完整单行 JSON envelope 时，才显式传入 `--json`。诊断和进度输出到 stderr；默认命令失败也输出到 stderr，并附带该原始调用的本机 `diagnostics.traceId`。
+`lore` CLI 默认向 stdout 输出可读 text，包括 help 和 version。`pack list`、`query`、`get` 的默认 text 是按当前判断精简的视图：保留这一步需要的指导、状态和 source locator，不重复全部 metadata。对这些命令使用 `--verbose` 可查看完整结果 data 的 text；需要完整、单行且可机读的 envelope 时使用 `--json`。Agent 可直接阅读默认 text，但不能解析其排版。诊断和进度输出到 stderr；默认命令失败也输出到 stderr，并附带该原始调用的本机 `diagnostics.traceId`。
 
 ## 命令目录
 
@@ -72,7 +72,7 @@ lore logs prune
 
 ## JSON 响应结构
 
-下面字段只在选择 `--json` 时存在。不要解析默认 text。JSON 与 text 使用同一次 handler result 和同一个退出码；text 只不重复 envelope 外壳。
+下面的 envelope 字段只在选择 `--json` 时存在。不要解析默认 text。JSON 与 text 使用同一次 handler result 和同一个退出码；上述三个决策视图还会省略非决策 data 字段，具体见各命令参考。`--verbose` 可在 text 中恢复完整 data，不改变 JSON。
 
 每个 `--json` CLI envelope 都包含 `protocolVersion`、`toolVersion`、`command`、`diagnostics.traceId` 和 `ok`。Hook 保持宿主自己的 envelope，不会暴露这项 trace metadata。
 

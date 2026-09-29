@@ -69,11 +69,11 @@ lore get <practice-id>
 
 Practice 可以通过 `resource:` target 链接 Pack 内材料，例如 `resource:references/api-compatibility.md`。从 `get` 结果中相同 source 的 `packRoot` 解析它。只有当前判断需要额外细节时才读取 reference；asset 先复制到任务工作区再编辑；script 仅在当前任务授权、且 Practice 已说明用途和输入时运行。
 
-link 是默认任务路由，不是文件访问 allowlist。受支持宿主 Plugin 在 SessionStart 注入且当前任务中可见的 Catalog 会为每个已安装 Pack 提供可直接读取的当前 `packRoot`，当 Pack 上下文已经明确时可以直接使用它。对于已经取回的 Practice，多个 source 必须保持分开，并使用相同 source 的 `get` root，而不能静默挑选 Catalog entry。root 是可变的 current view：发生 Pack mutation 后，重新执行 `get` 或 `pack list` 后再将它视为当前 source；不要通过 Store 内部实现推导 root。不要假定 Pack script 会在 install、validate、query、list、get、index 或 recovery 期间运行。
+link 是默认任务路由，不是文件访问 allowlist。SessionStart 注入且当前任务中可见的 Catalog 提供 Pack 名称和路由提示，不提供 root。对于已经取回的 Practice，使用 `get` 对应 Store source 的 root，多个 source 必须保持分开；若 Pack 上下文不足以确定来源，就保留歧义。明确浏览 Pack 时运行 `lore pack list <name>`。ProjectContext 的 `project-layer-N` 只是逻辑来源，不是可读路径。Store root 是可变的 current view：发生 Pack mutation 后，重新执行 `get` 或显式浏览时的 `pack list` 后再使用；不要通过 Store 内部实现推导 root。不要假定 Pack script 会在 install、validate、query、list、get、index 或 recovery 期间运行。
 
 ## 阅读默认输出与排查问题
 
-Agent 的正常调用使用默认 text 并直接阅读。它包含与 JSON 相同的公开业务数据，包括 ID、source、状态、进度、diagnostic 和 metadata，不是摘要；但不得将其排版当作可解析协议。text failure 会在 stderr 附带 `diagnostics.traceId`。若 failure 阻塞已授权任务，或用户明确要求诊断，先用 `lore logs --trace-id <traceId>` 只读取原始 trace，再决定是否进入 runtime 恢复或复现；同时说明可验证记录和 `missingEvidence`。不要为了取得 trace 而重跑命令，也不要扫描其他 trace。若该 trace 在长任务中确认了 Lorelum bug 或功能缺口，先完成任务或到达安全停点，再询问用户是否需要创建本机 draft；不得自动创建。创建或更新外部 Issue 还需要另一份明确的用户授权。只有核对 protocol 字段时才用 `--json`；会以程序方式解析输出的脚本和 CI 必须使用 `--json`。
+Agent 的正常调用使用默认 text 并直接阅读。`pack list`、`query`、`get` 是按当前判断精简的视图；`get` 仍保留解析 Store 资源所需的每个 source root。需要完整 data 的 text 时使用 `--verbose`，需要完整且可机读的 envelope 时使用 `--json`，不要解析 text 排版。text failure 会在 stderr 附带 `diagnostics.traceId`。若 failure 阻塞已授权任务，或用户明确要求诊断，先用 `lore logs --trace-id <traceId>` 只读取原始 trace，再决定是否进入 runtime 恢复或复现；同时说明可验证记录和 `missingEvidence`。不要为了取得 trace 而重跑命令，也不要扫描其他 trace。若该 trace 在长任务中确认了 Lorelum bug 或功能缺口，先完成任务或到达安全停点，再询问用户是否需要创建本机 draft；不得自动创建。创建或更新外部 Issue 还需要另一份明确的用户授权。会以程序方式解析输出的脚本和 CI 必须使用 `--json`。
 
 | 结果 | 后续动作 |
 | --- | --- |

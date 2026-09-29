@@ -1,6 +1,6 @@
 # Query installed Practices
 
-当前可观察合同见 [retrieval query OpenSpec](../../openspec/specs/retrieval-query/spec.md)；本页说明 CLI 参数、默认完整 text、JSON machine output 与恢复操作。
+当前可观察合同见 [retrieval query OpenSpec](../../openspec/specs/retrieval-query/spec.md)；本页说明 CLI 参数、精简默认 text、完整 text、JSON machine output 与恢复操作。
 
 `lore query <text>` 在当前 query context 中检索 Practice 并返回小型 summary。默认使用本地 semantic retrieval；`--mode keyword` 保留离线 FTS5 路径。有效项目目录或其父目录中的 `.lorelum/` 会按父到子合并为 ProjectContext；选中的 LocalStore 根目录不是项目 layer。没有有效项目 layer（包括整条路径没有 `.lorelum/`）或传入 `--no-project` 时，query 使用纯 LocalStore。
 
@@ -19,7 +19,7 @@ lore query "request validation" --cache-root /path/to/user-cache
 lore describe query
 ```
 
-The positional text is trimmed before validation. It must contain at least one non-whitespace character and may contain at most 4,096 Unicode code points after trimming. `--top-k` is optional, defaults to `5`, and accepts a decimal positive integer from `1` through `50`. `--mode` accepts `semantic` (the default) or `keyword`. `--project-root` selects an ordinary directory directly containing a project `.lorelum/`; it does not require Git and cannot select the chosen Store root. `--no-project` disables layer discovery. `--cache-root` selects only user-owned derived artifacts, never source Pack files or LocalStore.
+The positional text is trimmed before validation. It must contain at least one non-whitespace character and may contain at most 4,096 Unicode code points after trimming. `--top-k` is optional, defaults to `5`, and accepts a decimal positive integer from `1` through `50`. `--mode` accepts `semantic` (the default) or `keyword`. `--verbose` selects the complete existing data in text; `--json` returns the complete JSON envelope and data regardless of `--verbose`. `--project-root` selects an ordinary directory directly containing a project `.lorelum/`; it does not require Git and cannot select the chosen Store root. `--no-project` disables layer discovery. `--cache-root` selects only user-owned derived artifacts, never source Pack files or LocalStore.
 
 Parent and child `.lorelum/` layers inherit by default. A child config adds or overrides declared fields and same-ID Practices, while unaffected parent/Store Practices stay in the candidate set. A malformed local Practice is ignored without hiding valid neighbors or a lower-priority fallback; query returns the remaining current winners and `lore context status` exposes the degraded context.
 
@@ -38,7 +38,7 @@ lore --store-root /path/to/store query "how should I verify this release?"
 
 `lore index build` and `lore index rebuild` remain useful to observe or force work explicitly. After automatic model/index preparation has started, ordinary semantic queries need neither `backend start` nor a preliminary index command. If the first query returns preparing, inspect `lore model status` and retry after it becomes ready. Explicit `lore model load` remains useful when a prior download failed and the user wants to wait for its retry.
 
-The successful result includes the Profile identity and how completely the active index covers the Store snapshot:
+The complete successful result data includes the Profile identity and how completely the active index covers the Store snapshot. This full data is available with `--verbose` or `--json`; the default text omits non-decision metadata such as `profileId` and `contentDigest`:
 
 ```json
 {
@@ -57,7 +57,9 @@ The successful result includes the Profile identity and how completely the activ
 
 ## Shared result behavior
 
-Both modes default to complete text on stdout; it presents the same mode, profile, coverage, progress, context warning and result fields that `--json` exposes in a protocol envelope. `results` may be empty and contains at most `top-k` entries. Results are Practice summaries, not source files. They omit the full body and internal scores; use `lore get <practice-id>` to retrieve the complete canonical Practice. Results are deterministic for the same Store snapshot and query implementation. A query does not pin a revision for a later `get` invocation.
+Default successful text is a decision view, not a field-for-field rendering of `data`. A ready result shows each hit's `practiceId`, title, stage, non-empty tech stack, and applicability; it includes severity only when non-default, and shows `mode` for keyword retrieval. Partial coverage remains explicit with its progress counts, and degraded ProjectContext retains its warning. The default text omits digests, Profile IDs, complete-coverage metadata, and operation IDs on ready results. For `preparing` or `indexing`, it still shows the non-ready state and recovery message; indexing also retains its operation ID and progress counts.
+
+`--verbose` renders the complete existing result data as text. `--json` returns the complete envelope and data and is unaffected by `--verbose`; use it for machine callers rather than parsing text. `results` may be empty and contains at most `top-k` entries. Results are Practice summaries, not source files. They omit the full body and internal scores; use `lore get <practice-id>` to retrieve the complete canonical Practice. Results are deterministic for the same Store snapshot and query implementation. A query does not pin a revision for a later `get` invocation.
 
 When automatic preparation has been accepted but is not ready within the observation interval, semantic query returns `ok: true`, exit code `1`, and no results:
 

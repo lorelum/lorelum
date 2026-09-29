@@ -115,6 +115,8 @@ export interface CommandResult<T extends JsonValue = JsonValue> {
   readonly data: T;
   /** Defaults to 0. Exit 1 is valid only when declared by the command. */
   readonly exitCode?: 0 | 1;
+  /** Optional per-invocation text view; JSON always receives the complete data. */
+  readonly textRenderer?: TextRenderer;
 }
 
 export type CommandHandler = (
