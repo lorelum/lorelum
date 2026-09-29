@@ -135,6 +135,13 @@ describe("evaluateManagedTarget", () => {
         platform: "win32",
       }),
     ).toEqual({ verdict: "unsafe", reason: "wrong-type" });
+    expect(
+      evaluateManagedTarget(
+        facts({ isDirectory: false, isFile: true, nlink: 2, mode: 0o0600 }),
+        "file",
+        { platform: "win32" },
+      ),
+    ).toEqual({ verdict: "unsafe", reason: "multiple-links" });
   });
 });
 

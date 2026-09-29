@@ -27,7 +27,7 @@ CLI、Backend 与每个支持的 Host Hook SHALL 将启用等级的日志写入�
 
 私有性边界 SHALL 由威胁模型定义：日志文件内容与文件名（含 traceId、日期）必须私有；`~/.lorelum` 的存在性与"其下有 logs 目录"不是秘密。`~/.lorelum` 及其上任何目录 MUST 只做结构检查（非符号链接、类型正确、归当前 OS 用户所有），MUST NOT 检查或修改其权限，MUST NOT 检查或修改 `~/.lorelum` 之上的任何目录；缺失的信任根以私有权限创建。从受管日志根（`~/.lorelum/logs`）向下到目标目录的每个路径段与受管 `.jsonl` 日志文件，系统 SHALL 在写入前检查：归当前用户、非符号链接、类型正确（文件另须 `nlink === 1`），且 group/other 权限过宽时 MUST 以只减不增的掩码收紧（仅清除 group/other 位，原样保留所有者与特殊位）。校验与收紧 MUST 作用于同一打开的文件系统对象；无法对同一对象安全收紧时 MUST 拒绝该位置，MUST NOT 退回按路径 chmod。自建目录/文件创建即私有。自愈 MUST 静默完成，不提示用户执行 `chmod`、修改路径或重跑初始化命令。
 
-满足以下任一条件的目标 MUST NOT 被自动改动，也 MUST NOT 被用于写入：符号链接、类型不符、多硬链接文件、非当前用户所有、掩码后所有者权限不足以完成写入（例如 `0505` 目录、`0044` 文件）、路径越界。`~/.lorelum` 下不属于日志路径的内容 MUST NOT 被触碰。信任根归属他人时，当次提示 SHALL 给出聚焦该路径的非递归修复指引（不建议递归修改整个 `~/.lorelum`）。Windows 无 mode/uid 语义：安全判断 SHALL 退化为结构检查（非符号链接/junction、类型正确），权限自愈不适用；受管位置在 Windows 上的私有性由用户 profile 根的既有 ACL 边界保证，规范不承诺超出该边界的平台私有性。
+满足以下任一条件的目标 MUST NOT 被自动改动，也 MUST NOT 被用于写入：符号链接、类型不符、多硬链接文件、非当前用户所有、掩码后所有者权限不足以完成写入（例如 `0505` 目录、`0044` 文件）、路径越界。`~/.lorelum` 下不属于日志路径的内容 MUST NOT 被触碰。信任根归属他人时，当次提示 SHALL 给出聚焦该路径的非递归修复指引（不建议递归修改整个 `~/.lorelum`）。Windows 无 mode/uid 语义：安全判断 SHALL 退化为结构检查（非符号链接/junction、类型正确，文件另须 `nlink === 1`），权限自愈不适用；受管位置在 Windows 上的私有性由用户 profile 根的既有 ACL 边界保证，规范不承诺超出该边界的平台私有性。
 
 #### Scenario: A user-owned 0755 Lorelum root no longer loses trace logs
 

@@ -25,6 +25,7 @@
 - 掩码后所有者权限不足以完成写入（目录缺 `0700`、文件缺 `0600`，如 `0505`/`0044`）→ `unsafe("owner-bits-insufficient")`，不修复：修复绝不添加权限位。
 - 校验与收紧绑定同一打开描述符（目录 `O_RDONLY|O_DIRECTORY|O_NOFOLLOW` 句柄；文件复用写入句柄）：`fstat` → 判定 → `fchmod` → `fstat` 复核。收紧抛错（如 macOS `uchg`）或未生效 → 拒绝该位置并当次说明；**不退回路径 chmod**。
 - `O_NOFOLLOW` 打开 symlink 的错误码在运行时间存在 ELOOP/ENOTDIR 差异（Bun 1.4.2/Linux 实测 ENOTDIR），以一次 `lstat` 消歧，不按错误码猜测。
+- 段与目标文件的 symlink 拒绝另以一次 `lstat` 前置检查保持平台无关：Windows 无 `O_NOFOLLOW`（常量缺失，旗标被丢弃），仅靠打开失败无法在 NTFS reparse point 上拒绝；POSIX 上两道检查叠加，lstat→open 之间的替换仍由 `O_NOFOLLOW` 打开兜底。硬链接检查先于 win32 结构分叉（`nlink` 在 NTFS 上语义成立，属结构检查）。
 - 自建段（缺失的受管目录、新建文件）在自身句柄上直接设为设计 mode（`0700`/`0600`），免疫 umask 剥夺所有者位；同样不经路径 chmod。
 
 ## D3 walk 与 `JsonlFileSink`

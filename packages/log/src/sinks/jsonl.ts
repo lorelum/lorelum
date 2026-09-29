@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { open } from "node:fs/promises";
+import { lstat, open } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import {
@@ -96,6 +96,15 @@ export class JsonlFileSink implements LogSink {
   }
 
   private async appendRecord(record: LogRecord | LogEventInput): Promise<void> {
+    // One lstat keeps symlink refusal platform-independent: Windows has no
+    // O_NOFOLLOW, so the open below would follow a reparse point there.
+    const existing = await lstat(this.path).catch((error: unknown) => {
+      if (hasCode(error, "ENOENT")) return undefined;
+      throw error;
+    });
+    if (existing !== undefined && existing.isSymbolicLink()) {
+      throw new ManagedLogLocationError("symlink", this.path);
+    }
     let file = await open(this.path, APPEND_FLAGS).catch(async (error: unknown) => {
       if (!hasCode(error, "ENOENT")) {
         throw new ManagedLogLocationError(await openFailureReason(this.path, error), this.path);

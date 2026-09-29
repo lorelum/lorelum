@@ -61,13 +61,15 @@ export function evaluateManagedTarget(
   if (kind === "directory" ? !facts.isDirectory : !facts.isFile) {
     return { verdict: "unsafe", reason: "wrong-type" };
   }
+  if (kind === "file" && facts.nlink !== 1) {
+    // Hard links are structural — the check also applies on Windows, where
+    // the mode/uid semantics below are absent but NTFS reports nlink.
+    return { verdict: "unsafe", reason: "multiple-links" };
+  }
   const platform = options.platform ?? process.platform;
   // Windows reports neither a uid nor meaningful mode bits; there privacy is
   // the per-user profile root, so only the structural checks apply.
   if (platform === "win32") return { verdict: "safe" };
-  if (kind === "file" && facts.nlink !== 1) {
-    return { verdict: "unsafe", reason: "multiple-links" };
-  }
   const currentUid = options.currentUid ?? process.getuid?.();
   if (facts.uid === undefined || currentUid === undefined || facts.uid !== currentUid) {
     return { verdict: "unsafe", reason: "foreign-owner" };
@@ -188,6 +190,15 @@ async function gateTrustedDirectory(trusted: string): Promise<void> {
  * descriptor it is then verified on (umask-proof, never path-chmodded).
  */
 async function ensureManagedSegment(directory: string): Promise<void> {
+  // One lstat keeps symlink refusal platform-independent: Windows has no
+  // O_NOFOLLOW, so the open below would follow a reparse point there.
+  const existing = await lstat(directory).catch((error: unknown) => {
+    if (isMissing(error)) return undefined;
+    throw error;
+  });
+  if (existing !== undefined && existing.isSymbolicLink()) {
+    throw new ManagedLogLocationError("symlink", directory);
+  }
   let handle: FileHandle | undefined;
   let created = false;
   try {
