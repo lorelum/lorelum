@@ -1,66 +1,34 @@
 ---
 name: lorelum
-description: Discover installed Lorelum Knowledge Packs, then retrieve relevant engineering Practices before a task or decision needs them.
+description: Retrieve relevant engineering Practices from installed Lorelum Packs when an engineering decision needs guidance.
 ---
 
 # Lorelum
 
-Lorelum is a local retrieval layer for engineering Practices. Packs contain reusable, trigger-conditioned guidance. Use it to bring the right Practice into planning, implementation, verification, recovery, and delivery without turning it into a mandatory workflow.
+## Find and read guidance
 
-For normal retrieval, read the default text output directly. It is the complete visual representation of the command's public data, not a summary. Do not parse its layout as a protocol. Use `--json` only while diagnosing an unexpected result, checking protocol/envelope details, or deliberately passing a result to a machine parser.
+Use a Pack Catalog already available in the task context. Its descriptions and stack scopes help identify potentially relevant Packs, but do not rule out other Packs. If no usable Catalog is available and Pack discovery matters for this task, run `lore pack list --details` once.
 
-## Establish the Pack Catalog once
-
-At the start of each new engineering task, first check whether the current context already includes an installed Pack Catalog for this task. If it does, reuse it. If it does not, discover the installed Packs and their routing metadata once:
+For a material engineering decision, describe the observed situation, the decision you face, and the constraints or failure consequences that matter. For example:
 
 ```sh
-lore pack list --details
+lore query "Our payment API can time out after a charge commits, and clients may retry. New clients could send an idempotency key, but existing clients cannot be required to change their requests. I need to decide how keys are assigned and persisted so concurrent retries cannot create a second charge. Which design and failure cases should guide this choice?"
 ```
 
-Use each Pack's description and declared stack scope as relevance hints, not as complete guidance or a hard filter. Each Catalog entry also includes its current `packRoot`, a directly readable `current` view rather than an internal artifact path. Keep this catalog for the task; do not rerun it before every edit, command, or ordinary reply. Refresh it only when the task scope changes materially, the Store may have changed, or discovery output was incomplete.
+Read the full body of each candidate you intend to use with `lore get <practice-id>`; do not act on a query summary alone. Read default text directly, use `--verbose` for all result fields as text, and use `--json` when a program needs to parse the result.
 
-## Use semantic retrieval for material decisions
+## Recover a query or diagnose a failure
 
-When the current scope, plan, high-risk boundary, verification, recovery, or completion moment is worth retrieving engineering guidance for, use this sequence. Describe the task goal, the decision currently being made, and the concrete boundary or constraint:
+Run the default semantic query before checking Backend, model, or index status. If it returns a preparation state, follow [semantic query recovery](references/semantic-query-recovery.md) and retry the same query when ready. Do not silently switch to keyword; use `--mode keyword` only for an intentional offline lookup or semantic-runtime diagnosis.
 
-```sh
-lore query "I am designing idempotent writes for a payment API. I need to decide whether the client or service generates the idempotency key, while preserving database uniqueness and safe retry behavior."
-```
-
-Then read the complete body of every candidate Practice you will use:
-
-```sh
-lore get <practice-id>
-```
-
-## Diagnose current-trace failures and offer local feedback without interrupting the main task
-
-A normal `lore` text failure displays `diagnostics.traceId`; the `--json` envelope carries the same local correlation ID. It identifies one invocation chain, not an authority credential, user identifier, or public sharing ID.
-
-If a clear Lorelum bug, retrieval/guidance gap, or requested capability does not block the task and the user did not ask for diagnosis, retain only a candidate—no extra logs, draft, upload, or Issue—and finish the task. Make at most one non-blocking feedback offer at the final summary or a visible milestone.
-
-If the failure blocks the task, or the user explicitly asks for diagnosis, inspect only its original trace:
+If a failure blocks the task or the user asks for diagnosis, inspect that invocation's `diagnostics.traceId` first, then follow the recovery reference and retry when the cause is resolved:
 
 ```sh
 lore logs --trace-id <traceId>
 ```
 
-Do not scan another trace or arbitrary location, and do not preflight Backend, model, index, or status before this read. Then read [diagnostic recovery](references/semantic-query-recovery.md). It owns evidence limits, controlled debug reproduction, consented local feedback, and semantic-query lifecycle recovery including progressive index operations.
+## Use linked Pack resources
 
-## Use Pack resources when a retrieved Practice points to them
+Resolve the path after a Practice's `resource:` link against the `packRoot` of its corresponding Store source in `lore get`. If multiple sources provide the Practice, use the task's Pack context to identify the source; do not guess or mix their roots. A ProjectContext `project-layer-N` is provenance, not a filesystem path.
 
-A Pack can include optional `references/`, `assets/`, and `scripts/` directories. A Practice uses a normal Markdown link whose target starts with `resource:` to explain which material helps with the current decision, for example:
-
-```markdown
-[API compatibility matrix](resource:references/api-compatibility.md)
-```
-
-Treat this as task routing, not as a file-access allowlist. The Catalog can supply a Pack's `packRoot` as soon as its Pack context is clear. For a selected Practice, resolve the path after `resource:` from the matching source shown by `lore get`; this remains necessary when the Practice has multiple Pack sources. If the user explicitly asks to browse or maintain one Pack, `lore pack list <pack-name>` supplies a fresh `packRoot`. Do not infer Store paths from Pack names or rely on SQLite/projection layout.
-
-- Read a `references/` file only when its linked Practice calls for the additional detail.
-- Copy an `assets/` file to the task's working destination before filling in or changing it; do not treat the installed Pack as a writable work directory.
-- Run a `scripts/` file only when the current task authorizes it and the Practice explains why it helps. `lore` does not run Pack scripts during install, validation, query, listing, get, indexing, or recovery.
-
-When a Practice has multiple sources, keep their `packRoot` values distinct. Do not silently mix resources from different Packs or pick one source without a reason. `packRoot` is a mutable current view: a Pack update can make the same path resolve to new bytes, and removal can make it unavailable. After a relevant mutation, run `lore get` or `lore pack list` again before treating a resource as belonging to the selected source.
-
-The default query is semantic. Do not skip a ready semantic query solely because of expected latency. Do not run backend, model, index, or status commands before this query. Only after the query itself returns a preparation state or an error, read [semantic query recovery](references/semantic-query-recovery.md), follow the relevant recovery path, then retry the same query. Do not silently substitute keyword results for a failed or empty semantic query; use `--mode keyword` only for an intentional offline lookup or semantic-runtime diagnosis. Do not query before every edit, command, or ordinary reply.
+For explicit Pack browsing, get its current root with `lore pack list <pack-name>`. After a Pack mutation, refresh the locator with `lore get` or the named `pack list`, as appropriate. Copy Pack assets into the task workspace before editing them; run Pack scripts only when the task authorizes it and their purpose and inputs are clear.

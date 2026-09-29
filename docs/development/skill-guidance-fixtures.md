@@ -1,6 +1,6 @@
 # Skill guidance fixtures
 
-Use these scenarios to review the observable behavior of Lorelum's generic and Codex Skills. They validate the public retrieval contract without requiring the two host-specific Skill documents to use identical wording.
+Use these scenarios to review the observable behavior of Lorelum's portable and host Skills. They validate the public retrieval contract without requiring each host Skill to use identical wording.
 
 [Agent integration](../../openspec/specs/agent-integration/spec.md) owns the host retrieval flow. [Retrieval query](../../openspec/specs/retrieval-query/spec.md), [local model runtime](../../openspec/specs/local-model-runtime/spec.md), and [semantic index](../../openspec/specs/semantic-index/spec.md) own the CLI readiness and recovery states exercised below.
 
@@ -16,17 +16,17 @@ Use these scenarios to review the observable behavior of Lorelum's generic and C
 
 **Given:** a new engineering task has no Pack Catalog in its context.
 
-**When:** the Agent begins the task.
+**When:** the Agent needs Pack discovery for a material decision.
 
-**Expected:** run `lore pack list --details` once, retain that Catalog for the task, and do not list again before ordinary edits, commands, or replies.
+**Expected:** run `lore pack list --details` once and reuse that Catalog; do not list merely because a task started or before ordinary edits, commands, or replies.
 
 ## Codex Skill: Hook-injected Catalog
 
-**Given:** SessionStart injected an Installed Pack Catalog that includes each listed Pack's `packRoot` but no resource list or Practice body.
+**Given:** SessionStart injected an Installed Pack Catalog with Pack names and routing hints, but no resource locators.
 
 **When:** the Agent reaches a material decision.
 
-**Expected:** reuse the injected Catalog, including a Pack root when that Pack context is already clear; do not rerun `lore pack list --details`, issue a targeted natural-language semantic query, then read any Practice it will use in full. For a resource link on a selected Practice, preserve the matching source root rather than silently choosing another Catalog entry.
+**Expected:** reuse the Catalog without another list, issue a targeted natural-language semantic query, then read any Practice it will use in full. For a resource link, use the corresponding Store source's `packRoot` from `lore get`; keep multiple sources distinct rather than choosing one without Pack context.
 
 ## Semantic preparation
 
