@@ -220,6 +220,29 @@ test("preserves declared backend failures without exposing unexpected details", 
   expect(JSON.stringify(unexpected.response)).not.toContain("private backend detail");
 });
 
+test("preserves compatibility recovery from backend status", async () => {
+  const recovery = {
+    action: "backend.stop-if-idle" as const,
+    automation: "defer" as const,
+    reason: "active-long-task" as const,
+    retry: "original-command" as const,
+  };
+  const result = await invoke(
+    "backend.status",
+    backendSupervisor({
+      status: async () => {
+        throw new BackendError("backend.build-mismatch", undefined, recovery);
+      },
+    }),
+  );
+
+  expect(result.exitCode).toBe(2);
+  expect(result.response.error).toMatchObject({
+    code: "backend.build-mismatch",
+    recovery,
+  });
+});
+
 test("discovery's supported schema accepts starting and rejects unknown states", () => {
   const [definition] = createBackendCommands(services(backendSupervisor()));
   expect(validateJsonSchema({ ...ready, state: "starting" }, definition!.resultSchema)).toEqual([]);

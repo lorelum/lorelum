@@ -191,8 +191,9 @@ function command(
           ),
         };
       } catch (error) {
-        if (error instanceof BackendError || error instanceof EmbeddingError)
-          throw new CliError(error.code, error.message);
+        if (error instanceof BackendError)
+          throw new CliError(error.code, error.message, error.recovery);
+        if (error instanceof EmbeddingError) throw new CliError(error.code, error.message);
         if (
           error instanceof BackendRemoteError &&
           indexOperationStoreErrorCodes.includes(
