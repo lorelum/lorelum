@@ -13,7 +13,7 @@ import type { Logger } from "@lorelum/log";
 import type { ReadHint } from "@lorelum/backend/client";
 import { sessionRefSchema } from "@lorelum/backend/client";
 import { defaultPracticeHints } from "../practice-hints/backend.js";
-import { loadCodexHookSettings, type CodexHookSettings } from "./codex-settings.js";
+import { loadAgentHookSettings, type AgentHookSettings } from "./agent-settings.js";
 import { renderReadHints } from "../practice-hints/render.js";
 
 /** Hosts with a versioned raw session Hook ABI (`lore hook <host>`). */
@@ -59,7 +59,7 @@ export interface HostHookServices {
   readonly practiceHints?: {
     readRecentHints(hostKey: string, sessionId: string): Promise<readonly ReadHint[]>;
   };
-  readonly codexHookSettings?: () => Promise<CodexHookSettings>;
+  readonly agentHookSettings?: () => Promise<AgentHookSettings>;
   readonly platform?: NodeJS.Platform;
 }
 
@@ -82,7 +82,7 @@ const defaultServices: HostHookServices = Object.freeze({
   list: createListService(),
   storageRoot: defaultStorageRoot(),
   practiceHints: defaultPracticeHints,
-  codexHookSettings: loadCodexHookSettings,
+  agentHookSettings: loadAgentHookSettings,
 });
 
 /**
@@ -189,7 +189,7 @@ function respondToHostHook(
     return respondToCodexPracticeHint(
       input,
       services.practiceHints ?? defaultPracticeHints,
-      services.codexHookSettings ?? loadCodexHookSettings,
+      services.agentHookSettings ?? loadAgentHookSettings,
       services.platform,
     );
   }
@@ -209,7 +209,7 @@ function respondToHostHook(
 async function respondToCodexPracticeHint(
   input: HostHookInput,
   hints: NonNullable<HostHookServices["practiceHints"]>,
-  loadSettings: () => Promise<CodexHookSettings>,
+  loadSettings: () => Promise<AgentHookSettings>,
   platform: NodeJS.Platform = process.platform,
 ): Promise<HostHookResponse> {
   if (input.hook_event_name === "SubagentStart") {

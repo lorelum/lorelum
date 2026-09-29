@@ -6,7 +6,7 @@ icon: Settings
 
 Lorelum runs with defaults. User-level settings live in `~/.lorelum/config.yaml` and apply to every Store.
 
-The same file controls which Codex shell commands receive session identity. The default checks only the outer command text; see the [Codex guide](./codex#choose-which-commands-receive-a-session-identity) to cover indirect `lore get` calls inside scripts.
+The shared `agent.shellSessionInjection` setting controls which supported Agent shell commands receive session identity. Currently Codex uses it; other integrations do not rewrite shell commands. The default checks only the outer command text; see the [Codex guide](./codex#choose-which-commands-receive-a-session-identity) to cover indirect `lore get` calls inside scripts.
 
 ## Store scope
 

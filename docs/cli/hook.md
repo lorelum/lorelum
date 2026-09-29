@@ -31,7 +31,7 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
 ## 宿主差异
 
 - Codex Plugin 在 `hooks.json` 中内联调用 `lore hook codex`，并提供 PowerShell 的 `commandWindows` 变体与 `additionalContextLimit`。
-- Codex 的 `PreToolUse` 只处理 `Bash` tool。CLI 在每次调用时读取用户级 `codex.shellSessionInjection`；缺省 `lore-only` 只对 `tool_input.command` 中出现独立 `lore` 字样的文本返回 `updatedInput`，显式 `all-shell` 对每次有效的 Bash 调用返回改写。这里不解析 shell 或脚本文件；无效配置返回非阻塞 no-op，`SessionStart` 与 `SubagentStart` 不受此设置影响。两种模式都仍启动 Pre Hook 进程。
+- Codex 的 `PreToolUse` 只处理 `Bash` tool。CLI 在每次调用时读取 Agent 共用的用户级 `agent.shellSessionInjection`；缺省 `lore-only` 只对 `tool_input.command` 中出现独立 `lore` 字样的文本返回 `updatedInput`，显式 `all-shell` 对每次有效的 Bash 调用返回改写。这里不解析 shell 或脚本文件；无效配置返回非阻塞 no-op，`SessionStart` 与 `SubagentStart` 不受此设置影响。两种模式都仍启动 Pre Hook 进程。其他宿主目前只使用 Catalog Hook，不消费这个设置。
 - Cursor Plugin 以事件名 `sessionStart`（camelCase）与顶层 `additional_context` envelope 调用 `lore hook cursor`；宿主对该事件是 fire-and-forget，`{ "continue": true }` 降级输出为无害 no-op。
 - WorkBuddy Plugin 与 Codex 同型：`command` 字符串 + `commandWindows` PowerShell 变体 + fallback + `additionalContextLimit`；其 `hooks.json` 由宿主自动发现，manifest 中的 `hooks` 字段反而是 inline 对象或精确文件路径语义，不得使用。WorkBuddy 对 SessionStart matcher 按 `|` 切分后逐 token 精确匹配，matcher 必须使用非锚定列表形式。
 - ZCode 不支持 `commandWindows` 与 `additionalContextLimit`；其 Plugin 使用宿主原生的 `process` Hook，以 argv 形式直接运行 `lore hook zcode`，不经过 shell、Git Bash 或平台包装脚本。上下文预算由 CLI 渲染器的 4000 字符上限保证，与 Codex 共享同一实现。

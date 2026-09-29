@@ -46,14 +46,14 @@ The existing local Backend stores the optional list at `~/.lorelum/sessions/<hos
 
 The default is `lore-only`: the Hook injects session variables only when the shell command text submitted by Codex contains `lore` as a separate word. Direct `lore get`, pipelines, and command substitutions containing `lore` match. If the outer command is `sh script.sh` without `lore` in its text, a `lore get` inside that script will not be associated with the conversation. The Hook does not inspect script files or parse whether the command actually runs `lore`, so merely mentioning the word may also trigger injection.
 
-To cover indirect calls inside local scripts, add this to the user-level `~/.lorelum/config.yaml`:
+To cover indirect calls inside local scripts, add this shared Agent setting to the user-level `~/.lorelum/config.yaml`:
 
 ```yaml
-codex:
+agent:
   shellSessionInjection: all-shell
 ```
 
-`all-shell` injects before every Codex shell tool command; non-shell tools are skipped in either mode. Remove the field or set it to `lore-only` to restore the default. The next Hook invocation reads a config change without restarting the Backend. Both modes still start the Hook for every shell tool call; the default reduces command rewriting and variable visibility, not Hook process overhead. Invalid configuration leaves that call unchanged without blocking the tool.
+`agent.shellSessionInjection` is shared rather than Codex-specific. Currently Codex is the only integration that rewrites shell commands; other installed Agent integrations do not gain this behavior just by setting it. In Codex, `all-shell` injects before every shell tool command; non-shell tools are skipped in either mode. Remove the field or set it to `lore-only` to restore the default. The next Hook invocation reads a config change without restarting the Backend. Both modes still start the Hook for every shell tool call; the default reduces command rewriting and variable visibility, not Hook process overhead. Invalid configuration leaves that call unchanged without blocking the tool.
 
 ### Why environment assignments appear before a command
 

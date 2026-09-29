@@ -29,8 +29,9 @@
 
 ## 5. 可配置的 shell 会话身份注入范围
 
-- [x] 5.1 在现有用户级 `config.yaml` 增加 Codex 专属 `shellSessionInjection: lore-only | all-shell` 读取与校验，缺省 `lore-only`，无效配置对该次 Hook fail-open。默认只用外层命令文本的独立 `lore` 字样判定，不读脚本、不解析 shell；`all-shell` 保持当前所有 Bash 命令注入。覆盖三平台、非 shell、直接/组合命令、脚本间接调用和配置错误。
+- [x] 5.1 在现有用户级 `config.yaml` 增加 `shellSessionInjection: lore-only | all-shell` 读取与校验，缺省 `lore-only`，无效配置对该次 Hook fail-open。默认只用外层命令文本的独立 `lore` 字样判定，不读脚本、不解析 shell；`all-shell` 保持当前所有 Bash 命令注入。覆盖三平台、非 shell、直接/组合命令、脚本间接调用和配置错误。
 - [x] 5.2 同步双语 Codex 用户指南、配置入口和 Plugin/CLI 维护说明：明确默认只匹配外层文本，脚本内部可能漏记，`all-shell` 只涵盖 shell tool，不是每种工具；两种模式都不改变 `lore get` 结果。校验并更新现有 PR。
+- [x] 5.3 将配置从 Codex 专属的 `codex.shellSessionInjection` 收敛到 Agent 共用的 `agent.shellSessionInjection`，不保留未发布旧字段的兼容层；修改读取、测试、双语文档与本变更合同。其他宿主尚无 shell 身份改写能力时不增加空跑 Hook；验证并更新现有 PR。
 
 ## 本轮验证记录
 
@@ -49,3 +50,8 @@
 
 - 默认模式以外层命令文本匹配独立 `lore`；实际读取用户级 YAML 的 `all-shell` 测试覆盖了无 `lore` 的脚本外层调用。三平台默认分支、组合命令、非 shell、坏配置 no-op 和原输入保留均有单测；编译 CLI 在用户原有自定义配置下的 `git status` 返回 `{}`、`lore get` 返回带会话身份的改写命令。没有修改用户配置。
 - CLI/Plugin 完整相关测试 346 通过、1 项 Windows PowerShell 进程测试在 macOS 跳过；typecheck、lint（已有警告）、站点构建及 OpenSpec 严格校验通过。仓库级格式检查被本次范围外的 11 个旧文件挡住；本次变更的 TypeScript 文件另行检查。Linux/Windows 真实宿主链路仍属 4.3 的未完成边界。
+
+## 2026-09-29 Agent 共用配置收敛
+
+- `agent.shellSessionInjection` 替代未合并 PR 中的 Codex 专属字段。只改共享配置读取和当前消费它的 Codex Hook，不给其他宿主增加 Hook。测试确认旧 `codex` 字段不改变默认行为；编译 CLI 在隔离 HOME 读取 `agent: { shellSessionInjection: all-shell }` 时会改写外层 `sh read-practice.sh`，在用户现有配置下仍只改写带 `lore` 的命令。用户现有配置未修改，隔离测试配置已清理。
+- CLI/Plugin 测试 346 通过、1 项 Windows PowerShell 进程测试在 macOS 跳过；typecheck、lint（已有警告）、站点构建、编译 CLI、Plugin 校验器、变更 TypeScript 文件格式检查及 OpenSpec 严格校验通过。Linux/Windows 真实宿主链路依旧没有验收。

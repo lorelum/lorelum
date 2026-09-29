@@ -6,7 +6,7 @@ import type { ListPackDetailsResult } from "@lorelum/engine";
 import type { ReadHint } from "@lorelum/backend/client";
 import { ConfigError } from "@lorelum/config";
 
-import { DEFAULT_CODEX_HOOK_SETTINGS, loadCodexHookSettings } from "./codex-settings.js";
+import { DEFAULT_AGENT_HOOK_SETTINGS, loadAgentHookSettings } from "./agent-settings.js";
 
 import {
   parseCodexHookInvocation,
@@ -53,7 +53,7 @@ function services(overrides: Partial<CodexHookServices> = {}): CodexHookServices
       },
     },
     storageRoot: { rootPath: "/default-store" },
-    codexHookSettings: async () => DEFAULT_CODEX_HOOK_SETTINGS,
+    agentHookSettings: async () => DEFAULT_AGENT_HOOK_SETTINGS,
     ...overrides,
   };
 }
@@ -74,7 +74,7 @@ describe("lore hook codex", () => {
     async (platform, prefix) => {
       const hintServices = services({
         platform,
-        codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+        agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
         practiceHints: {
           async readRecentHints() {
             return [];
@@ -201,7 +201,7 @@ describe("lore hook codex", () => {
     },
   );
 
-  test("an invalid Codex setting leaves shell input unchanged and does not block the tool", async () => {
+  test("an invalid Agent setting leaves shell input unchanged and does not block the tool", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
     await runCodexHook({
@@ -216,7 +216,7 @@ describe("lore hook codex", () => {
       stdout,
       stderr,
       services: services({
-        codexHookSettings: async () => {
+        agentHookSettings: async () => {
           throw new ConfigError();
         },
       }),
@@ -232,7 +232,7 @@ describe("lore hook codex", () => {
       await mkdir(join(home, ".lorelum"));
       await writeFile(
         join(home, ".lorelum", "config.yaml"),
-        "codex:\n  shellSessionInjection: all-shell\n",
+        "agent:\n  shellSessionInjection: all-shell\n",
       );
       const stdout = new MemoryWriter();
       await runCodexHook({
@@ -248,7 +248,7 @@ describe("lore hook codex", () => {
         stderr: new MemoryWriter(),
         services: services({
           platform: "linux",
-          codexHookSettings: () => loadCodexHookSettings({ homeDirectory: home }),
+          agentHookSettings: () => loadAgentHookSettings({ homeDirectory: home }),
         }),
       });
       expect(JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command).toEndWith(
@@ -280,7 +280,7 @@ describe("lore hook codex", () => {
           stderr: new MemoryWriter(),
           services: services({
             platform,
-            codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+            agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
           }),
         });
         const command = JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command;
@@ -315,7 +315,7 @@ describe("lore hook codex", () => {
         stderr: new MemoryWriter(),
         services: services({
           platform: "win32",
-          codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+          agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
         }),
       });
       const command = JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command;
@@ -376,7 +376,7 @@ describe("lore hook codex", () => {
   test("an unavailable candidate Backend does not block a Bash call or subagent", async () => {
     const failing = services({
       platform: "linux",
-      codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+      agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
       practiceHints: {
         async readRecentHints() {
           throw new Error("optional hints unavailable");
