@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Lease checks, cleanup, and bounded retries coordinate one artifact in sequence. */
 import { randomUUID } from "node:crypto";
 import { access, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";

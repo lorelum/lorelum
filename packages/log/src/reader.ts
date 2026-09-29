@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Traverse and read bounded log files in order; prune oldest files first. */
 import { lstat, readdir, readFile, stat, unlink } from "node:fs/promises";
 import { join, relative } from "node:path";
 

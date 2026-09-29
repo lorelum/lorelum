@@ -160,14 +160,9 @@ export function createSemanticQueryService(
         let reader: Awaited<ReturnType<typeof openSemanticIndexReader>> | undefined;
         try {
           // eslint-disable-next-line no-await-in-loop -- each retry reopens the active snapshot.
-          reader =
-            pathsFor === undefined
-              ? await openSemanticIndexReader(root.rootPath, profile)
-              : await openSemanticIndexReaderAt(
-                  pathsFor(root, profile.profileId),
-                  profile,
-                  definition,
-                );
+          reader = await (pathsFor === undefined
+            ? openSemanticIndexReader(root.rootPath, profile)
+            : openSemanticIndexReaderAt(pathsFor(root, profile.profileId), profile, definition));
           // eslint-disable-next-line no-await-in-loop -- coverage is bound to this retry's Store view.
           const current = await store.readSnapshotIdentity(root);
           // eslint-disable-next-line no-await-in-loop -- delta history is part of the same retry.

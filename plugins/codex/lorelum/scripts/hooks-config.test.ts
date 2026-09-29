@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Exercise and assert each Hook process before starting the next. */
 import { expect, test } from "bun:test";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

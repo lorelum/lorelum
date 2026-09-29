@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Wait for each progress state and publish fixture documents in order. */
 import { expect, test } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

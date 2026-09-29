@@ -268,7 +268,7 @@ async function seedProgressFromArtifact(
  * the missing current projections. Any doubt falls back to generic seeding.
  */
 async function seedProgressFromStoreDelta(
-  progressPath: string,
+  targetProgressPath: string,
   input: {
     readonly artifactId: string;
     readonly cacheRoot: string;
@@ -306,8 +306,11 @@ async function seedProgressFromStoreDelta(
       ) {
         return false;
       }
-      await copyFile(sourcePaths.active, progressPath);
-      target = openSqliteConnection(progressPath, semanticProgressIndexDatabaseDefinition.schema);
+      await copyFile(sourcePaths.active, targetProgressPath);
+      target = openSqliteConnection(
+        targetProgressPath,
+        semanticProgressIndexDatabaseDefinition.schema,
+      );
       verifySemanticIndexIntegrity(target);
       const copied = readSemanticIndexMetadata(target);
       if (

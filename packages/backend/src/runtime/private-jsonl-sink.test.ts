@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Rotation fixtures write and inspect one file at a time. */
 import { expect, test } from "bun:test";
 import {
   chmod,

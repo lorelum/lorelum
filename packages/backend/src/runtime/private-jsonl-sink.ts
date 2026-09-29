@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Preflight and rotation validate and move private files in order. */
 import { constants } from "node:fs";
 import { open, readdir, rename, stat, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";

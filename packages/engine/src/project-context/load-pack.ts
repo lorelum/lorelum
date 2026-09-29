@@ -123,6 +123,7 @@ export async function loadProjectPack(rootPath: string): Promise<LoadedProjectPa
   for (const path of paths) {
     let raw: unknown;
     try {
+      // eslint-disable-next-line no-await-in-loop -- Reads share one bounded budget and first-seen ID ordering.
       const frontmatter = parseFrontmatter(await readRegularFile(rootPath, path, budget));
       raw = { ...frontmatter.data, body: frontmatter.content };
     } catch {

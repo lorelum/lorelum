@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Bound artifact scanning and prune each guarded directory in sequence. */
 import { access, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
