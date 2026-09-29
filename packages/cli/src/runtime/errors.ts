@@ -43,26 +43,68 @@ export class CliError extends Error {
   }
 }
 
-export function invalidInvocationError(): CliError {
-  return new CliError(cliErrorCodes.usageInvalid, "The command invocation is invalid.");
+export function invalidInvocationError(message = "The command invocation is invalid."): CliError {
+  return new CliError(cliErrorCodes.usageInvalid, message);
 }
 
 /** Preserves only errors declared by the selected command's public allowlist. */
-export function toVisibleCliError(error: unknown, visibleErrorCodes: readonly string[]): CliError {
-  const cliError = toCliError(error);
-  return visibleErrorCodes.includes(cliError.code) ? cliError : unexpectedRuntimeError();
+export function toVisibleCliError(
+  error: unknown,
+  visibleErrorCodes: readonly string[],
+  command = "unknown",
+): CliError {
+  const cliError = toCliError(error, command);
+  if (!visibleErrorCodes.includes(cliError.code)) return unexpectedRuntimeError();
+  if (
+    cliError.code === cliErrorCodes.usageInvalid &&
+    cliError.message === "The command invocation is invalid."
+  ) {
+    return invalidInvocationError(
+      `Invalid invocation. Run ${helpCommand(command)} to see valid arguments.`,
+    );
+  }
+  return cliError;
 }
 
-function toCliError(error: unknown): CliError {
+function toCliError(error: unknown, command: string): CliError {
   if (error instanceof CliError) {
     return error;
   }
 
   if (isCommanderError(error)) {
-    return invalidInvocationError();
+    return invalidInvocationError(
+      `${commanderFailureReason(error.code, command)} Run ${helpCommand(command)} to see valid arguments.`,
+    );
   }
 
   return unexpectedRuntimeError();
+}
+
+function helpCommand(command: string): string {
+  return command === "unknown" || command === "lore"
+    ? "lore --help"
+    : `lore ${command.replaceAll(".", " ")} --help`;
+}
+
+function commanderFailureReason(code: string, command: string): string {
+  switch (code) {
+    case "commander.unknownOption":
+      return "Unknown option.";
+    case "commander.unknownCommand":
+      return "Unknown command.";
+    case "commander.missingArgument":
+      return "A required argument is missing.";
+    case "commander.missingMandatoryOptionValue":
+      return "A required option is missing.";
+    case "commander.optionMissingArgument":
+      return "An option needs a value.";
+    case "commander.invalidArgument":
+      return "An option or argument value is not allowed.";
+    case "commander.excessArguments":
+      return command === "unknown" ? "Unknown command or extra argument." : "Too many arguments.";
+    default:
+      return "Invalid command syntax.";
+  }
 }
 
 function unexpectedRuntimeError(): CliError {

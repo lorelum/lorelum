@@ -117,10 +117,11 @@ function toLeaseResult(
 
 function parseLeaseTtl(value: unknown): number {
   if (value === undefined) return DEFAULT_LEASE_TTL_MS;
-  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) throw invalidInvocationError();
+  if (typeof value !== "string" || !/^[0-9]+$/.test(value))
+    throw invalidInvocationError("--ttl-ms must be an integer from 1000 through 300000.");
   const ttlMs = Number(value);
   if (!Number.isSafeInteger(ttlMs) || ttlMs < 1_000 || ttlMs > 300_000)
-    throw invalidInvocationError();
+    throw invalidInvocationError("--ttl-ms must be an integer from 1000 through 300000.");
   return ttlMs;
 }
 
@@ -220,7 +221,7 @@ export function createBackendCommands(
       async handler(invocation) {
         try {
           const leaseId = invocation.positionals[0];
-          if (leaseId === undefined) throw invalidInvocationError();
+          if (leaseId === undefined) throw invalidInvocationError("Provide a lease ID to renew.");
           return {
             data: toLeaseResult(
               await (
@@ -244,7 +245,7 @@ export function createBackendCommands(
       async handler(invocation) {
         try {
           const leaseId = invocation.positionals[0];
-          if (leaseId === undefined) throw invalidInvocationError();
+          if (leaseId === undefined) throw invalidInvocationError("Provide a lease ID to release.");
           await (await services.createSupervisor({ initialize: false })).releaseTaskLease(leaseId);
           return { data: { released: true } };
         } catch (error) {

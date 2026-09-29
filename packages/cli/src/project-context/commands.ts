@@ -107,7 +107,10 @@ export function createProjectContextCommands(
           const result = await initializeProjectConfig(process.cwd());
           return { data: { created: result.created } };
         } catch (error) {
-          if (error instanceof ProjectConfigError) throw invalidInvocationError();
+          if (error instanceof ProjectConfigError)
+            throw invalidInvocationError(
+              "Cannot initialize .lorelum/config.yaml here. Check the project directory and existing config.",
+            );
           throw error;
         }
       },
@@ -132,7 +135,8 @@ export function createProjectContextCommands(
           );
           return { data: statusData(snapshot) };
         } catch (error) {
-          if (error instanceof InvalidProjectRootError) throw invalidInvocationError();
+          if (error instanceof InvalidProjectRootError)
+            throw invalidInvocationError("--project-root must point to a valid project directory.");
           throw error;
         }
       },

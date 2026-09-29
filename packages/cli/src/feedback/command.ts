@@ -124,22 +124,23 @@ export function createFeedbackCommand(
       const outputValue = invocation.options.output;
       const kindValue = invocation.options.kind;
       const includeLogs = invocation.options.includeLogs;
-      if (
-        (traceValue === undefined && inputValue === undefined) ||
-        (traceValue !== undefined && inputValue !== undefined) ||
-        (outputValue !== undefined && typeof outputValue !== "string") ||
-        (kindValue !== undefined && !isKind(kindValue)) ||
-        (includeLogs !== undefined && includeLogs !== "info" && includeLogs !== "debug")
-      ) {
-        throw invalidInvocationError();
-      }
+      if ((traceValue === undefined) === (inputValue === undefined))
+        throw invalidInvocationError("Provide exactly one of --trace-id or --input.");
+      if (outputValue !== undefined && typeof outputValue !== "string")
+        throw invalidInvocationError("--output must be a directory path.");
+      if (kindValue !== undefined && !isKind(kindValue))
+        throw invalidInvocationError(`--kind must be ${feedbackKinds.join(" or ")}.`);
+      if (includeLogs !== undefined && includeLogs !== "info" && includeLogs !== "debug")
+        throw invalidInvocationError("--include-logs must be info or debug.");
       const outputDirectory =
         outputValue === undefined ? services.defaultOutputDirectory() : outputValue;
       try {
         let report: FeedbackReport;
         if (traceValue !== undefined) {
           if (typeof traceValue !== "string" || !isTraceId(traceValue) || !isKind(kindValue)) {
-            throw invalidInvocationError();
+            throw invalidInvocationError(
+              "--trace-id must be a valid trace ID and requires --kind.",
+            );
           }
           const projection = await services.readTraceDiagnostics(traceValue);
           const detailed = await (services.readTraceLogs ?? readTraceLogs)(
@@ -149,9 +150,12 @@ export function createFeedbackCommand(
           report = reportFromTrace(traceValue, kindValue, projection, detailed);
         } else {
           if (typeof inputValue !== "string" || includeLogs !== undefined)
-            throw invalidInvocationError();
+            throw invalidInvocationError(
+              "--input must be a file path or -, and cannot be combined with --include-logs.",
+            );
           const parsed = parseFeedbackDraftInput(JSON.parse(await services.readInput(inputValue)));
-          if (kindValue !== undefined && kindValue !== parsed.kind) throw invalidInvocationError();
+          if (kindValue !== undefined && kindValue !== parsed.kind)
+            throw invalidInvocationError("--kind must match the kind in the input file.");
           report = reportFromInput(parsed);
         }
         const artifact = await services.publish(
@@ -175,7 +179,9 @@ export function createFeedbackCommand(
         };
       } catch (error) {
         if (error instanceof SyntaxError || error instanceof TypeError)
-          throw invalidInvocationError();
+          throw invalidInvocationError(
+            "Invalid feedback input. Check the input file's JSON and required fields.",
+          );
         throw error;
       }
     },

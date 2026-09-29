@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "buildIdentity": "6471dc7759ffa6580244d7b6f573180e43d8e40ded72291a3bfd5ebcad53ae6f",
-  "recipeIdentity": "30fdb182dcef01aeeaa9135fb081f8b1c164c7578edd2c0709e6d80d77da3a3e",
+  "recipeIdentity": "66e4cfdd390d463411059b0be47a8fc9c3626a0ec6929aeb634c004f1dd23ce8",
   "platform": "linux",
   "arch": "x64",
   "executable": "lore-model",
@@ -35,12 +35,12 @@
     "-DGGML_OPENCL=OFF",
     "-DGGML_RPC=OFF",
     "-DGGML_NATIVE=OFF",
-    "-DGGML_SSE42=OFF",
-    "-DGGML_AVX=OFF",
-    "-DGGML_AVX2=OFF",
-    "-DGGML_BMI2=OFF",
-    "-DGGML_FMA=OFF",
-    "-DGGML_F16C=OFF",
+    "-DGGML_SSE42=ON",
+    "-DGGML_AVX=ON",
+    "-DGGML_AVX2=ON",
+    "-DGGML_BMI2=ON",
+    "-DGGML_FMA=ON",
+    "-DGGML_F16C=ON",
     "-DGGML_OPENMP=OFF"
   ],
   "model": {
@@ -99,5 +99,10 @@
     "LICENSE.xxhash",
     "THIRD_PARTY_NOTICES.txt"
   ],
-  "dynamicDependencies": ["libstdc++.so.6", "libm.so.6", "libgcc_s.so.1", "libc.so.6"]
+  "dynamicDependencies": [
+    "libstdc++.so.6",
+    "libm.so.6",
+    "libgcc_s.so.1",
+    "libc.so.6"
+  ]
 }

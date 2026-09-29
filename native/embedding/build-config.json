@@ -70,12 +70,12 @@
         "-DGGML_OPENCL=OFF",
         "-DGGML_RPC=OFF",
         "-DGGML_NATIVE=OFF",
-        "-DGGML_SSE42=OFF",
-        "-DGGML_AVX=OFF",
-        "-DGGML_AVX2=OFF",
-        "-DGGML_BMI2=OFF",
-        "-DGGML_FMA=OFF",
-        "-DGGML_F16C=OFF",
+        "-DGGML_SSE42=ON",
+        "-DGGML_AVX=ON",
+        "-DGGML_AVX2=ON",
+        "-DGGML_BMI2=ON",
+        "-DGGML_FMA=ON",
+        "-DGGML_F16C=ON",
         "-DGGML_OPENMP=OFF"
       ]
     },
@@ -120,12 +120,12 @@
         "-DGGML_OPENCL=OFF",
         "-DGGML_RPC=OFF",
         "-DGGML_NATIVE=OFF",
-        "-DGGML_SSE42=OFF",
-        "-DGGML_AVX=OFF",
-        "-DGGML_AVX2=OFF",
-        "-DGGML_BMI2=OFF",
-        "-DGGML_FMA=OFF",
-        "-DGGML_F16C=OFF",
+        "-DGGML_SSE42=ON",
+        "-DGGML_AVX=ON",
+        "-DGGML_AVX2=ON",
+        "-DGGML_BMI2=ON",
+        "-DGGML_FMA=ON",
+        "-DGGML_F16C=ON",
         "-DGGML_OPENMP=OFF"
       ]
     }

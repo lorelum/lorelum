@@ -62,8 +62,35 @@ test("file, environment and explicit values override defaults in order", () =>
 test("invalid sources are rejected even when later sources override them", () => {
   expect(() =>
     resolveBackendSettings({ requestTimeoutMs: -1 }, { requestTimeoutMs: 1000 }),
-  ).toThrow("The local backend configuration is invalid.");
+  ).toThrow("backend settings source 1 requestTimeoutMs");
 });
+
+test("invalid backend config identifies a safe repair target without echoing values", () =>
+  fixture(async (homeDirectory, filePath) => {
+    await writeFile(filePath, "backend:\n  requestTimeoutMs: secret-value\n");
+    await expect(
+      loadBackendConfig({ homeDirectory, filePath, environment: {} }),
+    ).rejects.toMatchObject({
+      code: "backend.config-invalid",
+      message: expect.stringContaining("configuration file requestTimeoutMs"),
+    });
+    await expect(
+      loadBackendConfig({ homeDirectory, filePath, environment: {} }),
+    ).rejects.not.toThrow("secret-value");
+    await writeFile(filePath, "backend: {}\n");
+    await expect(
+      loadBackendConfig({
+        homeDirectory,
+        filePath,
+        environment: {
+          LORELUM_BACKEND_REQUEST_TIMEOUT_MS: "secret-value",
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "backend.config-invalid",
+      message: expect.stringContaining("LORELUM_BACKEND_REQUEST_TIMEOUT_MS"),
+    });
+  }));
 
 for (const content of [
   "null",

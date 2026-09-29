@@ -11,6 +11,7 @@ export function resolveInvocationStorageRoot(
   workingDirectory = process.cwd(),
 ): StorageRoot {
   if (override === undefined) return fallback;
-  if (typeof override !== "string" || override.length === 0) throw invalidInvocationError();
+  if (typeof override !== "string" || override.length === 0)
+    throw invalidInvocationError("--store-root must be a non-empty path.");
   return { rootPath: resolve(workingDirectory, override) };
 }

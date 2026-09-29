@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "buildIdentity": "ec2347317040357b8c0144f83c810276cb5779f0e97440cdde43c84254f85223",
-  "recipeIdentity": "a356d1f361ec24dc9f3e3a6d67d91c25efafca38bdbe1b9827f709d2e92049ca",
+  "recipeIdentity": "7af418e0e6c7852c26c97c8c445f42de6040a3059d3c9f2fe37841c3adff9aec",
   "platform": "win32",
   "arch": "x64",
   "executable": "lore-model.exe",
@@ -42,12 +42,12 @@
     "-DGGML_OPENCL=OFF",
     "-DGGML_RPC=OFF",
     "-DGGML_NATIVE=OFF",
-    "-DGGML_SSE42=OFF",
-    "-DGGML_AVX=OFF",
-    "-DGGML_AVX2=OFF",
-    "-DGGML_BMI2=OFF",
-    "-DGGML_FMA=OFF",
-    "-DGGML_F16C=OFF",
+    "-DGGML_SSE42=ON",
+    "-DGGML_AVX=ON",
+    "-DGGML_AVX2=ON",
+    "-DGGML_BMI2=ON",
+    "-DGGML_FMA=ON",
+    "-DGGML_F16C=ON",
     "-DGGML_OPENMP=OFF"
   ],
   "model": {

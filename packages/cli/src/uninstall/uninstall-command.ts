@@ -78,7 +78,8 @@ export function createRemoveCommand(services: RemoveCommandServices): CommandDef
     exitCodes: [0, 2],
     async handler(invocation) {
       const packName = invocation.positionals[0]!;
-      if (!PACK_NAME_REGEX.test(packName)) throw invalidInvocationError();
+      if (!PACK_NAME_REGEX.test(packName))
+        throw invalidInvocationError("Provide a valid Pack name to remove.");
       try {
         const result = await services.store.uninstall(
           resolveInvocationStorageRoot(invocation.options.storeRoot, services.storageRoot),

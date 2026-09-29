@@ -94,6 +94,31 @@ diagnostics:
 `);
 });
 
+test("renders the same bounded, terminal-safe failure message in both formats", () => {
+  const raw = `Invalid --value \u001b[2J\u202e${"x".repeat(500)}`;
+  const jsonWriter = new MemoryWriter();
+  const textWriter = new MemoryWriter();
+  const result = {
+    kind: "failure" as const,
+    command: "query",
+    code: "usage.invalid",
+    message: raw,
+    diagnostics: { traceId: "00000000-0000-4000-8000-000000000004" as never },
+  };
+
+  renderResult(jsonWriter, "json", result);
+  renderResult(textWriter, "text", result);
+
+  const message = JSON.parse(jsonWriter.value).error.message as string;
+  expect(message).toContain("\\u001b[2J\\u202e");
+  expect(message).toEndWith("...");
+  expect(message.length).toBeLessThanOrEqual(400);
+  expect(textWriter.value).toContain(message);
+  expect(textWriter.value).not.toContain("\u001b");
+  expect(textWriter.value).not.toContain("\u202e");
+  expect(validateProtocolSchema(JSON.parse(jsonWriter.value), protocolResponseSchema)).toEqual([]);
+});
+
 test("renders JSON failures as one envelope with the supplied trace", () => {
   const writer = new MemoryWriter();
 

@@ -31,9 +31,11 @@ const pruneSchema: JsonSchema = {
 
 function limit(value: unknown): number | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || !/^[1-9][0-9]{0,3}$/.test(value)) throw invalidInvocationError();
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,3}$/.test(value))
+    throw invalidInvocationError("--limit must be an integer from 1 through 1000.");
   const parsed = Number(value);
-  if (parsed > 1000) throw invalidInvocationError();
+  if (parsed > 1000)
+    throw invalidInvocationError("--limit must be an integer from 1 through 1000.");
   return parsed;
 }
 
@@ -78,13 +80,12 @@ export function createLogCommands(): readonly CommandDefinition[] {
         const source = invocation.options.source;
         const traceId = invocation.options.traceId;
         const level = invocation.options.level;
-        if (
-          (source !== undefined && (typeof source !== "string" || source.length === 0)) ||
-          (traceId !== undefined && (typeof traceId !== "string" || !isTraceId(traceId))) ||
-          (level !== undefined && !isLogLevel(level))
-        ) {
-          throw invalidInvocationError();
-        }
+        if (source !== undefined && (typeof source !== "string" || source.length === 0))
+          throw invalidInvocationError("--source must be non-empty.");
+        if (traceId !== undefined && (typeof traceId !== "string" || !isTraceId(traceId)))
+          throw invalidInvocationError("--trace-id must be a valid invocation trace ID.");
+        if (level !== undefined && !isLogLevel(level))
+          throw invalidInvocationError("--level must be error, warn, info or debug.");
         if (action === "prune") {
           if (
             source !== undefined ||
@@ -92,13 +93,16 @@ export function createLogCommands(): readonly CommandDefinition[] {
             level !== undefined ||
             invocation.options.limit !== undefined
           )
-            throw invalidInvocationError();
+            throw invalidInvocationError(
+              "logs prune does not accept --source, --trace-id, --level or --limit.",
+            );
           const result = await pruneManagedLogs({
             rootDirectory: invocation.logDirectory ?? defaultLogDirectory(),
           });
           return { data: { deletedFiles: result.deletedFiles, deletedBytes: result.deletedBytes } };
         }
-        if (action !== undefined) throw invalidInvocationError();
+        if (action !== undefined)
+          throw invalidInvocationError("Only logs prune is a valid action.");
         const parsedLimit = limit(invocation.options.limit);
         const result = await readManagedLogs({
           rootDirectory: invocation.logDirectory ?? defaultLogDirectory(),

@@ -30,9 +30,15 @@ export type ProjectContextResolver = (
   options: ProjectInvocationOptions,
 ) => Promise<ProjectContextSnapshot | undefined>;
 
-function optionalPath(value: unknown, fallback: string, workingDirectory: string): string {
+function optionalPath(
+  value: unknown,
+  fallback: string,
+  workingDirectory: string,
+  option: string,
+): string {
   if (value === undefined) return fallback;
-  if (typeof value !== "string" || value.length === 0) throw invalidInvocationError();
+  if (typeof value !== "string" || value.length === 0)
+    throw invalidInvocationError(`${option} must be a non-empty path.`);
   return resolve(workingDirectory, value);
 }
 
@@ -44,17 +50,22 @@ export function resolveProjectInvocationOptions(
   const projectRoot =
     options.projectRoot === undefined
       ? undefined
-      : optionalPath(options.projectRoot, "", workingDirectory);
+      : optionalPath(options.projectRoot, "", workingDirectory, "--project-root");
   // Commander exposes --no-project as the negated `project: false` option.
   // Keep noProject as the product-facing name while accepting its parser form.
   const noProject = options.noProject === true || options.project === false;
   if (options.noProject !== undefined && options.noProject !== true) {
-    throw invalidInvocationError();
+    throw invalidInvocationError("--no-project is a flag and takes no value.");
   }
   return Object.freeze({
     ...(projectRoot === undefined ? {} : { projectRoot }),
     noProject,
-    cacheRoot: optionalPath(options.cacheRoot, defaultQueryArtifactCacheRoot(), workingDirectory),
+    cacheRoot: optionalPath(
+      options.cacheRoot,
+      defaultQueryArtifactCacheRoot(),
+      workingDirectory,
+      "--cache-root",
+    ),
   });
 }
 

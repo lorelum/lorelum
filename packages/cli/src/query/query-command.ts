@@ -91,23 +91,37 @@ const queryErrorCodes = Object.freeze([
 function parseMode(value: unknown): QueryMode {
   if (value === undefined) return "semantic";
   if (typeof value !== "string" || !queryModes.includes(value as QueryMode)) {
-    throw invalidInvocationError();
+    throw invalidInvocationError("--mode must be semantic or keyword.");
   }
   return value as QueryMode;
 }
 
 function parseTopK(value: unknown): number | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) throw invalidInvocationError();
+  if (typeof value !== "string" || !/^[0-9]+$/.test(value))
+    throw invalidInvocationError("--top-k must be a non-negative integer.");
   return Number(value);
 }
 
-function parseIntegerOption(value: unknown, min: number, max: number): number | undefined {
+function parseIntegerOption(
+  value: unknown,
+  option: string,
+  min: number,
+  max: number,
+): number | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) throw invalidInvocationError();
+  if (typeof value !== "string" || !/^-?[0-9]+$/.test(value)) {
+    throw integerOptionError(option, min, max);
+  }
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) throw invalidInvocationError();
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw integerOptionError(option, min, max);
+  }
   return parsed;
+}
+
+function integerOptionError(option: string, min: number, max: number): CliError {
+  return invalidInvocationError(`${option} must be an integer from ${min} through ${max}.`);
 }
 
 function toQueryResult(
@@ -187,7 +201,10 @@ function projectContextData(project: ProjectContextSnapshot): JsonValue {
 
 function throwVisibleQueryError(error: unknown): never {
   if (error instanceof CliError) throw error;
-  if (error instanceof InvalidQueryRequestError) throw invalidInvocationError();
+  if (error instanceof InvalidQueryRequestError)
+    throw invalidInvocationError(
+      "The query or its options are invalid. Check the query text, --top-k and --mode.",
+    );
   if (error instanceof BackendError || error instanceof EmbeddingError) {
     throw new CliError(
       error.code,
@@ -213,7 +230,8 @@ function throwVisibleQueryError(error: unknown): never {
       "The local Pack store requires recovery.",
     );
   }
-  if (error instanceof InvalidProjectRootError) throw invalidInvocationError();
+  if (error instanceof InvalidProjectRootError)
+    throw invalidInvocationError("--project-root must point to a valid project directory.");
   throw error;
 }
 
@@ -285,17 +303,26 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
     async handler(invocation) {
       try {
         const text = invocation.positionals[0];
-        if (text === undefined) throw invalidInvocationError();
+        if (text === undefined)
+          throw invalidInvocationError("Provide query text. Run lore query --help for usage.");
         const mode = parseMode(invocation.options.mode);
         const limit = parseTopK(invocation.options.topK);
-        const maxWaitOverride = parseIntegerOption(invocation.options.maxWaitMs, 0, 120_000);
+        const maxWaitOverride = parseIntegerOption(
+          invocation.options.maxWaitMs,
+          "--max-wait-ms",
+          0,
+          120_000,
+        );
         const minCoverageOverride = parseIntegerOption(
           invocation.options.minCoveragePercent,
+          "--min-coverage-percent",
           0,
           100,
         );
         if (invocation.options.requireComplete === true && minCoverageOverride !== undefined) {
-          throw invalidInvocationError();
+          throw invalidInvocationError(
+            "Use --require-complete or --min-coverage-percent, not both.",
+          );
         }
         // Validate domain input before resolving or connecting to the Backend.
         parseQueryRequest(limit === undefined ? { text } : { text, limit });

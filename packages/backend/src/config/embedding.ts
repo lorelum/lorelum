@@ -42,7 +42,24 @@ export function resolveEmbeddingConfig(
   homeDirectory = homedir(),
 ): ResolvedEmbeddingConfig {
   const result = embeddingConfigSchema.safeParse(source === undefined ? {} : source);
-  if (!result.success) throw new BackendError("backend.config-invalid");
+  if (!result.success) {
+    const key = result.error.issues[0]?.path;
+    const known =
+      key !== undefined &&
+      key.every(
+        (segment) =>
+          typeof segment === "string" &&
+          /^(modelPath|cacheDirectory|threads|download|enabled|url|connectTimeoutSeconds|stallTimeoutSeconds|maxAttempts)$/.test(
+            segment,
+          ),
+      );
+    throw new BackendError(
+      "backend.config-invalid",
+      undefined,
+      undefined,
+      `Invalid ${known && key !== undefined && key.length > 0 ? `embedding.${key.join(".")}` : "embedding section"} in the configuration file. Correct or remove the setting, then retry.`,
+    );
+  }
   const value = {
     ...result.data,
     cacheDirectory:
