@@ -6,4 +6,4 @@
 ## 2. 验证与交付
 
 - [x] 2.1 解析 workflow YAML，检查 delta spec、文档链接与 diff，运行 focused release tests。
-- [ ] 2.2 更新准备 PR；合并、触发两个 Action 和公开发布不在本次交付范围内。
+- [x] 2.2 更新准备 PR；合并、触发两个 Action 和公开发布不在本次交付范围内。
