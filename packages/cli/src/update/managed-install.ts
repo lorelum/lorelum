@@ -150,16 +150,13 @@ export async function runInstaller(
   return true;
 }
 
-export async function readEntryVersion(
-  install: ManagedInstall,
-  platform = process.platform,
-): Promise<string | undefined> {
-  const command =
-    platform === "win32"
-      ? ["cmd.exe", "/d", "/s", "/c", `"${install.entry}" --version`]
-      : [install.entry, "--version"];
+export async function readEntryVersion(install: ManagedInstall): Promise<string | undefined> {
+  // Spawn the entry directly: Bun quotes each argument itself, so routing a
+  // Windows shim through a hand-built "cmd.exe /c ..." command string breaks
+  // that quoting (embedded quotes arrive escaped, spaced paths split), while
+  // Bun's own .cmd wrapping handles both. POSIX entries are plain executables.
   try {
-    const child = Bun.spawn(command, { stdout: "pipe", stderr: "ignore" });
+    const child = Bun.spawn([install.entry, "--version"], { stdout: "pipe", stderr: "ignore" });
     const [output, exit] = await Promise.all([new Response(child.stdout).text(), child.exited]);
     return exit === 0 ? /^Lorelum (\S+) \(protocol \d+\)\s*$/.exec(output)?.[1] : undefined;
   } catch {

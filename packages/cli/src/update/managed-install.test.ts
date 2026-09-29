@@ -10,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   findManagedInstall,
   InstallerFailure,
@@ -19,28 +19,50 @@ import {
   runInstaller,
 } from "./managed-install.js";
 
-test("recognizes only a default installer symlink targeting the running binary", async () => {
-  const home = await mkdtemp(join(tmpdir(), "lore-update-entry-"));
-  try {
-    const directory = join(home, ".local/share/lorelum/versions/0.1.0-alpha.5");
-    const bin = join(home, ".local/bin");
-    await mkdir(directory, { recursive: true });
-    await mkdir(bin, { recursive: true });
-    const binary = join(directory, "lore");
-    await writeFile(binary, "binary");
-    await chmod(binary, 0o755);
-    await symlink(binary, join(bin, "lore"));
-    expect(
-      await findManagedInstall({ platform: "darwin", home, executable: binary }),
-    ).toMatchObject({ executable: binary, installer: join(directory, "install.sh") });
-    expect(
-      await findManagedInstall({ platform: "darwin", home, executable: join(home, "other") }),
-    ).toBeUndefined();
-    expect(await readlink(join(bin, "lore"))).toBe(binary);
-  } finally {
-    await rm(home, { recursive: true, force: true });
-  }
-});
+test.skipIf(process.platform === "win32")(
+  "recognizes only a default installer symlink targeting the running binary",
+  async () => {
+    const home = await mkdtemp(join(tmpdir(), "lore-update-entry-"));
+    try {
+      const directory = join(home, ".local/share/lorelum/versions/0.1.0-alpha.5");
+      const bin = join(home, ".local/bin");
+      await mkdir(directory, { recursive: true });
+      await mkdir(bin, { recursive: true });
+      const binary = join(directory, "lore");
+      await writeFile(binary, "binary");
+      await chmod(binary, 0o755);
+      await symlink(binary, join(bin, "lore"));
+      expect(
+        await findManagedInstall({ platform: "darwin", home, executable: binary }),
+      ).toMatchObject({ executable: binary, installer: join(directory, "install.sh") });
+      expect(
+        await findManagedInstall({ platform: "darwin", home, executable: join(home, "other") }),
+      ).toBeUndefined();
+      expect(await readlink(join(bin, "lore"))).toBe(binary);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  },
+);
+
+test.skipIf(process.platform !== "win32")(
+  "reads the default entry version through the shim on Windows",
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "lore-update-entry-win-"));
+    try {
+      // A spaced directory exercises the spawn quoting that a cmd.exe
+      // intermediary would break; the shim mirrors install.ps1's format.
+      const entry = join(root, "bin with space", "lore.cmd");
+      await mkdir(dirname(entry), { recursive: true });
+      await writeFile(entry, "@echo off\r\n@echo Lorelum 0.1.0-alpha.5 (protocol 2)\r\n");
+      expect(await readEntryVersion({ entry, executable: "unused", installer: "unused" })).toBe(
+        "0.1.0-alpha.5",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
 
 test.skipIf(process.platform === "win32")(
   "turns installer diagnostics into safe failure categories without echoing raw output",
@@ -138,7 +160,7 @@ test.skipIf(process.platform === "win32")(
       expect(await readFile(join(home, "invocation"), "utf8")).toBe(
         "--version 0.1.0-alpha.5 unset\n",
       );
-      expect(await readEntryVersion({ entry, executable: binary, installer }, "darwin")).toBe(
+      expect(await readEntryVersion({ entry, executable: binary, installer })).toBe(
         "0.1.0-alpha.5",
       );
     } finally {
