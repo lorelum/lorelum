@@ -36,6 +36,14 @@ lore get agentic-coding.testing.verify-before-publish --json
 lore pack list --details --json
 ```
 
+## 版本更新结果
+
+`lore update [--channel stable|prerelease] [--apply] --json` 使用普通 CLI envelope，`command` 为 `update`。成功时的 `data` 包含 `currentVersion`、`channel`、`latestVersion`、`status`、`canApply` 和 `releaseNotesUrl`；没有匹配发行版时后两个版本/页面字段为 `null`。`status` 为 `available`、`current`、`ahead`、`no-release` 或 `updated`。只有 `--apply` 安装完成且从新的默认命令入口核对版本成功，才出现 `installedVersion`。
+
+`currentVersion` 和 envelope 的 `toolVersion` 都描述发起命令的 CLI 进程；自更新成功时它们仍是旧版本。判断新安装版本应看 `data.installedVersion`，或另起一次 `lore --version`。`canApply` 表示当前入口是否由默认位置的官方 installer 管理。`--apply` 的安装进度写入 stderr，stdout 只输出一条最终 JSON envelope。
+
+更新命令的错误码包括 `update.unavailable`、`update.unsupported-platform`、`update.apply-unsupported`、`update.apply-failed` 和 `update.verification-failed`。调用方应按 `error.code` 分支，不得将查询失败当作“已是最新版”，或把安装后核对失败当作更新成功。面向用户的路径和恢复步骤见[安装指南](../../apps/site/content/docs/installation.zh.mdx)。
+
 ## JSON envelope
 
 示例：

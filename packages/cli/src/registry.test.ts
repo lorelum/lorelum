@@ -307,6 +307,7 @@ test("describes registered commands from a single registry", () => {
               "describe",
               "pack.install",
               "pack.update",
+              "update",
               "registry.add",
               "registry.list",
               "registry.remove",
@@ -346,6 +347,7 @@ test("describes registered commands from a single registry", () => {
         positionals: [{ name: "pack[@version]", required: false }],
       },
       { name: "pack.update", positionals: [{ name: "pack[@version]", required: false }] },
+      { name: "update", positionals: [] },
       {
         name: "registry.add",
         positionals: [
@@ -443,6 +445,7 @@ test("derives parser options and describe metadata from registered commands", as
           "describe",
           "pack.install",
           "pack.update",
+          "update",
           "registry.add",
           "registry.list",
           "registry.remove",

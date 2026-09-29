@@ -8,6 +8,7 @@ release_api_base="${LORELUM_INSTALL_RELEASE_API_BASE_URL:-https://api.github.com
 install_root="${LORELUM_INSTALL_ROOT:-$HOME/.local/share/lorelum}"
 bin_directory="${LORELUM_INSTALL_BIN_DIR:-$HOME/.local/bin}"
 temporary=''
+download_pid=''
 
 fail() {
   printf '%s\n' "lore install: $*" >&2
@@ -15,6 +16,11 @@ fail() {
 }
 
 cleanup() {
+  if [ -n "$download_pid" ]; then
+    kill "$download_pid" 2>/dev/null || true
+    wait "$download_pid" 2>/dev/null || true
+    download_pid=''
+  fi
   if [ -n "$temporary" ] && [ -d "$temporary" ]; then
     rm -rf "$temporary"
   fi
@@ -73,11 +79,58 @@ trap cleanup EXIT HUP INT TERM
 download() {
   url="$1"
   output="$2"
-  if command -v curl >/dev/null 2>&1; then
-    curl --fail --location --silent --show-error --output "$output" "$url"
-  else
-    wget --quiet --output-document "$output" "$url"
+  label="${3:-}"
+  if [ -z "$label" ]; then
+    if command -v curl >/dev/null 2>&1; then
+      curl --fail --location --silent --show-error --output "$output" "$url"
+    else
+      wget --quiet --output-document "$output" "$url"
+    fi
+    return
   fi
+  headers="$temporary/archive-headers"
+  if command -v curl >/dev/null 2>&1; then
+    curl --fail --location --silent --show-error --dump-header "$headers" --output "$output" "$url" &
+  else
+    wget --server-response --output-document "$output" "$url" 2>"$headers" &
+  fi
+  download_pid=$!
+  last_bytes=0
+  last_time="$(date +%s)"
+  while kill -0 "$download_pid" 2>/dev/null; do
+    sleep 1
+    [ -f "$output" ] || continue
+    bytes="$(wc -c < "$output")"
+    now="$(date +%s)"
+    elapsed=$((now - last_time))
+    [ "$elapsed" -gt 0 ] || elapsed=1
+    total="$(awk '
+      /^[[:space:]]*HTTP\// { size = 0 }
+      tolower($1) == "content-length:" && $2 ~ /^[0-9]+/ { size = $2 + 0 }
+      END { if (size > 0) printf "%.0f", size }
+    ' "$headers" 2>/dev/null || true)"
+    awk -v bytes="$bytes" -v previous="$last_bytes" -v elapsed="$elapsed" -v total="${total:-0}" '
+      BEGIN {
+        speed = (bytes - previous) / 1048576 / elapsed
+        if (total > 0) {
+          percent = int(bytes * 100 / total)
+          if (percent > 100) percent = 100
+          printf "lore install: downloading archive: %.1f / %.1f MiB (%d%%) at %.1f MiB/s\n", bytes / 1048576, total / 1048576, percent, speed > "/dev/stderr"
+        } else {
+          printf "lore install: downloading archive: %.1f MiB at %.1f MiB/s\n", bytes / 1048576, speed > "/dev/stderr"
+        }
+      }
+    '
+    last_bytes="$bytes"
+    last_time="$now"
+  done
+  if ! wait "$download_pid"; then
+    download_pid=''
+    return 1
+  fi
+  download_pid=''
+  bytes="$(wc -c < "$output")"
+  awk -v bytes="$bytes" 'BEGIN { printf "lore install: downloaded archive: %.1f MiB\n", bytes / 1048576 > "/dev/stderr" }'
 }
 
 sha256() {
@@ -131,7 +184,7 @@ checksums_url="$release_base/$release_tag/SHA256SUMS"
 destination="$install_root/versions/$version"
 command_path="$bin_directory/lore"
 
-download "$archive_url" "$temporary/$archive_name" || fail "cannot download $archive_url"
+download "$archive_url" "$temporary/$archive_name" archive || fail "cannot download $archive_url"
 download "$checksums_url" "$temporary/SHA256SUMS" || fail "cannot download $checksums_url"
 
 expected_hashes="$(awk -v file="$archive_name" '$2 == file { print $1 }' "$temporary/SHA256SUMS")"

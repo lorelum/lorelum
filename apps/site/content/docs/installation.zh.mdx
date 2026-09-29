@@ -28,6 +28,8 @@ Windows 不要运行 `install.sh`，也不要双击安装脚本。Windows 安装
 
 两种安装器都会下载当前宿主对应的发行包和 `SHA256SUMS`，并校验发行包的 SHA-256。macOS 和 Linux 将完整文件安装到 `~/.local/share/lorelum/versions/`，命令入口位于 `~/.local/bin/lore`；Windows 安装到 `$env:LOCALAPPDATA\Lorelum\versions\`，并创建 `$env:LOCALAPPDATA\Lorelum\bin\lore.cmd`。
 
+下载发行包时，安装器约每秒显示一次已下载量和当前速度。服务端提供总大小时，还会显示总量与百分比；没有提供时不会猜百分比。单独的 `downloaded archive` 提示只表示下载结束，不代表校验或安装成功。
+
 如果 shell 找不到 `lore`，请在 shell 配置中将 `~/.local/bin` 加入 `PATH`，然后打开新终端：
 
 ```sh
@@ -56,16 +58,57 @@ lore --version
 
 按[快速开始](./quickstart)安装 Pack 并执行查询。[配置](./configuration)说明模型路径和下载选项，也适用于提前准备模型文件的环境。
 
-## 更新
+## 更新 Lore
 
-阅读目标版本的兼容性说明，再使用对应版本重新运行安装器。对于由 Lorelum 安装器管理的现有安装，安装器会在激活不同版本的 CLI 前安全停止正在运行的 Backend；正常升级不需要另外手动 stop。
+只有包含此命令的 CLI 发行版才能运行更新检查。如果 `lore update` 提示命令无法识别，请先安装一个包含该命令的发行版：从 [GitHub Releases](https://github.com/lorelum/lorelum/releases) 选择准确版本，替换上方安装命令中的版本号后运行，再按本节更新。
 
-如果安装器无法确认 Backend 已停止，它会保留原来的命令入口，并明确说明新版本没有被激活。这样不会把用户留在“新 CLI 已安装、却立即连接到不兼容旧 Backend”的状态。请用原 release 处理所报告的本地问题、执行 stop，再重新运行安装器：
+需要查看 CLI 是否有新版时，显式运行：
 
 ```sh
-lore backend stop
+lore update
 ```
 
-手工替换发行包不具备这段自动交接逻辑；替换手工管理的可执行文件前，请先停止 Backend。下一次 semantic 命令会重新启动服务。如果 Agent 仍使用旧的 CLI 环境，也需要重启 Agent 应用。
+命令会检查适用于当前频道和平台的发行版，并显示本机版本、新版、release notes 和下一步；它不会下载或安装文件、停止 Backend 或修改 CLI。例如，默认安装器管理的安装如果发现新版，会显示：
+
+```text
+Lore CLI: <current-version>
+Channel: prerelease
+Latest available: <newer-version>
+Installation: default Lorelum installer
+An update is available. Nothing was changed.
+Release notes: <release-notes-page>
+Review them, then run: lore update --apply
+```
+
+预发布版本默认检查 prerelease 频道，稳定版本默认检查 stable 频道。可用 `--channel stable` 或 `--channel prerelease` 为本次检查选择频道。每次运行都会重新检查公开发行版；Lore 不会在后台检查或安装更新。`lore --version` 仍只读取本机版本，`lore pack update` 仍只更新 Pack。
+
+阅读 release notes 后，如果 CLI 是由 Lorelum 官方安装器安装在默认位置，可运行：
+
+```sh
+lore update --apply
+```
+
+`--apply` 本身就是明确的安装指令，不会再弹一次确认。Lore 会重新检查新版，调用当前发行包中附带的安装器并校验发行包；必要时安全停止正在运行的 Backend，再切换默认命令入口并核对新版本。没有新版时不会安装，也不会降级。命令报告成功后，在终端确认：
+
+运行 `--apply` 时，发行包的已下载量、速度、可用时的百分比和下载完成提示显示在 stderr。即使带 `--json`，stdout 仍只有最后一条结果；下载完成不代表更新已经成功。
+
+```sh
+lore --version
+```
+
+已打开的编辑器或 Agent 可能仍保留旧的 CLI 环境；如果它显示旧版本，请重启宿主。JSON 输出和自动化字段见 [CLI 参考](./cli)。
+
+`--apply` 仅适用于官方安装器管理的默认安装路径，路径见上文。自定义安装目录、手动解压、源码 checkout 或其他安装管理器仍可运行 `lore update` 检查版本；但 `--apply` 会在改动安装前拒绝，并提示使用原来的安装方式更新。只读检查的输出会提示 `Update using your original installation method.` 手动安装请参考[手动安装发行包](#手动安装发行包)。
+
+### 更新不可用或失败时
+
+| 情况 | 哪些内容保持不变 | 下一步 |
+| --- | --- | --- |
+| 无法连接发行服务、网络或代理 | CLI 安装没有变化；这不代表已经是最新版。 | 检查网络或代理，再运行 `lore update`。 |
+| 所选频道和平台没有可用发行版 | 不会安装任何内容。 | 如适合你的使用方式，可用 `--channel stable` 或 `--channel prerelease` 检查另一个频道。 |
+| 当前安装不支持 `--apply` | 被拒绝的更新不会改命令入口、Backend 或文件。 | 使用原来管理此 CLI 的安装方式更新。 |
+| 下载、发行包校验或 Backend 交接失败 | 原命令入口保持不变；Backend 可能已经停止。 | 先处理报错，运行 `lore backend status`；如果 Backend 已停止且仍需使用，运行 `lore backend start`，然后重试 `lore update --apply`。 |
+| 安装器完成，但无法核对新命令版本 | 默认入口可能已经切换；命令不会报告更新成功。 | 运行 `lore --version` 查看当前入口。必要时用官方安装器安装先前可用的版本，再次核对。 |
+| 更新成功后，编辑器或 Agent 仍显示旧版本 | 默认 `lore` 命令已核对，但其他应用可能还保留旧环境。 | 重启该应用，再在新终端运行 `lore --version`。 |
 
 CLI、Pack 和 Plugin 的版本分别管理。Pack 更新见 [Pack 命令](./reference/packs)，Plugin 更新请按[接入 Agent](./agent-setup)进入对应宿主的页面。已有 Store 跨版本使用前，请阅读 [Alpha 兼容性](./alpha)。

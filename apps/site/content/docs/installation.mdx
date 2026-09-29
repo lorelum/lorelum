@@ -28,6 +28,8 @@ This installs `0.1.0-alpha.4`. Both installers look for a stable release when th
 
 Both installers download the matching release archive and `SHA256SUMS`, then verify the archive's SHA-256. macOS and Linux install the full release under `~/.local/share/lorelum/versions/`, with `~/.local/bin/lore` as the command entrypoint. Windows installs under `$env:LOCALAPPDATA\Lorelum\versions\` and creates `$env:LOCALAPPDATA\Lorelum\bin\lore.cmd`.
 
+While the archive downloads, the installer reports received bytes and current speed about once per second. If the server supplies a total size, it also shows the total and percentage; otherwise it does not guess a percentage. A separate `downloaded archive` line means the transfer finished, not that verification or installation succeeded.
+
 If your shell cannot find `lore`, add `~/.local/bin` to `PATH` in your shell configuration, then open a new terminal:
 
 ```sh
@@ -56,16 +58,57 @@ The CLI installation does not download the embedding model. Pack installation an
 
 Follow [Quickstart](./quickstart) to install a Pack and run a query. [Configuration](./configuration) covers model paths and download options, including environments that prepare the model in advance.
 
-## Update
+## Update Lore
 
-Read the target release's compatibility notes, then rerun the installer with its version. For an installation already managed by Lorelum, the installer safely stops the existing Backend before it activates a different CLI release. You do not need to stop it separately for the normal installer upgrade path.
+The update command is available in CLI releases that include it. If `lore update` is not recognized, install a release that includes the command first: choose its exact version from [GitHub Releases](https://github.com/lorelum/lorelum/releases), substitute that version in the installer command above, and then follow this section.
 
-If the installer cannot confirm that the Backend stopped, it leaves the previous command entry active and reports that the new release was not activated. This avoids installing a CLI that would immediately talk to an incompatible Backend. Run `backend stop` with the previous release, resolve the reported local condition, then rerun the installer:
+Check for a CLI release explicitly:
 
 ```sh
-lore backend stop
+lore update
 ```
 
-Manual archive replacement does not have this handoff. Stop the Backend before replacing a manually managed executable. The next semantic command starts it again. Restart your agent application if it still uses the old CLI environment.
+This checks the channel and release for your platform, then shows the installed version, any newer version, release notes, and the next step. It does not download or install anything, stop the Backend, or change the CLI. For example, a default-installer installation with an available release reports:
+
+```text
+Lore CLI: <current-version>
+Channel: prerelease
+Latest available: <newer-version>
+Installation: default Lorelum installer
+An update is available. Nothing was changed.
+Release notes: <release-notes-page>
+Review them, then run: lore update --apply
+```
+
+Prerelease builds check the prerelease channel by default; stable builds check the stable channel. Choose another channel for this check with `--channel stable` or `--channel prerelease`. Each command checks the published releases again; Lore does not check or install updates in the background. `lore --version` remains a local version check, and `lore pack update` continues to update Packs only.
+
+After reviewing the release notes, update a CLI installed by Lorelum's official installer at its default location with:
+
+```sh
+lore update --apply
+```
+
+`--apply` is the explicit instruction to install, so there is no second confirmation prompt. Lore checks for a newer release again, uses the installer included with the current release, verifies the archive, safely stops the existing Backend if needed, switches the default command entry, and checks the version through that new entry. It does nothing when there is no newer version and never downgrades. When it reports success, verify the command in your terminal:
+
+During `--apply`, archive download progress (including speed and the percentage when available) and the download-complete line appear on stderr. With `--json`, stdout stays a single final result; a completed download does not mean the update has succeeded.
+
+```sh
+lore --version
+```
+
+An already-open editor or agent may still have the old CLI environment; restart it if it continues to report the old version. For JSON output and automation fields, see the [CLI reference](./cli).
+
+`--apply` is available only when the official installer manages the default installation paths described above. A custom installer location, manual archive, source checkout, or another installation manager can still run `lore update` to check releases, but `--apply` is refused before changing that installation and directs you to update with the original installation method. A read-only check for one of these installations says `Update using your original installation method.` For a manual installation, follow [Install an archive manually](#install-an-archive-manually).
+
+### When an update is unavailable or fails
+
+| Situation | What remains true | What to do |
+| --- | --- | --- |
+| The release check cannot reach GitHub, the network, or your proxy | The installed CLI is unchanged; the result is not “up to date.” | Check the connection or proxy, then run `lore update` again. |
+| No release is available for the selected channel and platform | Nothing is installed. | Check the other channel with `--channel stable` or `--channel prerelease`, if that is appropriate for you. |
+| `--apply` is refused for this installation | The command entry, Backend, and files are not changed by the refused update. | Update with the installation method that originally manages this CLI. |
+| Download, archive verification, or Backend handoff fails | The previous command entry remains active; the Backend may have stopped. | Resolve the reported problem, check `lore backend status`, start it with `lore backend start` if needed, then retry `lore update --apply`. |
+| The installer finishes but the new command cannot be verified | The default entry may already have changed; the update is not reported as successful. | Run `lore --version` to inspect the active entry. If needed, use the official installer with a previously working version and verify again. |
+| An editor or agent still reports the old version after success | The default `lore` command was verified, but the other application may retain its old environment. | Restart that application, then check `lore --version` in a new terminal. |
 
 CLI, Pack, and Plugin versions are managed separately. Use [Pack commands](./reference/packs) for Pack updates and [Agent integration](./agent-setup) for the matching host's Plugin update path. See [Alpha compatibility](./alpha) before moving an existing Store between versions.

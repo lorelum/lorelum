@@ -46,6 +46,13 @@ For visual or component work, read [DESIGN.md](./DESIGN.md) first. Reusable Web 
 - An error is appropriate only for invalid input, an unsafe action, a genuinely ambiguous intent with no safe default, or a failure that cannot be recovered automatically. It must preserve canonical user data, avoid partial or hidden leftovers, explain the outcome plainly, and give one actionable next step.
 - Never silently guess when doing so could lose data, weaken security, or change a public contract. In those cases, surface the decision early and make the trade-off understandable.
 
+### Product-first change planning
+
+- A proposal for user-visible behavior is incomplete without a detailed product document in the active change. Start with the normal user's end-to-end path: their starting situation, the command or action they take, what they see, what they decide (if anything), how they reach a usable result, and what remains unchanged. Show concrete text/JSON examples where the interface is a CLI. Do not make a reader reconstruct the workflow from technical requirements, API types, or a task list.
+- Cover materially different supported user situations and the failures a user can actually encounter. For each, show the visible outcome, whether prior work or installation remains usable, and one practical recovery action. Explain defaults, consent, installation/ownership boundaries, and what the feature deliberately does not do in ordinary product language before discussing internal mechanisms.
+- Keep product behavior and engineering mechanism connected but distinct: the product document defines the experience; OpenSpec specs express testable public requirements; `design.md` explains implementation choices; `tasks.md` orders delivery and verification. Reconcile all four when a decision changes. Architecture-only or spec-only planning is not an acceptable final deliverable for a user-facing change.
+- A proposed product document lives with its active change, not in the public site as though shipped. After implementation, update the matching English and Chinese site pages for the actual supported workflow. Validation must include walking the documented normal path on the real supported installation, not only schema checks and unit tests.
+
 ## Global commands and verification
 
 - Runtime: Bun ≥ 1.1. Install dependencies with `bun install`.

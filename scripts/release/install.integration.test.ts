@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   chmod,
+  copyFile,
   mkdtemp,
   mkdir,
   readFile,
@@ -39,7 +40,7 @@ test.skipIf(!posixOnly)(
     try {
       const result = await runInstaller(root, server.url.origin);
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toMatch(/lore install: downloaded archive: \d+\.\d MiB/);
       const command = join(root, "bin", "lore");
       expect(await realpath(command)).toBe(
         await realpath(join(root, "share", "versions", version, "lore")),
@@ -47,7 +48,80 @@ test.skipIf(!posixOnly)(
       expect(await readFile(join(root, "share", "versions", version, "LICENSE"), "utf8")).toBe(
         "Apache-2.0 fixture\n",
       );
+      expect(await readFile(join(root, "share", "versions", version, "install.sh"), "utf8")).toBe(
+        await readFile(join(repositoryRoot, "install.sh"), "utf8"),
+      );
       expect(result.stdout).toContain(`Installed lore ${version}`);
+    } finally {
+      server.stop(true);
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test.skipIf(!posixOnly)(
+  "installer shows transfer speed without inventing a percentage for unknown-length downloads",
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "lore-install-progress-"));
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch(request) {
+        if (new URL(request.url).pathname.endsWith(".tar.gz")) {
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(new Uint8Array(1100000));
+                setTimeout(() => {
+                  controller.enqueue(new Uint8Array(1100000));
+                  controller.close();
+                }, 1200);
+              },
+            }),
+          );
+        }
+        return new Response(`${"0".repeat(64)}  lore-${version}-darwin-arm64.tar.gz\n`);
+      },
+    });
+    try {
+      const result = await runInstaller(root, server.url.origin);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toMatch(/downloading archive: [1-9]\d*\.\d MiB at \d+\.\d MiB\/s/);
+      expect(result.stderr).not.toContain("%)");
+      expect(result.stderr).toContain("downloaded archive: 2.1 MiB");
+      expect(result.stderr).toContain("archive checksum does not match");
+      expect(await Bun.file(join(root, "bin", "lore")).exists()).toBe(false);
+    } finally {
+      server.stop(true);
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test.skipIf(!posixOnly)(
+  "installer shows the response total and percentage when supplied",
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "lore-install-total-"));
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch(request) {
+        if (new URL(request.url).pathname.endsWith(".tar.gz")) {
+          return new Response(new Uint8Array(1100000), {
+            headers: { "Content-Length": "1100000" },
+          });
+        }
+        return new Response(`${"0".repeat(64)}  lore-${version}-darwin-arm64.tar.gz\n`);
+      },
+    });
+    try {
+      const result = await runInstaller(root, server.url.origin);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toMatch(
+        /downloading archive: 1\.0 \/ 1\.0 MiB \(100%\) at \d+\.\d MiB\/s/,
+      );
+      expect(result.stderr).toContain("downloaded archive: 1.0 MiB");
+      expect(result.stderr).toContain("archive checksum does not match");
     } finally {
       server.stop(true);
       await rm(root, { recursive: true, force: true });
@@ -70,7 +144,7 @@ test.skipIf(!nativeMacArm64)(
         true,
       );
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toMatch(/lore install: downloaded archive: \d+\.\d MiB/);
       expect(await realpath(join(root, "bin", "lore"))).toBe(
         await realpath(join(root, "share", "versions", version, "lore")),
       );
@@ -87,7 +161,7 @@ test.skipIf(!posixOnly)("installer installs the linux-x64 package on Linux x86_6
   try {
     const result = await runInstaller(root, server.url.origin, ["--version", version], "linux-x64");
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toMatch(/lore install: downloaded archive: \d+\.\d MiB/);
     expect(result.stdout).toContain(`Installed lore ${version}`);
     expect(
       await readFile(
@@ -109,7 +183,7 @@ test.skipIf(!posixOnly)(
     try {
       const result = await runInstaller(root, server.url.origin, []);
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toMatch(/lore install: downloaded archive: \d+\.\d MiB/);
       expect(
         Bun.file(join(root, "share", "versions", stableVersion, "lore")).exists(),
       ).resolves.toBe(true);
@@ -483,6 +557,7 @@ async function createReleaseServer(
       `#!/bin/sh\nif [ "${"$1"}" = backend ] && [ "${"$2"}" = stop ]; then\n  if [ -n "${"${LORELUM_INSTALL_TEST_STOP_LOG:-}"}" ]; then\n    printf '%s|%s\\n' "$0" "$(readlink "${"${LORELUM_INSTALL_TEST_COMMAND_PATH:-}"}" 2>/dev/null || true)" >> "$LORELUM_INSTALL_TEST_STOP_LOG"\n  fi\n  if [ ${stopExitCode} -ne 0 ]; then\n    printf '%s\\n' '{"error":{"code":"backend.incompatible"}}' >&2\n  fi\n  exit ${stopExitCode}\nfi\nexit 0\n`,
     );
     await writeFile(join(packageDirectory, "LICENSE"), "Apache-2.0 fixture\n");
+    await copyFile(join(repositoryRoot, "install.sh"), join(packageDirectory, "install.sh"));
     await writeFile(join(packageDirectory, "THIRD_PARTY_NOTICES.txt"), "notices\n");
     await writeFile(
       join(packageDirectory, "native", platform, "lore-model"),

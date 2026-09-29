@@ -10,6 +10,7 @@ import {
   validateProtocolSchema,
 } from "./output/protocol-schema.test-helper.js";
 import { commandRegistry, describeCommand } from "./registry.js";
+import { createCliUpdateCommand, type UpdateServices } from "./update/update-command.js";
 
 class MemoryWriter {
   value = "";
@@ -18,6 +19,9 @@ class MemoryWriter {
     this.value += message;
   }
 }
+
+const nextCliVersion = `${Number(toolVersion.split(".")[0]) + 1}.0.0`;
+const nextCliNotes = `https://github.com/lorelum/lorelum/releases/tag/v${nextCliVersion}`;
 
 interface CliProcessResult {
   readonly exitCode: number;
@@ -44,6 +48,111 @@ test("recognizes only the exact private backend daemon invocation", () => {
   expect(isInternalBackendServeInvocation([])).toBe(false);
   expect(isInternalBackendServeInvocation(["--internal-backend-serve", "extra"])).toBe(false);
   expect(isInternalBackendServeInvocation(["backend", "start"])).toBe(false);
+});
+
+test("CLI update reports a complete JSON result without invoking the installer", async () => {
+  const stdout = new MemoryWriter();
+  const stderr = new MemoryWriter();
+  let installed = 0;
+  const services: UpdateServices = {
+    target: () => "darwin-arm64",
+    findInstall: async () => undefined,
+    list: async () => [
+      {
+        version: nextCliVersion,
+        notesUrl: nextCliNotes,
+      },
+    ],
+    install: async () => {
+      installed++;
+      return true;
+    },
+  };
+  const registry = commandRegistry.map((definition) =>
+    definition.name === "update" ? createCliUpdateCommand(services) : definition,
+  );
+  expect(await run(["update", "--json"], { registry, stdout, stderr })).toBe(0);
+  const response = JSON.parse(stdout.value);
+  expect(response).toMatchObject({
+    command: "update",
+    ok: true,
+    data: { status: "available", canApply: false },
+  });
+  expect(response.data.installedVersion).toBeUndefined();
+  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
+  expect(validateJsonSchema(response.data, resultSchemaFor("update"))).toEqual([]);
+  expect(stdout.value.trim().split("\n")).toHaveLength(1);
+  expect(installed).toBe(0);
+  expect(stderr.value).toBe("");
+});
+
+test("CLI update rejects an external installation before querying, while version and Pack remain separate", async () => {
+  const stdout = new MemoryWriter();
+  let queried = 0;
+  const registry = commandRegistry.map((definition) =>
+    definition.name === "update"
+      ? createCliUpdateCommand({
+          findInstall: async () => undefined,
+          list: async () => {
+            queried++;
+            return [];
+          },
+        })
+      : definition,
+  );
+  expect(await run(["update", "--apply", "--json"], { registry, stdout })).toBe(2);
+  expect(JSON.parse(stdout.value)).toMatchObject({
+    command: "update",
+    ok: false,
+    error: { code: "update.apply-unsupported" },
+  });
+  expect(queried).toBe(0);
+  const version = new MemoryWriter();
+  expect(await run(["--version"], { registry, stdout: version })).toBe(0);
+  expect(queried).toBe(0);
+  expect(commandRegistry.some((definition) => definition.name === "pack.update")).toBe(true);
+});
+
+test("CLI update applies only a newer version and verifies the new default entry", async () => {
+  const stdout = new MemoryWriter();
+  const progress = new MemoryWriter();
+  const managed = {
+    entry: "/default/bin/lore",
+    executable: "/default/versions/old/lore",
+    installer: "/default/versions/old/install.sh",
+  };
+  let calls = 0;
+  const services: UpdateServices = {
+    target: () => "darwin-arm64",
+    findInstall: async () => managed,
+    available: async () => true,
+    list: async () => [
+      {
+        version: nextCliVersion,
+        notesUrl: nextCliNotes,
+      },
+    ],
+    install: async (_install, version) => {
+      expect(version).toBe(nextCliVersion);
+      calls++;
+      return true;
+    },
+    entryVersion: async () => nextCliVersion,
+    progress,
+  };
+  const registry = commandRegistry.map((definition) =>
+    definition.name === "update" ? createCliUpdateCommand(services) : definition,
+  );
+  expect(await run(["update", "--apply", "--json"], { registry, stdout, stderr: progress })).toBe(
+    0,
+  );
+  expect(JSON.parse(stdout.value)).toMatchObject({
+    command: "update",
+    ok: true,
+    data: { status: "updated", currentVersion: toolVersion, installedVersion: nextCliVersion },
+  });
+  expect(calls).toBe(1);
+  expect(progress.value).toContain("Installing Lore CLI");
 });
 
 test("requires private lifecycle environment before entering the backend daemon", () => {
@@ -75,6 +184,7 @@ test("returns machine-readable root capability discovery when explicitly request
         { name: "describe" },
         { name: "pack.install" },
         { name: "pack.update" },
+        { name: "update" },
         { name: "registry.add" },
         { name: "registry.list" },
         { name: "registry.remove" },

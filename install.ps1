@@ -23,7 +23,7 @@ param(
 $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 renders Invoke-WebRequest progress per received chunk, which makes
 # multi-megabyte release downloads tens of times slower and looks frozen; keep the progress
-# UI off and report progress through Write-Output instead.
+# UI off and report archive bytes at a low rate instead.
 $ProgressPreference = 'SilentlyContinue'
 $repository = 'https://github.com/lorelum/lorelum'
 $releaseBase = if ($env:LORELUM_INSTALL_RELEASE_BASE_URL) { $env:LORELUM_INSTALL_RELEASE_BASE_URL } else { "$repository/releases/download" }
@@ -38,6 +38,52 @@ function Fail([string]$Message) {
 
 function Get-Sha256([string]$Path) {
   (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+}
+
+function Write-ArchiveProgress([long]$Received, [long]$Total, [double]$Speed) {
+  $size = ($Received / 1MB).ToString('F1', [Globalization.CultureInfo]::InvariantCulture)
+  $rate = $Speed.ToString('F1', [Globalization.CultureInfo]::InvariantCulture)
+  if ($Total -gt 0) {
+    $limit = ($Total / 1MB).ToString('F1', [Globalization.CultureInfo]::InvariantCulture)
+    $percent = [Math]::Min(100, [Math]::Floor(100.0 * $Received / $Total))
+    [Console]::Error.WriteLine("lore install: downloading archive: $size / $limit MiB ($percent%) at $rate MiB/s")
+  } else {
+    [Console]::Error.WriteLine("lore install: downloading archive: $size MiB at $rate MiB/s")
+  }
+}
+
+function Save-ArchiveWithProgress([string]$Uri, [string]$Path) {
+  $response = $null
+  $source = $null
+  $destination = $null
+  try {
+    $request = [System.Net.WebRequest]::Create($Uri)
+    $response = $request.GetResponse()
+    $source = $response.GetResponseStream()
+    $destination = [System.IO.File]::Create($Path)
+    $buffer = New-Object byte[] 65536
+    [long]$received = 0
+    [long]$total = $response.ContentLength
+    [long]$lastBytes = 0
+    $lastReport = [DateTime]::UtcNow
+    Write-ArchiveProgress 0 $total 0
+    while (($count = $source.Read($buffer, 0, $buffer.Length)) -gt 0) {
+      $destination.Write($buffer, 0, $count)
+      $received += $count
+      $now = [DateTime]::UtcNow
+      $elapsed = ($now - $lastReport).TotalSeconds
+      if ($elapsed -ge 1) {
+        Write-ArchiveProgress $received $total (($received - $lastBytes) / 1MB / $elapsed)
+        $lastReport = $now
+        $lastBytes = $received
+      }
+    }
+    [Console]::Error.WriteLine(('lore install: downloaded archive: {0} MiB' -f ($received / 1MB).ToString('F1', [Globalization.CultureInfo]::InvariantCulture)))
+  } finally {
+    if ($destination) { $destination.Dispose() }
+    if ($source) { $source.Dispose() }
+    if ($response) { $response.Dispose() }
+  }
 }
 
 function Normalize-PathEntry([string]$Value) {
@@ -245,7 +291,7 @@ try {
   $checksumsPath = Join-Path $temporary 'SHA256SUMS'
 
   try {
-    Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
+    Save-ArchiveWithProgress $archiveUrl $archivePath
   } catch {
     Fail "cannot download $archiveUrl"
   }

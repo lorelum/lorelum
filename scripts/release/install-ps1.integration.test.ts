@@ -29,17 +29,58 @@ test.skipIf(!windowsOnly)(
     try {
       const result = await runInstaller(root, server.url.origin);
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toMatch(
+        /downloading archive: \d+\.\d \/ \d+\.\d MiB \(\d+%\) at \d+\.\d MiB\/s/,
+      );
+      expect(result.stderr).toMatch(/lore install: downloaded archive: \d+\.\d MiB/);
       const shim = (await readFile(join(root, "bin", "lore.cmd"), "utf8")).trim();
       expect(shim).toContain(`"${join(root, "share", "versions", version, "lore.exe")}"`);
       expect(await readFile(join(root, "share", "versions", version, "LICENSE"), "utf8")).toBe(
         "Apache-2.0 fixture\n",
+      );
+      expect(await readFile(join(root, "share", "versions", version, "install.ps1"), "utf8")).toBe(
+        await readFile(join(repositoryRoot, "install.ps1"), "utf8"),
       );
       expect(await readFile(join(root, "share", "versions", version, "lore.exe"), "utf8")).toBe(
         "cli fixture\n",
       );
       expect(result.stdout).toContain(`Installed lore ${version}`);
       expect(result.stdout).toContain(`Added ${join(root, "bin")} to the process PATH.`);
+    } finally {
+      server.stop(true);
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test.skipIf(!windowsOnly)(
+  "windows installer does not invent a total for streamed archives",
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "lore-install-win-progress-"));
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch(request) {
+        if (new URL(request.url).pathname.endsWith(".zip")) {
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(new Uint8Array(1100000));
+                controller.close();
+              },
+            }),
+          );
+        }
+        return new Response(`${"0".repeat(64)}  lore-${version}-${target}.zip\n`);
+      },
+    });
+    try {
+      const result = await runInstaller(root, server.url.origin);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toMatch(/downloading archive: 0\.0 MiB at 0\.0 MiB\/s/);
+      expect(result.stderr).toContain("downloaded archive: 1.0 MiB");
+      expect(result.stderr).toContain("archive checksum does not match");
+      expect(result.stderr).not.toContain("%)");
     } finally {
       server.stop(true);
       await rm(root, { recursive: true, force: true });
@@ -55,7 +96,7 @@ test.skipIf(!windowsOnly)(
     try {
       const result = await runInstaller(root, server.url.origin, []);
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toMatch(/lore install: downloaded archive: \d+\.\d MiB/);
       expect(await Bun.file(join(root, "share", "versions", version, "lore.exe")).exists()).toBe(
         true,
       );
@@ -396,6 +437,7 @@ async function createReleaseServer(
       await copyFile(options.stopFixture, join(packageDirectory, "lore.exe"));
     else await writeFile(join(packageDirectory, "lore.exe"), "cli fixture\n");
     await writeFile(join(packageDirectory, "LICENSE"), "Apache-2.0 fixture\n");
+    await copyFile(join(repositoryRoot, "install.ps1"), join(packageDirectory, "install.ps1"));
     await writeFile(join(packageDirectory, "THIRD_PARTY_NOTICES.txt"), "notices\n");
     await writeFile(join(packageDirectory, "native", target, "lore-model.exe"), "native\n");
     await writeFile(join(packageDirectory, "native", target, "manifest.json"), "{}\n");

@@ -19,10 +19,20 @@ export interface ReleaseArchive {
   readonly version: string;
 }
 
+interface BuildReleaseArchiveOptions {
+  /** Test seam for keeping package output out of the working tree. */
+  readonly repositoryRoot?: string;
+  /** Test seam for packaging a prepared staging tree without compiling binaries. */
+  readonly staging?: Awaited<ReturnType<typeof buildReleaseStaging>>;
+}
+
 /** Build one archive from a fresh native and CLI staging directory. */
-export async function buildReleaseArchive(): Promise<ReleaseArchive> {
-  const version = await readCliVersion();
-  const staging = await buildReleaseStaging();
+export async function buildReleaseArchive(
+  options: BuildReleaseArchiveOptions = {},
+): Promise<ReleaseArchive> {
+  const root = options.repositoryRoot ?? repositoryRoot;
+  const version = await readCliVersion(root);
+  const staging = options.staging ?? (await buildReleaseStaging());
   const target = staging.artifact.id;
   const windows = process.platform === "win32";
   const assetNames = releaseAssetNames(version, target, windows);
@@ -31,7 +41,7 @@ export async function buildReleaseArchive(): Promise<ReleaseArchive> {
   const tar = windows
     ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
     : "tar";
-  const packageDirectory = join(repositoryRoot, "dist/release/package");
+  const packageDirectory = join(root, "dist/release/package");
   await rm(packageDirectory, { recursive: true, force: true });
   const packageRoot = join(packageDirectory, name);
   await mkdir(packageRoot, { recursive: true });
@@ -45,7 +55,12 @@ export async function buildReleaseArchive(): Promise<ReleaseArchive> {
     dereference: false,
     preserveTimestamps: true,
   });
-  await cp(join(repositoryRoot, "LICENSE"), join(packageRoot, "LICENSE"), {
+  await cp(join(root, "LICENSE"), join(packageRoot, "LICENSE"), {
+    force: true,
+    preserveTimestamps: true,
+  });
+  const installerName = windows ? "install.ps1" : "install.sh";
+  await cp(join(root, installerName), join(packageRoot, installerName), {
     force: true,
     preserveTimestamps: true,
   });
@@ -55,7 +70,7 @@ export async function buildReleaseArchive(): Promise<ReleaseArchive> {
     renderThirdPartyNotices(Bun.version, notices),
   );
 
-  const artifactsDirectory = join(repositoryRoot, "dist/release/artifacts");
+  const artifactsDirectory = join(root, "dist/release/artifacts");
   await rm(artifactsDirectory, { recursive: true, force: true });
   await mkdir(artifactsDirectory, { recursive: true });
   const archive = join(artifactsDirectory, assetNames.archiveFileName);
@@ -63,7 +78,7 @@ export async function buildReleaseArchive(): Promise<ReleaseArchive> {
     ? [tar, "-C", dirname(packageRoot), "-a", "-cf", archive, name]
     : [tar, "-C", dirname(packageRoot), "-czf", archive, name];
   const archiveResult = Bun.spawnSync(archiveArguments, {
-    cwd: repositoryRoot,
+    cwd: root,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -104,9 +119,9 @@ export async function buildReleaseArchive(): Promise<ReleaseArchive> {
   return Object.freeze({ archive, checksums, metadata, version });
 }
 
-async function readCliVersion(): Promise<string> {
+async function readCliVersion(root: string): Promise<string> {
   const manifest: unknown = JSON.parse(
-    await readFile(join(repositoryRoot, "packages/cli/package.json"), "utf8"),
+    await readFile(join(root, "packages/cli/package.json"), "utf8"),
   );
   if (
     manifest === null ||
