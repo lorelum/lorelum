@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm, symlink } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -89,8 +89,9 @@ test("flush stays quiet when the managed location is usable", async () =>
 
 test("flush reports an unusable managed location once on stderr", async () =>
   fixture(async (directory) => {
-    const redirected = join(directory, "redirected");
-    await symlink(redirected, join(directory, "logs"));
+    // A regular file at the managed-root path makes the location unusable on
+    // every platform — no symlink privileges required.
+    await writeFile(join(directory, "logs"), "not a directory", "utf8");
     const stderr = stderrCollector();
     const runtime = await createProcessLogRuntime(stderr, createTraceId(), {
       debug: false,
@@ -102,6 +103,6 @@ test("flush reports an unusable managed location once on stderr", async () =>
     expect(stderr.lines).toHaveLength(1);
     const [notice] = stderr.lines;
     expect(notice).toContain("diagnostic logs for this run were not saved");
-    expect(notice).toContain(`symlink at ${join(directory, "logs")}`);
+    expect(notice).toContain(`wrong-type at ${join(directory, "logs")}`);
     expect(notice?.endsWith("\n")).toBe(true);
   }));

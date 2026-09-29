@@ -169,8 +169,14 @@ export async function openFailureReason(path: string, error: unknown): Promise<U
 async function gateTrustedDirectory(trusted: string): Promise<void> {
   await mkdir(trusted, { recursive: true, mode: 0o700 }).catch((error: unknown) => {
     // An existing odd shape (symlink, plain file) must surface as the typed
-    // verdict below, not as a raw mkdir failure.
-    if (!hasCode(error, "EEXIST") && !hasCode(error, "ENOTDIR") && !hasCode(error, "ELOOP")) {
+    // verdict below, not as a raw mkdir failure — including the platform
+    // specific codes Windows can report for such paths.
+    if (
+      !hasCode(error, "EEXIST") &&
+      !hasCode(error, "ENOTDIR") &&
+      !hasCode(error, "ELOOP") &&
+      !hasCode(error, "EPERM")
+    ) {
       throw error;
     }
   });
