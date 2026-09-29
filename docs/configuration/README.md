@@ -4,6 +4,8 @@
 
 Lorelum 使用共享的 `~/.lorelum/config.yaml`。每个模块只读取自己负责的顶层 section；backend 在启动控制端只读取一次并把结果作为不可变快照传入 daemon。修改配置后重启 backend 才生效。
 
+Codex Hook 的 `codex` section 由 CLI 在每次相关 Hook 调用时读取，不需要重启 Backend；它不修改现有用户文件，行为边界见 [Host Hook ABI](../cli/hook.md)。
+
 Registry source catalog 是 CLI 的另一条用户级状态边界：`~/.lorelum/registries.yaml` 由
 `@lorelum/config` 的 Registry catalog store 所有，供 `lore registry` 与 Pack install/update
 选择 named/default Registry。它不是 `config.yaml` 的 section，也不是 project `.lorelum/config.yaml`
@@ -11,7 +13,7 @@ Registry source catalog 是 CLI 的另一条用户级状态边界：`~/.lorelum/
 canonical local-Git worktree root，不保存 credentials。local worktree path 属于私有配置，CLI
 的公开 result 不回显它。
 
-配置优先级是：默认值 → YAML section → 允许的环境变量 → 内部测试注入。无效 section、未知字段、超出范围或违反大小限制都会返回 `backend.config-invalid`，不会静默回退。
+Backend 配置优先级是：默认值 → YAML section → 允许的环境变量 → 内部测试注入。backend/embedding 的无效 section、未知字段、超出范围或违反大小限制会返回 `backend.config-invalid`，不会静默回退。Codex Hook 的无效配置则在自身边界输出非阻塞 no-op 和不含配置内容的诊断，不会扩大注入范围。
 
 - [Embedding 配置实现](embedding.md)：模型路径、缓存、下载和 CPU 参数的运行时边界。
 

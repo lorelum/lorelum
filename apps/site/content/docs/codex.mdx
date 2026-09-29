@@ -38,13 +38,26 @@ In a new task, ask Codex to use Lorelum before it settles an important plan or i
 Use Lorelum to find guidance for this change before you finalize the plan.
 ```
 
-A successful `lore get` inside a Codex shell tool records a short candidate hint for the conversation, including when a script or pipeline runs it. Non-shell tools are skipped. When a subagent starts, it may see candidate IDs, titles, and applicability hints, then decide whether to read a Practice itself. The hint is not the Practice body or evidence that the parent adopted it. The Hook does not automatically run a query or `get`, and it does not restore these hints to the main agent after compaction yet.
+A successful `lore get` inside a Codex shell tool records a short candidate hint for the conversation when the command inherited a session identity. When a subagent starts, it may see candidate IDs, titles, and applicability hints, then decide whether to read a Practice itself. The hint is not the Practice body or evidence that the parent adopted it. The Hook does not automatically run a query or `get`, and it does not restore these hints to the main agent after compaction yet.
 
-The existing local Backend stores the optional list at `~/.lorelum/sessions/<host>/<session-id>/practice-reads.jsonl`. The folder uses the host's session ID directly and can hold other session data separately in the future. Deleting a worktree or restarting the Backend does not remove recorded hints. The Codex shell Hook passes the session ID to commands, including local scripts and pipelines. It does not contact the Backend on every shell call; a successful `get` reports to the Backend only if it is already running. An untrusted Hook or a command that clears its environment may leave a read unrecorded; this does not change the `get` result. Check relevance with `lore get <practice-id>` before using a hint; do not treat the list as a task record or access-control boundary.
+The existing local Backend stores the optional list at `~/.lorelum/sessions/<host>/<session-id>/practice-reads.jsonl`. The folder uses the host's session ID directly and can hold other session data separately in the future. Deleting a worktree or restarting the Backend does not remove recorded hints. A successful `get` reports to the Backend only if it is already running; the Hook does not contact the Backend on every shell call. An untrusted Hook or a command that clears its environment may leave a read unrecorded; this does not change the `get` result. Check relevance with `lore get <practice-id>` before using a hint; do not treat the list as a task record or access-control boundary.
+
+### Choose which commands receive a session identity
+
+The default is `lore-only`: the Hook injects session variables only when the shell command text submitted by Codex contains `lore` as a separate word. Direct `lore get`, pipelines, and command substitutions containing `lore` match. If the outer command is `sh script.sh` without `lore` in its text, a `lore get` inside that script will not be associated with the conversation. The Hook does not inspect script files or parse whether the command actually runs `lore`, so merely mentioning the word may also trigger injection.
+
+To cover indirect calls inside local scripts, add this to the user-level `~/.lorelum/config.yaml`:
+
+```yaml
+codex:
+  shellSessionInjection: all-shell
+```
+
+`all-shell` injects before every Codex shell tool command; non-shell tools are skipped in either mode. Remove the field or set it to `lore-only` to restore the default. The next Hook invocation reads a config change without restarting the Backend. Both modes still start the Hook for every shell tool call; the default reduces command rewriting and variable visibility, not Hook process overhead. Invalid configuration leaves that call unchanged without blocking the tool.
 
 ### Why environment assignments appear before a command
 
-The `PreToolUse` Hook automatically sets `LORELUM_HOST_KEY=codex` and `LORELUM_HOST_SESSION_ID=<current session ID>` before shell commands submitted by the agent: `export` on macOS/Linux, `$env:` in native Windows PowerShell. The agent did not write those lines, and they are not login credentials. They let `lore get` in the command or its local child processes associate a candidate hint with the right conversation. The stored record contains Practice metadata such as its ID and title, the read time, and working directory—not the Practice body, conversation, or full shell command.
+When a command is in the selected injection scope, the `PreToolUse` Hook automatically sets `LORELUM_HOST_KEY=codex` and `LORELUM_HOST_SESSION_ID=<current session ID>` before the shell command submitted by the agent: `export` on macOS/Linux, `$env:` in native Windows PowerShell. The agent did not write those lines, and they are not login credentials. They let `lore get` in the command or its local child processes associate a candidate hint with the right conversation. The stored record contains Practice metadata such as its ID and title, the read time, and working directory—not the Practice body, conversation, or full shell command.
 
 These variables are not injected as extra Lorelum guidance to the agent. The rewritten command may still appear in Codex tool details or records, however, and a command that prints its environment can put them in the tool result. We therefore cannot guarantee that they never appear in visible records or model context. They are only for session association; the agent does not need to use or manage them.
 

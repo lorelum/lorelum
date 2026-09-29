@@ -27,6 +27,11 @@
 - [x] 4.2 同步双语用户指南、Plugin README、Backend sessions README 与本变更的 proposal/spec/design；说明三个平台的写法差异、公共窗口仍供其他宿主复用，且不把 Mac 实测说成 Linux/Windows 实测。
 - [ ] 4.3 运行相关测试、typecheck、格式/lint 和严格 OpenSpec 校验；能用真实 Linux/Windows Codex 宿主时检查改写、权限与子 Agent 链路，不能运行时如实记录未验收边界。
 
+## 5. 可配置的 shell 会话身份注入范围
+
+- [x] 5.1 在现有用户级 `config.yaml` 增加 Codex 专属 `shellSessionInjection: lore-only | all-shell` 读取与校验，缺省 `lore-only`，无效配置对该次 Hook fail-open。默认只用外层命令文本的独立 `lore` 字样判定，不读脚本、不解析 shell；`all-shell` 保持当前所有 Bash 命令注入。覆盖三平台、非 shell、直接/组合命令、脚本间接调用和配置错误。
+- [x] 5.2 同步双语 Codex 用户指南、配置入口和 Plugin/CLI 维护说明：明确默认只匹配外层文本，脚本内部可能漏记，`all-shell` 只涵盖 shell tool，不是每种工具；两种模式都不改变 `lore get` 结果。校验并更新现有 PR。
+
 ## 本轮验证记录
 
 - 权限探针在临时目录使用真实 Codex app-server：只读写入返回 `Operation not permitted`，退出码 23 的原命令仍是 23；`:workspace` 档位的工作区外写入发起 `item/commandExecution/requestApproval`，拒绝后工具状态为 `declined`，目标文件不存在。当前宿主给 Hook 的 `tool_input` 只有 `command`，超时字段并未出现；单测模拟该字段并检查原样保留。
@@ -39,3 +44,8 @@
 - Codex `PreToolUse` 在 macOS/Linux 返回相同 Unix `export`，Windows 返回 PowerShell `$env:`；三平台的引用转义、保留工具输入、非 Bash/缺字段 no-op 单测通过。macOS 上用真实 `sh` 进程分别执行两条 Unix 分支，子进程收到会话身份，原命令仍以 23 退出；编译 CLI 的 Mac Pre Hook smoke 也返回了预期的 `updatedInput`。
 - CLI 与 Codex Plugin 共 327 项测试通过，1 项 Windows PowerShell 进程测试在 macOS 跳过；typecheck、lint（仓库已有警告，退出码 0）、格式检查、Plugin validator、站点构建及 OpenSpec 严格校验通过。更新后的本地 Codex Plugin 已安装，cachebuster 只存在于安装缓存，仓库 manifest 恢复原样。
 - 本轮 Windows 虚拟机需要解锁口令，无法启动；当前宿主也没有 PowerShell 解释器。Linux/Windows 的真实 Codex 宿主、Windows 子进程继承与批准链路尚未验收，不能将静态测试或 macOS shell 测试说成跨平台实测。
+
+## 2026-09-29 注入范围配置的本轮验证
+
+- 默认模式以外层命令文本匹配独立 `lore`；实际读取用户级 YAML 的 `all-shell` 测试覆盖了无 `lore` 的脚本外层调用。三平台默认分支、组合命令、非 shell、坏配置 no-op 和原输入保留均有单测；编译 CLI 在用户原有自定义配置下的 `git status` 返回 `{}`、`lore get` 返回带会话身份的改写命令。没有修改用户配置。
+- CLI/Plugin 完整相关测试 346 通过、1 项 Windows PowerShell 进程测试在 macOS 跳过；typecheck、lint（已有警告）、站点构建及 OpenSpec 严格校验通过。仓库级格式检查被本次范围外的 11 个旧文件挡住；本次变更的 TypeScript 文件另行检查。Linux/Windows 真实宿主链路仍属 4.3 的未完成边界。

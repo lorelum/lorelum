@@ -38,13 +38,26 @@ codex plugin add lorelum@lorelum-plugins
 请在确定这个改动的计划前，用 Lorelum 查找相关指导。
 ```
 
-在 Codex 的 shell tool 中成功执行 `lore get` 后，Lorelum 会为当前对话记录一条简短的候选提示；脚本或管道中执行也一样。非 shell tool 会直接跳过。启动子 Agent 时，它可能看到候选 ID、标题和适用条件，再自行决定是否读取。提示不是 Practice 正文，也不代表主 Agent 已采纳它；Hook 不自动 query 或 `get`，目前也不会在主 Agent compact 后恢复这些提示。
+在 Codex 的 shell tool 中成功执行 `lore get`，且命令继承了会话身份后，Lorelum 会为当前对话记录一条简短的候选提示。启动子 Agent 时，它可能看到候选 ID、标题和适用条件，再自行决定是否读取。提示不是 Practice 正文，也不代表主 Agent 已采纳它；Hook 不自动 query 或 `get`，目前也不会在主 Agent compact 后恢复这些提示。
 
-这份可选列表由现有本机 Backend 管理，存放在 `~/.lorelum/sessions/<宿主>/<会话 ID>/practice-reads.jsonl`；目录直接使用宿主的会话 ID，将来也可以分别存放其他会话数据。删除 worktree 或重启 Backend 不会清掉已记录的候选。Codex 的 shell Hook 会把会话 ID 传给命令，本地脚本和管道也能继承；它不会在每条 shell 命令前连接 Backend。成功的 `get` 只向已经运行的 Backend 报告。Hook 未获信任或命令主动清空环境时，可能漏记；这不影响 `get` 的结果。使用提示前仍应通过 `lore get <practice-id>` 核对是否适用，不要把候选列表当成任务记录或权限依据。
+这份可选列表由现有本机 Backend 管理，存放在 `~/.lorelum/sessions/<宿主>/<会话 ID>/practice-reads.jsonl`；目录直接使用宿主的会话 ID，将来也可以分别存放其他会话数据。删除 worktree 或重启 Backend 不会清掉已记录的候选。成功的 `get` 只向已经运行的 Backend 报告；Hook 不会在每条 shell 命令前连接 Backend。Hook 未获信任或命令主动清空环境时，可能漏记；这不影响 `get` 的结果。使用提示前仍应通过 `lore get <practice-id>` 核对是否适用，不要把候选列表当成任务记录或权限依据。
+
+### 控制哪些命令注入会话身份
+
+默认 `lore-only`：只有 Codex 提交的 shell 命令文本含独立的 `lore` 字样时，Hook 才会注入会话变量。直接执行 `lore get`、管道或命令替换中的 `lore` 都能匹配；`sh script.sh` 等外层命令没有 `lore` 时，即使脚本内部执行了 `lore get`，也不会记录到当前会话。Hook 不读取脚本文件，也不解析命令是否真的运行了 `lore`，所以文本里只是提到它时也可能注入。
+
+如果需要覆盖脚本内部间接调用，在用户级 `~/.lorelum/config.yaml` 加入：
+
+```yaml
+codex:
+  shellSessionInjection: all-shell
+```
+
+`all-shell` 会在每个 Codex shell tool 命令前注入；非 shell tool 在两种模式下都不会注入。删去该字段或设为 `lore-only` 即恢复默认。修改配置后，下次 Hook 调用就会读取新值，无需重启 Backend。两种模式下 Hook 仍会为每次 shell tool 启动；默认模式减少的是命令改写和变量可见性，不是 Hook 进程开销。配置无效时该次 Hook 不改写命令，也不阻塞工具。
 
 ### 为什么命令前会出现环境变量赋值
 
-`PreToolUse` Hook 会在 Agent 提交的 shell 命令前自动设置 `LORELUM_HOST_KEY=codex` 和 `LORELUM_HOST_SESSION_ID=<当前会话 ID>`：macOS/Linux 使用 `export`，原生 Windows PowerShell 使用 `$env:`。这不是 Agent 手写的命令，也不是登录凭据；它们让命令及其本地子进程中的 `lore get` 知道应该把候选提示记到哪个会话。记录的是 Practice 的 ID、标题等元数据和读取时间、工作目录，不是 Practice 正文、对话内容或整条 shell 命令。
+当命令符合上述注入范围时，`PreToolUse` Hook 会在 Agent 提交的 shell 命令前自动设置 `LORELUM_HOST_KEY=codex` 和 `LORELUM_HOST_SESSION_ID=<当前会话 ID>`：macOS/Linux 使用 `export`，原生 Windows PowerShell 使用 `$env:`。这不是 Agent 手写的命令，也不是登录凭据；它们让命令及其本地子进程中的 `lore get` 知道应该把候选提示记到哪个会话。记录的是 Practice 的 ID、标题等元数据和读取时间、工作目录，不是 Practice 正文、对话内容或整条 shell 命令。
 
 这两个变量不会作为 Lorelum 的额外指导注入给 Agent；不过改写后的命令可能显示在 Codex 的工具详情或记录中，命令主动输出环境变量时也会进入工具结果，因此不能保证它们完全不出现在可见记录或模型上下文里。它们只用于会话关联，不要求 Agent 使用或管理。
 

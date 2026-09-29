@@ -13,6 +13,7 @@ import type { Logger } from "@lorelum/log";
 import type { ReadHint } from "@lorelum/backend/client";
 import { sessionRefSchema } from "@lorelum/backend/client";
 import { defaultPracticeHints } from "../practice-hints/backend.js";
+import { loadCodexHookSettings, type CodexHookSettings } from "./codex-settings.js";
 import { renderReadHints } from "../practice-hints/render.js";
 
 /** Hosts with a versioned raw session Hook ABI (`lore hook <host>`). */
@@ -58,6 +59,7 @@ export interface HostHookServices {
   readonly practiceHints?: {
     readRecentHints(hostKey: string, sessionId: string): Promise<readonly ReadHint[]>;
   };
+  readonly codexHookSettings?: () => Promise<CodexHookSettings>;
   readonly platform?: NodeJS.Platform;
 }
 
@@ -80,6 +82,7 @@ const defaultServices: HostHookServices = Object.freeze({
   list: createListService(),
   storageRoot: defaultStorageRoot(),
   practiceHints: defaultPracticeHints,
+  codexHookSettings: loadCodexHookSettings,
 });
 
 /**
@@ -186,6 +189,7 @@ function respondToHostHook(
     return respondToCodexPracticeHint(
       input,
       services.practiceHints ?? defaultPracticeHints,
+      services.codexHookSettings ?? loadCodexHookSettings,
       services.platform,
     );
   }
@@ -205,6 +209,7 @@ function respondToHostHook(
 async function respondToCodexPracticeHint(
   input: HostHookInput,
   hints: NonNullable<HostHookServices["practiceHints"]>,
+  loadSettings: () => Promise<CodexHookSettings>,
   platform: NodeJS.Platform = process.platform,
 ): Promise<HostHookResponse> {
   if (input.hook_event_name === "SubagentStart") {
@@ -229,6 +234,8 @@ async function respondToCodexPracticeHint(
       if (!session.success || !isRecord(input.tool_input)) return {};
       const command = input.tool_input.command;
       if (typeof command !== "string") return {};
+      const settings = await loadSettings();
+      if (settings.shellSessionInjection === "lore-only" && !containsLoreToken(command)) return {};
       return {
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
@@ -257,6 +264,10 @@ function shellQuote(value: string): string {
 
 function powerShellQuote(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
+}
+
+function containsLoreToken(command: string): boolean {
+  return /(^|[^A-Za-z0-9_-])lore(?=$|[^A-Za-z0-9_-])/.test(command);
 }
 
 export async function createHostHookResponse(

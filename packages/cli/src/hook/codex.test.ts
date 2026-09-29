@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ListPackDetailsResult } from "@lorelum/engine";
 import type { ReadHint } from "@lorelum/backend/client";
+import { ConfigError } from "@lorelum/config";
+
+import { DEFAULT_CODEX_HOOK_SETTINGS, loadCodexHookSettings } from "./codex-settings.js";
 
 import {
   parseCodexHookInvocation,
@@ -47,6 +53,7 @@ function services(overrides: Partial<CodexHookServices> = {}): CodexHookServices
       },
     },
     storageRoot: { rootPath: "/default-store" },
+    codexHookSettings: async () => DEFAULT_CODEX_HOOK_SETTINGS,
     ...overrides,
   };
 }
@@ -67,6 +74,7 @@ describe("lore hook codex", () => {
     async (platform, prefix) => {
       const hintServices = services({
         platform,
+        codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
         practiceHints: {
           async readRecentHints() {
             return [];
@@ -132,6 +140,125 @@ describe("lore hook codex", () => {
     },
   );
 
+  test.each([
+    ["lore get practice.id", true],
+    ["echo before | lore get practice.id", true],
+    ["printf '%s' \"$(lore get practice.id)\"", true],
+    ["/usr/local/bin/lore get practice.id", true],
+    ["echo 'lore get practice.id'", true],
+    ["git status", false],
+    ["sh scripts/read-practice.sh", false],
+    ["echo lorelum", false],
+  ] as const)("lore-only text detection for %s", async (command, matches) => {
+    const stdout = new MemoryWriter();
+    await runCodexHook({
+      stdin: input(
+        JSON.stringify({
+          hook_event_name: "PreToolUse",
+          tool_name: "Bash",
+          session_id: "parent",
+          tool_input: { command },
+        }),
+      ),
+      stdout,
+      stderr: new MemoryWriter(),
+      services: services({ platform: "linux" }),
+    });
+    if (matches) {
+      expect(JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command).toEndWith(command);
+    } else {
+      expect(stdout.value).toBe("{}\n");
+    }
+  });
+
+  test.each(["darwin", "linux", "win32"] as const)(
+    "%s defaults to rewriting only a shell command that mentions lore",
+    async (platform) => {
+      for (const command of ["git status", "lore get practice.id"]) {
+        const stdout = new MemoryWriter();
+        // eslint-disable-next-line no-await-in-loop -- Check both commands for each host platform.
+        await runCodexHook({
+          stdin: input(
+            JSON.stringify({
+              hook_event_name: "PreToolUse",
+              tool_name: "Bash",
+              session_id: "parent",
+              tool_input: { command },
+            }),
+          ),
+          stdout,
+          stderr: new MemoryWriter(),
+          services: services({ platform }),
+        });
+        if (command === "git status") {
+          expect(stdout.value).toBe("{}\n");
+        } else {
+          expect(JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command).toEndWith(
+            command,
+          );
+        }
+      }
+    },
+  );
+
+  test("an invalid Codex setting leaves shell input unchanged and does not block the tool", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    await runCodexHook({
+      stdin: input(
+        JSON.stringify({
+          hook_event_name: "PreToolUse",
+          tool_name: "Bash",
+          session_id: "parent",
+          tool_input: { command: "lore get practice.id" },
+        }),
+      ),
+      stdout,
+      stderr,
+      services: services({
+        codexHookSettings: async () => {
+          throw new ConfigError();
+        },
+      }),
+    });
+    expect(stdout.value).toBe("{}\n");
+    expect(stderr.value).toContain("configuration file is invalid or unreadable");
+    expect(stderr.value).not.toContain("practice.id");
+  });
+
+  test("the user-level all-shell setting covers indirect script calls", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lorelum-codex-hook-mode-"));
+    try {
+      await mkdir(join(home, ".lorelum"));
+      await writeFile(
+        join(home, ".lorelum", "config.yaml"),
+        "codex:\n  shellSessionInjection: all-shell\n",
+      );
+      const stdout = new MemoryWriter();
+      await runCodexHook({
+        stdin: input(
+          JSON.stringify({
+            hook_event_name: "PreToolUse",
+            tool_name: "Bash",
+            session_id: "parent",
+            tool_input: { command: "sh scripts/read-practice.sh" },
+          }),
+        ),
+        stdout,
+        stderr: new MemoryWriter(),
+        services: services({
+          platform: "linux",
+          codexHookSettings: () => loadCodexHookSettings({ homeDirectory: home }),
+        }),
+      });
+      expect(JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command).toEndWith(
+        "sh scripts/read-practice.sh",
+      );
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   test.skipIf(process.platform === "win32")(
     "Unix rewrites pass session identity to a child process without changing exit status",
     async () => {
@@ -151,7 +278,10 @@ describe("lore hook codex", () => {
           ),
           stdout,
           stderr: new MemoryWriter(),
-          services: services({ platform }),
+          services: services({
+            platform,
+            codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+          }),
         });
         const command = JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command;
         const child = Bun.spawn(["sh", "-c", command], { stdout: "pipe", stderr: "pipe" });
@@ -183,7 +313,10 @@ describe("lore hook codex", () => {
         ),
         stdout,
         stderr: new MemoryWriter(),
-        services: services({ platform: "win32" }),
+        services: services({
+          platform: "win32",
+          codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+        }),
       });
       const command = JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command;
       const child = Bun.spawn(
@@ -243,6 +376,7 @@ describe("lore hook codex", () => {
   test("an unavailable candidate Backend does not block a Bash call or subagent", async () => {
     const failing = services({
       platform: "linux",
+      codexHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
       practiceHints: {
         async readRecentHints() {
           throw new Error("optional hints unavailable");

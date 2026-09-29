@@ -6,6 +6,8 @@ icon: Settings
 
 Lorelum 默认即可使用。用户级配置保存在 `~/.lorelum/config.yaml`，并由所有 Store 共享。
 
+Codex 的 shell 会话身份注入范围也在此文件配置。默认只检测外层命令文本；需要覆盖脚本内部间接执行的 `lore get` 时，参见 [Codex 指南](./codex#控制哪些命令注入会话身份)。
+
 ## 选择 Store
 
 用 `--store-root` 将项目的 Pack 和 index 单独保存：

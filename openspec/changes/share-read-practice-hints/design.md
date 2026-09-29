@@ -19,6 +19,12 @@ Codex 的 `PreToolUse` 仅匹配 Bash，保留原 `tool_input` 的所有字段�
 
 Windows 原生 Codex 使用 PowerShell，WSL 内运行的 Codex 使用 Linux 路径；Hook 的 Windows `commandWindows` 只负责调用 `lore hook codex`，具体的 PowerShell 命令前缀由 CLI 返回。其他宿主若没有安全的输入改写能力，仍可映射自己的 shell Pre/Post 到同一公共后备；不能为每项会话功能另建窗口。Codex 三个平台不同时写窗口以追求双保险，避免每次 Bash 的 Backend 请求与两套归属结果。尚未完成的 Linux/Windows 真实宿主验证须在交付说明中标明，不把单测视为实测。
 
+### 仅在需要时改写 shell 命令
+
+`~/.lorelum/config.yaml` 的 `codex.shellSessionInjection` 仅支持 `lore-only` 与 `all-shell`。缺失时默认 `lore-only`：Hook 仍会收到每次 Bash PreToolUse，但只在原 `tool_input.command` 文本出现独立的 `lore` 字样时返回 `updatedInput`；`lore get`、绝对路径中的 `/lore`、管道和命令替换都可命中。这里只做文本边界判断，不解析 shell AST，也不检查本地脚本内容。文本提到 `lore` 但未执行时可能多注入一次；外层只有 `sh script.sh` 而脚本内部调用 `lore` 时会漏记。这是用户认可的默认取舍，不另建窗口补记。
+
+用户显式选择 `all-shell` 后，恢复为每次有效的 Bash 命令都注入，覆盖脚本内间接调用的常见子进程继承。该值不表示非 shell tool 也注入。设置由 CLI 在 Hook 调用时读取用户级共享配置，只校验 `codex` section，不写配置或更改已有自定义字段；缺失配置正常使用默认。无效 YAML 或无效值使本次 Hook 输出 no-op 和不含配置内容的诊断，不阻塞原命令，也绝不默默扩大为 `all-shell`。SessionStart Catalog、SubagentStart 提示和普通 `lore get` 不受此开关控制。两种模式都仍运行 Codex Pre Hook，因此默认模式减少的是命令改写和变量可见性，不承诺消除每条 shell 命令的 Hook 进程开销。
+
 CLI `get` 仍直接从 LocalStore 读取；成功后才按同一 `SessionRef` 合同检查成对的宿主/会话环境变量，缺失或无效都当作未提供，不把坏值传给 Backend。有效时将可选 `SessionRef` 与候选元数据、实际 `cwd` 一起发给**已运行**的 Backend。没有有效显式身份时，由 Backend 尝试公共活动窗口；两条路径都不可用就不记。Backend 的关联模块只负责一次会话归属，Practice-hints 模块只负责“读过什么”与持久化。关键内部合同示意（具体 DTO 复用现有本地认证协议）：
 
 ```ts
@@ -57,7 +63,7 @@ Backend 统一计算会话目录：Codex 的会话 ID 原样作为目录名，�
 
 ## Risks / Trade-offs
 
-- **改写所有 Bash 的语义与信任成本** → 只改 `command`、保留其余工具输入；测量 Hook 进程开销；验证原退出码、工作目录、批准与沙箱行为。未信任 Hook 应保持原命令且不声称精确绑定；失败不靠解析命令补救。
+- **改写 Bash 的语义与信任成本** → 默认只改文本含 `lore` 的 `command`，`all-shell` 由用户显式开启；保留其余工具输入，验证原退出码、工作目录、批准与沙箱行为。未信任 Hook 应保持原命令且不声称精确绑定；失败不靠解析命令补救。
 - **变量没有跨某些进程边界继承** → 记录为能力边界；Codex 三个平台都不并行维持窗口。Linux/Windows 真实宿主验收结果须与已通过的 macOS 结果分开报告。
 - **窗口后备同路径会话重叠** → 仍可能误归属，文档仅对后备路径提示此限制；显式会话身份不借目录推断。
 - **直接身份可被同用户进程伪造** → 只用于可选检索提示，不用于权限、安全审计或可信的父 Agent 采纳判断。

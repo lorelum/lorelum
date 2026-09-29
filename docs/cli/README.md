@@ -16,7 +16,7 @@ Lorelum CLI 的普通命令默认在 stdout 输出完整、可读的 text：它�
 - [Get](get.md)：读取一个已安装 Practice。
 - [Pack catalog](list.md)：列出已安装 Pack 或其 Practice 目录。
 - [Pack 生命周期](packs.md)：安装、更新或移除某个 Pack。
-- [Host Hooks](hook.md)：向 Codex、Cursor、WorkBuddy 与 ZCode 注入受限的 Installed Pack Catalog。
+- [Host Hooks](hook.md)：向 Codex、Cursor、WorkBuddy 与 ZCode 注入受限的 Installed Pack Catalog，并提供 Codex 的可选会话候选提示。
 
 使用 `lore --version` 查询 CLI 版本；`--help`、`--json`、`--debug` 和 `--log-level` 是全局选项。`--debug` 仅提升本次调用的持久本机日志到 debug；当调用进入 Backend 时，它只传给同一条 authenticated request 及关联 lifecycle，不改变 daemon 全局配置或其他调用的收集等级。`--log-level` 只控制 stderr 呈现。持续 debug 可在 `~/.lorelum/config.yaml` 设置 `logging.level: debug`。需要 Store 的命令支持 `--store-root <path>`；backend/model 命令不读取或修改 LocalStore，传入该选项不会改变它们的模型来源。`query`、`index` 与 cache 命令支持 `--cache-root <path>`，它只选择本次调用的用户级派生数据位置；未指定时默认使用 `~/.lorelum/cache`。
 
