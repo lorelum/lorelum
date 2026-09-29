@@ -6,46 +6,43 @@ const skills = [
   {
     path: "skills/lorelum/SKILL.md",
     recoveryReference: "skills/lorelum/references/semantic-query-recovery.md",
-    catalogRule: "## Establish the Pack Catalog once",
   },
   {
     path: "plugins/codex/lorelum/skills/lorelum/SKILL.md",
     recoveryReference: "plugins/codex/lorelum/skills/lorelum/references/semantic-query-recovery.md",
-    catalogRule: "Codex receives a compact **Installed Pack Catalog**",
   },
   {
     path: "plugins/zcode/lorelum/skills/lorelum/SKILL.md",
     recoveryReference: "plugins/zcode/lorelum/skills/lorelum/references/semantic-query-recovery.md",
-    catalogRule: "ZCode receives a compact **Installed Pack Catalog**",
   },
   {
     path: "plugins/cursor/lorelum/skills/lorelum/SKILL.md",
     recoveryReference:
       "plugins/cursor/lorelum/skills/lorelum/references/semantic-query-recovery.md",
-    catalogRule: "Cursor may receive a compact **Installed Pack Catalog**",
   },
   {
     path: "plugins/workbuddy/lorelum/skills/lorelum/SKILL.md",
     recoveryReference:
       "plugins/workbuddy/lorelum/skills/lorelum/references/semantic-query-recovery.md",
-    catalogRule: "WorkBuddy receives a compact **Installed Pack Catalog**",
   },
 ] as const;
 
-test("Skill dispatches bounded diagnostics to the shared recovery reference", async () => {
+test("Skill keeps retrieval and resource actions while dispatching diagnostics to recovery", async () => {
   await Promise.all(
-    skills.map(async ({ path, recoveryReference, catalogRule }) => {
+    skills.map(async ({ path, recoveryReference }) => {
       const [content, recovery] = await Promise.all([
         Bun.file(`${repositoryRoot}${path}`).text(),
         Bun.file(`${repositoryRoot}${recoveryReference}`).text(),
       ]);
-      expect(content).toContain(catalogRule);
+      expect(content).toContain("lore pack list --details");
+      expect(content).toContain("lore query ");
+      expect(content).toContain("lore get <practice-id>");
+      expect(content).toContain("lore pack list <pack-name>");
+      expect(content).toContain("`packRoot` of its corresponding Store source");
+      expect(content).toContain("`project-layer-N`");
       expect(content).toContain("diagnostics.traceId");
       expect(content).toContain("lore logs --trace-id <traceId>");
-      expect(content).toContain("Do not scan another trace");
-      expect(content).toContain("do not preflight Backend, model, index, or status");
-      expect(content).toContain("no extra logs, draft, upload, or Issue");
-      expect(content).toContain("[diagnostic recovery](references/semantic-query-recovery.md)");
+      expect(content).toContain("[semantic query recovery](references/semantic-query-recovery.md)");
 
       expect(recovery).toContain("missingEvidence");
       expect(recovery).toContain("Do not scan another trace");
