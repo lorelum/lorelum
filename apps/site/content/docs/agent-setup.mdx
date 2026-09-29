@@ -56,9 +56,9 @@ implementation, verification, or recovery decision.
 
 Lorelum can keep a short list of Practices read during an agent conversation. A successful `lore get` reports a candidate only when the local Backend is already running and the host integration can associate the read with a session. A host may pass its session identity to the command or use a supported activity-window fallback. The Backend keeps the list under `~/.lorelum/sessions/<host>/<session-id>/practice-reads.jsonl`; it survives a Backend restart or deletion of the original worktree. A failed or unassociated read is simply not added, and the result of `get` does not change.
 
-An integration with a subagent-start Hook can pass those candidates to a new subagent as IDs, titles, and applicability hints. The subagent decides whether to run `lore get` itself; no Practice body is injected automatically. The list may be incomplete and says only that a Practice was read, not that the parent adopted it. It is not a task log or an access-control record. This belongs to the shared Agent integration layer, with the goal of supporting most hosts that offer suitable Hooks; **Codex is the first host to provide both shell session binding and subagent hints**. The other listed Plugins' Hooks currently inject the Pack Catalog but do not yet offer this session feature.
+An integration with a subagent-start Hook can pass those candidates to a new subagent as IDs, titles, and applicability hints. The subagent decides whether to run `lore get` itself; no Practice body is injected automatically. The list may be incomplete and says only that a Practice was read, not that the parent adopted it. It is not a task log or an access-control record. This belongs to the shared Agent integration layer; each host Plugin defines which Hooks it supports.
 
-For hosts that can pass session identity to shell commands, the shared [Agent setting](./configuration#agent-shell-session-identity) controls which commands receive it. Codex's [host guide](./codex) describes its Hook behavior and platform-specific status.
+For hosts that can pass session identity to shell commands, the shared [Agent setting](./configuration#agent-shell-session-identity) controls which commands receive it. See each host's guide for its Hook behavior.
 
 ## If it does not work
 

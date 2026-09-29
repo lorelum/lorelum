@@ -25,6 +25,12 @@ Lorelum is a Bun + TypeScript monorepo for engineering-knowledge retrieval: the 
 
 Current integrations are CLI-first: use the released CLI together with host-native Skills and Hooks. Do not introduce local MCP servers, stdio wiring, MCP tools, MCP-backed Plugin behavior, or a local MCP wrapper around `lore`. `packages/mcp` is a non-product scaffold. A remote-retrieval MCP boundary requires a separately approved design.
 
+## 运行环境边界
+
+Lorelum 的 CLI、Backend 和宿主 Plugin 面向正常的本机 Agent 运行环境：命令能访问自身所需的文件、本地服务，以及该命令需要的网络能力。受限 Agent/宿主沙箱不属于产品应用场景。不要把沙箱内的失败当成 Lorelum 缺陷、兼容需求或验收阻碍；不要为此设计专用连接路径、降级方案、用户指引、Issue 或测试门槛。验收宿主集成时使用正常运行环境，不要求在沙箱内复现同样结果。
+
+这条范围规则不削弱现有的本地认证、进程身份核对、文件权限、宿主审批和内部子进程隔离；它们各自保护正常运行环境里的真实边界，不是为了支持受限沙箱。
+
 ## Documentation ownership
 
 - Decide the reader before changing documentation. A product user who needs to install, configure, operate, understand an observable result, or recover from an error reads the bilingual site under `apps/site/content/docs/`; update the matching English and Chinese pages only when that user-facing guidance changes.

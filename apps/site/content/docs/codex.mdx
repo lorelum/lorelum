@@ -38,7 +38,7 @@ In a new task, ask Codex to use Lorelum before it settles an important plan or i
 Use Lorelum to find guidance for this change before you finalize the plan.
 ```
 
-Codex is the first host to implement [session read hints](./agent-setup#session-read-hints): its shell `PreToolUse` passes session identity to eligible commands, and `SubagentStart` can show the candidate metadata to a new subagent. This is one host adapter for a shared Lorelum capability, not a Codex-only feature. The shared [Agent shell setting](./configuration#agent-shell-session-identity) controls which shell commands receive identity. Codex does not yet restore read hints to the main agent after compaction.
+Codex implements [session read hints](./agent-setup#session-read-hints): its shell `PreToolUse` passes session identity to eligible commands, and `SubagentStart` can show the candidate metadata to a new subagent. This is one host adapter for a shared Lorelum capability, not a Codex-only feature. The shared [Agent shell setting](./configuration#agent-shell-session-identity) controls which shell commands receive identity. These hints go to new subagents, not to the main agent after compaction.
 
 ### Why environment assignments appear before a command
 
@@ -46,7 +46,7 @@ When a command is in the selected injection scope, Codex's `PreToolUse` Hook set
 
 These variables are not injected as extra Lorelum guidance to the agent. The rewritten command may still appear in Codex tool details or records, however, and a command that prints its environment can put them in the tool result. We therefore cannot guarantee that they never appear in visible records or model context. They are only for session association; the agent does not need to use or manage them.
 
-Codex now needs only `PreToolUse`; the Plugin no longer installs an empty `PostToolUse` Hook. If Pre is disabled, new `lore get` reads cannot be associated with the current conversation, so subagents will not receive hints for those new reads; `lore get` itself and the Pack Catalog still work. If you still see a Post Hook after updating from an older Plugin, re-review and install the current Plugin configuration. The macOS path has been verified in a real Codex session; Linux/Windows host-level inheritance and approval behavior still need validation.
+The Plugin uses `PreToolUse` and does not install an empty `PostToolUse` Hook. If Pre is disabled, new `lore get` reads cannot be associated with the conversation, so subagents will not receive hints for those reads; `lore get` itself and the Pack Catalog still work. If you see a Post Hook from an older Plugin, re-review and install the Plugin configuration.
 
 ## Update
 

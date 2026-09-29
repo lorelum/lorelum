@@ -32,7 +32,7 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
 
 `lore get` 成功后的候选报告由 CLI 发往已经运行的 Backend，Backend 负责把可关联的读取保存在通用会话目录；宿主 Hook 只映射事件、传递会话身份或读取有界候选提示。无法关联或 Backend 不可达时可漏记，`get` 的结果与退出码不变。Backend 的[公共会话模块](../../packages/backend/src/modules/sessions/README.md)拥有显式身份与活动窗口后备，不在某个宿主 Plugin 里另存清单。
 
-`agent.shellSessionInjection` 是 Agent 共用的会话身份注入策略，不属于 Codex 协议。支持 shell 命令改写的宿主在调用对应 Hook 时读取它：默认 `lore-only` 只匹配外层命令文本中的独立 `lore` 字样，`all-shell` 涵盖该宿主每次有效的 shell tool 调用。它不解析脚本，也不控制非 shell tool、SessionStart Catalog 或子 Agent 提示；无效配置在消费它的 Hook 中以非阻塞 no-op 降级。目前只有 Codex 实现了这条改写路径，其他宿主不因共用配置存在而改变行为。
+`agent.shellSessionInjection` 是 Agent 共用的会话身份注入策略，不属于 Codex 协议。支持 shell 命令改写的宿主在调用对应 Hook 时读取它：默认 `lore-only` 只匹配外层命令文本中的独立 `lore` 字样，`all-shell` 涵盖该宿主每次有效的 shell tool 调用。它不解析脚本，也不控制非 shell tool、SessionStart Catalog 或子 Agent 提示；无效配置在消费它的 Hook 中以非阻塞 no-op 降级。没有对应 Hook 的宿主不会仅凭配置字段而改变行为。
 
 ## 宿主差异
 

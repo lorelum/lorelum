@@ -52,9 +52,9 @@ Cursor 请安装 [Lorelum Plugin](./cursor)，而不是文件式 Skill。
 
 Lorelum 可以为 Agent 对话保留一份简短的已读 Practice 候选列表。`lore get` 成功、本机 Backend 已在运行，且宿主集成能将读取关联到会话时，CLI 才报告这次读取。宿主可以向命令传递会话身份，也可以使用受支持的活动窗口后备。列表由 Backend 存在 `~/.lorelum/sessions/<宿主>/<会话 ID>/practice-reads.jsonl`；重启 Backend 或删除原 worktree 不会清除记录。读取失败或无法关联会话就不记，不改变 `get` 的结果。
 
-接入了子 Agent 启动 Hook 的宿主可以把候选 ID、标题和适用条件传给新子 Agent，由它决定是否自行 `lore get`，不会自动注入正文。列表可能不完整，只说明某个 Practice 被读过，不代表主 Agent 已采纳；它不是任务日志或权限依据。这项能力属于 Agent 集成的共用层，目标是逐步适配大部分具备相应 Hook 的宿主；**Codex 是第一个同时接入 shell 会话身份和子 Agent 提示的宿主**。目前其他 Plugin 的 Hook 会注入 Pack Catalog，但尚未接入这项会话能力。
+接入了子 Agent 启动 Hook 的宿主可以把候选 ID、标题和适用条件传给新子 Agent，由它决定是否自行 `lore get`，不会自动注入正文。列表可能不完整，只说明某个 Practice 被读过，不代表主 Agent 已采纳；它不是任务日志或权限依据。这项能力属于 Agent 集成的共用层；各宿主 Plugin 分别说明支持哪些 Hook。
 
-支持在 shell 命令中传递会话身份的宿主共用[注入范围配置](./configuration#agent-shell-会话身份)；Codex 的 Hook 行为和平台验证状态见其[宿主指南](./codex)。
+支持在 shell 命令中传递会话身份的宿主共用[注入范围配置](./configuration#agent-shell-会话身份)；各宿主指南说明对应的 Hook 行为。
 
 ## 没有生效怎么办
 

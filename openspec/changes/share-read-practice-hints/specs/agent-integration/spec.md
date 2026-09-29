@@ -41,7 +41,7 @@ Lorelum SHALL 由现有 Backend 持有成功读取的 Practice 候选状态，�
 
 ### Requirement: Codex 会话身份传递不改变原命令权限
 
-Codex 集成 SHALL 只对 Bash 的 `PreToolUse` 改写工具输入以传递宿主与会话 ID；macOS/Linux SHALL 使用 Unix shell 环境变量语法，Windows 原生 Agent SHALL 使用 PowerShell 环境变量语法。MUST 保留原输入的其他字段，且 MUST NOT 改变命令原有的权限、沙箱与退出语义。无法安全改写或用户未信任 Hook 时 MUST 不假称显式绑定已生效。Codex 的 `PostToolUse` SHALL 不再为活动窗口连接 Backend；Linux/Windows 的 Hook 声明及单元测试不能充当真实宿主改写、继承与权限验证。
+Codex 集成 SHALL 只对 Bash 的 `PreToolUse` 改写工具输入以传递宿主与会话 ID；macOS/Linux SHALL 使用 Unix shell 环境变量语法，Windows 原生 Agent SHALL 使用 PowerShell 环境变量语法。MUST 保留原输入的其他字段，且 MUST NOT 改变命令原有的批准与退出语义。无法安全改写或用户未信任 Hook 时 MUST 不假称显式绑定已生效。Codex 的 `PostToolUse` SHALL 不再为活动窗口连接 Backend；Linux/Windows 的 Hook 声明及单元测试不能充当真实宿主改写、继承与批准流程验证。
 
 Agent 共用的用户级配置 `agent.shellSessionInjection` SHALL 只接受 `lore-only` 与 `all-shell`；缺失时 MUST 默认 `lore-only`。当前只有 Codex 消费这项配置，其他宿主没有 shell 身份改写能力时 MUST 不因配置存在而新增命令改写。Codex 默认模式 SHALL 只在 Bash `tool_input.command` 文本中出现独立的 `lore` 字样时传递会话身份；`all-shell` SHALL 对每次有效的 Bash PreToolUse 传递身份。两种模式都 MUST 跳过非 shell tool；Hook MUST NOT 为判断而读取脚本内容或解析 shell 语法。配置损坏或取值无效时 MUST 不改写该次命令，也 MUST NOT 阻塞原工具调用。
 

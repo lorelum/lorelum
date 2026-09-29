@@ -19,7 +19,7 @@ agent:
 
 `all-shell` 为每个受支持的 shell tool 命令传递身份，不影响非 shell tool。删除该字段或设为 `lore-only` 即恢复默认。支持此功能的 Hook 会在下一次调用时读取改动，无需重启 Backend。配置无效时，该次 Hook 不改写命令，也不阻塞工具。两种模式下 Hook 仍会在每次匹配的 shell 调用中运行；默认模式减少的是命令改写和变量可见性，不是 Hook 进程开销。
 
-这是 Agent 共用配置，不属于 Codex。**目前只有 Codex 集成实现了 shell 会话绑定，其他集成不会仅凭设置该字段就启用注入。**会话已读候选的共用行为见[接入 Agent](./agent-setup#会话中的已读候选)，具体支持的 Hook 以各宿主指南为准。
+这是 Agent 共用配置，不属于 Codex。只有宿主 Plugin 支持 shell 会话绑定时才生效；单靠设置该字段不会新增 Hook。会话已读候选的共用行为见[接入 Agent](./agent-setup#会话中的已读候选)，具体支持的 Hook 以各宿主指南为准。
 
 ## 选择 Store
 

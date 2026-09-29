@@ -11,7 +11,7 @@ The current host integration contract is [agent-integration](../../../openspec/s
 
 The bundled runtime integration calls `lore hook codex`, the versioned Codex Hook ABI introduced in Lorelum CLI v0.1.0-alpha.1. It runs for supported `SessionStart` sources, including `compact`, so the Catalog is regenerated before Codex continues after compaction. Codex's `PreToolUse` handles only the `Bash` tool: it preserves other tool input and prepends session assignments with `export` on macOS/Linux or `$env:` on native Windows PowerShell when the shared `agent.shellSessionInjection` policy matches. Codex no longer needs `PostToolUse`. Its `SubagentStart` reads bounded candidate metadata from the Backend and returns the Codex `hookSpecificOutput` envelope. See [the shared Agent behavior](https://lorelum.com/en/docs/agent-setup#session-read-hints) and [configuration](https://lorelum.com/en/docs/configuration#agent-shell-session-identity) for what is recorded, the default policy, and its limits; those contracts are not owned by this Plugin.
 
-The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. If the CLI is unavailable or returns malformed data, the integration writes a diagnostic to stderr and lets the host continue without additional context. An untrusted Hook or a command that clears its environment may lose session binding. The macOS behavior has been verified in a real Codex host; Linux and Windows rewrites still need separate real-host validation. Main-agent compact recovery is not included.
+The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. If the CLI is unavailable or returns malformed data, the integration writes a diagnostic to stderr and lets the host continue without additional context. An untrusted Hook or a command that clears its environment may lose session binding. Main-agent compact recovery is not included.
 
 ## Integration scope
 
@@ -27,7 +27,7 @@ This Plugin is a Codex adapter and uses the installed `lore` CLI on `PATH` for b
 
 ### Windows notes
 
-Native Windows Codex uses PowerShell for its agent commands. The Plugin invokes the compiled `lore` command directly and does not require Bun or Node on the user machine. Hooks are gated by review: after any change to `hooks.json`, re-trust them in the Codex plugin UI, otherwise Codex silently skips them. The PowerShell command rewrite has not yet been verified in a real Windows Codex session.
+Native Windows Codex uses PowerShell for its agent commands. The Plugin invokes the compiled `lore` command directly and does not require Bun or Node on the user machine. Hooks are gated by review: after any change to `hooks.json`, re-trust them in the Codex plugin UI, otherwise Codex silently skips them.
 
 ## Local validation
 

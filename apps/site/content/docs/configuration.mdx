@@ -19,7 +19,7 @@ agent:
 
 `all-shell` passes the identity to every supported shell tool command, not to non-shell tools. Remove the field or set it to `lore-only` to restore the default. Supporting Hooks read changes on their next invocation; a Backend restart is not needed. Invalid configuration leaves that Hook call unchanged and does not block the tool. Both modes still run the Hook on each matched shell call; the default reduces command rewriting and variable visibility, not Hook process overhead.
 
-This is a shared setting for agent integrations, not a Codex-specific one. **Codex currently implements shell session binding; other integrations do not gain it merely by setting this field.** See [Agent integration](./agent-setup#session-read-hints) for the shared read-hint behavior and each host's guide for its supported Hooks.
+This is a shared setting for agent integrations, not a Codex-specific one. It only affects a host whose Plugin supports shell session binding; setting the field alone does not add a Hook. See [Agent integration](./agent-setup#session-read-hints) for the shared read-hint behavior and each host's guide for its supported Hooks.
 
 ## Store scope
 
