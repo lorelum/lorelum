@@ -34,10 +34,13 @@ The generic Lorelum Skill and the host-native copies now focus on when to query,
 
 - Invalid CLI arguments and configuration now produce a more specific, actionable error message, including valid choices or a repair target when known. Error codes, exit codes, and the JSON error shape remain unchanged; programs should continue to use those fields rather than parse message prose. [#237](https://github.com/lorelum/lorelum/pull/237)
 - A user-owned `~/.lorelum` directory with ordinary permissions no longer silently prevents diagnostic logs from being recorded. Lorelum repairs safe managed log paths; if logging still cannot persist, it reports the failure on stderr without changing the command's business result or exit code. It does not change permissions on the user's home directory. [#255](https://github.com/lorelum/lorelum/pull/255)
+- A missing, mismatched, or damaged native runtime is now checked before model download and reported as `embedding.native-resource-invalid`, with the failed resource check and an instruction to reinstall the complete release directory. Model-file failures retain `embedding.resource-invalid` and point to the model cache or configured `embedding.modelPath`. `model status`, `model load`, and semantic query preserve this distinction; a startup integrity failure is no longer presented as a timeout. [#266](https://github.com/lorelum/lorelum/pull/266) (refs [#261](https://github.com/lorelum/lorelum/issues/261))
 
 ## Contributor workflow
 
 CI now runs lifecycle tests in parallel and checks the workspace with native TypeScript 7; the site build remains part of verification. [#220](https://github.com/lorelum/lorelum/pull/220) [#222](https://github.com/lorelum/lorelum/pull/222)
+
+For local development, `bun run build:cli` now builds a runnable CLI with its matching native runtime in `dist/release/<target>/`. `bun run build:cli-only` produces only `dist/lore` for uses such as benchmarks. The release-archive path is unchanged. [#266](https://github.com/lorelum/lorelum/pull/266)
 
 Issue and PR guidance now asks for evidence a contributor or reviewer can use without the original conversation. [#239](https://github.com/lorelum/lorelum/pull/239) [#248](https://github.com/lorelum/lorelum/pull/248)
 
@@ -58,6 +61,14 @@ Install the Claude Code Plugin from its marketplace. Update the other host Plugi
 ### If you consume CLI text output
 
 The default human-readable output of `pack list`, `query`, and `get`, and the fields shown in the session-start Pack Catalog, are intentionally shorter. If you relied on the previous full text, use `--verbose`; scripts should consume `--json`, whose envelope and data fields are unchanged. `get` still exposes the source roots needed to open linked Pack resources. [#258](https://github.com/lorelum/lorelum/pull/258)
+
+### Development builds
+
+Scripts that expect `bun run build:cli` to leave a single `dist/lore` executable should switch to `build:cli-only`. The regular `build:cli` output is now the complete `dist/release/<target>/` directory; keep its native files with the CLI when copying it. [#266](https://github.com/lorelum/lorelum/pull/266)
+
+### Resource-error consumers
+
+The CLI/Backend error protocol adds `embedding.native-resource-invalid` and an optional `resource` detail. Consumers that match resource errors should handle the new code; the existing model-file error code is unchanged. This change does not migrate Store, Pack, or model-cache data. [#266](https://github.com/lorelum/lorelum/pull/266)
 
 ### Existing semantic vectors
 
