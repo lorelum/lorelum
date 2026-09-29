@@ -5,11 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       create_draft:
-        description: Create a verified prerelease draft from an existing version tag
+        description: Create the annotated version tag and verified prerelease draft
         type: boolean
         default: false
       tag:
-        description: Existing annotated version tag (required when creating a draft)
+        description: New v<CLI version> tag (required when creating a draft)
         type: string
         default: ""
 
@@ -45,8 +45,8 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@v7.0.1
         with:
-          # A draft must package the selected tag, not the workflow's default-branch SHA.
-          ref: ${{ inputs.create_draft && inputs.tag || github.sha }}
+          # Package the exact commit selected when the manual run was dispatched.
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       # Bun version pinned per ADR 0002 (packageManager field in package.json).
@@ -60,12 +60,15 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
+          test "$GITHUB_REF" = "refs/heads/main"
           test -n "$RELEASE_TAG"
           git check-ref-format "refs/tags/$RELEASE_TAG"
-          git cat-file -e "refs/tags/$RELEASE_TAG^{tag}"
-          test "$(git rev-parse HEAD)" = "$(git rev-parse "$RELEASE_TAG^{commit}")"
           release_version="$(bun -e 'console.log(require("./packages/cli/package.json").version)')"
           test "$RELEASE_TAG" = "v$release_version"
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            echo "tag already exists: $RELEASE_TAG"
+            exit 1
+          fi
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -137,8 +140,8 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ inputs.tag }}
-          fetch-depth: 1
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
       - name: Download verified archives
         uses: actions/download-artifact@v8.0.1
@@ -168,6 +171,25 @@ jobs:
             -e "s/__RELEASE_TAG__/$RELEASE_TAG/g" \
             -e "s/__RELEASE_VERSION__/$release_version/g" \
             scripts/release/release-notes.md > release-notes.md
+
+      - name: Create annotated version tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release already exists for $RELEASE_TAG"
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            echo "tag already exists: $RELEASE_TAG"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" -m "Lorelum $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
 
       - name: Create draft release
         env:
