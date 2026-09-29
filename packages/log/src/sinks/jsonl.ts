@@ -1,7 +1,6 @@
 import { constants } from "node:fs";
-import { chmod, lstat, mkdir, open } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
-/* eslint-disable no-await-in-loop -- Each path component must be checked and created in order. */
+import { open } from "node:fs/promises";
+import { dirname } from "node:path";
 
 import {
   createLogRecord,
@@ -10,76 +9,35 @@ import {
   type LogRecord,
 } from "../record.js";
 import type { LogSink } from "../sink.js";
+import {
+  hasCode,
+  inspectAndTightenHandle,
+  ManagedLogLocationError,
+  openFailureReason,
+  walkManagedLocation,
+  type UnsafeTargetReason,
+} from "./safety.js";
 
-function hasCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code;
+const APPEND_FLAGS = constants.O_APPEND | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0);
+
+export type JsonlFileSinkFailureCategory = UnsafeTargetReason | "write-failed";
+
+/** Why one invocation's diagnostic records were not persisted, for the current-run notice. */
+export interface JsonlFileSinkFailure {
+  readonly category: JsonlFileSinkFailureCategory;
+  readonly path: string;
+  readonly detail?: string;
 }
 
-async function assertPrivateDirectory(path: string): Promise<void> {
-  const info = await lstat(path);
-  if (
-    info.isSymbolicLink() ||
-    !info.isDirectory() ||
-    (process.platform !== "win32" && (info.mode & 0o077) !== 0)
-  ) {
-    throw new Error("Managed log directory is unsafe.");
+function failureFrom(error: unknown, path: string): JsonlFileSinkFailure {
+  if (error instanceof ManagedLogLocationError) {
+    return { category: error.reason, path: error.path };
   }
-}
-
-function relativeSegments(root: string, target: string): readonly string[] {
-  const suffix = relative(root, target);
-  if (suffix === "") return [];
-  if (suffix === ".." || suffix.startsWith(`..${sep}`)) {
-    throw new Error("Managed log directory escaped its root.");
-  }
-  return suffix.split(sep).filter(Boolean);
-}
-
-async function ensurePrivateDirectory(
-  directory: string,
-  rootDirectory: string,
-  trustedDirectory: string,
-): Promise<void> {
-  const trusted = resolve(trustedDirectory);
-  const root = resolve(rootDirectory);
-  const target = resolve(directory);
-  const rootSegments = relativeSegments(trusted, root);
-  const targetSegments = relativeSegments(root, target);
-  await mkdir(trusted, { recursive: true, mode: 0o700 });
-  await assertPrivateDirectory(trusted);
-  let current = trusted;
-  for (const segment of [...rootSegments, ...targetSegments]) {
-    current = join(current, segment);
-    let created = false;
-    await lstat(current).catch(async (error: unknown) => {
-      if (!hasCode(error, "ENOENT")) throw error;
-      try {
-        await mkdir(current, { mode: 0o700 });
-        created = true;
-      } catch (mkdirError) {
-        if (!hasCode(mkdirError, "EEXIST")) throw mkdirError;
-      }
-      return lstat(current);
-    });
-    if (created) {
-      await chmod(current, 0o700);
-    }
-    await assertPrivateDirectory(current);
-  }
-}
-
-async function assertPrivateTarget(path: string, allowMissing: boolean): Promise<void> {
-  const info = await lstat(path).catch((error: unknown) => {
-    if (allowMissing && hasCode(error, "ENOENT")) return undefined;
-    throw error;
-  });
-  if (info === undefined) return;
-  if (info.isSymbolicLink() || !info.isFile() || info.nlink !== 1) {
-    throw new Error("Managed log file is unsafe.");
-  }
-  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
-    throw new Error("Managed log file is not private.");
-  }
+  const detail =
+    typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+      ? error.code
+      : String(error);
+  return { category: "write-failed", path, detail };
 }
 
 /** A best-effort append-only JSONL sink for one process-owned segment file. */
@@ -87,6 +45,7 @@ export class JsonlFileSink implements LogSink {
   private disabled = false;
   private queue: Promise<void> = Promise.resolve();
   private preflightPromise: Promise<void> | undefined;
+  private sinkFailure: JsonlFileSinkFailure | undefined;
 
   constructor(
     readonly path: string,
@@ -94,13 +53,25 @@ export class JsonlFileSink implements LogSink {
     private readonly trustedDirectory = dirname(rootDirectory),
   ) {}
 
+  /** The first failure that disabled this sink, read after `close()` for the invocation notice. */
+  get failure(): JsonlFileSinkFailure | undefined {
+    return this.sinkFailure;
+  }
+
   /** Safe paths are established once; a later replacement disables this sink. */
   async preflight(): Promise<void> {
-    this.preflightPromise ??= (async () => {
-      await ensurePrivateDirectory(dirname(this.path), this.rootDirectory, this.trustedDirectory);
-      await assertPrivateTarget(this.path, true);
-    })();
+    this.preflightPromise ??= this.prepareLocation();
     await this.preflightPromise;
+  }
+
+  /**
+   * Structurally gates the trusted directory (never tightened) and verifies —
+   * or safely tightens — every managed segment below it down to the segment
+   * directory, creating missing segments private. Unsafe segments reject with
+   * a typed ManagedLogLocationError instead of being touched.
+   */
+  private async prepareLocation(): Promise<void> {
+    await walkManagedLocation(this.trustedDirectory, dirname(this.path));
   }
 
   write(record: LogRecord | LogEventInput): Promise<void> {
@@ -109,25 +80,47 @@ export class JsonlFileSink implements LogSink {
       if (this.disabled) return;
       try {
         await this.preflight();
-        await ensurePrivateDirectory(dirname(this.path), this.rootDirectory, this.trustedDirectory);
-        await assertPrivateTarget(this.path, true);
-        const file = await open(
-          this.path,
-          constants.O_APPEND | constants.O_CREAT | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0),
-          0o600,
-        );
-        try {
-          await file.writeFile(serializeLogRecord(createLogRecord(record)), "utf8");
-          await file.sync();
-        } finally {
-          await file.close();
-        }
-      } catch {
+        // Re-verify on every write so a replaced managed segment cannot be
+        // followed after a successful startup.
+        await this.prepareLocation();
+        await this.appendRecord(record);
+      } catch (error) {
         this.disabled = true;
+        // Keep the first failure: with one managed location it is the root
+        // cause of this run's missing evidence.
+        this.sinkFailure ??= failureFrom(error, this.path);
       }
     });
     this.queue = operation.catch(() => undefined);
     return operation;
+  }
+
+  private async appendRecord(record: LogRecord | LogEventInput): Promise<void> {
+    let file = await open(this.path, APPEND_FLAGS).catch(async (error: unknown) => {
+      if (!hasCode(error, "ENOENT")) {
+        throw new ManagedLogLocationError(await openFailureReason(this.path, error), this.path);
+      }
+      return undefined;
+    });
+    let created = false;
+    if (file === undefined) {
+      file = await open(this.path, APPEND_FLAGS | constants.O_CREAT, 0o600);
+      created = true;
+    }
+    try {
+      // A segment this process created is set to the intended mode regardless
+      // of umask; an existing one is verified and tightened on the same
+      // descriptor the record is written through.
+      if (created) await file.chmod(0o600);
+      const verdict = await inspectAndTightenHandle(file, this.path, "file");
+      if (verdict.verdict === "unsafe") {
+        throw new ManagedLogLocationError(verdict.reason, this.path);
+      }
+      await file.writeFile(serializeLogRecord(createLogRecord(record)), "utf8");
+      await file.sync();
+    } finally {
+      await file.close();
+    }
   }
 
   async close(): Promise<void> {

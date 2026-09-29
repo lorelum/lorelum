@@ -6,11 +6,12 @@ import {
   JsonlFileSink,
   pruneManagedLogs,
   SinkLogEmitter,
+  type JsonlFileSinkFailure,
   type Logger as LocalLogger,
   type LogEmitter,
   type TraceId,
 } from "@lorelum/log";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { CliStderrLogSink } from "../runtime/diagnostics.js";
 import { Logger } from "../runtime/logger.js";
@@ -41,6 +42,20 @@ async function configuredLevel(debug: boolean): Promise<"error" | "warn" | "info
     // A malformed optional logging section must not prevent normal CLI recovery.
     return "info";
   }
+}
+
+/**
+ * One stderr line for a run whose diagnostic records were not persisted. It
+ * states the known failure category only; business results, error codes, and
+ * exit codes are untouched. A foreign-owned Lorelum root gets the focused
+ * (non-recursive) ownership fix instead of a generic category.
+ */
+export function sinkFailureNotice(failure: JsonlFileSinkFailure, trustedDirectory: string): string {
+  if (failure.category === "foreign-owner" && resolve(failure.path) === resolve(trustedDirectory)) {
+    return `lorelum: diagnostic logs for this run were not saved: ${failure.path} is owned by another user. If lore ran with sudo, restore ownership with: sudo chown "$(id -u):$(id -g)" ${failure.path}`;
+  }
+  const detail = failure.detail === undefined ? "" : `: ${failure.detail}`;
+  return `lorelum: diagnostic logs for this run were not saved (${failure.category} at ${failure.path}${detail})`;
 }
 
 /** Builds a persistent process-owned logger without changing stderr presentation semantics. */
@@ -92,6 +107,10 @@ export async function createProcessLogRuntime(
     log,
     diagnostics,
     logDirectory: rootDirectory,
-    flush: async () => fileSink?.close(),
+    flush: async () => {
+      await fileSink?.close();
+      const failure = fileSink?.failure;
+      if (failure !== undefined) stderr.write(`${sinkFailureNotice(failure, trustedDirectory)}\n`);
+    },
   };
 }

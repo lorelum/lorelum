@@ -34,7 +34,12 @@ export {
   type LogEmitter,
   type LogSink,
 } from "./sink.js";
-export { JsonlFileSink } from "./sinks/jsonl.js";
+export {
+  JsonlFileSink,
+  type JsonlFileSinkFailure,
+  type JsonlFileSinkFailureCategory,
+} from "./sinks/jsonl.js";
+export type { UnsafeTargetReason } from "./sinks/safety.js";
 export {
   pruneManagedLogs,
   readManagedLogs,
