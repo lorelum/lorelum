@@ -1,5 +1,6 @@
 import packageManifest from "../../package.json";
 import { createTraceId, type TraceId } from "@lorelum/log";
+import type { ResourceFailure } from "@lorelum/backend/protocol";
 
 /** Version of the process-envelope contract. */
 export const protocolVersion = 2;
@@ -53,6 +54,7 @@ export interface ProtocolFailure extends EnvelopeBase {
     code: string;
     message: string;
     recovery?: ErrorRecovery;
+    resource?: ResourceFailure;
   };
 }
 
@@ -117,6 +119,26 @@ export const protocolResponseSchema = {
                 retry: { const: "original-command" },
               },
             },
+            resource: {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind", "file", "check"],
+              properties: {
+                kind: { enum: ["model", "native"] },
+                file: { type: "string" },
+                check: {
+                  enum: [
+                    "missing",
+                    "invalid",
+                    "size-mismatch",
+                    "sha256-mismatch",
+                    "manifest-mismatch",
+                  ],
+                },
+                expected: { type: "string" },
+                actual: { type: "string" },
+              },
+            },
           },
         },
       },
@@ -146,6 +168,7 @@ export function createFailureEnvelope(
   message: string,
   recovery?: ErrorRecovery,
   diagnostics: ProtocolDiagnostics = { traceId: createTraceId() },
+  resource?: ResourceFailure,
 ): ProtocolFailure {
   return {
     protocolVersion,
@@ -153,7 +176,12 @@ export function createFailureEnvelope(
     command,
     diagnostics,
     ok: false,
-    error: { code, message, ...(recovery === undefined ? {} : { recovery }) },
+    error: {
+      code,
+      message,
+      ...(recovery === undefined ? {} : { recovery }),
+      ...(resource === undefined ? {} : { resource }),
+    },
   };
 }
 

@@ -56,6 +56,12 @@ An empty result is different from `preparing` or an error. Agent integrations sh
 
 Check the reported `error.code`, available disk space, and network access to the configured model source. After fixing the cause, `lore model load` retries and waits. Model paths, cache locations, and download settings are described in [Embedding configuration](./configuration).
 
+## Model or native resource verification fails
+
+For `embedding.native-resource-invalid`, inspect the reported `resource.file` and `resource.check`. The installed CLI is missing its matching native runtime or failed its integrity check. Reinstall the complete package for this CLI build; downloading the model again cannot repair native files. A compiled development build must keep its `lore` executable and `native/<target>/` directory together.
+
+For `embedding.resource-invalid`, the fixed model file failed verification. `lore model status --json` identifies whether the affected file is the cached `model.gguf` or the configured `embedding.modelPath`, plus the check and expected/actual size or digest when available. Correct that model source, then run `lore model load` again. Neither error means a keyword result was substituted for the semantic query.
+
 ## Diagnose with keyword retrieval
 
 For an intentional offline search or to isolate a model problem, use:

@@ -23,11 +23,25 @@ export async function prepareModel(
   const artifact = dependencies.artifact ?? EMBEDDING_MODEL;
   const verify = async (path: string) => {
     progress({ phase: "verifying" });
+    const file = config.modelPath
+      ? "embedding.modelPath"
+      : path.endsWith(".part")
+        ? "model.gguf.part"
+        : "model.gguf";
     try {
-      await verifyResource(path, artifact.bytes, artifact.sha256, signal);
+      await verifyResource(path, artifact.bytes, artifact.sha256, signal, { kind: "model", file });
     } catch (error) {
       if (signal.aborted) throw error;
-      throw new EmbeddingError("embedding.resource-invalid");
+      if (error instanceof EmbeddingError) throw error;
+      throw new EmbeddingError(
+        "embedding.resource-invalid",
+        { cause: error },
+        {
+          kind: "model",
+          file,
+          check: "invalid",
+        },
+      );
     }
     signal.throwIfAborted();
     return path;
@@ -53,7 +67,14 @@ export async function prepareModel(
       await file.close();
     }
     const size = (await stat(partial)).size;
-    if (size > artifact.bytes) throw new EmbeddingError("embedding.resource-invalid");
+    if (size > artifact.bytes)
+      throw new EmbeddingError("embedding.resource-invalid", undefined, {
+        kind: "model",
+        file: "model.gguf.part",
+        check: "size-mismatch",
+        expected: String(artifact.bytes),
+        actual: String(size),
+      });
     if (size < artifact.bytes) {
       try {
         await (dependencies.download ?? downloadFile)({

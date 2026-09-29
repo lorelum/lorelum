@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EMBEDDING_MODEL, modelStates } from "./model";
-import { embeddingErrorCodes } from "./errors";
+import { embeddingErrorCodes, resourceFailureSchema } from "./errors";
 
 export const emptyModelRequestSchema = z.strictObject({});
 export const modelProgressSchema = z.strictObject({
@@ -17,6 +17,7 @@ export const modelStatusSchema = z.strictObject({
   device: z.literal("cpu"),
   dimensions: z.literal(EMBEDDING_MODEL.dimensions),
   error: z.enum(embeddingErrorCodes).optional(),
+  resource: resourceFailureSchema.optional(),
   threads: z.int().min(1).max(64),
   progress: modelProgressSchema.optional(),
 });

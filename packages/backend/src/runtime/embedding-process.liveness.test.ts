@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { createEmbeddingProcess, type EmbeddingProcessDeps } from "./embedding-process";
+import { EmbeddingError } from "../modules/embedding/errors";
 
 /**
  * The launcher's collaboration seams (resource resolution and child spawn) are
@@ -96,4 +97,38 @@ test("a native runtime that exits during startup fails terminally after bounded 
   ).rejects.toMatchObject({ code: "embedding.failed" });
   expect(capturedSpawns.length).toBe(3);
   await runtime.stop(Date.now() + 1_000);
+});
+
+test("a native integrity failure during the readiness probe retains its resource details", async () => {
+  capturedSpawns.length = 0;
+  onFakeChild = () => {};
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "invalid",
+  } as const;
+  let checks = 0;
+  const runtime = createEmbeddingProcess({ modelPath: "stub-model", threads: 1 }, undefined, {
+    ...deps(),
+    resolveResources: async () => ({
+      executable: "stub-llama-server",
+      buildIdentity: "test-build-identity",
+      assertUnchanged: async () => {
+        if (++checks === 2)
+          throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
+      },
+    }),
+    createClient: () => ({ encode: async () => [] }),
+  });
+  try {
+    await expect(
+      runtime.start(new AbortController().signal, Date.now() + 1_000),
+    ).rejects.toMatchObject({
+      code: "embedding.native-resource-invalid",
+      resource,
+    });
+    expect(checks).toBe(2);
+  } finally {
+    await runtime.stop(Date.now() + 1_000);
+  }
 });

@@ -26,7 +26,7 @@ lore model load
 lore model status
 ```
 
-结果中的 `state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`，并包含 `encodingId`、`device`、`dimensions`、`threads`。加载时包含 `progress`，失败时包含 embedding 错误码。
+结果中的 `state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`，并包含 `encodingId`、`device`、`dimensions`、`threads`。加载时包含 `progress`；模型或 native 文件校验失败时包含错误码、恢复提示和受限的 `resource` 信息：逻辑文件名、检查项，以及可取得时的预期/实际大小或 digest，不暴露绝对路径。
 
 status 不启动 Backend，也不下载模型。Backend 停止时返回 `backend.unavailable`。
 
@@ -38,4 +38,4 @@ lore model unload
 
 unload 取消准备或释放已加载的运行时，保留模型缓存和可续传的下载文件。
 
-Embedding 与 Backend 错误退出 `2`；查看返回错误码和 `lore backend status`。路径与下载设置见[配置](../configuration)。
+Embedding 与 Backend 错误退出 `2`。`embedding.native-resource-invalid` 要求重新安装匹配的完整 CLI 包，重新下载模型无效；`embedding.resource-invalid` 指向需要修正的模型文件。查看返回的 `resource` 并参考[故障排查](../troubleshooting)；模型路径与下载设置见[配置](../configuration)。

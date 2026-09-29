@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveCompiledEmbeddingResourceRoot, verifyResource } from "./embedding-resources";
+import {
+  resolveCompiledEmbeddingResourceRoot,
+  verifyNativeEmbeddingResources,
+  verifyResource,
+} from "./embedding-resources";
 
 /** File symlinks need Developer Mode or elevation on Windows; probe once instead of assuming. */
 async function canCreateSymlinks(): Promise<boolean> {
@@ -72,5 +76,51 @@ test("resource verification rejects wrong content and detects replacement after 
     await expect(verifyResource(path, 7, digest, AbortSignal.timeout(1000))).rejects.toThrow();
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a compiled CLI missing its native directory reports the missing manifest", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lore-missing-native-"));
+  try {
+    await expect(
+      verifyNativeEmbeddingResources(new AbortController().signal, { compiledRoot: root }),
+    ).rejects.toMatchObject({
+      code: "embedding.native-resource-invalid",
+      resource: {
+        kind: "native",
+        file: `native/${process.platform}-${process.arch}/manifest.json`,
+        check: "missing",
+      },
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("model digest mismatch reports safe expected and actual values", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lore-resource-detail-"));
+  const path = join(root, "model.gguf");
+  try {
+    await writeFile(path, "invalid");
+    await expect(
+      verifyResource(
+        path,
+        7,
+        createHash("sha256").update("correct").digest("hex"),
+        new AbortController().signal,
+        { kind: "model", file: "model.gguf" },
+      ),
+    ).rejects.toMatchObject({
+      code: "embedding.resource-invalid",
+      resource: {
+        kind: "model",
+        file: "model.gguf",
+        check: "sha256-mismatch",
+        expected: createHash("sha256").update("correct").digest("hex"),
+        actual: createHash("sha256").update("invalid").digest("hex"),
+      },
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });

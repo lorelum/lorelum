@@ -55,6 +55,8 @@ lore model unload
 | `threads`    | 实际 native `-t/-tb` 设置                             |
 | `progress`   | loading 阶段和数值字节进度                            |
 | `error`      | failed 状态下的稳定错误 code                          |
+| `resource`   | 模型/native 校验失败时的逻辑文件名、检查项及可取得的预期/实际大小或 digest；不含绝对路径 |
+| `message`    | CLI failed status 给出的对应恢复动作                  |
 
 ## Errors
 
@@ -66,12 +68,13 @@ lore model unload
 - `embedding.download-stalled`
 - `embedding.download-range-unsupported`
 - `embedding.resource-invalid`
+- `embedding.native-resource-invalid`
 - `embedding.not-loaded`
 - `embedding.busy`
 - `embedding.input-invalid`
 - `embedding.deadline-exceeded`
 - `embedding.failed`
 
-错误不会回显下载 URL 查询参数、runtime secret、缓存绝对路径或 native 私有端口。配置字段与缓存生命周期见 [Embedding 配置](../configuration/embedding.md)。
+`embedding.resource-invalid` 表示固定模型文件校验失败，应根据 `resource.file` 修正缓存或 `embedding.modelPath`；`embedding.native-resource-invalid` 表示安装包缺少或不匹配 native runtime，应重新安装与当前 CLI 同次构建的完整目录，而非重下模型。相关错误的 `resource` 包含 `kind`、`file`、`check`，适用时包含 `expected` 与 `actual`。错误不会回显下载 URL 查询参数、runtime secret、缓存绝对路径或 native 私有端口。配置字段与缓存生命周期见 [Embedding 配置](../configuration/embedding.md)。
 
 native 固定以 2048 context 初始化；该实现参数属于运行时内部细节，不是用户可配置的 token 上限或错误条件。

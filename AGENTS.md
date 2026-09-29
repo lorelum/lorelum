@@ -59,6 +59,7 @@ For visual or component work, read [DESIGN.md](./DESIGN.md) first. Reusable Web 
 - Test: `bun test`; lint: `bun run lint`; format: `bun run fmt`; typecheck: `bun run typecheck`.
 - Run a package command with `bun run --filter <package> <script>` when a focused check exists.
 - Use `bun build --compile` only when the task actually needs a single compiled binary. See [the development guide](./docs/development/README.md) for source, worktree, native, and release-staging workflows.
+- For compiled model loading or semantic validation, run `bun run build:cli` and use the CLI from its complete `dist/release/<target>/` directory, keeping its matching `native/<target>/` runtime alongside it. `build:cli-only` produces only `dist/lore` without the native runtime; use it only for checks that do not need embedding. `build:release-staging` remains a compatibility alias for the same complete local build and does not publish a release.
 
 Match verification to the changed boundary. New behavior ships with colocated `bun:test` coverage; format/parser and retrieval behavior have no exception. Mock filesystem and network in unit tests. A bug fix needs a regression test that fails before the fix and passes after it.
 

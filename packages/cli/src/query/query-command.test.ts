@@ -244,6 +244,11 @@ test("returns preparing as a successful exit-1 result", async () => {
 });
 
 test("surfaces a terminal embedding failure instead of an indexing result", async () => {
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "missing",
+  } as const;
   const result = await invoke(
     ["query", "How do I verify a release?"],
     {
@@ -254,7 +259,7 @@ test("surfaces a terminal embedding failure instead of an indexing result", asyn
     async () =>
       ({
         async query() {
-          throw new EmbeddingError("embedding.download-failed");
+          throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
         },
       }) as Pick<BackendClient, "query">,
   );
@@ -262,7 +267,7 @@ test("surfaces a terminal embedding failure instead of an indexing result", asyn
   expect(result.response).toMatchObject({
     command: "query",
     ok: false,
-    error: { code: "embedding.download-failed" },
+    error: { code: "embedding.native-resource-invalid", resource },
   });
   expect(JSON.stringify(result.response)).not.toContain("indexing");
   expect(JSON.stringify(result.response)).not.toContain("Retry shortly");

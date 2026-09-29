@@ -56,6 +56,12 @@ lore index build
 
 查看 `error.code`，检查剩余磁盘空间，以及能否访问配置中的模型来源。解决原因后，`lore model load` 会重试并等待加载。模型路径、缓存和下载设置见 [Embedding 配置](./configuration)。
 
+## 模型或 native 资源校验失败
+
+遇到 `embedding.native-resource-invalid`，查看返回的 `resource.file` 和 `resource.check`。已安装 CLI 缺少匹配的 native runtime，或其完整性校验未通过。应重新安装这个 CLI 构建的完整包；重新下载模型不能修复 native 文件。编译版开发构建也必须让 `lore` 与 `native/<target>/` 目录一起保留。
+
+遇到 `embedding.resource-invalid`，则是固定模型文件未通过校验。`lore model status --json` 会说明受影响的是缓存中的 `model.gguf` 还是配置的 `embedding.modelPath`，并在可取得时给出检查项及预期/实际大小或 digest。修正对应模型来源，再运行 `lore model load`。这两类失败都不会把语义查询悄悄换成 keyword 结果。
+
 ## 用 keyword 检索诊断
 
 需要离线查找，或想确认问题是否来自模型时，可以运行：

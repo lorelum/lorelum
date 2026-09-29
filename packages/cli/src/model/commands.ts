@@ -8,6 +8,7 @@ import {
   BackendError,
   backendErrorCodes,
   embeddingErrorCodes,
+  EmbeddingError,
   modelStatusSchema,
   type ModelStatus,
 } from "@lorelum/backend/protocol";
@@ -28,6 +29,21 @@ const modelStatusResultSchema: JsonSchema = {
     state: { enum: modelStatusSchema.shape.state.options },
     encodingId: { type: "string" },
     threads: { type: "integer" },
+    message: { type: "string" },
+    resource: {
+      type: "object",
+      additionalProperties: false,
+      required: ["kind", "file", "check"],
+      properties: {
+        kind: { enum: ["model", "native"] },
+        file: { type: "string" },
+        check: {
+          enum: ["missing", "invalid", "size-mismatch", "sha256-mismatch", "manifest-mismatch"],
+        },
+        expected: { type: "string" },
+        actual: { type: "string" },
+      },
+    },
     progress: {
       type: "object",
       additionalProperties: false,
@@ -74,6 +90,10 @@ export async function createProcessBackendClient(
 }
 
 function toResult(status: ModelStatus): JsonValue {
+  const message =
+    status.error === undefined
+      ? undefined
+      : new EmbeddingError(status.error, undefined, status.resource).message;
   return {
     state: status.state,
     encodingId: status.encodingId,
@@ -82,6 +102,8 @@ function toResult(status: ModelStatus): JsonValue {
     threads: status.threads,
     ...(status.progress ? { progress: status.progress } : {}),
     ...(status.error === undefined ? {} : { error: status.error }),
+    ...(message === undefined ? {} : { message }),
+    ...(status.resource === undefined ? {} : { resource: status.resource }),
   };
 }
 

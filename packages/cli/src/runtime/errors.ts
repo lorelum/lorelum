@@ -37,6 +37,7 @@ export class CliError extends Error {
     readonly code: string,
     message: string,
     readonly recovery?: BackendCompatibilityRecovery,
+    readonly resource?: ResourceFailure,
   ) {
     super(message);
     this.name = "CliError";
@@ -120,4 +121,4 @@ function isCommanderError(error: unknown): error is { code: string } {
     error.code.startsWith("commander.")
   );
 }
-import type { BackendCompatibilityRecovery } from "@lorelum/backend/protocol";
+import type { BackendCompatibilityRecovery, ResourceFailure } from "@lorelum/backend/protocol";

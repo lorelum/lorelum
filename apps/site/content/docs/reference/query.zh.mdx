@@ -27,7 +27,9 @@ lore query "token session cookie" --mode keyword
 | --- | --- |
 | `semantic.index-not-ready` | 正常 CLI 不会返回它；query 会自动创建或加入 index。 |
 | `semantic.index-incompatible` | 查看 `lore index status`；必要时运行 `lore index rebuild`。 |
-| `semantic.embedding-failed` 或 `embedding.*` | 查看 `lore model status`，再重试 `lore model load`。 |
+| `embedding.native-resource-invalid` | 重新安装包含 `native/<target>/` 的匹配完整 CLI 包；重新下载模型无效。 |
+| `embedding.resource-invalid` | 查看 `lore model status --json`，修正所报告的缓存或配置模型文件，再重试 `lore model load`。 |
+| `semantic.embedding-failed` 或其他 `embedding.*` | 查看 `lore model status` 和具体错误指引，再决定是否重试。 |
 | `backend.build-mismatch` / `backend.protocol-mismatch` | 已验证的 Backend 属于另一 Lorelum build 或 protocol。支持的 Agent 读取 `error.recovery`：只有证明 Backend idle 时才自动运行 `lore backend stop --if-idle` 并重试；active 或无法确认 activity 时保持另一任务运行，在后台重试。 |
 | `query.unavailable` / `query.failed` | 检查 keyword index 与 Store 状态。 |
 | `store.busy` / `store.recovery-required` | 等待 Store 操作完成或按文档执行恢复。 |

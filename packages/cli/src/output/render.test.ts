@@ -66,6 +66,11 @@ test("custom layout receives the complete data and pure fallback", () => {
 
 test("renders a default text error with every public error field", () => {
   const writer = new MemoryWriter();
+  const resource = {
+    kind: "native" as const,
+    file: "native/darwin-arm64/llama-server",
+    check: "missing" as const,
+  };
 
   renderResult(writer, "text", {
     kind: "failure",
@@ -78,6 +83,7 @@ test("renders a default text error with every public error field", () => {
       reason: "idle",
       retry: "original-command",
     },
+    resource,
     diagnostics: { traceId: "00000000-0000-4000-8000-000000000002" as never },
   });
 
@@ -89,6 +95,10 @@ test("renders a default text error with every public error field", () => {
     automation: auto
     reason: idle
     retry: original-command
+  resource:
+    kind: native
+    file: native/darwin-arm64/llama-server
+    check: missing
 diagnostics:
   traceId: 00000000-0000-4000-8000-000000000002
 `);
@@ -121,12 +131,20 @@ test("renders the same bounded, terminal-safe failure message in both formats", 
 
 test("renders JSON failures as one envelope with the supplied trace", () => {
   const writer = new MemoryWriter();
+  const resource = {
+    kind: "model" as const,
+    file: "model.gguf",
+    check: "size-mismatch" as const,
+    expected: "384",
+    actual: "256",
+  };
 
   renderResult(writer, "json", {
     kind: "failure",
     command: "query",
     code: "backend.unavailable",
     message: "The local backend is unavailable.",
+    resource,
     diagnostics: { traceId: "00000000-0000-4000-8000-000000000003" as never },
   });
 
@@ -134,8 +152,9 @@ test("renders JSON failures as one envelope with the supplied trace", () => {
     command: "query",
     ok: false,
     diagnostics: { traceId: "00000000-0000-4000-8000-000000000003" },
-    error: { code: "backend.unavailable" },
+    error: { code: "backend.unavailable", resource },
   });
+  expect(validateProtocolSchema(JSON.parse(writer.value), protocolResponseSchema)).toEqual([]);
   expect(writer.value.split("\n")).toEqual([expect.any(String), ""]);
 });
 

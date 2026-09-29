@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   assertNativeArtifactMatch,
   assertSourceNativeArtifactMatch,
+  NativeArtifactValidationError,
   parseNativeArtifactManifest,
   verifyNativeArtifact,
   type NativeArtifactManifest,
@@ -46,10 +47,51 @@ test("native manifest rejects unknown fields and unsafe paths", () => {
 
 test("native artifact match rejects a copied manifest that differs from the compiled one", () => {
   const expected = fixture();
-  expect(() =>
-    assertNativeArtifactMatch(expected, { ...expected, buildIdentity: digest("different-build") }),
-  ).toThrow("differs from the compiled CLI manifest");
+  const actual = { ...expected, buildIdentity: digest("different-build") };
+  expect(() => assertNativeArtifactMatch(expected, actual)).toThrow(
+    "differs from the compiled CLI manifest",
+  );
+  try {
+    assertNativeArtifactMatch(expected, actual);
+  } catch (error) {
+    expect(error).toBeInstanceOf(NativeArtifactValidationError);
+    expect(error).toMatchObject({
+      file: "manifest.json",
+      check: "manifest-mismatch",
+      expected: expected.buildIdentity,
+      actual: actual.buildIdentity,
+    });
+  }
 });
+
+test.skipIf(process.platform === "win32")(
+  "native verifier identifies a missing file and its digest",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "lore-native-detail-"));
+    const manifest = fixture("native");
+    try {
+      await expect(verifyNativeArtifact(directory)).rejects.toMatchObject({
+        file: "manifest.json",
+        check: "missing",
+      });
+      await writeFile(join(directory, "manifest.json"), JSON.stringify(manifest));
+      await expect(verifyNativeArtifact(directory)).rejects.toMatchObject({
+        file: "lore-model",
+        check: "missing",
+      });
+      await writeFile(join(directory, "lore-model"), "broken");
+      await chmod(join(directory, "lore-model"), 0o755);
+      await expect(verifyNativeArtifact(directory)).rejects.toMatchObject({
+        file: "lore-model",
+        check: "sha256-mismatch",
+        expected: digest("native"),
+        actual: digest("broken"),
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
 
 test("source native artifact match permits local compiler bytes but not a different recipe", () => {
   const expected = fixture();

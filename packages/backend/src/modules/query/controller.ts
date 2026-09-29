@@ -247,7 +247,13 @@ function queryFailure(error: unknown) {
       domainError("semantic.index-failed", "The semantic index could not answer the query."),
     );
   if (error instanceof EmbeddingError)
-    return status(503, { error: { code: error.code, message: error.message } });
+    return status(503, {
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(error.resource === undefined ? {} : { resource: error.resource }),
+      },
+    });
   if (error instanceof StoreBusyError)
     return status(503, domainError("store.busy", "The local Pack store is busy."));
   if (error instanceof StoreRecoveryRequiredError)

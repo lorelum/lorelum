@@ -75,7 +75,7 @@ lore backend stop --if-idle
 
 开发 backend 生命周期、配置或 keyword 行为时，不需要 native candidate。只有源码验收涉及 `model load`、embedding 或 semantic index 时，才先执行 `bun run build:native`；它把 candidate 放在 `packages/backend/.artifacts/native/embedding/<target>/`（当前 target：`darwin-arm64`、`linux-x64`、`win32-x64`），供源码 backend 校验和启动。
 
-`bun run build:cli` 只生成通用 CLI binary，不携带配套 native runtime，适合非 embedding 的编译检查。需要本地可运行的 compiled embedding candidate 时，执行 `bun run build:release-staging`；只有验证最终 archive/package 时才执行 `bun run build:release`。完整的当前 worktree 验收选择见[开发指南](../development/README.md#normal-development-workflow)。native manifest 和许可证说明见 [native 构建说明](../../native/embedding/README.md)。
+`bun run build:cli-only` 只生成 `dist/lore`，不携带配套 native runtime，适合非 embedding 的编译检查。要从 compiled CLI 验证模型加载或语义检索，执行 `bun run build:cli`，并使用完整的 `dist/release/<target>/` 目录；CLI 必须与匹配的 `native/<target>/` runtime 保持在同一目录中。旧命令 `build:release-staging` 与完整本地构建等价，两者都不发布版本；只有验证最终 archive/package 时才执行 `bun run build:release`。完整的当前 worktree 验收选择见[开发指南](../development/README.md#normal-development-workflow)。native manifest 和许可证说明见 [native 构建说明](../../native/embedding/README.md)。
 
 当前 embedding 支持 macOS arm64（已在 M4 验证并具备 release 打包）、Linux x64（已完成 Ubuntu 24.04 / WSL2 的源码、Backend-to-native、release staging/打包与编译版 CLI 生命周期验收；尚未正式发布）和 Windows x64（已在 Windows 11 / 26200 完成真实构建——钉版 WinLibs GCC 15.2 UCRT + CMake 3.31.6，无需系统安装编译器——backend→native 全链路验收含冻结/崩溃/父进程死亡回收、release 打包 `lore-<version>-win32-x64.zip` + `install.ps1` 与编译版 CLI 生命周期；产物为通用 x64 基线并静态链接 MinGW 运行时，仅依赖系统 DLL kernel32/ws2_32/advapi32/shell32 与 UCRT API set；其他 Windows 版本与 CI runner 尚未验证）。Windows 已知限制：运行时记录私密性依赖每用户 profile 边界（无 POSIX uid/mode 检查），`lore backend stop` 之外的信号语义为立即终止，`install.ps1` 通过 `lore.cmd` shim 而非符号链接管理命令。
 

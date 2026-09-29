@@ -140,6 +140,44 @@ test("automatic failed preparation is observable and requires explicit load to r
   await service.unload();
 });
 
+test("retains structured resource failure in model status and preparation errors", async () => {
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "missing",
+  } as const;
+  const f = fixture();
+  const service = createEmbeddingService({
+    settings: DEFAULT_BACKEND_SETTINGS,
+    prepareModel: async () => {
+      throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
+    },
+    createRuntime: () => ({
+      start: async () => {},
+      stop: async () => {},
+      encode: async () => [],
+      exited: f.end.promise,
+    }),
+  });
+  const preparation = service.beginModelPreparation();
+
+  await expect(service.waitModelPreparation(preparation.preparationId)).rejects.toMatchObject({
+    code: "embedding.native-resource-invalid",
+    resource,
+  });
+  expect(service.modelPreparation(preparation.preparationId).status).toMatchObject({
+    state: "failed",
+    error: "embedding.native-resource-invalid",
+    resource,
+  });
+  expect(() => service.beginModelPreparation()).toThrow(
+    expect.objectContaining({
+      code: "embedding.native-resource-invalid",
+      resource,
+    }),
+  );
+});
+
 test("one inflight request, responsive status, excess admission rejected", async () => {
   const pending = deferred<number[]>();
   const f = fixture({ encode: () => pending.promise });

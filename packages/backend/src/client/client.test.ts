@@ -385,12 +385,17 @@ describe("createBackendClient", () => {
 
   test("load polls asynchronous preparation beyond the native startup budget and maps failure", async () => {
     const phases: string[] = [];
+    const resource = {
+      kind: "native",
+      file: "native/darwin-arm64/llama-server",
+      check: "missing",
+    } as const;
     const embedding = createEmbeddingService({
       settings: { ...DEFAULT_BACKEND_SETTINGS, startupTimeoutMs: 10 },
       prepareModel: async (_, progress) => {
         progress({ phase: "downloading", downloadedBytes: 10, totalBytes: 100 });
         await Bun.sleep(300);
-        throw new EmbeddingError("embedding.download-failed");
+        throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
       },
       createRuntime: () => {
         throw new Error("download must finish first");
@@ -406,7 +411,11 @@ describe("createBackendClient", () => {
     });
     await expect(
       client.loadModel({ onProgress: (value) => phases.push(value.progress!.phase) }),
-    ).rejects.toMatchObject({ code: "embedding.download-failed" });
+    ).rejects.toMatchObject({ code: "embedding.native-resource-invalid", resource });
+    await expect(client.beginModelPreparation()).rejects.toMatchObject({
+      code: "embedding.native-resource-invalid",
+      resource,
+    });
     expect(phases).toContain("downloading");
     await expect(client.embed("query", Array(9).fill("x"))).rejects.toMatchObject({
       code: "embedding.input-invalid",

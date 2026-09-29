@@ -7,7 +7,7 @@ This records the request-local baseline for [Practice read](../../openspec/specs
 From the repository root:
 
 ```sh
-bun run build:cli
+bun run build:cli-only
 LORELUM_CLI_BINARY=dist/lore bun packages/engine/benchmarks/keyword-query.bench.ts
 bun packages/engine/benchmarks/keyword-query-quality.bench.ts
 ```

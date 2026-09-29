@@ -97,6 +97,14 @@ async function invoke(command: string, services: ModelCommandServices) {
   return { definitions, exitCode, response };
 }
 
+async function invokeText(command: string, services: ModelCommandServices) {
+  const stdout = new MemoryWriter();
+  const stderr = new MemoryWriter();
+  const definitions = snapshotCommandDefinitions(createModelCommands(services));
+  const exitCode = await runCli(command.split("."), { registry: definitions, stdout, stderr });
+  return { exitCode, stdout: stdout.value, stderr: stderr.value };
+}
+
 test("model commands use the injected client and publish model status", async () => {
   const calls: string[] = [];
   const result = await Promise.all(
@@ -128,4 +136,68 @@ test("model commands preserve embedding errors", async () => {
     code: "embedding.not-loaded",
     message: "Load the embedding model before encoding text.",
   });
+});
+
+test("model status and load preserve structured resource failures", async () => {
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "missing",
+  } as const;
+  const failed: ModelStatus = {
+    ...ready,
+    state: "failed",
+    error: "embedding.native-resource-invalid",
+    resource,
+  };
+  const status = await invoke("model.status", {
+    createClient: async () => ({
+      ...fakeClient([]),
+      statusModel: async () => failed,
+    }),
+  });
+  const message = new EmbeddingError(failed.error!, undefined, resource).message;
+  expect(status.exitCode).toBe(0);
+  expect(status.response.data).toMatchObject({
+    state: "failed",
+    error: "embedding.native-resource-invalid",
+    message,
+    resource,
+  });
+
+  const load = await invoke("model.load", {
+    createClient: async () => ({
+      ...fakeClient([]),
+      loadModel: async () => {
+        throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
+      },
+    }),
+  });
+  expect(load.exitCode).toBe(2);
+  expect(load.response.error).toMatchObject({
+    code: "embedding.native-resource-invalid",
+    message,
+    resource,
+  });
+
+  const statusText = await invokeText("model.status", {
+    createClient: async () => ({ ...fakeClient([]), statusModel: async () => failed }),
+  });
+  expect(statusText.exitCode).toBe(0);
+  expect(statusText.stdout).toContain(`message: ${message}`);
+  expect(statusText.stdout).toContain("resource:");
+  expect(statusText.stdout).toContain("check: missing");
+
+  const loadText = await invokeText("model.load", {
+    createClient: async () => ({
+      ...fakeClient([]),
+      loadModel: async () => {
+        throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
+      },
+    }),
+  });
+  expect(loadText.exitCode).toBe(2);
+  expect(loadText.stderr).toContain(`message: ${message}`);
+  expect(loadText.stderr).toContain("resource:");
+  expect(loadText.stderr).toContain("file: native/darwin-arm64/llama-server");
 });

@@ -49,16 +49,18 @@ When omitted, the Store remains `~/.lorelum`. A relative path is resolved from t
 
 All commands in this section start in the **target worktree**. The normal source path is the current worktree's TypeScript entrypoint, `bun packages/cli/src/main.ts ...`. `lore-dev` is an optional human shortcut for that same command; it is not a requirement for Agents or automation. The globally installed `lore` remains a stable command for the primary checkout and is not a worktree-validation tool.
 
+If you need a **compiled CLI that can load the model or run semantic operations**, use `bun run build:cli`. Its output is the entire `dist/release/<target>/` directory: the CLI and its matching `native/<target>/` runtime must stay together, including when a dev build is copied into a version-store. `build:cli-only` creates only `dist/lore` for checks that do not need embedding. `build:release-staging` remains a compatibility alias for the complete local build; it neither creates a release archive nor publishes anything.
+
 Use isolated Store and cache roots by default when validating a worktree. This applies even to a command that is mostly a read: opening a Store can recover state and semantic query/index can update derived cache. Omit `--store-root` or `--cache-root` only when the task explicitly calls for the developer's real shared Packs and derived data. The cache is content-addressed, so separate worktrees can intentionally share `~/.lorelum/cache`; tests should still pass a temporary `--cache-root` to avoid cross-test state.
 
 | What is being checked | Required route | Do not use |
 | --- | --- | --- |
 | TypeScript CLI or keyword behavior | `bun packages/cli/src/main.ts ...`; a human may use `lore-dev ...` instead | Global `lore` or an executable produced by another worktree. |
 | Backend lifecycle only | `bun packages/cli/src/main.ts backend start/status/stop` | `build:native`; no model runtime is needed just to control the Backend. |
-| Source-level model, embedding, or semantic index behavior | `bun run build:native`; then stop Backend and run `pack install`, `index build/rebuild`, or query against isolated Store and cache roots. A missing fixed model is automatically prepared in the daemon; inspect `preparing`/`indexing`/`queued` and use explicit `model load` only to wait for or retry a failed transfer. | `build:cli`; it has no native embedding runtime. A semantic command may start Backend and background model preparation, so do not assert completion merely because the command returned an accepted operation. |
+| Source-level model, embedding, or semantic index behavior | `bun run build:native`; then stop Backend and run `pack install`, `index build/rebuild`, or query against isolated Store and cache roots. A missing fixed model is automatically prepared in the daemon; inspect `preparing`/`indexing`/`queued` and use explicit `model load` only to wait for or retry a failed transfer. | `build:cli-only`; it has no native embedding runtime. A semantic command may start Backend and background model preparation, so do not assert completion merely because the command returned an accepted operation. |
 | Isolated ProjectContext native smoke | `bun run build:native && bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf` | Treating its single-machine observations as a capacity benchmark. The smoke owns temporary Store/cache/model/runtime paths and uses a local resumable download source. |
-| Compiled non-embedding behavior | `bun run build:cli` followed by `./dist/lore ...` | That binary for a model, embedding, or semantic-index check. |
-| Runnable compiled embedding candidate | `bun run build:release-staging` followed by `./dist/release/darwin-arm64/lore ...` | `build:release` unless archive validation is the purpose. |
+| Compiled non-embedding behavior | `bun run build:cli-only` followed by `./dist/lore ...` | That binary for a model, embedding, or semantic-index check. |
+| Compiled model loading or semantic behavior | `bun run build:cli` followed by `./dist/release/<target>/lore ...` (`lore.exe` on Windows) | `build:cli-only` or copying only the executable; both omit its matching native runtime. |
 | Final archive/package | `bun run build:release` | Treating the archive command as the normal development build. |
 
 For example, a source-level semantic-index check against a worktree-local Store is:
@@ -128,14 +130,17 @@ The command inherits the caller's current worktree, so `lore-dev` still anchors 
 
 ### Compiled checks
 
-Use the source function while iterating. `bun run build:cli` produces `dist/lore` without the native embedding runtime, so it is suitable only for non-embedding compiled checks such as keyword benchmarks. For a runnable compiled embedding check in the same checkout, build release staging instead:
+Use the source entrypoint while iterating. `bun run build:cli-only` produces a standalone `dist/lore` without the native embedding runtime, so it is suitable only for non-embedding compiled checks such as keyword benchmarks. For a compiled model or semantic check in the target worktree, build the complete local bundle instead:
 
 ```zsh
-bun run build:release-staging
-./dist/release/darwin-arm64/lore --store-root /absolute/path/to/isolated-store index status
+bun run build:cli
+./dist/release/darwin-arm64/lore backend start
+./dist/release/darwin-arm64/lore model load
 ```
 
-`build:release-staging` creates an unpacked local artifact and does not publish anything. `build:release` is for archive/package validation. Do not use a global `lore` or a binary built from a different worktree to validate current source changes.
+The example path is for macOS arm64; use `dist/release/linux-x64/lore` on Linux x64 or `dist/release/win32-x64/lore.exe` on Windows x64. These commands use the user-level Backend and model, so check for an active Backend from another build and use the existing lifecycle guidance before a worktree smoke test. A successful `model load` proves the compiled CLI can reach its matching native runtime; then run the relevant semantic query or index command against an isolated Store to verify the behavior under test.
+
+`build:cli` and the compatibility alias `build:release-staging` invoke the same build: native candidate, compiled CLI, and verified adjacent native artifact in an unpacked directory. Neither publishes or creates a release archive; `build:release` is for archive/package validation. If a separate dev version-store is used, copy the **whole target directory**; any link to its executable must resolve inside that directory, with `native/<target>/` still adjacent. Copying only `dist/lore` or only the staged executable cannot support embedding; clearing or re-downloading the model does not supply the missing native runtime. Do not use a global `lore` or a binary built from a different worktree to validate current source changes.
 
 The globally available `lore` command should be a stable link into the primary checkout, such as `packages/cli/src/main.ts`. Do not repoint that link between worktrees, and do not point it at a Codex or temporary worktree. Use `lore-dev` when the current branch's source is what you need to exercise.
 

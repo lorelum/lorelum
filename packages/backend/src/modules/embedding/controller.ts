@@ -109,6 +109,12 @@ async function invoke<T>(operation: () => Promise<T>) {
     if (!(error instanceof EmbeddingError)) throw error;
     const code = error.code;
     const httpStatus = code === "embedding.input-invalid" ? 400 : 503;
-    return status(httpStatus, { error: { code, message: error.message } });
+    return status(httpStatus, {
+      error: {
+        code,
+        message: error.message,
+        ...(error.resource === undefined ? {} : { resource: error.resource }),
+      },
+    });
   }
 }

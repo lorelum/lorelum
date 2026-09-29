@@ -7,6 +7,7 @@ import {
   type OutputWriter,
   type ProtocolDiagnostics,
 } from "./protocol.js";
+import type { ResourceFailure } from "@lorelum/backend/protocol";
 import { createTraceId } from "@lorelum/log";
 import { renderStructuredText, type StructuredTextRenderer } from "./structured-text.js";
 
@@ -29,6 +30,7 @@ export type RenderableResult =
       code: string;
       message: string;
       recovery?: ErrorRecovery;
+      resource?: ResourceFailure;
       diagnostics?: ProtocolDiagnostics;
     }>;
 
@@ -70,6 +72,7 @@ export function renderResult(
           message,
           result.recovery,
           result.diagnostics ?? { traceId: createTraceId() },
+          result.resource,
         ),
       ),
     );
@@ -82,6 +85,7 @@ export function renderResult(
         code: result.code,
         message,
         ...(result.recovery === undefined ? {} : { recovery: result.recovery }),
+        ...(result.resource === undefined ? {} : { resource: result.resource }),
       },
       diagnostics: result.diagnostics ?? { traceId: createTraceId() },
     }),

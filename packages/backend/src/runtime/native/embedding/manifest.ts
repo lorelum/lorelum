@@ -71,21 +71,64 @@ export interface NativeArtifactFile {
   readonly sha256: string;
 }
 
+/** Safe relative artifact facts that can be carried to the local CLI. */
+export class NativeArtifactValidationError extends Error {
+  constructor(
+    message: string,
+    readonly file: string,
+    readonly check:
+      | "missing"
+      | "invalid"
+      | "size-mismatch"
+      | "sha256-mismatch"
+      | "manifest-mismatch",
+    readonly expected?: string,
+    readonly actual?: string,
+  ) {
+    super(message);
+    this.name = "NativeArtifactValidationError";
+  }
+}
+
 /** Read and validate the fixed-shape manifest before it becomes a compiler input. */
 export async function readNativeArtifactManifest(
   directory: string,
 ): Promise<NativeArtifactManifest> {
   const path = join(directory, "manifest.json");
-  const info = await lstat(path);
+  const info = await lstat(path).catch((error: unknown) => {
+    if (isMissingFile(error))
+      throw new NativeArtifactValidationError(
+        "native manifest is missing",
+        "manifest.json",
+        "missing",
+      );
+    throw error;
+  });
   if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_MANIFEST_BYTES)
-    throw new Error("native manifest is not a bounded regular file");
+    throw new NativeArtifactValidationError(
+      "native manifest is not a bounded regular file",
+      "manifest.json",
+      "invalid",
+    );
   let value: unknown;
   try {
     value = JSON.parse(await readFile(path, "utf8"));
   } catch {
-    throw new Error("native manifest is not valid JSON");
+    throw new NativeArtifactValidationError(
+      "native manifest is not valid JSON",
+      "manifest.json",
+      "invalid",
+    );
   }
-  return parseNativeArtifactManifest(value);
+  try {
+    return parseNativeArtifactManifest(value);
+  } catch {
+    throw new NativeArtifactValidationError(
+      "native manifest is invalid",
+      "manifest.json",
+      "invalid",
+    );
+  }
 }
 
 /** Verify every declared native file and the target's system-library allowlist. */
@@ -93,32 +136,89 @@ export async function verifyNativeArtifact(directory: string): Promise<NativeArt
   const manifest = await readNativeArtifactManifest(directory);
   const expectedNames = new Set(["manifest.json", ...manifest.files.map((file) => file.path)]);
   const entries = await readdir(directory, { withFileTypes: true });
+  const entryNames = new Set(entries.map((entry) => entry.name));
+  const missing = manifest.files.find((file) => !entryNames.has(file.path));
+  if (missing)
+    throw new NativeArtifactValidationError(
+      `native artifact file is missing: ${missing.path}`,
+      missing.path,
+      "missing",
+    );
   if (
     entries.length !== expectedNames.size ||
     entries.some(
       (entry) => !expectedNames.has(entry.name) || !entry.isFile() || entry.isSymbolicLink(),
     )
   )
-    throw new Error("native artifact directory contains unexpected files");
+    throw new NativeArtifactValidationError(
+      "native artifact directory contains unexpected files",
+      "manifest.json",
+      "invalid",
+    );
   await Promise.all(
     manifest.files.map(async (file) => {
       const path = join(directory, file.path);
-      const info = await lstat(path);
-      if (!info.isFile() || info.isSymbolicLink() || info.size !== file.bytes)
-        throw new Error(`native artifact file is invalid: ${file.path}`);
-      if ((await sha256File(path)) !== file.sha256)
-        throw new Error(`native artifact file digest does not match: ${file.path}`);
+      const info = await lstat(path).catch((error: unknown) => {
+        if (isMissingFile(error))
+          throw new NativeArtifactValidationError(
+            `native artifact file is missing: ${file.path}`,
+            file.path,
+            "missing",
+          );
+        throw error;
+      });
+      if (!info.isFile() || info.isSymbolicLink())
+        throw new NativeArtifactValidationError(
+          `native artifact file is invalid: ${file.path}`,
+          file.path,
+          "invalid",
+        );
+      if (info.size !== file.bytes)
+        throw new NativeArtifactValidationError(
+          `native artifact file is invalid: ${file.path}`,
+          file.path,
+          "size-mismatch",
+          String(file.bytes),
+          String(info.size),
+        );
+      const actual = await sha256File(path).catch(() => {
+        throw new NativeArtifactValidationError(
+          `native artifact file cannot be read: ${file.path}`,
+          file.path,
+          "invalid",
+        );
+      });
+      if (actual !== file.sha256)
+        throw new NativeArtifactValidationError(
+          `native artifact file digest does not match: ${file.path}`,
+          file.path,
+          "sha256-mismatch",
+          file.sha256,
+          actual,
+        );
     }),
   );
   const executable = manifest.files.find((file) => file.path === manifest.executable);
-  const executableInfo = await lstat(join(directory, manifest.executable));
+  const executableInfo = await lstat(join(directory, manifest.executable)).catch(
+    (error: unknown) => {
+      throw new NativeArtifactValidationError(
+        `native executable is not usable for this platform: ${manifest.executable}`,
+        manifest.executable,
+        isMissingFile(error) ? "missing" : "invalid",
+      );
+    },
+  );
   // POSIX gates on the execute bit; Windows modes never carry it and gate on the exe extension.
   const executableUsable =
     manifest.platform === "win32"
       ? manifest.executable.endsWith(".exe")
       : (executableInfo.mode & 0o111) !== 0;
   if (!executable || !executableUsable)
-    throw new Error("native executable is not usable for this platform");
+    throw new NativeArtifactValidationError(
+      "native executable is not usable for this platform",
+      manifest.executable,
+      "invalid",
+    );
   const target = `${manifest.platform}-${manifest.arch}`;
   // Parsing already rejected combinations without an allowlist entry.
   const allowed = Object.hasOwn(NATIVE_SYSTEM_DEPENDENCIES, target)
@@ -132,7 +232,11 @@ export async function verifyNativeArtifact(directory: string): Promise<NativeArt
     allowed === undefined ||
     lowercasedDependencies.some((dependency) => !allowed.has(dependency))
   )
-    throw new Error("native artifact links an unsupported dynamic dependency");
+    throw new NativeArtifactValidationError(
+      "native artifact links an unsupported dynamic dependency",
+      "manifest.json",
+      "invalid",
+    );
   return manifest;
 }
 
@@ -142,7 +246,14 @@ export function assertNativeArtifactMatch(
   actual: NativeArtifactManifest,
 ): void {
   if (!isDeepStrictEqual(actual, expected))
-    throw new Error("native artifact manifest differs from the compiled CLI manifest");
+    throw new NativeArtifactValidationError(
+      "native artifact manifest differs from the compiled CLI manifest",
+      "manifest.json",
+      "manifest-mismatch",
+      ...(expected.buildIdentity === actual.buildIdentity
+        ? []
+        : ([expected.buildIdentity, actual.buildIdentity] as const)),
+    );
 }
 
 /** Source runs accept local compiler bytes but require the reviewed native recipe and model contract. */
@@ -160,8 +271,19 @@ export function assertSourceNativeArtifactMatch(
     actual.patchSha256 !== expected.patchSha256 ||
     !isDeepStrictEqual(actual.cmakeFlags, expected.cmakeFlags)
   ) {
-    throw new Error("native artifact manifest differs from the current source recipe");
+    throw new NativeArtifactValidationError(
+      "native artifact manifest differs from the current source recipe",
+      "manifest.json",
+      "manifest-mismatch",
+      ...(expected.recipeIdentity === actual.recipeIdentity
+        ? []
+        : ([expected.recipeIdentity, actual.recipeIdentity] as const)),
+    );
   }
+}
+
+function isMissingFile(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 export async function sha256File(path: string): Promise<string> {

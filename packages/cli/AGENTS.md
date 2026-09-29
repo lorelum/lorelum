@@ -16,7 +16,7 @@ The CLI is the composition and protocol boundary. It parses commands, resolves g
 - Run source-level CLI checks from this worktree with `bun packages/cli/src/main.ts ...`. Do not validate source changes with global `lore`, a binary from another worktree, or by editing a developer's shell configuration to recover `lore-dev`.
 - Pass an explicitly isolated `--store-root` for any worktree validation that can open a Store, including reads and queries. Omit it only when the task explicitly requires the developer's shared Store.
 - `backend start/status/stop` and keyword checks do not require a native candidate. Before source validation that can embed, run `bun run build:native`.
-- Choose compiled checks by purpose: `bun run build:cli` for non-embedding behavior, `bun run build:release-staging` for a runnable embedding candidate, and `bun run build:release` only for final archive validation.
+- Choose compiled checks by purpose: `bun run build:cli-only` for non-embedding behavior, `bun run build:cli` for a runnable embedding candidate, and `bun run build:release` only for final archive validation. `build:release-staging` remains a compatibility alias for `build:cli`.
 - A missing model or index follows the current lifecycle contract: query may return `data.state: "preparing"`; index operations may be accepted as `preparing` or `building`; Pack mutation must not be rolled back because a derived index is pending or failed. Use [the development guide](../../docs/development/README.md) for the full workflow rather than duplicating lifecycle detail here.
 
 ## Verification

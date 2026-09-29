@@ -82,7 +82,16 @@ test("bad checksum is never promoted or silently erased", () =>
           await writeFile(options.destination, "x".repeat(artifact.bytes));
         },
       }),
-    ).rejects.toMatchObject({ code: "embedding.resource-invalid" });
+    ).rejects.toMatchObject({
+      code: "embedding.resource-invalid",
+      resource: {
+        kind: "model",
+        file: "model.gguf.part",
+        check: "sha256-mismatch",
+        expected: artifact.sha256,
+        actual: createHash("sha256").update("x".repeat(artifact.bytes)).digest("hex"),
+      },
+    });
     expect((await stat(join(root, artifact.sha256, "model.gguf.part"))).size).toBe(artifact.bytes);
     await expect(stat(join(root, artifact.sha256, "model.gguf"))).rejects.toMatchObject({
       code: "ENOENT",

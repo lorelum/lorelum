@@ -28,6 +28,8 @@
 
 `progress` 只在加载期间出现，`phase` 为 `resolving`、`downloading`、`verifying` 或 `starting`。字节字段是数值；未知总大小时可以省略 `totalBytes`。状态响应不包含 URL、凭据、缓存路径或私有端口。`encodingId` 绑定模型身份、实现、pooling、normalization 和特殊 token 规则；threads、native 初始化参数与下载策略不改变它。
 
+文件校验失败的 status 仍以 `error` 给出稳定 code，并附可选 `resource: { kind, file, check, expected?, actual? }`。`file` 是相对于 native target 的逻辑名称、`model.gguf` 或 `embedding.modelPath`，不包含绝对路径；预期和实际值仅用于大小或 digest 检查。native 安装失败使用 `embedding.native-resource-invalid`；模型文件失败使用 `embedding.resource-invalid`。
+
 ## Load
 
 `POST /internal/v1/model/load`，body `{}`。
@@ -42,7 +44,7 @@
 
 ## Status
 
-`GET /internal/v1/model/status` 只读取内存状态，不触发下载、验证、启动或文件 hash。加载失败时返回 `state: "failed"` 和允许的 `error` code；成功的 status 不泄露本机路径。
+`GET /internal/v1/model/status` 只读取内存状态，不触发下载、验证、启动或文件 hash。加载失败时返回 `state: "failed"` 和允许的 `error` code；资源校验失败还返回 `resource`。成功的 status 不泄露本机路径。
 
 ## Unload
 
@@ -54,7 +56,7 @@ HTTP 客户端断开、CLI 停止等待不会取消共享加载任务；显式�
 
 ## Automatic preparation
 
-`POST /internal/v1/model/prepare`，body `{}`，供按需 semantic query、index build/rebuild 和 install-driven index 使用。它立即开始或加入一次 daemon 持有的 configured preparation：缓存缺失时可以下载或续传 `.part`，完整文件会先校验再启动 native runtime。HTTP handler 不等待传输完成。
+`POST /internal/v1/model/prepare`，body `{}`，供按需 semantic query、index build/rebuild 和 install-driven index 使用。它立即开始或加入一次 daemon 持有的 configured preparation：先校验随 CLI 安装的 native artifact，缓存缺失时再下载或续传 `.part`，完整模型文件在使用前校验。HTTP handler 不等待传输完成；native 缺失时不会先传输模型。
 
 接受或加入同一准备时返回 `202`：
 

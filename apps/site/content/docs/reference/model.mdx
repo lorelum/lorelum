@@ -26,7 +26,7 @@ Repeated calls join the same preparation task.
 lore model status
 ```
 
-The result reports `state`: `unloaded`, `loading`, `ready`, `unloading`, or `failed`, plus `encodingId`, `device`, `dimensions`, and `threads`. Loading results include `progress`; failed results include an embedding error code.
+The result reports `state`: `unloaded`, `loading`, `ready`, `unloading`, or `failed`, plus `encodingId`, `device`, `dimensions`, and `threads`. Loading results include `progress`; failed results include an embedding error code, a recovery message, and a safe `resource` object when a model or native file failed verification. The object names the logical file and check, with expected/actual size or digest when available; it does not reveal absolute paths.
 
 Status does not start the Backend or download the model. If the Backend is stopped, it returns `backend.unavailable`.
 
@@ -38,4 +38,4 @@ lore model unload
 
 Unload cancels preparation or releases the loaded runtime. It keeps the model cache and resumable download files.
 
-Embedding and Backend errors exit `2`; inspect the returned error code and `lore backend status`. See [Configuration](../configuration) for paths and download settings.
+Embedding and Backend errors exit `2`. `embedding.native-resource-invalid` calls for reinstalling the matching complete CLI package, not redownloading the model; `embedding.resource-invalid` identifies a model file that must be corrected. Inspect the returned `resource` and see [Troubleshooting](../troubleshooting) for recovery. See [Configuration](../configuration) for model paths and download settings.

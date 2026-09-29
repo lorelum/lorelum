@@ -76,7 +76,11 @@ export function createSemanticRuntimeClient(
               "The local model is preparing in the background. Check lore model status, then retry this query.",
           } satisfies QueryPreparingResult;
         }
-        throw new EmbeddingError(observed.status.error ?? "embedding.failed");
+        throw new EmbeddingError(
+          observed.status.error ?? "embedding.failed",
+          undefined,
+          observed.status.resource,
+        );
       } catch (error) {
         throw await withCompatibilityRecovery(error, inspectCompatibilityRecovery);
       }

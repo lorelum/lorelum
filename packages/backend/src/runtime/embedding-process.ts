@@ -23,6 +23,7 @@ const FORCE_KILL_WAIT_MS = 100;
 /** Collaboration seams for tests; production callers use the defaults. */
 export interface EmbeddingProcessDeps {
   resolveResources?(modelPath: string, signal: AbortSignal): Promise<EmbeddingResources>;
+  createClient?: typeof createLlamaClient;
   spawnProcess?(
     executable: string,
     args: readonly string[],
@@ -80,6 +81,7 @@ export function createEmbeddingProcess(
   options: EmbeddingProcessOptions = {},
 ): EmbeddingRuntime {
   const resolveResources = options.resolveResources ?? resolveEmbeddingResources;
+  const createClient = options.createClient ?? createLlamaClient;
   const spawnProcess = options.spawnProcess ?? spawn;
   const diagnostics = options.diagnostics ?? noopEmitter;
   let child: ReturnType<typeof spawn> | undefined;
@@ -197,7 +199,7 @@ export function createEmbeddingProcess(
       }
       signal.throwIfAborted();
       await recordProcess?.({ ...identity, nativeBuild: resources.buildIdentity });
-      const candidate = createLlamaClient(port, secret, alias);
+      const candidate = createClient(port, secret, alias);
       while (Date.now() < deadline && owned.exitCode === null && owned.signalCode === null) {
         signal.throwIfAborted();
         try {
@@ -232,7 +234,11 @@ export function createEmbeddingProcess(
             probeTimeout.dispose();
           }
         } catch (error) {
-          if (error instanceof EmbeddingError && error.code === "embedding.resource-invalid")
+          if (
+            error instanceof EmbeddingError &&
+            (error.code === "embedding.resource-invalid" ||
+              error.code === "embedding.native-resource-invalid")
+          )
             throw error;
           signal.throwIfAborted();
           await Bun.sleep(STARTUP_POLL_MS);

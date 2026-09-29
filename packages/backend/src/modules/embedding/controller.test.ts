@@ -8,12 +8,13 @@ import { EmbeddingError } from "./errors";
 import { embeddingController } from "./controller";
 import { createContentAddressedSemanticRuntimeStub } from "../query/content-addressed-semantic-runtime.test-helper";
 
-function fixture() {
+function fixture(overrides: Partial<Parameters<typeof createEmbeddingService>[0]> = {}) {
   const embedding = createEmbeddingService({
     settings: DEFAULT_BACKEND_SETTINGS,
     createRuntime() {
       throw new EmbeddingError("embedding.not-configured");
     },
+    ...overrides,
   });
   const backend = createBackendService({
     identity: { instanceId: "test", buildIdentity: "test", protocolVersion: 1 },
@@ -64,6 +65,38 @@ test("embedding endpoints share authentication and private error mapping", async
     model: "failed",
   });
   expect((await f.request("/model/unload", "POST", {})).status).toBe(200);
+});
+
+test("model failure status and HTTP errors retain structured resource details", async () => {
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "missing",
+  } as const;
+  const f = fixture({
+    prepareModel: async () => {
+      throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
+    },
+  });
+  expect((await f.request("/model/load", "POST", {})).status).toBe(202);
+  await Bun.sleep(0);
+
+  const status = await f.request("/model/status");
+  expect(status.status).toBe(200);
+  expect(await status.json()).toMatchObject({
+    state: "failed",
+    error: "embedding.native-resource-invalid",
+    resource,
+  });
+
+  const retry = await f.request("/model/prepare", "POST", {});
+  expect(retry.status).toBe(503);
+  expect(await retry.json()).toMatchObject({
+    error: {
+      code: "embedding.native-resource-invalid",
+      resource,
+    },
+  });
 });
 
 test("unknown load fields and blank embedding inputs are rejected", async () => {

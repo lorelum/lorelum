@@ -22,7 +22,7 @@ bun packages/engine/benchmarks/local-store-point-read.bench.ts --scales 100,1000
 To include end-to-end process startup and the public `lore get` command, compile the current CLI first and pass the resulting executable explicitly:
 
 ```sh
-bun run build:cli
+bun run build:cli-only
 LORELUM_CLI_BINARY="$PWD/dist/lore" bun packages/engine/benchmarks/local-store-point-read.bench.ts
 ```
 

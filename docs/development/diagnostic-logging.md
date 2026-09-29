@@ -69,4 +69,4 @@ lore feedback draft --trace-id <traceId> --kind bug --include-logs debug
 
 ## 发行版 stack
 
-`build:cli`、release staging 和 release archive 都显式使用 inline source map，并禁用 minify。这样发行版遇到未处理异常、或 logger 序列化 Error stack 时，位置仍应还原到原始 TypeScript 文件、行和列，而不是 `$bunfs` 或中间 bundle。`scripts/release/compile-cli.test.ts` 会实际运行两种 binary 编译路径（包括 Windows-compatible Bun CLI compiler），以受控异常验证这一合同；以后即使有人提议开启 minify，也必须先保持该验证通过。
+`build:cli`、`build:cli-only`、release staging 和 release archive 都显式使用 inline source map，并禁用 minify。这样发行版遇到未处理异常、或 logger 序列化 Error stack 时，位置仍应还原到原始 TypeScript 文件、行和列，而不是 `$bunfs` 或中间 bundle。`scripts/release/compile-cli.test.ts` 会实际运行两种 binary 编译路径（包括 Windows-compatible Bun CLI compiler），以受控异常验证这一合同；以后即使有人提议开启 minify，也必须先保持该验证通过。

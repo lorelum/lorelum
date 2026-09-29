@@ -27,7 +27,9 @@ If the semantic model is still preparing, data is `{ "state": "preparing", "prep
 | --- | --- |
 | `semantic.index-not-ready` | Normal CLI query does not return this; it automatically creates or joins the index operation. |
 | `semantic.index-incompatible` | Inspect `lore index status`; run `lore index rebuild` when needed. |
-| `semantic.embedding-failed` or `embedding.*` | Check `lore model status`, then retry `lore model load`. |
+| `embedding.native-resource-invalid` | Reinstall the matching complete CLI package, including `native/<target>/`; redownloading the model will not repair it. |
+| `embedding.resource-invalid` | Inspect `lore model status --json` and correct the reported cached or configured model file before retrying `lore model load`. |
+| `semantic.embedding-failed` or other `embedding.*` | Check `lore model status` and the specific error guidance before retrying. |
 | `backend.build-mismatch` / `backend.protocol-mismatch` | A verified Backend belongs to another Lorelum build or protocol. A supported Agent reads `error.recovery`: it automatically runs `lore backend stop --if-idle` and retries only when the Backend is proven idle; active or unknown work is left running and retried in the background. |
 | `query.unavailable` / `query.failed` | Inspect the keyword index and Store state. |
 | `store.busy` / `store.recovery-required` | Wait for the active Store operation or perform the documented recovery. |

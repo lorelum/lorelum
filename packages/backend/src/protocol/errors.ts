@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resourceFailureSchema } from "../modules/embedding/errors";
 
 export const backendErrorCodes = [
   "backend.unavailable",
@@ -74,7 +75,11 @@ export class BackendRemoteError extends Error {
 }
 
 export const errorSchema = z.strictObject({
-  error: z.strictObject({ code: z.string(), message: z.string() }),
+  error: z.strictObject({
+    code: z.string(),
+    message: z.string(),
+    resource: resourceFailureSchema.optional(),
+  }),
 });
 export type ErrorBody = z.infer<typeof errorSchema>;
 export function backendErrorBody(code: BackendErrorCode): ErrorBody {

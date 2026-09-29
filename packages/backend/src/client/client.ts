@@ -178,7 +178,11 @@ function remoteError(body: unknown): Error | undefined {
     );
   }
   if ((embeddingErrorCodes as readonly string[]).includes(parsed.data.error.code)) {
-    return new EmbeddingError(parsed.data.error.code as (typeof embeddingErrorCodes)[number]);
+    return new EmbeddingError(
+      parsed.data.error.code as (typeof embeddingErrorCodes)[number],
+      undefined,
+      parsed.data.error.resource,
+    );
   }
   return new BackendError("backend.failed");
 }
@@ -382,7 +386,8 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
           throw new EmbeddingError("embedding.preparation-expired");
         result = observed.status;
       }
-      if (result.state === "failed") throw new EmbeddingError(result.error ?? "embedding.failed");
+      if (result.state === "failed")
+        throw new EmbeddingError(result.error ?? "embedding.failed", undefined, result.resource);
       if (result.state !== "ready") throw new EmbeddingError("embedding.not-loaded");
       return result;
     },

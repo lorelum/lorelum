@@ -11,7 +11,12 @@ import {
   type ModelProgress,
   type ModelStatus,
 } from "./dto";
-import { EmbeddingError, embeddingFailure, type EmbeddingErrorCode } from "./errors";
+import {
+  EmbeddingError,
+  embeddingFailure,
+  type EmbeddingErrorCode,
+  type ResourceFailure,
+} from "./errors";
 import {
   ENCODING_ID,
   EMBEDDING_MODEL,
@@ -42,6 +47,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
   let progress: ModelProgress | undefined;
   let state: ModelState = "unloaded";
   let failure: EmbeddingErrorCode | undefined;
+  let resourceFailure: ResourceFailure | undefined;
   let runtime: EmbeddingRuntime | undefined;
   let loading: Promise<ModelStatus> | undefined;
   let preparationId: string | undefined;
@@ -57,6 +63,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     device: "cpu",
     dimensions: EMBEDDING_MODEL.dimensions,
     ...(failure ? { error: failure } : {}),
+    ...(resourceFailure === undefined ? {} : { resource: resourceFailure }),
   });
   async function recycle(handle: EmbeddingRuntime, deadline: number) {
     await handle.stop(deadline);
@@ -67,13 +74,18 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     if (state !== "unloading") {
       state = "failed";
       failure = error.code;
+      resourceFailure = error.resource;
     }
     if (handle) {
       try {
         await recycle(handle, unloadDeadline ?? Date.now() + options.settings.shutdownTimeoutMs);
       } catch (cleanupError) {
         // Keep the public operation error stable and retain ownership for a later cleanup retry.
-        throw new EmbeddingError(error.code, { cause: new AggregateError([error, cleanupError]) });
+        throw new EmbeddingError(
+          error.code,
+          { cause: new AggregateError([error, cleanupError]) },
+          error.resource,
+        );
       }
     }
     throw error;
@@ -89,6 +101,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     state = "loading";
     progress = { phase: "resolving" };
     failure = undefined;
+    resourceFailure = undefined;
     startup = new AbortController();
     const signal = startup.signal;
     diagnostics.emit({
@@ -132,6 +145,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
           if (runtime === active && state === "ready") {
             state = "failed";
             failure = "embedding.failed";
+            resourceFailure = undefined;
             runtime = undefined;
           }
         });
@@ -187,6 +201,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
         if (runtime) throw new EmbeddingError("embedding.deadline-exceeded");
         state = "unloaded";
         failure = undefined;
+        resourceFailure = undefined;
         diagnostics.emit({
           time: new Date().toISOString(),
           level: "info",
@@ -197,8 +212,10 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
         return status();
       } catch (error) {
         state = "failed";
-        failure = embeddingFailure(error).code;
-        throw embeddingFailure(error);
+        const visible = embeddingFailure(error);
+        failure = visible.code;
+        resourceFailure = visible.resource;
+        throw visible;
       } finally {
         unloading = undefined;
         unloadDeadline = undefined;
@@ -249,7 +266,8 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     return { preparationId: id, status: status() };
   }
   function beginModelPreparation(): ModelPreparation {
-    if (state === "failed") throw new EmbeddingError(failure ?? "embedding.failed");
+    if (state === "failed")
+      throw new EmbeddingError(failure ?? "embedding.failed", undefined, resourceFailure);
     if (state === "unloading" || (!loading && state !== "ready" && (runtime || inflight)))
       throw new EmbeddingError("embedding.busy");
     void load().catch(() => {});
@@ -260,7 +278,8 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     modelPreparation(id);
     if (loading) await loading;
     const current = modelPreparation(id).status;
-    if (current.state === "failed") throw new EmbeddingError(current.error ?? "embedding.failed");
+    if (current.state === "failed")
+      throw new EmbeddingError(current.error ?? "embedding.failed", undefined, current.resource);
     if (current.state !== "ready") throw new EmbeddingError("embedding.not-loaded");
     return current;
   }

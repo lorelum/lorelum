@@ -142,6 +142,45 @@ test("model preparation observes the caller's full semantic wait budget", async 
   expect(observationBudgets).toEqual([5_000]);
 });
 
+test("semantic query preserves resource details from a failed preparation status", async () => {
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "missing",
+  } as const;
+  const preparation = loadingPreparation();
+  const failed = {
+    ...preparation,
+    status: {
+      ...preparation.status,
+      state: "failed" as const,
+      error: "embedding.native-resource-invalid" as const,
+      resource,
+    },
+  };
+  const client = backend({
+    query: async () => {
+      throw new EmbeddingError("embedding.not-loaded");
+    },
+  });
+  const coordinator: SemanticRuntimeCoordinator = {
+    connect: async () => client,
+    beginModelPreparation: async () => preparation,
+    observeModelPreparation: async () => failed,
+  };
+
+  await expect(
+    createSemanticRuntimeClient(coordinator).query(root, {
+      text: "missing runtime",
+      minCoveragePercent: 0,
+    }),
+  ).rejects.toMatchObject({
+    code: "embedding.native-resource-invalid",
+    resource,
+    message: new EmbeddingError("embedding.native-resource-invalid", undefined, resource).message,
+  });
+});
+
 test("annotates a compatibility error with the local automatic recovery policy", async () => {
   const coordinator: SemanticRuntimeCoordinator = {
     connect: async () => {

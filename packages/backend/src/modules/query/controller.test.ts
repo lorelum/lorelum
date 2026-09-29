@@ -211,7 +211,12 @@ test("maps semantic index readiness failures to a typed remote error", async () 
   expect(await response.json()).toMatchObject({ error: { code: "semantic.index-not-ready" } });
 });
 
-test("maps a terminal embedding failure to its stable public error", async () => {
+test("maps a terminal embedding failure and preserves structured resource details", async () => {
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "missing",
+  } as const;
   const instance = app(
     {
       async query() {
@@ -220,7 +225,7 @@ test("maps a terminal embedding failure to its stable public error", async () =>
     },
     createContentAddressedSemanticRuntimeStub({
       async query() {
-        throw new EmbeddingError("embedding.download-failed");
+        throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
       },
     }),
   );
@@ -228,7 +233,9 @@ test("maps a terminal embedding failure to its stable public error", async () =>
     request({ storageRoot: "/tmp/query-controller", query: { text: "deployment" } }),
   );
   expect(response.status).toBe(503);
-  expect(await response.json()).toMatchObject({ error: { code: "embedding.download-failed" } });
+  expect(await response.json()).toMatchObject({
+    error: { code: "embedding.native-resource-invalid", resource },
+  });
 });
 
 test("maps invalid Engine input before exposing an implementation failure", async () => {
