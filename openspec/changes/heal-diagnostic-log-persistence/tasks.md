@@ -23,4 +23,4 @@
 
 - [x] 5.1 `bun test`（1120 pass / 0 fail / 16 skip）、`bun run typecheck`、`bun run lint`（36 警告 = main 基线，0 error）、`bun run fmt:check`（本变更文件全干净；main 既有 12 个脏文件未触碰）。
 - [x] 5.2 `openspec validate heal-diagnostic-log-persistence --strict`（通过）。
-- [ ] 5.3 PR 描述报告实际结果与未验证项（macOS 未本机验证；Windows 由相应侧复验）。
+- [x] 5.3 PR 描述报告实际结果与未验证项（macOS 未本机验证，CI 仅 ubuntu 不会兜底；Windows 由另一侧复验；win32 lstat→O_CREAT 竞态为已披露平台限制，与 main 姿态相同）。
