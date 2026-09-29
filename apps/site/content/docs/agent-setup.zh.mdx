@@ -17,6 +17,20 @@ Lorelum 帮助编码 Agent 在工作过程中找到相关的工程指导。请�
 | Cursor                 | 安装 [Lorelum Plugin](./cursor)。     |
 | 其他能执行命令的 Agent | 使用宿主支持的 Skill 机制或项目指令。 |
 
+## 宿主功能对比
+
+五个官方 Plugin 都提供 Lorelum Skill 和 SessionStart Pack Catalog，并通过同一套 `lore query`、`lore get` CLI 工作。差异主要在于宿主原生 Hook 能否关联会话读取，以及能否把已读候选传给新子 Agent。
+
+| 宿主 | SessionStart Pack Catalog | 将成功的 `lore get` 关联到会话 | 向新子 Agent 展示已读候选 |
+| --- | --- | --- | --- |
+| [Codex](./codex) | 支持 | 通过 Bash `PreToolUse` | 支持，通过 `SubagentStart` |
+| [Claude Code](./claude) | 支持 | 通过 Bash/PowerShell `PreToolUse` | 支持，通过 `SubagentStart` |
+| [Cursor](./cursor) | 支持，但首轮可能尚未出现 | 通过 Shell `preToolUse` | 不支持；子 Agent 启动响应无法注入上下文 |
+| [WorkBuddy](./workbuddy) | 支持 | 通过 Bash `PreToolUse` | 不支持；宿主不会把 `SubagentStart` Hook 输出送到子 Agent |
+| [ZCode](./zcode) | 支持 | 通过 Bash `PreToolUse` | 不支持；宿主没有子 Agent 启动事件 |
+
+Cursor 启动 Catalog Hook 时不会等待；如果首轮看不到 Catalog，Skill 可以查一次已安装 Pack。会话关联要求 `get` 成功、Backend 已在运行且能取得有效的会话身份；漏记不影响 `get` 的结果。共用的[shell 注入范围配置](./configuration#agent-shell-会话身份)决定哪些命令传递身份。已读记录只是可能相关的候选，不代表主 Agent 采纳了该 Practice。即使在 Codex 和 Claude Code，子 Agent 收到的也只是有界元数据，不是完整正文。SessionStart Catalog 是 Pack 元数据，不能代替已读候选提示。
+
 ## 其他 Agent
 
 能够执行命令的 Agent 可以调用同一套 CLI。按宿主支持的方式安装 Skill；若宿主使用项目指令，则将 Skill 的检索指导放入对应指令文件。

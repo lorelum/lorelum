@@ -13,13 +13,13 @@ Check `lore --version` in your command environment. If unavailable, follow [Inst
 Use the installer that matches the host where the agent runs commands. macOS on Apple Silicon and Linux x64 use the Unix installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.4
+curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.5
 ```
 
 Windows x64 uses PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.4
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.5
 ```
 
 Do not run `install.sh` or double-click the installer on Windows. Run the PowerShell command from an already-open session so errors remain visible. macOS is the priority and most thoroughly validated release target; Linux and Windows are best-effort targets. Read [Installation](./installation) before treating another environment as compatible.

@@ -16,12 +16,12 @@
 
 ---
 
-> **Public alpha · `0.1.0-alpha.4`。** 提供 macOS Apple Silicon、Linux x64 和 Windows x64 的预编译发行包。macOS 是 Lorelum 优先适配、验证更充分的发布平台；Linux 和 Windows 提供尽力支持，不保证在所有发行版、系统构建、硬件和本地安全策略下的兼容性与性能。CLI 合同、Pack 格式和索引可能随版本变化，暂不保证自动迁移。
+> **Public alpha · `0.1.0-alpha.5`。** 提供 macOS Apple Silicon、Linux x64 和 Windows x64 的预编译发行包。macOS 是 Lorelum 优先适配、验证更充分的发布平台；Linux 和 Windows 提供尽力支持，不保证在所有发行版、系统构建、硬件和本地安全策略下的兼容性与性能。CLI 合同、Pack 格式和索引可能随版本变化，暂不保证自动迁移。
 
 > **将下面提示交给 Agent。**
 >
 > ```text
-> 请根据 https://lorelum.com/zh/docs/agents.md 为当前项目配置 Lorelum v0.1.0-alpha.4。
+> 请根据 https://lorelum.com/zh/docs/agents.md 为当前项目配置 Lorelum v0.1.0-alpha.5。
 > 安装 CLI 和 agentic-coding Pack，为当前宿主接入 Lorelum Skill；开始实际工作前，
 > 完成一次自然语言检索和 Practice 全文读取来验证配置。
 > ```
@@ -84,7 +84,7 @@ Agent 判断何时查询、哪些 Practice 适用。Lorelum 提供检索到的�
 - **本地 semantic retrieval。** 用 `lore query` 围绕任务和时刻检索已安装 Practice，本地 Backend 在请求之间复用 embedding 模型。
 - **Practice 全文读取。** 用 `lore get` 阅读完整指导和适用条件，再决定如何应用。
 - **版本化 Knowledge Pack。** 安装、查看、更新和移除 Pack，通过 `--store-root` 管理独立知识集合。
-- **Agent 集成。** 在能执行命令的 Agent 中使用 Lorelum Skill；Codex 和 ZCode 都可使用包含已安装 Pack 目录的官方 Plugin。
+- **Agent 集成。** 在能执行命令的 Agent 中使用 Lorelum Skill；Codex、Claude Code、WorkBuddy、ZCode 和 Cursor 都有包含 Pack Catalog 的官方 Plugin。
 - **明确的离线路径。** 用 `lore query --mode keyword` 按关键词匹配，无需模型或 Backend。
 - **Pack 编写工具。** 通过 CLI 验证源文件、格式化 Practice，并维护本地化状态。
 
@@ -99,13 +99,13 @@ Agent 判断何时查询、哪些 Practice 适用。Lorelum 提供检索到的�
 #### macOS Apple Silicon 和 Linux x64
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.4
+curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.5
 ```
 
 #### Windows x64
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.4
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.5
 ```
 
 macOS/Linux 安装器会校验发行包，并创建 `~/.local/bin/lore`；Windows 安装器校验 ZIP，并创建 `$env:LOCALAPPDATA\Lorelum\bin\lore.cmd`。请保留完整发行目录，semantic retrieval 需要随可执行文件分发的原生库和运行时资源。Windows 不要运行 `install.sh`，也不要双击安装脚本；请在已打开的 PowerShell 中运行上面的命令，保留错误输出。
@@ -144,14 +144,15 @@ lore get <practice-id>
 | 宿主                   | 接入方式                                               |
 | ---------------------- | ------------------------------------------------------ |
 | Codex                  | 官方 Plugin，包含 Skill 和 Pack 目录 Hook              |
+| WorkBuddy              | 官方 Plugin，包含 Skill、`/lore` 命令和 Pack 目录 Hook |
 | ZCode                  | 官方 Plugin，包含 Skill、`/lore` 命令和 Pack 目录 Hook |
-| Claude Code            | 项目级或个人级 Lorelum Skill                           |
+| Claude Code            | 官方 Plugin，包含 Skill 和 Pack 目录 Hook              |
 | Cursor                 | 官方 Plugin，包含 Skill、`/lore` 命令和 Pack 目录 Hook |
 | 其他能执行命令的 Agent | 宿主支持的 Skill 或项目指令                            |
 
 安装选定的 Skill 或 Plugin 后，启动一个新任务，要求 Agent 在确定重要计划或实现决定前使用 Lorelum。每个宿主页都提供各自的更新步骤和最短排查路径。
 
-安装与验证步骤见[接入 Agent](https://lorelum.com/zh/docs/agent-setup)、[Codex 配置](https://lorelum.com/zh/docs/codex)、[ZCode 配置](https://lorelum.com/zh/docs/zcode)和 [Cursor 配置](https://lorelum.com/zh/docs/cursor)。
+安装与功能差异见[接入 Agent 与宿主功能对比](https://lorelum.com/zh/docs/agent-setup#宿主功能对比)；[Codex](https://lorelum.com/zh/docs/codex)、[Claude Code](https://lorelum.com/zh/docs/claude)、[WorkBuddy](https://lorelum.com/zh/docs/workbuddy)、[ZCode](https://lorelum.com/zh/docs/zcode)和 [Cursor](https://lorelum.com/zh/docs/cursor)指南分别说明宿主的安装与验证。
 
 ## 选择或创建 Knowledge Pack
 
@@ -201,7 +202,7 @@ severity: warn
 
 Lorelum Core 不管理任务、不读取完整 transcript，也不判断实现是否通过验收。检索到的 Practice 是指导，不能代替验证证据。
 
-Codex 和 ZCode Plugin 会在各自受支持的会话事件中提供 Pack 目录。更完整的 compaction 前后指导取决于宿主能力，仍属于[研究方向](https://github.com/lorelum/lorelum/issues/32)。当前用户通过 CLI 和 Skill 接入。
+五个官方 Plugin 都会在受支持的会话事件中提供 Pack Catalog。部分宿主还能向新子 Agent 提供有界的已读 Practice 候选提示；其他宿主可以记录读取，但无法展示子 Agent 提示。具体见[宿主功能对比](https://lorelum.com/zh/docs/agent-setup#宿主功能对比)。Lorelum 不会从候选推断完整任务历史，也不会自动向子 Agent 注入 Practice 正文。
 
 ## 文档与贡献
 

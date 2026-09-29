@@ -12,7 +12,7 @@ test("exports the CLI package contract", () => {
   expect(PACKAGE_NAME).toBe("@lorelum/cli");
   expect(protocolResponseSchema).toHaveProperty("oneOf");
   expect(protocolVersion).toBe(2);
-  expect(toolVersion).toBe("0.1.0-alpha.4");
+  expect(toolVersion).toBe("0.1.0-alpha.5");
 
   const response: ProtocolSuccess<{ name: string }> = {
     protocolVersion,

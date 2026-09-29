@@ -17,6 +17,20 @@ Lorelum helps your coding agent find relevant engineering guidance while it work
 | Cursor                        | Install the [Lorelum Plugin](./cursor).                    |
 | Another command-capable agent | Use its supported Skill mechanism or project instructions. |
 
+## Host capabilities
+
+All five official Plugins provide the Lorelum Skill and a SessionStart Pack Catalog. They use the same `lore query` and `lore get` CLI; the differences below concern what each host's native Hooks can pass between a session and its subagents.
+
+| Host | SessionStart Pack Catalog | Associate successful `lore get` reads with a session | Show read candidates to a new subagent |
+| --- | --- | --- | --- |
+| [Codex](./codex) | Yes | Yes, through Bash `PreToolUse` | Yes, through `SubagentStart` |
+| [Claude Code](./claude) | Yes | Yes, through Bash/PowerShell `PreToolUse` | Yes, through `SubagentStart` |
+| [Cursor](./cursor) | Yes, but it may appear after the first turn | Yes, through Shell `preToolUse` | No; its subagent-start response cannot inject context |
+| [WorkBuddy](./workbuddy) | Yes | Yes, through Bash `PreToolUse` | No; the host does not deliver `SubagentStart` Hook output to the subagent |
+| [ZCode](./zcode) | Yes | Yes, through Bash `PreToolUse` | No; the host does not provide a subagent-start event |
+
+Cursor starts its Catalog Hook without waiting; if the Catalog is not yet visible, its Skill can list installed Packs once. Read association requires a successful `get`, an already-running Backend, and a usable session identity; a missed read never changes the result of `get`. The shared [shell setting](./configuration#agent-shell-session-identity) determines which eligible commands receive identity. A recorded read is only a possibly relevant candidate, not proof that the parent adopted a Practice. Even in Codex and Claude Code, the subagent receives bounded metadata, not the full Practice body. The SessionStart Catalog is Pack metadata, not a substitute for these read-candidate hints.
+
 ## Other agents
 
 Agents that can execute commands can use the same CLI. Install the Skill through the host's supported mechanism. If the host uses project instructions instead, include the Skill's retrieval instructions there.

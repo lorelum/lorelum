@@ -13,18 +13,18 @@ Public alpha 提供 macOS Apple Silicon、Linux x64 和 Windows x64 的预编译
 ### macOS Apple Silicon 和 Linux x64
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.4
+curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.5
 ```
 
 ### Windows x64
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.4
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.5
 ```
 
 Windows 不要运行 `install.sh`，也不要双击安装脚本。Windows 安装器仅通过 PowerShell 运行，并创建 `lore.cmd` shim；请在已经打开的 PowerShell 会话中运行，保留错误输出。
 
-这会安装 `0.1.0-alpha.4`。省略版本参数时，两种安装器都会查找稳定发行版。
+这会安装 `0.1.0-alpha.5`。省略版本参数时，两种安装器都会查找稳定发行版。
 
 两种安装器都会下载当前宿主对应的发行包和 `SHA256SUMS`，并校验发行包的 SHA-256。macOS 和 Linux 将完整文件安装到 `~/.local/share/lorelum/versions/`，命令入口位于 `~/.local/bin/lore`；Windows 安装到 `$env:LOCALAPPDATA\Lorelum\versions\`，并创建 `$env:LOCALAPPDATA\Lorelum\bin\lore.cmd`。
 

@@ -44,7 +44,7 @@ test("public marketplace exposes the lorelum Plugin from its distinct marketplac
   ]);
 
   expect(manifest.name).toBe("lorelum");
-  expect(manifest.version).toBe("0.1.0-alpha.4");
+  expect(manifest.version).toBe("0.1.0-alpha.5");
   expect(manifest.homepage).toBe("https://lorelum.com");
   expect(manifest.interface).toEqual(
     expect.objectContaining({

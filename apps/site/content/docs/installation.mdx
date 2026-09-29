@@ -13,18 +13,18 @@ Use the installer for the host that will run the CLI. The public alpha is a prer
 ### macOS on Apple Silicon and Linux x64
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.4
+curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.5
 ```
 
 ### Windows x64
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.4
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.5
 ```
 
 Do not run `install.sh` or double-click the installer on Windows. The Windows installer is PowerShell-only and creates a `lore.cmd` shim; run it from an already-open PowerShell session so an error remains visible.
 
-This installs `0.1.0-alpha.4`. Both installers look for a stable release when the version argument is omitted.
+This installs `0.1.0-alpha.5`. Both installers look for a stable release when the version argument is omitted.
 
 Both installers download the matching release archive and `SHA256SUMS`, then verify the archive's SHA-256. macOS and Linux install the full release under `~/.local/share/lorelum/versions/`, with `~/.local/bin/lore` as the command entrypoint. Windows installs under `$env:LOCALAPPDATA\Lorelum\versions\` and creates `$env:LOCALAPPDATA\Lorelum\bin\lore.cmd`.
 

@@ -38,7 +38,7 @@ test("Claude Code marketplace exposes the lorelum Plugin from the lorelum-plugin
 
   expect(manifest.name).toBe("lorelum");
   expect(manifest.name).toMatch(/^[a-z0-9][a-z0-9._-]{0,127}$/);
-  expect(manifest.version).toBe("0.1.0-alpha.4");
+  expect(manifest.version).toBe("0.1.0-alpha.5");
   expect(manifest.description).toContain("Claude Code");
   expect(manifest.license).toBe("Apache-2.0");
   expect(manifest.displayName).toBe("Lorelum");

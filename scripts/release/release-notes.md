@@ -1,77 +1,34 @@
 ## Lorelum __RELEASE_TAG__
 
-> Alpha.4 adds first-party Cursor and WorkBuddy integrations, trace-bounded local diagnostics and feedback drafts, clearer local process identities, and new official Knowledge Pack releases. If you maintain scripts that invoke the bundled native executable by path, replace `llama-server` with `lore-model`.
-
-Lorelum alpha.4 expands the supported Agent surface while making local recovery and release artifacts easier to recognize. It adds first-party Cursor and WorkBuddy Plugins, trace-bounded diagnostics and local feedback drafts, Lorelum-specific process names for the Backend and embedded model runtime, and independent official Pack updates.
+> Alpha.5 adds an explicit CLI update path, named and local Pack sources, a Claude Code Plugin, and session read hints across supported Agent hosts.
 
 ## Highlights
 
-### First-party Cursor and WorkBuddy integrations
+### Check and apply CLI updates explicitly
 
-Cursor and WorkBuddy now join Codex and ZCode as supported first-party Plugin hosts. Each integration ships a host-native Plugin, a `/lore` command, a SessionStart Hook that provides the installed Pack Catalog, and a host-adapted Lorelum Skill.
+`lore update` checks published releases for the current channel and platform, shows the available version and release notes, and leaves the installation unchanged. Prerelease builds select the prerelease channel by default. For a CLI installed by the official installer at its default location, `lore update --apply` rechecks the release, downloads and verifies the selected archive, switches the command entry, and verifies the new version. Other installation methods can check but are not overwritten by `--apply`. `lore --version` and ordinary Agent Hooks do not check for updates in the background.
 
-The integrations keep Lorelum CLI-first: host artifacts call the released `lore` command and use native Hook contracts rather than running a local MCP server. Follow the Cursor or WorkBuddy setup guide to install or update the Plugin, enable the host's Hooks, and start a new task before relying on the catalog injection.
+### Choose a Pack source
 
-### Clearer local Backend and model process identities
+`lore registry add`, `list`, `set-default`, and `remove` manage named Registry sources. Pack install and update use the selected source, with the official Registry as the default when no other default is saved. A `--registry` argument overrides it for one command. `lore pack install --path <directory>` and `lore pack update --path <directory>` also accept one local Pack directory without registering it or requiring Git. Lorelum does not silently try another Registry if the selected one fails.
 
-The local daemon now requests the display name `lore-backend` on hosts that honor it. The distributed native embedding executable is now named `lore-model` on macOS, Linux, and Windows, replacing the release-path name `llama-server`.
+### Claude Code and session read hints
 
-This makes Lorelum-owned processes easier to distinguish in process viewers and when diagnosing an upgrade. Windows release binaries also carry Lorelum product metadata and an application icon. The normal installers validate and install the renamed runtime automatically.
+Claude Code joins Codex, ZCode, Cursor, and WorkBuddy as a first-party Plugin host. Its native Plugin provides the Lorelum Skill and session-start Pack Catalog. All five Plugins can associate successful `lore get` reads with a session when a Backend and usable session identity are available. Codex and Claude Code can show bounded read-candidate metadata to new subagents; Cursor, WorkBuddy, and ZCode cannot deliver those hints through their host Hook contracts. The shared `agent.shellSessionInjection` setting controls eligible shell commands. Hints are possibly relevant and incomplete, not a record of everything the session read. See the [host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities) for the differences.
 
-### Trace-bounded local diagnostics and feedback drafts
+### Smaller Agent output and more useful recovery
 
-Ordinary CLI failures now include `diagnostics.traceId`. When a failure blocks work or you explicitly need to diagnose it, inspect only the original invocation's managed local records:
-
-    lore logs --trace-id <traceId> --limit 100
-
-This command does not start a Backend or model, rerun the command, or scan unrelated traces. If records are missing, rotated, damaged, or were never captured at the requested level, Lorelum reports that evidence limit instead of substituting another invocation. Raw host Hook stdout remains host-native and does not receive ordinary CLI trace metadata.
-
-Use `lore --debug` for one controlled reproduction without changing persistent logging configuration or another concurrent request. `lore feedback draft --trace-id <traceId> --kind bug` writes local `report.json` and `report.md` files under `~/.lorelum/feedback/`; it does not upload diagnostics, open a browser, or create an Issue. Review any local evidence before choosing to share it publicly.
-
-### Official Pack catalog updates
-
-The official Pack repository now includes `agentic-coding@0.5.1`: 34 step-style decision procedures with explicit stopping points, severity tiers, revised retrieval triggers, and two planning-calibration Practices. `0.5.1` also retunes the catalog description to name those planning-calibration moments. `pack-creator@0.2.0` adds guidance for project-local Packs alongside authoring, evaluation, and Registry release work.
-
-Knowledge Packs are versioned independently from the CLI. Install or update them only when you want their new guidance in a Store.
+Default text for `lore pack list`, `lore query`, and `lore get` emphasizes decision-relevant fields; use `--verbose` for full text or `--json` for the complete machine envelope. CLI failures now give a consistent next action. Managed diagnostic logs repair a damaged logging subtree without treating unrelated ancestor content as Lorelum-owned.
 
 ## Upgrade notes
 
-### Update direct native-runtime paths
+### Update CLI and Plugins separately
 
-Normal installations require no manual action. If a local script, wrapper, or process check directly invokes `native/<target>/llama-server` or `llama-server.exe` inside a Lorelum release directory, update that path to `lore-model` or `lore-model.exe`. The upstream project remains llama.cpp; only Lorelum's distributed executable name has changed.
+The alpha.4 CLI has no `lore update` command: use the exact-version installer below, or the method that manages your current installation, to reach alpha.5. From a default-location official installer-managed alpha.5 installation, later releases can be checked with `lore update` and applied explicitly with `lore update --apply`; other installation methods remain read-only. Install or update the Claude Code Plugin from its marketplace, and update other host Plugins through their respective host flows. Start a new host session after a Plugin update. Pack versions remain independent of the CLI and Plugins.
 
-### Install or update host Plugins
+### Preserve alpha-stage data
 
-Install the Cursor or WorkBuddy Plugin from its documented marketplace flow, then start a new task so its SessionStart Hook can run. Older CLI versions degrade safely when a new host Hook is unavailable, but they do not provide the new catalog injection.
-
-### Diagnose one original failure before retrying it
-
-Copy the `diagnostics.traceId` from an ordinary CLI failure, then inspect only that trace before running a reproduction:
-
-    lore logs --trace-id <traceId> --limit 100
-
-If the retained trace does not explain the failure and you control a safe minimal reproduction, run that reproduction with `--debug`. It creates a new trace; do not present its records as if they came from the original failure. The updated Troubleshooting guide describes the complete trace, debug, and feedback flow.
-
-### Create feedback drafts locally first
-
-Use the original trace to prepare a reviewable local draft:
-
-    lore feedback draft --trace-id <traceId> --kind bug
-
-This is not a support submission. It does not create or update a GitHub Issue, and a local draft does not authorize a Core, Pack, Skill, Plugin, documentation, or evaluation change. If you later submit evidence publicly, choose the material deliberately and remove credentials, secrets, or anything else you do not want to disclose.
-
-### Update official Packs deliberately
-
-To select the new Pack releases in an existing Store:
-
-    lore pack update agentic-coding@0.5.1
-    lore pack update pack-creator@0.2.0
-
-Pack installation commits canonical Pack content even when derived semantic-index work remains pending or fails. Inspect `data.indexSync`, then run `lore index build` only when you need semantic retrieval ready in that Store.
-
-### Pack, Store, and index compatibility
-
-Pack formats, LocalStore data, indexes, and retrieval behavior remain alpha-stage contracts. This release does not promise an automatic migration. Keep a backup or use an isolated `--store-root` before evaluating it in a shared environment.
+Pack formats, LocalStore data, indexes, and retrieval behavior remain alpha-stage contracts; an automatic migration is not promised. Keep a backup or use an isolated `--store-root` when evaluating this release against a shared Store.
 
 ## Install __RELEASE_TAG__
 
@@ -105,7 +62,7 @@ CLI behavior, Pack formats, local Store data, indexes, and retrieval results may
 
 ## Full changelog
 
-[Compare v0.1.0-alpha.3 to __RELEASE_TAG__](https://github.com/lorelum/lorelum/compare/v0.1.0-alpha.3...__RELEASE_TAG__)
+[Compare v0.1.0-alpha.4 to __RELEASE_TAG__](https://github.com/lorelum/lorelum/compare/v0.1.0-alpha.4...__RELEASE_TAG__)
 
 ## Verification
 

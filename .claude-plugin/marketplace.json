@@ -8,7 +8,7 @@
     {
       "name": "lorelum",
       "source": "./plugins/claude/lorelum",
-      "version": "0.1.0-alpha.4",
+      "version": "0.1.0-alpha.5",
       "description": "On-demand engineering Practices for Claude Code: a compact installed Knowledge Pack catalog with targeted semantic retrieval.",
       "author": {
         "name": "Lorelum",

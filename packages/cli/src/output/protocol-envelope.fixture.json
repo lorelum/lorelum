@@ -1,7 +1,7 @@
 [
   {
     "protocolVersion": 2,
-    "toolVersion": "0.1.0-alpha.4",
+    "toolVersion": "0.1.0-alpha.5",
     "command": "fixture.success",
     "diagnostics": { "traceId": "00000000-0000-4000-8000-000000000011" },
     "ok": true,
@@ -9,7 +9,7 @@
   },
   {
     "protocolVersion": 2,
-    "toolVersion": "0.1.0-alpha.4",
+    "toolVersion": "0.1.0-alpha.5",
     "command": "fixture.failure",
     "diagnostics": { "traceId": "00000000-0000-4000-8000-000000000012" },
     "ok": false,
