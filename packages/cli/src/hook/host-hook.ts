@@ -10,7 +10,7 @@ import type { OutputWriter } from "../output/protocol.js";
 import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import { renderPackCatalog } from "./pack-catalog.js";
 import type { Logger } from "@lorelum/log";
-import type { ReadHint, ShellToolEvent } from "@lorelum/backend/client";
+import type { ReadHint } from "@lorelum/backend/client";
 import { sessionRefSchema } from "@lorelum/backend/client";
 import { defaultPracticeHints } from "../practice-hints/backend.js";
 import { renderReadHints } from "../practice-hints/render.js";
@@ -56,7 +56,6 @@ export interface HostHookServices {
   readonly list: Pick<ListService, "listPackDetails">;
   readonly storageRoot: StorageRoot;
   readonly practiceHints?: {
-    routeToolEvent(event: ShellToolEvent): Promise<void>;
     readRecentHints(hostKey: string, sessionId: string): Promise<readonly ReadHint[]>;
   };
   readonly platform?: NodeJS.Platform;
@@ -219,10 +218,10 @@ async function respondToCodexPracticeHint(
   }
   if (input.hook_event_name === "PreToolUse" || input.hook_event_name === "PostToolUse") {
     // Codex calls this tool "Bash" for both shell and unified exec. Other tools
-    // never enter the generic ledger route, even if a matcher is broadened.
+    // never receive session identity, even if a matcher is broadened.
     if (input.tool_name !== "Bash") return {};
-    if (platform === "darwin") {
-      if (input.hook_event_name === "PostToolUse") return {};
+    if (input.hook_event_name === "PostToolUse") return {};
+    if (platform === "darwin" || platform === "linux" || platform === "win32") {
       const session = sessionRefSchema.safeParse({
         hostKey: "codex",
         sessionId: input.session_id,
@@ -237,30 +236,16 @@ async function respondToCodexPracticeHint(
           updatedInput: {
             ...input.tool_input,
             command:
-              `export LORELUM_HOST_KEY='codex'\n` +
-              `export LORELUM_HOST_SESSION_ID=${shellQuote(session.data.sessionId)}\n` +
+              (platform === "win32"
+                ? `$env:LORELUM_HOST_KEY = 'codex'\n` +
+                  `$env:LORELUM_HOST_SESSION_ID = ${powerShellQuote(session.data.sessionId)}\n`
+                : `export LORELUM_HOST_KEY='codex'\n` +
+                  `export LORELUM_HOST_SESSION_ID=${shellQuote(session.data.sessionId)}\n`) +
               command,
           },
         },
       };
     }
-    if (
-      typeof input.session_id !== "string" ||
-      !input.session_id ||
-      typeof input.tool_use_id !== "string" ||
-      !input.tool_use_id ||
-      typeof input.cwd !== "string" ||
-      !input.cwd
-    )
-      return {};
-    await hints.routeToolEvent({
-      hostKey: "codex",
-      event: input.hook_event_name === "PreToolUse" ? "pre" : "post",
-      toolKind: "shell",
-      sessionId: input.session_id,
-      toolUseId: input.tool_use_id,
-      cwd: input.cwd,
-    });
     return {};
   }
   throw new Error("Lorelum Codex Hook received an unsupported event.");
@@ -268,6 +253,10 @@ async function respondToCodexPracticeHint(
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function powerShellQuote(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 export async function createHostHookResponse(

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ListPackDetailsResult } from "@lorelum/engine";
-import type { ReadHint, ShellToolEvent } from "@lorelum/backend/client";
+import type { ReadHint } from "@lorelum/backend/client";
 
 import {
   parseCodexHookInvocation,
@@ -52,138 +52,155 @@ function services(overrides: Partial<CodexHookServices> = {}): CodexHookServices
 }
 
 describe("lore hook codex", () => {
-  test.each(["linux", "win32"] as const)("keeps the %s Bash window fallback", async (platform) => {
-    const events: ShellToolEvent[] = [];
-    const hintServices = services({
-      platform,
-      practiceHints: {
-        async routeToolEvent(event) {
-          events.push(event);
+  test.each([
+    [
+      "darwin",
+      "export LORELUM_HOST_KEY='codex'\nexport LORELUM_HOST_SESSION_ID='parent'\"'\"'one'\n",
+    ],
+    [
+      "linux",
+      "export LORELUM_HOST_KEY='codex'\nexport LORELUM_HOST_SESSION_ID='parent'\"'\"'one'\n",
+    ],
+    ["win32", "$env:LORELUM_HOST_KEY = 'codex'\n$env:LORELUM_HOST_SESSION_ID = 'parent''one'\n"],
+  ] as const)(
+    "%s passes the session to Bash without changing other tool input fields",
+    async (platform, prefix) => {
+      const hintServices = services({
+        platform,
+        practiceHints: {
+          async readRecentHints() {
+            return [];
+          },
         },
-        async readRecentHints() {
-          return [];
-        },
-      },
-    });
-    for (const [hook_event_name, tool_name] of [
-      ["PreToolUse", "apply_patch"],
-      ["PostToolUse", "mcp__example__tool"],
-      ["PreToolUse", "Bash"],
-      ["PostToolUse", "Bash"],
-    ]) {
+      });
+      const original = {
+        command: "pwd | cat; exit 23",
+        workdir: "/work/tree",
+        timeout_ms: 8000,
+        yield_time_ms: 1000,
+        extra: { unchanged: true },
+      };
       const stdout = new MemoryWriter();
       await runCodexHook({
         stdin: input(
           JSON.stringify({
-            hook_event_name,
-            tool_name,
-            session_id: "parent",
-            tool_use_id: "tool",
-            cwd: "/work",
+            hook_event_name: "PreToolUse",
+            tool_name: "Bash",
+            session_id: "parent'one",
+            tool_input: original,
           }),
         ),
         stdout,
         stderr: new MemoryWriter(),
         services: hintServices,
       });
-      expect(stdout.value).toBe("{}\n");
-    }
-    expect(events).toEqual([
-      {
-        hostKey: "codex",
-        event: "pre",
-        toolKind: "shell",
-        sessionId: "parent",
-        toolUseId: "tool",
-        cwd: "/work",
-      },
-      {
-        hostKey: "codex",
-        event: "post",
-        toolKind: "shell",
-        sessionId: "parent",
-        toolUseId: "tool",
-        cwd: "/work",
-      },
-    ]);
-  });
-
-  test("macOS passes the session to Bash without changing other tool input fields", async () => {
-    const events: ShellToolEvent[] = [];
-    const hintServices = services({
-      platform: "darwin",
-      practiceHints: {
-        async routeToolEvent(event) {
-          events.push(event);
+      const response = JSON.parse(stdout.value);
+      expect(response.hookSpecificOutput).toEqual({
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+        updatedInput: {
+          ...original,
+          command: prefix + original.command,
         },
-        async readRecentHints() {
-          return [];
-        },
-      },
-    });
-    const original = {
-      command: "pwd | cat; exit 23",
-      workdir: "/work/tree",
-      timeout_ms: 8000,
-      yield_time_ms: 1000,
-      extra: { unchanged: true },
-    };
-    const stdout = new MemoryWriter();
-    await runCodexHook({
-      stdin: input(
-        JSON.stringify({
-          hook_event_name: "PreToolUse",
-          tool_name: "Bash",
-          session_id: "parent'one",
-          tool_input: original,
-        }),
-      ),
-      stdout,
-      stderr: new MemoryWriter(),
-      services: hintServices,
-    });
-    const response = JSON.parse(stdout.value);
-    expect(response.hookSpecificOutput).toEqual({
-      hookEventName: "PreToolUse",
-      permissionDecision: "allow",
-      updatedInput: {
-        ...original,
-        command:
-          "export LORELUM_HOST_KEY='codex'\n" +
-          "export LORELUM_HOST_SESSION_ID='parent'\"'\"'one'\n" +
-          original.command,
-      },
-    });
-    expect(events).toEqual([]);
-
-    for (const payload of [
-      {
-        hook_event_name: "PostToolUse",
-        tool_name: "Bash",
-        session_id: "parent",
-        tool_input: original,
-      },
-      {
-        hook_event_name: "PreToolUse",
-        tool_name: "apply_patch",
-        session_id: "parent",
-        tool_input: original,
-      },
-      { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: original },
-      { hook_event_name: "PreToolUse", tool_name: "Bash", session_id: "parent", tool_input: {} },
-    ]) {
-      const empty = new MemoryWriter();
-      // eslint-disable-next-line no-await-in-loop -- Check each independent no-op payload and its output.
-      await runCodexHook({
-        stdin: input(JSON.stringify(payload)),
-        stdout: empty,
-        stderr: new MemoryWriter(),
-        services: hintServices,
       });
-      expect(empty.value).toBe("{}\n");
-    }
-    expect(events).toEqual([]);
-  });
+      for (const payload of [
+        {
+          hook_event_name: "PostToolUse",
+          tool_name: "Bash",
+          session_id: "parent",
+          tool_input: original,
+        },
+        {
+          hook_event_name: "PreToolUse",
+          tool_name: "apply_patch",
+          session_id: "parent",
+          tool_input: original,
+        },
+        { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: original },
+        { hook_event_name: "PreToolUse", tool_name: "Bash", session_id: "parent", tool_input: {} },
+      ]) {
+        const empty = new MemoryWriter();
+        // eslint-disable-next-line no-await-in-loop -- Check each independent no-op payload and its output.
+        await runCodexHook({
+          stdin: input(JSON.stringify(payload)),
+          stdout: empty,
+          stderr: new MemoryWriter(),
+          services: hintServices,
+        });
+        expect(empty.value).toBe("{}\n");
+      }
+    },
+  );
+
+  test.skipIf(process.platform === "win32")(
+    "Unix rewrites pass session identity to a child process without changing exit status",
+    async () => {
+      for (const platform of ["darwin", "linux"] as const) {
+        const stdout = new MemoryWriter();
+        // eslint-disable-next-line no-await-in-loop -- Exercise both Unix adapter branches in a real shell.
+        await runCodexHook({
+          stdin: input(
+            JSON.stringify({
+              hook_event_name: "PreToolUse",
+              tool_name: "Bash",
+              session_id: "parent'one",
+              tool_input: {
+                command: `sh -c 'printf "%s/%s" "$LORELUM_HOST_KEY" "$LORELUM_HOST_SESSION_ID"'; exit 23`,
+              },
+            }),
+          ),
+          stdout,
+          stderr: new MemoryWriter(),
+          services: services({ platform }),
+        });
+        const command = JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command;
+        const child = Bun.spawn(["sh", "-c", command], { stdout: "pipe", stderr: "pipe" });
+        // eslint-disable-next-line no-await-in-loop -- Assert each adapter's process result separately.
+        const [output, exitCode] = await Promise.all([
+          new Response(child.stdout).text(),
+          child.exited,
+        ]);
+        expect(output).toBe("codex/parent'one");
+        expect(exitCode).toBe(23);
+      }
+    },
+  );
+
+  test.skipIf(process.platform !== "win32")(
+    "Windows PowerShell rewrite passes identity to a child process without changing exit status",
+    async () => {
+      const stdout = new MemoryWriter();
+      await runCodexHook({
+        stdin: input(
+          JSON.stringify({
+            hook_event_name: "PreToolUse",
+            tool_name: "Bash",
+            session_id: "parent'one",
+            tool_input: {
+              command: 'cmd.exe /C "echo %LORELUM_HOST_KEY%/%LORELUM_HOST_SESSION_ID%"\nexit 23',
+            },
+          }),
+        ),
+        stdout,
+        stderr: new MemoryWriter(),
+        services: services({ platform: "win32" }),
+      });
+      const command = JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command;
+      const child = Bun.spawn(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
+      const [output, exitCode] = await Promise.all([
+        new Response(child.stdout).text(),
+        child.exited,
+      ]);
+      expect(output.trim()).toBe("codex/parent'one");
+      expect(exitCode).toBe(23);
+    },
+  );
 
   test("injects bounded, optional metadata only for a matching SubagentStart session", async () => {
     const hint: ReadHint = {
@@ -194,7 +211,6 @@ describe("lore hook codex", () => {
     };
     const hintServices = services({
       practiceHints: {
-        async routeToolEvent() {},
         async readRecentHints(host, sessionId) {
           return host === "codex" && sessionId === "parent" ? [hint] : [];
         },
@@ -228,9 +244,6 @@ describe("lore hook codex", () => {
     const failing = services({
       platform: "linux",
       practiceHints: {
-        async routeToolEvent() {
-          throw new Error("optional hints unavailable");
-        },
         async readRecentHints() {
           throw new Error("optional hints unavailable");
         },
@@ -238,6 +251,7 @@ describe("lore hook codex", () => {
     });
     for (const hook_event_name of ["PreToolUse", "SubagentStart"]) {
       const stdout = new MemoryWriter();
+      // eslint-disable-next-line no-await-in-loop -- Verify independent Hook events and their output.
       await runCodexHook({
         stdin: input(
           JSON.stringify({
@@ -246,13 +260,18 @@ describe("lore hook codex", () => {
             session_id: "parent",
             tool_use_id: "tool",
             cwd: "/work",
+            tool_input: { command: "pwd" },
           }),
         ),
         stdout,
         stderr: new MemoryWriter(),
         services: failing,
       });
-      expect(stdout.value).toBe("{}\n");
+      if (hook_event_name === "PreToolUse") {
+        expect(JSON.parse(stdout.value).hookSpecificOutput.updatedInput.command).toContain("pwd");
+      } else {
+        expect(stdout.value).toBe("{}\n");
+      }
     }
   });
   test("renders the current Catalog through the raw Codex Hook envelope", async () => {

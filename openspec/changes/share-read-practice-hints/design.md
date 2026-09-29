@@ -1,6 +1,6 @@
 ## Context
 
-当前 worktree 已有 Backend 拥有的 Practice 候选接口、内存活动窗口和 `~/.lorelum/sessions/<host>/session-<编码ID>.jsonl`；这份代码尚未经过真实子 Agent 验收，也没有发布。窗口实现位于 Practice-hints 服务内部，未来其他会话功能若照抄会产生多套活动窗口；当前文件组织又让 `sessions` 看起来只服务 Practice 已读清单。参见 [proposal.md](./proposal.md) 的需求和 [agent-integration delta](./specs/agent-integration/spec.md) 的行为约束。
+最初的 worktree 原型已有 Backend 拥有的 Practice 候选接口、内存活动窗口和 `~/.lorelum/sessions/<host>/session-<编码ID>.jsonl`；当时尚未经过真实子 Agent 验收。活动窗口原本位于 Practice-hints 服务内部，可能使未来会话功能重复维护窗口；文件组织也让 `sessions` 看起来只服务 Practice 已读清单。初版已把它们迁到公共 `sessions` 模块并验证 macOS 的真实子 Agent 链路；本轮消除 Codex 在 Linux/Windows 上仍用窗口后备的平台差异。参见 [proposal.md](./proposal.md) 的需求和 [agent-integration delta](./specs/agent-integration/spec.md) 的行为约束。
 
 Codex Hook 本身有 `session_id`、`tool_use_id` 和 Bash 的 `tool_input.command`，问题是脚本内执行的 `lore get` 进程不会自动得到这些字段。[OpenAI Hooks 文档](https://learn.chatgpt.com/docs/hooks) 要求 `PreToolUse` 同时返回 `permissionDecision: "allow"` 与 `updatedInput` 才能改写输入。用 Codex CLI 0.155.1 的临时 Hook，在 macOS 上做过两层 demo：`codex exec` 的只读与命名只读档位，以及通过 app-server `thread/start permissions: ":read-only"` 的真实工具路径。app-server 试验中，直接程序、`sh` 脚本、管道子进程读到的环境变量哈希都与该线程 ID 的哈希相同；未信任 Hook 或只返回 `updatedInput` 而没有 `permissionDecision: "allow"` 时，改写未生效。临时实验目录在 `/tmp/lorelum-hook-env-n9f8nI/`，没有改用户 Codex 配置、Plugin 或 Backend。
 
@@ -8,16 +8,16 @@ Codex Hook 本身有 `session_id`、`tool_use_id` 和 Bash 的 `tool_input.comma
 
 ## Goals / Non-Goals
 
-- **Goals：** 支持安全改写的宿主直接传递会话身份，避免同路径会话误归属；一个通用会话目录能容纳未来不同会话数据；只保留一套跨功能复用的活动窗口后备；仍让 `get` 的可选报告失败时不影响读取。
-- **Non-Goals：** 不把环境变量当认证或采纳证据；不保证清空环境、跨容器/远程进程能继承身份；不因显式身份而自动启动 Backend；不实现 compact 恢复、会话清理、通用事件日志、数据库或本地 MCP。实施已获用户授权，但 Mac Hook 改写仍受下述权限验收关口约束。
+- **Goals：** Codex 在 macOS、Linux 和 Windows 的 shell tool 中直接传递会话身份，避免同路径会话误归属；一个通用会话目录能容纳未来不同会话数据；只保留一套供其他宿主复用的活动窗口后备；仍让 `get` 的可选报告失败时不影响读取。
+- **Non-Goals：** 不把环境变量当认证或采纳证据；不保证清空环境、跨容器/远程进程能继承身份；不因显式身份而自动启动 Backend；不实现 compact 恢复、会话清理、通用事件日志、数据库或本地 MCP。macOS 已验收，Linux/Windows 的宿主级权限与继承结果不得由此推定。
 
 ## Decisions
 
 ### 显式身份优先，窗口只作公共后备
 
-Codex macOS 的 `PreToolUse` 仅匹配 Bash，保留原 `tool_input` 的所有字段，只给 `command` 前置两条经过 shell 安全引用的 `export`：`LORELUM_HOST_KEY=codex` 和 `LORELUM_HOST_SESSION_ID=<Hook session_id>`。返回宿主规定的 `hookSpecificOutput`、`permissionDecision: "allow"` 和完整 `updatedInput`。不解析原命令；对非 Bash、缺少会话 ID 或无法安全改写的调用输出 no-op。通过验收的显式绑定路径不为每次 Bash 连接 Backend，`PostToolUse` 不需要关闭窗口。直接命令、管道、本地脚本通常继承这两个变量；明确清空环境、`sudo`、容器和远端命令可能丢失它们，此时允许漏记。正式实现必须确认加前缀不会改变原命令的工作目录、参数、退出码、批准流程和沙箱边界；若权限验证不通过，不能发布该改写。
+Codex 的 `PreToolUse` 仅匹配 Bash，保留原 `tool_input` 的所有字段，只给 `command` 前置宿主与会话 ID 的赋值。macOS/Linux 用经过 Unix shell 安全引用的 `export`，Windows 原生 PowerShell 用 `$env:` 赋值并对单引号转义。返回宿主规定的 `hookSpecificOutput`、`permissionDecision: "allow"` 和完整 `updatedInput`。不解析原命令；对非 Bash、缺少会话 ID 或无法安全改写的调用输出 no-op。这条显式绑定路径不为每次 Bash 连接 Backend，Codex `PostToolUse` 不需要关闭窗口。直接命令、管道、本地脚本通常继承这两个变量；明确清空环境、`sudo`、容器和远端命令可能丢失它们，此时允许漏记。正式实现必须确认加前缀不会改变原命令的工作目录、参数、退出码、批准流程和沙箱边界；macOS 已经完成真实宿主验收，Linux 和 Windows 的真实宿主验证结果必须分别记录，不能用 macOS 结果代替。
 
-Linux 和 Windows 都不删除现有支持：它们保留当前 Pre/Post 活动窗口代码路径，直到各自的真实 Codex 环境验证改写、子进程继承及权限语义；已有 `commandWindows` 声明只是配置，不是 Windows 实测。其他宿主若没有安全的输入改写能力，也可映射自己的 shell Pre/Post 到同一公共后备；不能为每项会话功能另建窗口。通过验收的 Codex macOS 路径不同时写窗口以追求双保险，避免每次 Bash 的 Backend 请求与两套归属结果。
+Windows 原生 Codex 使用 PowerShell，WSL 内运行的 Codex 使用 Linux 路径；Hook 的 Windows `commandWindows` 只负责调用 `lore hook codex`，具体的 PowerShell 命令前缀由 CLI 返回。其他宿主若没有安全的输入改写能力，仍可映射自己的 shell Pre/Post 到同一公共后备；不能为每项会话功能另建窗口。Codex 三个平台不同时写窗口以追求双保险，避免每次 Bash 的 Backend 请求与两套归属结果。尚未完成的 Linux/Windows 真实宿主验证须在交付说明中标明，不把单测视为实测。
 
 CLI `get` 仍直接从 LocalStore 读取；成功后才按同一 `SessionRef` 合同检查成对的宿主/会话环境变量，缺失或无效都当作未提供，不把坏值传给 Backend。有效时将可选 `SessionRef` 与候选元数据、实际 `cwd` 一起发给**已运行**的 Backend。没有有效显式身份时，由 Backend 尝试公共活动窗口；两条路径都不可用就不记。Backend 的关联模块只负责一次会话归属，Practice-hints 模块只负责“读过什么”与持久化。关键内部合同示意（具体 DTO 复用现有本地认证协议）：
 
@@ -34,7 +34,7 @@ interface PracticeHintBackendClient {
 }
 ```
 
-`packages/backend/src/modules/sessions/` 拥有此内部关联能力和会话路径解析；其中活动窗口是**同一个**进程内模块，由使用后备的宿主共享。保留一个短 README，写明调用方、显式身份优先顺序、Pre/Post 窗口的创建/关闭/过期、工作目录近似匹配、无持久窗口、无权限语义，以及 Windows 当前为何仍用后备。它不是新公开 CLI/API，也不预建通用任务状态机。`packages/backend/src/modules/practice-hints/` 调用这个边界，不再私有维护窗口。工作目录在显式身份路径用于记录实际发生地，不参与选择会话；只有窗口后备才用目录与时间近似匹配。
+`packages/backend/src/modules/sessions/` 拥有此内部关联能力和会话路径解析；其中活动窗口是**同一个**进程内模块，供需要后备的宿主共享。保留一个短 README，写明调用方、显式身份优先顺序、Pre/Post 窗口的创建/关闭/过期、工作目录近似匹配、无持久窗口、无权限语义，以及当前 Codex 三个平台都不再使用窗口。它不是新公开 CLI/API，也不预建通用任务状态机。`packages/backend/src/modules/practice-hints/` 调用这个边界，不再私有维护窗口。工作目录在显式身份路径用于记录实际发生地，不参与选择会话；只有窗口后备才用目录与时间近似匹配。
 
 ### 通用会话目录，功能专属文件
 
@@ -58,7 +58,7 @@ Backend 统一计算会话目录：Codex 的会话 ID 原样作为目录名，�
 ## Risks / Trade-offs
 
 - **改写所有 Bash 的语义与信任成本** → 只改 `command`、保留其余工具输入；测量 Hook 进程开销；验证原退出码、工作目录、批准与沙箱行为。未信任 Hook 应保持原命令且不声称精确绑定；失败不靠解析命令补救。
-- **变量没有跨某些进程边界继承** → 记录为能力边界；macOS 不并行维持窗口。Linux/Windows 保留现有窗口代码路径，分别实测通过才切换。
+- **变量没有跨某些进程边界继承** → 记录为能力边界；Codex 三个平台都不并行维持窗口。Linux/Windows 真实宿主验收结果须与已通过的 macOS 结果分开报告。
 - **窗口后备同路径会话重叠** → 仍可能误归属，文档仅对后备路径提示此限制；显式会话身份不借目录推断。
 - **直接身份可被同用户进程伪造** → 只用于可选检索提示，不用于权限、安全审计或可信的父 Agent 采纳判断。
 - **会话文件增长与读取扫描** → 本阶段只有有界响应，没有清理策略；观察真实占用与延迟后再设计，不预设锁或数据库。
@@ -68,13 +68,13 @@ Backend 统一计算会话目录：Codex 的会话 ID 原样作为目录名，�
 | 方案 | 原因 |
 | --- | --- |
 | 所有 Codex Bash 继续 Pre/Post 请求 Backend 开窗口 | macOS 的显式身份 demo 已证明可跨本地脚本/管道传递；常见路径再做窗口增加请求成本和同路径误归属。 |
-| 删除全部窗口代码，只支持能改写命令的宿主 | Linux 和 Windows 的改写路径尚未真实验证，其他宿主也未必支持安全改写；共用的窗口后备仍有当前用途。 |
+| 删除全部窗口代码，只支持能改写命令的宿主 | 其他宿主未必支持安全改写；共用的窗口后备仍可供它们复用。 |
 | 每个功能自建会话窗口或在 CLI/Plugin 写另一份清单 | 造成多个归属规则和存储位置，违背 Backend 单一所有者。 |
 | 环境变量当认证凭据，或用复杂签名阻止同用户伪造 | 候选只是提示；这不会替代已有 Backend 认证，却会引入密钥分发与生命周期成本。 |
 | 强制 `get --json`、解析 Bash 文本/输出 | 脚本和管道会系统性漏记，不解决实际进程的会话身份。 |
 
 ## Migration Plan
 
-用户已批准实施。当前已在 `sessions` 模块建立唯一会话路径和活动窗口后备接口/README，把 Practice-hints 服务迁到该边界并将文件放进会话目录；CLI 成功 `get` 的报告也已接受可选显式身份。Codex macOS Pre Hook 导出变量并停止该路径的 Post 窗口调用仍等待权限验收，不得仅因 Backend/CLI 代码完成而启用。Linux/Windows 的现有 Pre/Post 代码路径保持到各自真实宿主改写验证通过；原型临时文件与旧会话文件不主动删除。
+用户已批准 Codex 三个平台改用显式身份。`sessions` 模块已有唯一会话路径和公共活动窗口接口/README，Practice-hints 服务将记录放进会话目录；CLI 成功 `get` 的报告也接受可选显式身份。Codex macOS 已完成真实宿主链路验证；Linux 和 Windows 改用各自 shell 的赋值语法后，须分别核对真实宿主结果，不能仅凭单测宣称验收通过。原型临时文件与旧会话文件不主动删除。
 
-实施验证分两道：第一道检查改写实效及权限边界——在真实 Codex app-server 命名权限档位，分别跑直接命令、脚本、管道、非 shell、原命令退出码、工作目录、需要批准的安全临时操作；确认 `permissionDecision: "allow"` 没有放宽既有批准/沙箱合同。Linux 与 Windows 若要启用显式绑定，各自独立完成真实宿主验证，否则继续窗口后备。第二道启动与源码匹配的 Backend 和真实 Codex 子 Agent，确认成功/失败 `get`、同路径并行会话、文件重启可读、子 Agent 实际看到提示，并测 Hook 冷/暖与报告开销；不能只看 Hook 输出 JSON。若第一道不通过，不把显式绑定投入生产，保持现有窗口路径并重新审查设计。没有通过真实链路前不得声称新功能已交付。
+实施验证分两道：第一道检查改写实效及权限边界——在真实 Codex 命名权限档位，分别跑直接命令、脚本、管道、非 shell、原命令退出码、工作目录、需要批准的安全临时操作；确认 `permissionDecision: "allow"` 没有放宽既有批准/沙箱合同。三平台分别记录已验证与未验证的项目。第二道启动与源码匹配的 Backend 和真实 Codex 子 Agent，确认成功/失败 `get`、同路径并行会话、文件重启可读、子 Agent 实际看到提示，并测 Hook 冷/暖与报告开销；不能只看 Hook 输出 JSON。无法运行的宿主路径保留实现与测试，但不得宣称已完成真实宿主验收，也不再把 Codex 窗口路径作为悄悄回退。没有通过真实链路前不得声称相应平台的自动注入已实测交付。

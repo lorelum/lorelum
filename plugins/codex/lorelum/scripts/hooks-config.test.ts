@@ -50,11 +50,12 @@ test("routes only Bash tool hooks and shares bounded hints at SubagentStart", as
       }[]
     >;
   };
-  for (const event of ["PreToolUse", "PostToolUse"]) {
-    expect(configuration.hooks[event]?.[0]?.matcher).toBe("^Bash$");
-    expect(configuration.hooks[event]?.[0]?.hooks[0]?.command).toContain("lore hook codex");
-    expect(configuration.hooks[event]?.[0]?.hooks[0]?.commandWindows).toContain("lore hook codex");
-  }
+  expect(configuration.hooks.PreToolUse?.[0]?.matcher).toBe("^Bash$");
+  expect(configuration.hooks.PreToolUse?.[0]?.hooks[0]?.command).toContain("lore hook codex");
+  expect(configuration.hooks.PreToolUse?.[0]?.hooks[0]?.commandWindows).toContain(
+    "lore hook codex",
+  );
+  expect(configuration.hooks.PostToolUse).toBeUndefined();
   expect(configuration.hooks.SubagentStart?.[0]?.hooks[0]?.additionalContextLimit).toBe(2000);
   expect(configuration.hooks.SubagentStart?.[0]?.hooks[0]?.command).toContain("lore hook codex");
 });
@@ -75,7 +76,7 @@ test.skipIf(process.platform === "win32")(
     await writeFile(lore, "#!/bin/sh\nexit 2\n", "utf8");
     await chmod(lore, 0o755);
     try {
-      for (const event of ["PreToolUse", "PostToolUse", "SubagentStart"]) {
+      for (const event of ["PreToolUse", "SubagentStart"]) {
         const command = configuration.hooks[event]?.[0]?.hooks[0]?.command;
         if (!command) throw new Error(`Missing ${event} command.`);
         const child = Bun.spawn(["sh", "-c", command], {
@@ -111,7 +112,7 @@ test.skipIf(process.platform === "win32")(
     await writeFile(lore, "#!/bin/sh\nprintf '{\"continue\":true}\\n'\n", "utf8");
     await chmod(lore, 0o755);
     try {
-      for (const event of ["PreToolUse", "PostToolUse"]) {
+      for (const event of ["PreToolUse"]) {
         const child = Bun.spawn(["sh", "-c", configuration.hooks[event]![0]!.hooks[0]!.command], {
           env: { ...process.env, PATH: `${directory}:${process.env.PATH ?? ""}` },
           stdout: "pipe",

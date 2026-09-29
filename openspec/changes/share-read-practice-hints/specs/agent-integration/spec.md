@@ -41,7 +41,7 @@ Lorelum SHALL 由现有 Backend 持有成功读取的 Practice 候选状态，�
 
 ### Requirement: Codex 会话身份传递不改变原命令权限
 
-Codex 集成 SHALL 只对 Bash 的 `PreToolUse` 改写工具输入以传递宿主与会话 ID；MUST 保留原输入的其他字段，且 MUST NOT 改变命令原有的权限、沙箱与退出语义。无法安全改写或用户未信任 Hook 时 MUST 不假称显式绑定已生效。当前 Linux 与 Windows SHALL 保留已有 Pre/Post 窗口代码路径，分别完成真实宿主改写、继承与权限验证后才可另行切换；Windows 的现有 Hook 声明不算真实运行验证。
+Codex 集成 SHALL 只对 Bash 的 `PreToolUse` 改写工具输入以传递宿主与会话 ID；macOS/Linux SHALL 使用 Unix shell 环境变量语法，Windows 原生 Agent SHALL 使用 PowerShell 环境变量语法。MUST 保留原输入的其他字段，且 MUST NOT 改变命令原有的权限、沙箱与退出语义。无法安全改写或用户未信任 Hook 时 MUST 不假称显式绑定已生效。Codex 的 `PostToolUse` SHALL 不再为活动窗口连接 Backend；Linux/Windows 的 Hook 声明及单元测试不能充当真实宿主改写、继承与权限验证。
 
 #### Scenario: Bash 中的本地子进程继承身份
 

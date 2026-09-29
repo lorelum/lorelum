@@ -28,19 +28,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "^Bash$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if output=\"$(lore hook codex)\" && [ \"$output\" != '{\"continue\":true}' ]; then printf '%s\\n' \"$output\"; else printf '%s\\n' '{}'; fi",
-            "timeout": 10,
-            "commandWindows": "try { $output = & lore hook codex; if ($LASTEXITCODE -eq 0 -and $output -ne '{\"continue\":true}') { $output } else { '{}' } } catch { '{}' }"
-          }
-        ]
-      }
-    ],
     "SubagentStart": [
       {
         "hooks": [
