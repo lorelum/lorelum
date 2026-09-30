@@ -176,11 +176,7 @@ const mutationResultDataRequired = [
 const registryMutationBranch: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: [
-    "registry",
-    "source",
-    ...mutationResultDataRequired,
-  ],
+  required: ["registry", "source", ...mutationResultDataRequired],
   properties: {
     ...mutationResultDataProperties,
     registry: registryResultSchema,
@@ -505,7 +501,12 @@ function createRegistryMutationCommand(
             throw new CliError(cliErrorCodes.usageInvalid, "The command invocation is invalid.");
           }
           return {
-            data: await mutateDirectoryPack(resolvedServices, storageRoot, sourceDirectory, operation),
+            data: await mutateDirectoryPack(
+              resolvedServices,
+              storageRoot,
+              sourceDirectory,
+              operation,
+            ),
           };
         }
         if (packSpecifier === undefined) {

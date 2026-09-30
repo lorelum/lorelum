@@ -111,7 +111,10 @@ function createServices(
         };
       },
       async selectRegistry(selector) {
-        return { kind: "remote" as const, ...(selector === undefined ? {} : { locator: selector }) };
+        return {
+          kind: "remote" as const,
+          ...(selector === undefined ? {} : { locator: selector }),
+        };
       },
       async materializeRelease(release: RegistryRelease, repository: string) {
         observed.repository = repository;
@@ -553,7 +556,9 @@ test("installs an explicit local Pack directory without entering the Registry ro
         stdout: repeat,
       }),
     ).toBe(0);
-    expect(JSON.parse(repeat.value)).toMatchObject({ data: { idempotent: true, source: { type: "directory" } } });
+    expect(JSON.parse(repeat.value)).toMatchObject({
+      data: { idempotent: true, source: { type: "directory" } },
+    });
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
@@ -607,7 +612,12 @@ Changed local content.
     expect(response).toMatchObject({ data: { source: { type: "directory" } } });
     expect(response.data.indexSync).toBeUndefined();
     expect(updated.observed.syncedRoots).toEqual([]);
-    expect(validateJsonSchema(response.data, snapshotCommandDefinitions([createUpdateCommand(updated.services)])[0]!.resultSchema)).toEqual([]);
+    expect(
+      validateJsonSchema(
+        response.data,
+        snapshotCommandDefinitions([createUpdateCommand(updated.services)])[0]!.resultSchema,
+      ),
+    ).toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
@@ -628,7 +638,9 @@ test("maps unavailable and invalid local Pack roots without exposing their paths
     /* eslint-disable no-await-in-loop -- each invocation has its own output assertion. */
     for (const source of [unavailable, notDirectory]) {
       const stdout = new MemoryWriter();
-      expect(await run(["pack", "install", "--path", source], { registry: definitions, stdout })).toBe(2);
+      expect(
+        await run(["pack", "install", "--path", source], { registry: definitions, stdout }),
+      ).toBe(2);
       expect(JSON.parse(stdout.value)).toMatchObject({ error: { code: "source.unavailable" } });
       expect(stdout.value).not.toContain(source);
     }
@@ -687,7 +699,9 @@ test("requires an installed Pack before a direct directory update", async () => 
       }),
     ).toBe(2);
     expect(JSON.parse(stdout.value)).toMatchObject({ error: { code: "pack.not-installed" } });
-    expect(await fixture.store.readEffectivePractices({ rootPath: join(directory, "store") })).toHaveLength(0);
+    expect(
+      await fixture.store.readEffectivePractices({ rootPath: join(directory, "store") }),
+    ).toHaveLength(0);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
@@ -696,35 +710,38 @@ test("requires an installed Pack before a direct directory update", async () => 
 test.each([
   [new StoreBusyError("internal busy path"), "store.busy"],
   [new StoreRecoveryRequiredError("internal recovery path"), "store.recovery-required"],
-])("maps Store failures for a direct directory source without exposing internal details", async (error, code) => {
-  const directory = await mkdtemp(join(tmpdir(), "lorelum-local-pack-command-"));
-  try {
-    const packDirectory = await createPack(directory);
-    const fixture = createServices(packDirectory, join(directory, "store"));
-    const services: InstallCommandServices = {
-      ...fixture.services,
-      store: {
-        async install() {
-          throw error;
+])(
+  "maps Store failures for a direct directory source without exposing internal details",
+  async (error, code) => {
+    const directory = await mkdtemp(join(tmpdir(), "lorelum-local-pack-command-"));
+    try {
+      const packDirectory = await createPack(directory);
+      const fixture = createServices(packDirectory, join(directory, "store"));
+      const services: InstallCommandServices = {
+        ...fixture.services,
+        store: {
+          async install() {
+            throw error;
+          },
+          async upgrade() {
+            throw error;
+          },
         },
-        async upgrade() {
-          throw error;
-        },
-      },
-    };
-    const stdout = new MemoryWriter();
-    expect(
-      await run(["pack", "install", "--path", packDirectory], {
-        registry: snapshotCommandDefinitions([createInstallCommand(services)]),
-        stdout,
-      }),
-    ).toBe(2);
-    expect(JSON.parse(stdout.value)).toMatchObject({ error: { code } });
-    expect(stdout.value).not.toContain("internal");
-  } finally {
-    await rm(directory, { force: true, recursive: true });
-  }
-});
+      };
+      const stdout = new MemoryWriter();
+      expect(
+        await run(["pack", "install", "--path", packDirectory], {
+          registry: snapshotCommandDefinitions([createInstallCommand(services)]),
+          stdout,
+        }),
+      ).toBe(2);
+      expect(JSON.parse(stdout.value)).toMatchObject({ error: { code } });
+      expect(stdout.value).not.toContain("internal");
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  },
+);
 
 test("rejects invalid local source selector combinations before Registry or directory I/O", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lorelum-local-pack-command-"));
@@ -779,7 +796,9 @@ test("installs from a saved local Git Registry alias without exposing its worktr
     };
     const definitions = snapshotCommandDefinitions([createInstallCommand(services)]);
     const stdout = new MemoryWriter();
-    expect(await run(["pack", "install", "agentic-coding"], { registry: definitions, stdout })).toBe(0);
+    expect(
+      await run(["pack", "install", "agentic-coding"], { registry: definitions, stdout }),
+    ).toBe(0);
     const response = JSON.parse(stdout.value);
     expect(response).toMatchObject({
       data: {

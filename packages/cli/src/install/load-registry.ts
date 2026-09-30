@@ -108,11 +108,7 @@ function legacyRawRepository(slug: string): RegistryRepository {
   });
 }
 
-function gitRepository(
-  gitUrl: string,
-  slug: string,
-  legacyGithub = false,
-): RegistryRepository {
+function gitRepository(gitUrl: string, slug: string, legacyGithub = false): RegistryRepository {
   return Object.freeze({ slug, gitUrl, transport: "git", legacyGithub });
 }
 
@@ -176,11 +172,14 @@ function resolveScpLocator(candidate: string): RegistryRepository {
   const match = SCP_PATTERN.exec(candidate);
   if (match === null) throw genericInvalid();
   const [, user, host, rawPath] = match;
-  if (host === undefined || rawPath === undefined || rawPath.startsWith("/")) throw genericInvalid();
+  if (host === undefined || rawPath === undefined || rawPath.startsWith("/"))
+    throw genericInvalid();
   validateRepositoryPath(`/${rawPath}`, genericInvalid);
   const pathWithoutSuffix = rawPath.replace(/\.git$/iu, "");
   const legacySlug =
-    host.toLowerCase() === "github.com" && user === "git" && GITHUB_SLUG_PATTERN.test(pathWithoutSuffix)
+    host.toLowerCase() === "github.com" &&
+    user === "git" &&
+    GITHUB_SLUG_PATTERN.test(pathWithoutSuffix)
       ? pathWithoutSuffix
       : undefined;
   return gitRepository(candidate, legacySlug ?? candidate, legacySlug !== undefined);
@@ -253,7 +252,8 @@ async function readGitDescriptor(
     });
     return new TextDecoder().decode(output);
   } catch (error) {
-    if (error instanceof CliError && error.code === cliErrorCodes.sourceInvalid) throw invalidRegistry();
+    if (error instanceof CliError && error.code === cliErrorCodes.sourceInvalid)
+      throw invalidRegistry();
     throw unavailable(unavailableMessage);
   } finally {
     await rm(temporaryRoot, { force: true, recursive: true }).catch(() => undefined);

@@ -39,7 +39,8 @@ async function catalog(reader: RegistryCatalogReader): Promise<RegistryCatalog> 
 }
 
 function fromSavedSource(alias: string, source: RegistryCatalogSource): RegistrySelection {
-  if (source.kind === "remote-git") return Object.freeze({ kind: "remote", alias, locator: source.locator });
+  if (source.kind === "remote-git")
+    return Object.freeze({ kind: "remote", alias, locator: source.locator });
   return Object.freeze({ kind: "local", alias, worktree: source.worktree });
 }
 
@@ -50,7 +51,8 @@ export async function selectRegistry(
 ): Promise<RegistrySelection> {
   if (selector === undefined) {
     const stored = await catalog(reader);
-    if (stored.defaultAlias === undefined) return Object.freeze({ kind: "remote", alias: "official" });
+    if (stored.defaultAlias === undefined)
+      return Object.freeze({ kind: "remote", alias: "official" });
     const source = stored.registries[stored.defaultAlias];
     if (source === undefined) {
       throw new CliError(
@@ -66,7 +68,10 @@ export async function selectRegistry(
     const stored = await catalog(reader);
     const source = stored.registries[selector];
     if (source === undefined) {
-      throw new CliError(cliErrorCodes.registryAliasNotFound, "The Registry alias is not configured.");
+      throw new CliError(
+        cliErrorCodes.registryAliasNotFound,
+        "The Registry alias is not configured.",
+      );
     }
     return fromSavedSource(selector, source);
   }

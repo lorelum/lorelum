@@ -213,7 +213,9 @@ test("remote Git runner denies the file protocol even for a cloneable local repo
   try {
     await mkdir(localRepository);
     await runFixtureGit(localRepository, ["init", "-b", "main"]);
-    await expect(runGit(["ls-remote", "--", pathToFileURL(localRepository).href])).rejects.toMatchObject({
+    await expect(
+      runGit(["ls-remote", "--", pathToFileURL(localRepository).href]),
+    ).rejects.toMatchObject({
       code: "source.unavailable",
     });
   } finally {
@@ -297,7 +299,9 @@ test("returns source.unavailable for a local Registry missing object without net
   const git = new FakeGit(packEntries());
   git.batchOutput = (objectIds) => bytes(`${objectIds[0]} missing\n`);
 
-  await expect(materializeLocalRegistryRelease(release, "/private/registry", git.run)).rejects.toMatchObject({
+  await expect(
+    materializeLocalRegistryRelease(release, "/private/registry", git.run),
+  ).rejects.toMatchObject({
     code: "source.unavailable",
   });
   expect(git.callsFor("clone")).toHaveLength(0);

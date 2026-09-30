@@ -13,6 +13,7 @@ const ALIAS_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const SCP_LOCATOR_PATTERN = /^(?:[A-Za-z0-9._-]+@)?[A-Za-z0-9._-]+:.+$/u;
 const LOCK_WAIT_MS = 500;
 const LOCK_RETRY_MS = 25;
+const catalogMutationTails = new Map<string, Promise<void>>();
 
 export interface RegistryCatalogOptions {
   readonly homeDirectory?: string;
@@ -89,7 +90,10 @@ function isMissing(error: unknown): boolean {
 }
 
 function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+  return typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
     ? error.code
     : undefined;
 }
@@ -158,7 +162,8 @@ function validateRemoteLocator(locator: string): void {
       url.search !== "" ||
       url.hash !== "" ||
       (isHttps && (url.username !== "" || url.password !== "")) ||
-      (isSsh && (url.password !== "" || (url.username !== "" && !/^[A-Za-z0-9._-]+$/u.test(url.username))))
+      (isSsh &&
+        (url.password !== "" || (url.username !== "" && !/^[A-Za-z0-9._-]+$/u.test(url.username))))
     ) {
       throw new RegistryCatalogError();
     }
@@ -192,10 +197,12 @@ function validateSource(source: RegistryCatalogSource): void {
 }
 
 function sourcesEqual(left: RegistryCatalogSource, right: RegistryCatalogSource): boolean {
-  return left.kind === right.kind &&
+  return (
+    left.kind === right.kind &&
     (left.kind === "remote-git"
       ? left.locator === (right as Extract<RegistryCatalogSource, { kind: "remote-git" }>).locator
-      : left.worktree === (right as Extract<RegistryCatalogSource, { kind: "local-git" }>).worktree);
+      : left.worktree === (right as Extract<RegistryCatalogSource, { kind: "local-git" }>).worktree)
+  );
 }
 
 function parseCatalog(value: unknown): RegistryCatalog {
@@ -208,7 +215,12 @@ function parseCatalog(value: unknown): RegistryCatalog {
     throw new RegistryCatalogError();
   }
   const defaultAlias = value.default;
-  if (defaultAlias !== undefined && (typeof defaultAlias !== "string" || defaultAlias === "official" || !ALIAS_PATTERN.test(defaultAlias))) {
+  if (
+    defaultAlias !== undefined &&
+    (typeof defaultAlias !== "string" ||
+      defaultAlias === "official" ||
+      !ALIAS_PATTERN.test(defaultAlias))
+  ) {
     throw new RegistryCatalogError();
   }
 
@@ -222,7 +234,10 @@ function parseCatalog(value: unknown): RegistryCatalog {
       throw new RegistryCatalogError();
     }
     if (rawSource.kind === "remote-git") {
-      if (Object.keys(rawSource).some((key) => key !== "kind" && key !== "locator") || typeof rawSource.locator !== "string") {
+      if (
+        Object.keys(rawSource).some((key) => key !== "kind" && key !== "locator") ||
+        typeof rawSource.locator !== "string"
+      ) {
         throw new RegistryCatalogError();
       }
       const source = Object.freeze({ kind: "remote-git" as const, locator: rawSource.locator });
@@ -231,7 +246,10 @@ function parseCatalog(value: unknown): RegistryCatalog {
       continue;
     }
     if (rawSource.kind === "local-git") {
-      if (Object.keys(rawSource).some((key) => key !== "kind" && key !== "worktree") || typeof rawSource.worktree !== "string") {
+      if (
+        Object.keys(rawSource).some((key) => key !== "kind" && key !== "worktree") ||
+        typeof rawSource.worktree !== "string"
+      ) {
         throw new RegistryCatalogError();
       }
       const source = Object.freeze({ kind: "local-git" as const, worktree: rawSource.worktree });
@@ -241,7 +259,8 @@ function parseCatalog(value: unknown): RegistryCatalog {
     }
     throw new RegistryCatalogError();
   }
-  if (defaultAlias !== undefined && registries[defaultAlias] === undefined) throw new RegistryCatalogError();
+  if (defaultAlias !== undefined && registries[defaultAlias] === undefined)
+    throw new RegistryCatalogError();
   return freezeCatalog(defaultAlias, registries);
 }
 
@@ -250,7 +269,10 @@ async function inspectParent(directory: string, create: boolean): Promise<void> 
   const root = parse(absolute).root;
   let current = root;
   /* eslint-disable no-await-in-loop -- each parent must be checked before its child. */
-  for (const part of absolute.slice(root.length).split(/[\\/]+/u).filter(Boolean)) {
+  for (const part of absolute
+    .slice(root.length)
+    .split(/[\\/]+/u)
+    .filter(Boolean)) {
     current = join(current, part);
     const info = await lstat(current).catch((error: unknown) => {
       if (isMissing(error)) return undefined;
@@ -259,7 +281,15 @@ async function inspectParent(directory: string, create: boolean): Promise<void> 
     if (info === undefined) {
       if (!create) return;
       await mkdir(current, { mode: 0o700 }).catch((error: unknown) => {
-        if (!isMissing(error) && !(typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST")) {
+        if (
+          !isMissing(error) &&
+          !(
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "EEXIST"
+          )
+        ) {
           throw new RegistryCatalogError();
         }
       });
@@ -345,7 +375,10 @@ async function acquireLock(path: string): Promise<() => Promise<void>> {
       await lock.close();
       return async () => unlink(lockPath).catch(() => undefined);
     } catch (error) {
-      if (!isMissing(error) && !(typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST")) {
+      if (
+        !isMissing(error) &&
+        !(typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST")
+      ) {
         throw new RegistryCatalogError();
       }
       if (Date.now() >= deadline) throw new RegistryCatalogBusyError();
@@ -407,15 +440,29 @@ async function mutateCatalog<T>(
   mutate: (catalog: RegistryCatalog) => Readonly<{ catalog: RegistryCatalog; result: T }>,
 ): Promise<T> {
   const path = catalogFile(options);
-  await inspectParent(dirname(path), true);
-  const release = await acquireLock(path);
+  // Local writers queue instead of polling each other's lock and consuming the
+  // external-writer deadline before their turn. Keep the file lock for other processes.
+  const previous = catalogMutationTails.get(path);
+  let finish!: () => void;
+  const pending = new Promise<void>((done) => {
+    finish = done;
+  });
+  catalogMutationTails.set(path, pending);
+  await previous;
   try {
-    const current = await readCatalogFile(path);
-    const next = mutate(current);
-    if (next.catalog !== current) await writeCatalogFile(path, next.catalog);
-    return next.result;
+    await inspectParent(dirname(path), true);
+    const release = await acquireLock(path);
+    try {
+      const current = await readCatalogFile(path);
+      const next = mutate(current);
+      if (next.catalog !== current) await writeCatalogFile(path, next.catalog);
+      return next.result;
+    } finally {
+      await release();
+    }
   } finally {
-    await release();
+    finish();
+    if (catalogMutationTails.get(path) === pending) catalogMutationTails.delete(path);
   }
 }
 
@@ -439,7 +486,10 @@ export async function addRegistryCatalogSource(
       return Object.freeze({ catalog, result: Object.freeze({ catalog, idempotent: true }) });
     }
     const next = freezeCatalog(catalog.defaultAlias, { ...catalog.registries, [alias]: source });
-    return Object.freeze({ catalog: next, result: Object.freeze({ catalog: next, idempotent: false }) });
+    return Object.freeze({
+      catalog: next,
+      result: Object.freeze({ catalog: next, idempotent: false }),
+    });
   });
 }
 
@@ -452,7 +502,10 @@ export async function removeRegistryCatalogSource(
     if (catalog.registries[alias] === undefined) throw new RegistryCatalogNotFoundError();
     const registries = { ...catalog.registries };
     delete registries[alias];
-    const next = freezeCatalog(catalog.defaultAlias === alias ? undefined : catalog.defaultAlias, registries);
+    const next = freezeCatalog(
+      catalog.defaultAlias === alias ? undefined : catalog.defaultAlias,
+      registries,
+    );
     return Object.freeze({ catalog: next, result: next });
   });
 }

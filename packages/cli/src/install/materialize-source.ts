@@ -177,13 +177,7 @@ export async function runLocalGit(
   options: GitCommandOptions = {},
 ): Promise<Uint8Array> {
   return runGitWithEnvironment(
-    [
-      "-c",
-      "protocol.allow=never",
-      "-c",
-      "protocol.file.allow=never",
-      ...arguments_,
-    ],
+    ["-c", "protocol.allow=never", "-c", "protocol.file.allow=never", ...arguments_],
     options,
     localGitEnvironment(),
   );
@@ -455,9 +449,12 @@ export async function materializeLocalRegistryRelease(
   const temporaryRoot = await mkdtemp(join(tmpdir(), "lorelum-install-"));
   const packDirectory = join(temporaryRoot, "pack");
   try {
-    const commitOutput = await git(["-C", worktree, "rev-parse", "--verify", `${release.ref}^{commit}`], {
-      outputLimit: 256,
-    });
+    const commitOutput = await git(
+      ["-C", worktree, "rev-parse", "--verify", `${release.ref}^{commit}`],
+      {
+        outputLimit: 256,
+      },
+    );
     const resolvedCommit = new TextDecoder().decode(commitOutput).trim();
     if (!/^[0-9a-f]{40,64}$/.test(resolvedCommit)) throw sourceUnavailable();
     const blobs = await inspectSourceTree(worktree, release.path, git, resolvedCommit);

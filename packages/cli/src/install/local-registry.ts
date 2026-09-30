@@ -32,7 +32,9 @@ async function canonicalWorktree(directory: string, git: MaterializeGitRunner): 
   }
   let output: Uint8Array;
   try {
-    output = await git(["-C", candidate, "rev-parse", "--show-toplevel"], { outputLimit: 16 * 1024 });
+    output = await git(["-C", candidate, "rev-parse", "--show-toplevel"], {
+      outputLimit: 16 * 1024,
+    });
   } catch {
     throw unavailable();
   }

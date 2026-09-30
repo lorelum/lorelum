@@ -14,7 +14,12 @@ import {
 
 import type { JsonSchema, JsonValue } from "../output/protocol.js";
 import type { CommandDefinition } from "../registry.js";
-import { CliError, cliErrorCodes, frameworkErrorCodes, invalidInvocationError } from "../runtime/errors.js";
+import {
+  CliError,
+  cliErrorCodes,
+  frameworkErrorCodes,
+  invalidInvocationError,
+} from "../runtime/errors.js";
 import { loadLocalRegistry, type LoadedLocalRegistry } from "../install/local-registry.js";
 import {
   loadRegistry,
@@ -74,7 +79,10 @@ function visibleCatalogError(error: unknown): never {
     );
   }
   if (error instanceof RegistryCatalogNotFoundError) {
-    throw new CliError(cliErrorCodes.registryAliasNotFound, "The Registry alias is not configured.");
+    throw new CliError(
+      cliErrorCodes.registryAliasNotFound,
+      "The Registry alias is not configured.",
+    );
   }
   if (error instanceof RegistryCatalogError) {
     throw new CliError(
@@ -89,7 +97,10 @@ function validateAlias(alias: string): void {
   if (!aliasPattern.test(alias) || alias === "official") throw invalidInvocationError();
 }
 
-function optionString(options: Readonly<Record<string, unknown>>, name: string): string | undefined {
+function optionString(
+  options: Readonly<Record<string, unknown>>,
+  name: string,
+): string | undefined {
   const value = options[name];
   return typeof value === "string" ? value : undefined;
 }
@@ -165,7 +176,11 @@ const sourceSummarySchema: JsonSchema = {
       type: "object",
       additionalProperties: false,
       required: ["alias", "type", "default"],
-      properties: { alias: stringSchema, type: { const: "local-git" }, default: { type: "boolean" } },
+      properties: {
+        alias: stringSchema,
+        type: { const: "local-git" },
+        default: { type: "boolean" },
+      },
     },
   ],
 };
@@ -223,7 +238,8 @@ function createAddCommand(services: ResolvedRegistryCommandServices): CommandDef
         const locator = invocation.positionals[1];
         const path = optionString(invocation.options, "path");
         validateAlias(alias);
-        if ((locator === undefined) === (path === undefined) || path === "") throw invalidInvocationError();
+        if ((locator === undefined) === (path === undefined) || path === "")
+          throw invalidInvocationError();
 
         if (locator !== undefined) {
           const loaded = await services.loadRemoteRegistry(locator);
@@ -233,7 +249,11 @@ function createAddCommand(services: ResolvedRegistryCommandServices): CommandDef
           });
           return {
             data: {
-              source: sourceSummary(alias, { kind: "remote-git", locator: loaded.repository.gitUrl }, added.catalog.defaultAlias),
+              source: sourceSummary(
+                alias,
+                { kind: "remote-git", locator: loaded.repository.gitUrl },
+                added.catalog.defaultAlias,
+              ),
               idempotent: added.idempotent,
             },
           };
@@ -246,7 +266,11 @@ function createAddCommand(services: ResolvedRegistryCommandServices): CommandDef
         });
         return {
           data: {
-            source: sourceSummary(alias, { kind: "local-git", worktree: loaded.repository.worktree }, added.catalog.defaultAlias),
+            source: sourceSummary(
+              alias,
+              { kind: "local-git", worktree: loaded.repository.worktree },
+              added.catalog.defaultAlias,
+            ),
             idempotent: added.idempotent,
           },
         };

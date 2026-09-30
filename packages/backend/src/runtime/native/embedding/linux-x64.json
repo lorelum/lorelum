@@ -99,10 +99,5 @@
     "LICENSE.xxhash",
     "THIRD_PARTY_NOTICES.txt"
   ],
-  "dynamicDependencies": [
-    "libstdc++.so.6",
-    "libm.so.6",
-    "libgcc_s.so.1",
-    "libc.so.6"
-  ]
+  "dynamicDependencies": ["libstdc++.so.6", "libm.so.6", "libgcc_s.so.1", "libc.so.6"]
 }

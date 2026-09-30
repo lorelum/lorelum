@@ -26,7 +26,10 @@ class MemoryWriter {
 
 const descriptor = RegistrySchema.parse({ schema_version: 1, name: "team-packs", packs: [] });
 
-function createServices(): { services: RegistryCommandServices; catalog: { value: RegistryCatalog } } {
+function createServices(): {
+  services: RegistryCommandServices;
+  catalog: { value: RegistryCatalog };
+} {
   const catalog = { value: { registries: {} } as RegistryCatalog };
   const services: RegistryCommandServices = {
     async readCatalog() {
@@ -38,7 +41,9 @@ function createServices(): { services: RegistryCommandServices; catalog: { value
         return { catalog: catalog.value, idempotent: true };
       }
       catalog.value = {
-        ...(catalog.value.defaultAlias === undefined ? {} : { defaultAlias: catalog.value.defaultAlias }),
+        ...(catalog.value.defaultAlias === undefined
+          ? {}
+          : { defaultAlias: catalog.value.defaultAlias }),
         registries: { ...catalog.value.registries, [alias]: source },
       };
       return { catalog: catalog.value, idempotent: false };
@@ -47,7 +52,9 @@ function createServices(): { services: RegistryCommandServices; catalog: { value
       const registries = { ...catalog.value.registries };
       delete registries[alias];
       catalog.value = {
-        ...(catalog.value.defaultAlias === alias ? {} : { defaultAlias: catalog.value.defaultAlias }),
+        ...(catalog.value.defaultAlias === alias
+          ? {}
+          : { defaultAlias: catalog.value.defaultAlias }),
         registries,
       };
       return catalog.value;
@@ -85,14 +92,20 @@ test("manages remote aliases through JSON command definitions", async () => {
     command: "registry.add",
     ok: true,
     data: {
-      source: { alias: "team", type: "remote-git", repository: "https://gitlab.example.com/acme/packs.git" },
+      source: {
+        alias: "team",
+        type: "remote-git",
+        repository: "https://gitlab.example.com/acme/packs.git",
+      },
       idempotent: false,
     },
   });
   expect(validateJsonSchema(added.data, definitions[0]!.resultSchema)).toEqual([]);
 
   const setDefault = new MemoryWriter();
-  expect(await run(["registry", "set-default", "team"], { registry: definitions, stdout: setDefault })).toBe(0);
+  expect(
+    await run(["registry", "set-default", "team"], { registry: definitions, stdout: setDefault }),
+  ).toBe(0);
   expect(JSON.parse(setDefault.value)).toMatchObject({ data: { default: "team" } });
 
   const listed = new MemoryWriter();
@@ -110,7 +123,12 @@ test("registers a local Git worktree without returning its private path", async 
   const definitions = snapshotCommandDefinitions(createRegistryCommands(fixture.services));
   const stdout = new MemoryWriter();
 
-  expect(await run(["registry", "add", "local", "--path", "./registry"], { registry: definitions, stdout })).toBe(0);
+  expect(
+    await run(["registry", "add", "local", "--path", "./registry"], {
+      registry: definitions,
+      stdout,
+    }),
+  ).toBe(0);
   const response = JSON.parse(stdout.value);
   expect(response).toMatchObject({ data: { source: { alias: "local", type: "local-git" } } });
   expect(stdout.value).not.toContain("/private/registry-worktree");
@@ -122,10 +140,13 @@ test("rejects ambiguous Registry add forms before calling source loaders", async
   const stdout = new MemoryWriter();
 
   expect(
-    await run(["registry", "add", "team", "https://git.example.com/team/packs.git", "--path", "./registry"], {
-      registry: definitions,
-      stdout,
-    }),
+    await run(
+      ["registry", "add", "team", "https://git.example.com/team/packs.git", "--path", "./registry"],
+      {
+        registry: definitions,
+        stdout,
+      },
+    ),
   ).toBe(2);
   expect(JSON.parse(stdout.value)).toMatchObject({ error: { code: "usage.invalid" } });
 });
@@ -167,7 +188,9 @@ test("keeps the built-in official source protected and maps alias conflicts", as
     }),
   );
   const official = new MemoryWriter();
-  expect(await run(["registry", "remove", "official"], { registry: definitions, stdout: official })).toBe(2);
+  expect(
+    await run(["registry", "remove", "official"], { registry: definitions, stdout: official }),
+  ).toBe(2);
   expect(JSON.parse(official.value)).toMatchObject({ error: { code: "usage.invalid" } });
 
   const conflict = new MemoryWriter();

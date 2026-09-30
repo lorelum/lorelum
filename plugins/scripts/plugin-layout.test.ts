@@ -163,24 +163,29 @@ test("host adapters use a stable product ID and host-specific source roots", asy
 
 test("each host registration declares only its own host artifact", async () => {
   const root = join(import.meta.dir, "../..");
-  const [codexMarketplace, zcodeMarketplace, cursorMarketplace, workbuddyMarketplace, claudeMarketplace] =
-    await Promise.all([
-      readFile(join(root, ".agents/plugins/marketplace.json"), "utf8").then(
-        (content) => JSON.parse(content) as CodexMarketplace,
-      ),
-      readFile(join(root, "marketplace.json"), "utf8").then(
-        (content) => JSON.parse(content) as ZCodeMarketplace,
-      ),
-      readFile(join(root, ".cursor-plugin/marketplace.json"), "utf8").then(
-        (content) => JSON.parse(content) as CursorMarketplace,
-      ),
-      readFile(join(root, ".codebuddy-plugin/marketplace.json"), "utf8").then(
-        (content) => JSON.parse(content) as WorkbuddyMarketplace,
-      ),
-      readFile(join(root, ".claude-plugin/marketplace.json"), "utf8").then(
-        (content) => JSON.parse(content) as ClaudeMarketplace,
-      ),
-    ]);
+  const [
+    codexMarketplace,
+    zcodeMarketplace,
+    cursorMarketplace,
+    workbuddyMarketplace,
+    claudeMarketplace,
+  ] = await Promise.all([
+    readFile(join(root, ".agents/plugins/marketplace.json"), "utf8").then(
+      (content) => JSON.parse(content) as CodexMarketplace,
+    ),
+    readFile(join(root, "marketplace.json"), "utf8").then(
+      (content) => JSON.parse(content) as ZCodeMarketplace,
+    ),
+    readFile(join(root, ".cursor-plugin/marketplace.json"), "utf8").then(
+      (content) => JSON.parse(content) as CursorMarketplace,
+    ),
+    readFile(join(root, ".codebuddy-plugin/marketplace.json"), "utf8").then(
+      (content) => JSON.parse(content) as WorkbuddyMarketplace,
+    ),
+    readFile(join(root, ".claude-plugin/marketplace.json"), "utf8").then(
+      (content) => JSON.parse(content) as ClaudeMarketplace,
+    ),
+  ]);
 
   const declaredSources = [
     ...codexMarketplace.plugins.map((plugin) => plugin.source.path),
