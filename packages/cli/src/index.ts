@@ -79,3 +79,12 @@ export {
   type ProtocolSuccess,
 } from "./output/protocol.js";
 export { renderResult, type OutputFormat, type TextRenderer } from "./output/render.js";
+export type {
+  ErrorDetail,
+  ErrorDetailExpected,
+  ErrorDetailKind,
+  ErrorDetailLocation,
+  ErrorDetailReason,
+  ErrorDetailSource,
+  ErrorDetailSourceKind,
+} from "./output/error-details.js";

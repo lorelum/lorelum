@@ -51,3 +51,30 @@ describe("toVisibleCliError message handling", () => {
     );
   });
 });
+
+test("toVisibleCliError details handling > preserves declared validator details", () => {
+  const details = [
+    {
+      kind: "configuration" as const,
+      subject: "query.maxWaitMs",
+      reason: "invalid-type" as const,
+      source: { kind: "config-file" as const },
+    },
+  ];
+  const error = new CliError("query.config-invalid", "Invalid query setting.", undefined, undefined, details);
+
+  expect(toVisibleCliError(error, ["query.config-invalid"]).details).toEqual(details);
+});
+
+test("toVisibleCliError details handling > drops details during allowlist downgrade", () => {
+  const details = [
+    {
+      kind: "configuration" as const,
+      subject: "query.maxWaitMs",
+      reason: "invalid-type" as const,
+    },
+  ];
+  const error = new CliError("query.config-invalid", "Invalid query setting.", undefined, undefined, details);
+
+  expect(toVisibleCliError(error, []).details).toBeUndefined();
+});

@@ -87,8 +87,9 @@ lore logs prune
 | `error.code` | 失败时的稳定错误标识。 |
 | `error.message` | 失败时供人阅读的原因说明。 |
 | `error.recovery` | 可用时提供 Backend 恢复操作。 |
+| `error.details` | 失败时可选的非空 validator-owned 机器诊断事实数组。 |
 
-程序应按错误码分支，不解析错误消息。响应成功时，仍需检查命令的具体状态，才能判断异步工作是否完成。
+程序应按错误码分支，不解析错误消息。若存在 `error.details`，读取稳定的 `kind`、`subject`、`reason` 及可选 `source`、`received`、`expected`、`hint` 和 YAML 行列位置；不存在时不要从 prose 猜测。严格校验旧 v2 failure shape 的 consumer 需要允许这个可选字段；协议版本仍为 `2`。
 
 可纠正的失败会直接在 `error.message` 说明已知选项、允许值或范围，以及配置修复目标。例如，非法的 `--mode` 会指出 `semantic` 和 `keyword`，但不回显被拒绝的原始值。默认 text 的 stderr 展示同一消息：
 
@@ -98,17 +99,29 @@ error:
   message: --min-coverage-percent must be an integer from 0 through 100.
 ```
 
-对应的 JSON 失败响应没有第二个 details 字段：
+对应的 JSON 失败响应可在 `error.details` 携带同一组 validator-owned facts：
 
 ```json
 {
   "ok": false,
   "error": {
     "code": "usage.invalid",
-    "message": "--min-coverage-percent must be an integer from 0 through 100."
+    "message": "--min-coverage-percent must be an integer from 0 through 100.",
+    "details": [
+      {
+        "kind": "usage",
+        "subject": "--min-coverage-percent",
+        "reason": "out-of-range",
+        "source": { "kind": "command-line" },
+        "received": "101",
+        "expected": { "kind": "integer-range", "min": 0, "max": 100 }
+      }
+    ]
   }
 }
 ```
+
+`message` 仍面向人；程序不得解析它。
 
 协议仍为 version 2。未知失败使用安全的通用消息；程序应继续按 `error.code` 分支，不解析面向人的 message。
 

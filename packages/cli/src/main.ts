@@ -329,6 +329,9 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       message: cliError.message,
       ...(cliError.recovery === undefined ? {} : { recovery: cliError.recovery }),
       ...(cliError.resource === undefined ? {} : { resource: cliError.resource }),
+      ...(cliError.details === undefined || cliError.details.length === 0
+        ? {}
+        : { details: cliError.details }),
       diagnostics: { traceId },
     });
     return cliError.exitCode;

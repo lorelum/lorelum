@@ -89,17 +89,125 @@ test("creates optional machine recovery without widening unrelated failures", ()
   expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 });
 
-test("rejects an undeclared details field with the exported schema", () => {
-  const response = createFailureEnvelope("query", "usage.invalid", "Invalid input.", undefined, {
+test("creates validator-owned machine details", () => {
+  const response = createFailureEnvelope(
+    "query",
+    "usage.invalid",
+    "--min-coverage-percent must be an integer from 0 through 100.",
+    undefined,
+    { traceId },
+    undefined,
+    [
+      {
+        kind: "usage",
+        subject: "--min-coverage-percent",
+        reason: "out-of-range",
+        source: { kind: "command-line" },
+        received: "101",
+        expected: { kind: "integer-range", min: 0, max: 100 },
+      },
+    ],
+  );
+
+  expect(response.error.details).toEqual([
+    {
+      kind: "usage",
+      subject: "--min-coverage-percent",
+      reason: "out-of-range",
+      source: { kind: "command-line" },
+      received: "101",
+      expected: { kind: "integer-range", min: 0, max: 100 },
+    },
+  ]);
+  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
+});
+
+test("defensively omits empty or invalid details", () => {
+  expect(
+    createFailureEnvelope("query", "usage.invalid", "Invalid.", undefined, { traceId }, undefined, []).error
+      .details,
+  ).toBeUndefined();
+  const response = createFailureEnvelope("query", "usage.invalid", "Invalid.", undefined, {
     traceId,
   });
-  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
+  expect(
+    createFailureEnvelope("query", "usage.invalid", "Invalid.", undefined, { traceId }, undefined, [
+      { kind: "invalid" as never, subject: "--x", reason: "missing" },
+    ]).error.details,
+  ).toBeUndefined();
   expect(
     validateProtocolSchema(
       { ...response, error: { ...response.error, details: [{ subject: "--top-k" }] } },
       protocolResponseSchema,
     ),
   ).not.toEqual([]);
+  expect(
+    validateProtocolSchema(
+      {
+        ...response,
+        error: {
+          ...response.error,
+          details: [
+            {
+              kind: "usage",
+              subject: "--x",
+              reason: "missing",
+              location: { line: 0, column: 1 },
+            },
+          ],
+        },
+      },
+      protocolResponseSchema,
+    ),
+  ).not.toEqual([]);
+});
+
+test("rejects source variants that violate their discriminated shape", () => {
+  const response = createFailureEnvelope("query", "usage.invalid", "Invalid input.", undefined, {
+    traceId,
+  });
+  const detail = {
+    kind: "usage",
+    subject: "--x",
+    reason: "missing",
+  };
+
+  expect(
+    validateProtocolSchema(
+      {
+        ...response,
+        error: {
+          ...response.error,
+          details: [{ ...detail, source: { kind: "config-file", name: "x" } }],
+        },
+      },
+      protocolResponseSchema,
+    ),
+  ).not.toEqual([]);
+  expect(
+    validateProtocolSchema(
+      {
+        ...response,
+        error: {
+          ...response.error,
+          details: [{ ...detail, source: { kind: "environment-variable" } }],
+        },
+      },
+      protocolResponseSchema,
+    ),
+  ).not.toEqual([]);
+  expect(
+    validateProtocolSchema(
+      {
+        ...response,
+        error: {
+          ...response.error,
+          details: [{ ...detail, source: { kind: "environment-variable", name: "VAR" } }],
+        },
+      },
+      protocolResponseSchema,
+    ),
+  ).toEqual([]);
 });
 
 test("validates independent golden envelopes with the exported envelope schema", () => {

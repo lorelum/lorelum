@@ -513,6 +513,8 @@ test("returns a query option's valid range in one message in both formats", asyn
   expect(textStderr.value).toContain(
     "  message: --min-coverage-percent must be an integer from 0 through 100.\n",
   );
+  expect(textStderr.value).toContain("--min-coverage-percent from command-line");
+  expect(textStderr.value).toContain("received: 101");
 });
 
 test("negative integer query options show the accepted range", async () => {
@@ -529,9 +531,19 @@ test("negative integer query options show the accepted range", async () => {
       expect(
         await run(["--json", "query", "release validation", option, "-1"], { stderr, stdout }),
       ).toBe(2);
-      expect(JSON.parse(stdout.value).error).toEqual({
+      expect(JSON.parse(stdout.value).error).toMatchObject({
         code: "usage.invalid",
         message: `${option} must be an integer from 0 through ${max}.`,
+        details: [
+          {
+            kind: "usage",
+            subject: option,
+            reason: "out-of-range",
+            source: { kind: "command-line" },
+            received: "-1",
+            expected: { kind: "integer-range", min: 0, max },
+          },
+        ],
       });
       expect(stderr.value).toBe("");
     }),
@@ -556,6 +568,17 @@ test("returns a configuration repair target in one message in both formats", asy
         code: "query.config-invalid",
         message:
           "query.maxWaitMs must be an integer from 0 through 120000. Fix or remove it in ~/.lorelum/config.yaml.",
+        details: [
+          {
+            kind: "configuration",
+            subject: "query.maxWaitMs",
+            reason: "invalid-type",
+            source: { kind: "config-file" },
+            received: "nope",
+            expected: { kind: "integer-range", min: 0, max: 120_000 },
+            hint: "Fix or remove this setting in ~/.lorelum/config.yaml.",
+          },
+        ],
       },
     });
     expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
@@ -567,6 +590,8 @@ test("returns a configuration repair target in one message in both formats", asy
     expect(text.stderr).toContain(
       "  message: query.maxWaitMs must be an integer from 0 through 120000. Fix or remove it in ~/.lorelum/config.yaml.\n",
     );
+    expect(text.stderr).toContain("query.maxWaitMs from config-file");
+    expect(text.stderr).toContain("received: nope");
   } finally {
     await rm(home, { recursive: true, force: true });
   }

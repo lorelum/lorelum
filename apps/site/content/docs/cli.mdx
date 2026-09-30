@@ -87,8 +87,9 @@ Every `--json` CLI envelope includes `protocolVersion`, `toolVersion`, `command`
 | `error.code` | Stable error identifier on failure. |
 | `error.message` | Human-readable explanation on failure. |
 | `error.recovery` | Optional Backend recovery action when one is available. |
+| `error.details` | Optional non-empty array of validator-owned machine-readable facts on failure. |
 
-Branch on error codes instead of parsing messages. Within a successful result, inspect command-specific state before treating asynchronous work as complete.
+Branch on error codes instead of parsing messages. When `error.details` is present, read its stable `kind`, `subject`, `reason`, optional `source`, `received`, `expected`, `hint`, and YAML `location` fields; when it is absent, do not guess facts from prose. Strict validators of the older v2 failure shape must allow this optional field. The protocol version remains `2`.
 
 Correctable failures put the known option, allowed choices or range, or configuration repair target directly in `error.message`. For example, an invalid `--mode` names `semantic` and `keyword` without echoing the rejected value. The default text output shows the same message on stderr:
 
@@ -98,17 +99,29 @@ error:
   message: --min-coverage-percent must be an integer from 0 through 100.
 ```
 
-The corresponding JSON failure has no separate details field:
+The corresponding JSON failure can carry the same validator-owned facts in `error.details`:
 
 ```json
 {
   "ok": false,
   "error": {
     "code": "usage.invalid",
-    "message": "--min-coverage-percent must be an integer from 0 through 100."
+    "message": "--min-coverage-percent must be an integer from 0 through 100.",
+    "details": [
+      {
+        "kind": "usage",
+        "subject": "--min-coverage-percent",
+        "reason": "out-of-range",
+        "source": { "kind": "command-line" },
+        "received": "101",
+        "expected": { "kind": "integer-range", "min": 0, "max": 100 }
+      }
+    ]
   }
 }
 ```
+
+`message` remains for people; programs must not parse it.
 
 The protocol remains at version 2. Unknown failures use a safe generic message; programs should continue to branch on `error.code`, not parse the human-readable message.
 

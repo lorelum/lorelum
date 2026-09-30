@@ -129,6 +129,67 @@ test("renders the same bounded, terminal-safe failure message in both formats", 
   expect(validateProtocolSchema(JSON.parse(jsonWriter.value), protocolResponseSchema)).toEqual([]);
 });
 
+test("renders the same structured facts in JSON and one-line text detail", () => {
+  const detail = {
+    kind: "configuration" as const,
+    subject: "query.maxWaitMs",
+    reason: "invalid-type" as const,
+    source: { kind: "config-file" as const },
+    received: "no\r\npe",
+    expected: { kind: "integer-range" as const, min: 0, max: 120_000 },
+    hint: "Fix or remove this setting in ~/.lorelum/config.yaml.",
+  };
+  const jsonWriter = new MemoryWriter();
+  const textWriter = new MemoryWriter();
+  const result = {
+    kind: "failure" as const,
+    command: "query",
+    code: "query.config-invalid",
+    message: "query.maxWaitMs must be an integer from 0 through 120000.",
+    details: [detail],
+    diagnostics: { traceId: "00000000-0000-4000-8000-000000000005" as never },
+  };
+
+  renderResult(jsonWriter, "json", result);
+  renderResult(textWriter, "text", result);
+
+  const response = JSON.parse(jsonWriter.value);
+  expect(response.error.details[0].received).toBe("no\\u000d\\u000ape");
+  expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
+  const textLine = textWriter.value.split("\n").find((line) => line.includes("was rejected"))!;
+  expect(textLine).toContain("from config-file");
+  expect(textLine).toContain("received: no\\u000d\\u000ape");
+  expect(textLine).toContain("integer from 0 through 120000");
+  expect(textLine).not.toContain("\r");
+  expect(textLine).not.toContain("\n");
+});
+
+test("filters invalid details before writing either format", () => {
+  const jsonWriter = new MemoryWriter();
+  const textWriter = new MemoryWriter();
+  const result = {
+    kind: "failure" as const,
+    command: "query",
+    code: "usage.invalid",
+    message: "Invalid input.",
+    details: [
+      {
+        kind: "usage",
+        subject: "--x",
+        reason: "out-of-range",
+        location: { line: 0, column: 1 },
+      },
+    ] as never,
+    diagnostics: { traceId: "00000000-0000-4000-8000-000000000006" as never },
+  };
+
+  renderResult(jsonWriter, "json", result);
+  renderResult(textWriter, "text", result);
+
+  expect(JSON.parse(jsonWriter.value).error.details).toBeUndefined();
+  expect(textWriter.value).not.toContain("--x");
+});
+
 test("renders JSON failures as one envelope with the supplied trace", () => {
   const writer = new MemoryWriter();
   const resource = {

@@ -1,6 +1,7 @@
 import { ConfigError, loadConfig, type LoadConfigOptions } from "@lorelum/config";
 
 import { CliError } from "../runtime/errors";
+import { createErrorDetail } from "../output/error-details.js";
 
 export interface QuerySettings {
   readonly maxWaitMs: number;
@@ -19,10 +20,27 @@ function invalid(subject = "query"): never {
   );
 }
 
-function invalidSetting(key: string, min: number, max: number): never {
+function invalidSetting(value: unknown, key: string, min: number, max: number): never {
+  const reason =
+    typeof value === "number" && Number.isSafeInteger(value) ? "out-of-range" : "invalid-type";
   throw new CliError(
     "query.config-invalid",
     `${key} must be an integer from ${min} through ${max}. Fix or remove it in ~/.lorelum/config.yaml.`,
+    undefined,
+    undefined,
+    [
+      createErrorDetail({
+        kind: "configuration",
+        subject: key,
+        reason,
+        source: { kind: "config-file" },
+        ...(typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+          ? { received: String(value) }
+          : {}),
+        expected: { kind: "integer-range", min, max },
+        hint: "Fix or remove this setting in ~/.lorelum/config.yaml.",
+      }),
+    ],
   );
 }
 
@@ -32,8 +50,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function integer(value: unknown, key: string, min: number, max: number): number | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) invalidSetting(key, min, max);
-  if (value < min || value > max) invalidSetting(key, min, max);
+  if (typeof value !== "number" || !Number.isSafeInteger(value))
+    invalidSetting(value, key, min, max);
+  if (value < min || value > max) invalidSetting(value, key, min, max);
   return value;
 }
 

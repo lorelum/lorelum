@@ -26,7 +26,15 @@ function validate(value: unknown, schema: JsonSchema, path: string): string[] {
   }
 
   if (schema.type === "string") {
-    return typeof value === "string" ? [] : [`${path} must be a string`];
+    if (typeof value !== "string") return [`${path} must be a string`];
+    const errors: string[] = [];
+    if (schema.minLength !== undefined && (value as string).length < schema.minLength) {
+      errors.push(`${path} must contain at least ${schema.minLength} characters`);
+    }
+    if (schema.maxLength !== undefined && (value as string).length > schema.maxLength) {
+      errors.push(`${path} must contain at most ${schema.maxLength} characters`);
+    }
+    return errors;
   }
 
   if (schema.type === "boolean") {
@@ -34,7 +42,15 @@ function validate(value: unknown, schema: JsonSchema, path: string): string[] {
   }
 
   if (schema.type === "integer") {
-    return Number.isInteger(value) ? [] : [`${path} must be an integer`];
+    if (!Number.isInteger(value)) return [`${path} must be an integer`];
+    const errors: string[] = [];
+    if (schema.minimum !== undefined && (value as number) < schema.minimum) {
+      errors.push(`${path} must be at least ${schema.minimum}`);
+    }
+    if (schema.maximum !== undefined && (value as number) > schema.maximum) {
+      errors.push(`${path} must be at most ${schema.maximum}`);
+    }
+    return errors;
   }
 
   if (schema.type === "array") {

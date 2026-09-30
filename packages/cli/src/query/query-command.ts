@@ -24,6 +24,7 @@ import {
 } from "@lorelum/engine";
 
 import type { JsonValue } from "../output/protocol.js";
+import { createErrorDetail } from "../output/error-details.js";
 import type { CommandDefinition, CommandInvocation } from "../registry.js";
 import {
   CliError,
@@ -112,17 +113,35 @@ function parseIntegerOption(
 ): number | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || !/^-?[0-9]+$/.test(value)) {
-    throw integerOptionError(option, min, max);
+    throw integerOptionError(value, option, min, max, "invalid-type");
   }
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
-    throw integerOptionError(option, min, max);
+    throw integerOptionError(value, option, min, max, "out-of-range");
   }
   return parsed;
 }
 
-function integerOptionError(option: string, min: number, max: number): CliError {
-  return invalidInvocationError(`${option} must be an integer from ${min} through ${max}.`);
+function integerOptionError(
+  value: unknown,
+  option: string,
+  min: number,
+  max: number,
+  reason: "invalid-type" | "out-of-range",
+): CliError {
+  const error = invalidInvocationError(`${option} must be an integer from ${min} through ${max}.`);
+  return new CliError(error.code, error.message, undefined, undefined, [
+    createErrorDetail({
+      kind: "usage",
+      subject: option,
+      reason,
+      source: { kind: "command-line" },
+      ...(typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+        ? { received: String(value) }
+        : {}),
+      expected: { kind: "integer-range", min, max },
+    }),
+  ]);
 }
 
 function toQueryResult(

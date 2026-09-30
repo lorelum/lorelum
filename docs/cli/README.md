@@ -1,8 +1,8 @@
 # CLI 文档
 
-Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`、`query`、`get` 的默认 text 是按当前决策用途精简后的视图，不保证逐字段呈现公开 `data`；这三个命令可用 `--verbose` 查看完整 data 的 text。传入 `--json` 时，stdout 输出完整 JSON envelope；成功包含 `command`、`ok: true` 和完整 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, recovery? }`。`--json` 的内容不受 `--verbose` 影响。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。
+Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`、`query`、`get` 的默认 text 是按当前决策用途精简后的视图，不保证逐字段呈现公开 `data`；这三个命令可用 `--verbose` 查看完整 data 的 text。传入 `--json` 时，stdout 输出完整 JSON envelope；成功包含 `command`、`ok: true` 和完整 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, recovery?, details? }`。`--json` 的内容不受 `--verbose` 影响。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。
 
-普通命令正常成功退出码为 `0`，可见命令错误为 `2`。机器调用方必须传 `--json` 并按稳定的 `error.code` 处理结果，不解析 message 或 text；`error.message` 面向人解释原因及修正方向，text 与 JSON 使用同一消息。`lore describe --json` 返回当前 protocol 命令和每个 `resultSchema`，可用于动态发现未来新增的普通命令；宿主 Hook ABI 使用各自的专门文档定义的输出。
+普通命令正常成功退出码为 `0`，可见命令错误为 `2`。机器调用方必须传 `--json` 并按稳定的 `error.code` 处理结果，不解析 message 或 text；`error.message` 面向人解释原因及修正方向，text 与 JSON 使用同一消息。拥有者已验证的失败还会携带可选 `error.details`，供机器读取 subject、source、reason、received 与 expected。`lore describe --json` 返回当前 protocol 命令和每个 `resultSchema`，可用于动态发现未来新增的普通命令；宿主 Hook ABI 使用各自的专门文档定义的输出。
 
 命令按职责分组：
 
@@ -67,7 +67,7 @@ lore pack list --details --json
 }
 ```
 
-普通命令失败只有一条面向人的 `error.message`，可纠正的错误会说明已知的选项或配置项及修正方向；已声明的枚举选项会指出参数及允许值，不回显被拒绝的原始输入。text 模式在 stderr 的 `error` 区块展示同一消息。未知异常使用安全通用文案，不暴露原始异常或敏感值。`protocolVersion` 保持 `2`；面向用户的示例见[站点 JSON envelope 说明](../../apps/site/content/docs/cli.mdx)。
+普通命令失败保留一条面向人的 `error.message`，可纠正的错误会说明已知的选项或配置项及修正方向；已声明的枚举选项会指出参数及允许值，不回显被拒绝的原始输入。拥有者已验证的失败可额外携带非空 `error.details`：每项使用封闭的 `kind/subject/reason`，并按事实提供 `source`、非秘密 `received`、结构化 `expected`、`hint` 和 YAML 行列位置。text 模式在 stderr 的 `error` 区块展示同一消息和同一 facts 的单行压缩。未知异常使用安全通用文案，不暴露原始异常或敏感值，也不会虚构 details。`protocolVersion` 保持 `2`；严格校验旧 failure shape 的 consumer 需要允许该可选字段。面向用户的示例见[站点 JSON envelope 说明](../../apps/site/content/docs/cli.mdx)。
 
 `model load` 的 stdout 在任务最终完成前保持沉默；stderr 使用 `model: resolving`、`model: downloading 50% (attempt 1)`、`model: verifying` 和 `model: starting` 这样的文案，只输出发生变化的阶段、百分比或 attempt。被取消、下载失败或 native 启动失败在默认格式以 text error 返回，在 `--json` 格式以最终 failure envelope 返回；两者都不把 202 接受状态当作命令成功。
 

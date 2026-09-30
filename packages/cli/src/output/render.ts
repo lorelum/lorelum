@@ -9,6 +9,7 @@ import {
 } from "./protocol.js";
 import type { ResourceFailure } from "@lorelum/backend/protocol";
 import { createTraceId } from "@lorelum/log";
+import { formatErrorDetail, sanitizeErrorDetails, type ErrorDetail } from "./error-details.js";
 import { renderStructuredText, type StructuredTextRenderer } from "./structured-text.js";
 
 export type OutputFormat = "json" | "text";
@@ -31,6 +32,7 @@ export type RenderableResult =
       message: string;
       recovery?: ErrorRecovery;
       resource?: ResourceFailure;
+      details?: readonly ErrorDetail[];
       diagnostics?: ProtocolDiagnostics;
     }>;
 
@@ -73,11 +75,13 @@ export function renderResult(
           result.recovery,
           result.diagnostics ?? { traceId: createTraceId() },
           result.resource,
+          result.details,
         ),
       ),
     );
     return;
   }
+  const details = sanitizeErrorDetails(result.details ?? []);
   writeText(
     writer,
     renderStructuredText({
@@ -86,6 +90,7 @@ export function renderResult(
         message,
         ...(result.recovery === undefined ? {} : { recovery: result.recovery }),
         ...(result.resource === undefined ? {} : { resource: result.resource }),
+        ...(details === undefined ? {} : { details: details.map(formatErrorDetail) }),
       },
       diagnostics: result.diagnostics ?? { traceId: createTraceId() },
     }),
