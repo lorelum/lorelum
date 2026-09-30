@@ -46,14 +46,13 @@ export function BlogCover({ entry, className }: BlogCoverProps) {
       // The adapter styles each tier's strength per theme through this hook
       // (see the cover rules in `styles/blog.css`); the rects' own opacity
       // attributes remain as the no-CSS baseline.
-      className={`blog-cover-art ${className ?? ""}`}
-      preserveAspectRatio="xMidYMid slice"
+      className={`blog-cover-art bg-[var(--lore-brand-deep)] p-5 ${className ?? ""}`}
+      preserveAspectRatio="xMidYMid meet"
     >
       <rect
         width={coverGrid.columns * pitch}
         height={coverGrid.rows * pitch}
-        fill="var(--color-fd-primary)"
-        opacity={0.05}
+        fill="var(--lore-brand-deep)"
       />
       {cells.map((cell) => (
         <rect
@@ -62,8 +61,8 @@ export function BlogCover({ entry, className }: BlogCoverProps) {
           y={1 + cell.row * pitch}
           width={size}
           height={size}
-          rx={5}
-          fill="var(--color-fd-primary)"
+          rx={1}
+          fill="var(--lore-brand-light)"
           opacity={cell.opacity}
           data-tier={coverTierIndex(cell.opacity)}
         />

@@ -72,6 +72,15 @@ describe("article page structure", () => {
     expect(postScreen).toContain("<Suspense");
     expect(postScreen).toContain("aria-busy");
   });
+
+  test("treats an authored cover as part of the article masthead", () => {
+    expect(postScreen).toContain('className="text-4xl leading-tight sm:text-5xl"');
+    expect(postScreen).toContain("data.image === undefined ? null");
+    expect(postScreen).toContain("src={data.image}");
+    expect(postScreen).toContain('alt=""');
+    expect(postScreen.indexOf("<BlogPostMeta")).toBeLessThan(postScreen.indexOf("src={data.image}"));
+    expect(postScreen.indexOf("src={data.image}")).toBeLessThan(postScreen.indexOf("<BlogTocDisclosure"));
+  });
 });
 
 describe("article metadata line", () => {

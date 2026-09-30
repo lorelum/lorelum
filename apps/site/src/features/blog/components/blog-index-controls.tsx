@@ -76,10 +76,10 @@ export function BlogIndexControls({ lang, posts, category, sort }: BlogIndexCont
     }`;
 
   return (
-    <div className="mt-8 space-y-6">
+    <div className="mt-5 space-y-4 lg:mt-5 lg:space-y-4 lg:border-t lg:border-[var(--blog-hairline)] lg:pt-4">
       <section>
         <p className="text-fd-muted-foreground">{t.blogFilterCategory}</p>
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 flex flex-wrap gap-2 lg:block lg:space-y-1">
           <li>
             <Link
               to={blogIndexPath(lang)}

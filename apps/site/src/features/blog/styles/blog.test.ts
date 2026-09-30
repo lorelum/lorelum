@@ -381,6 +381,50 @@ describe("blog link contract", () => {
     // is the only contrast the title has.
     expect(entryRow).toContain("text-xl font-semibold");
   });
+
+  test("gives the index an editorial hierarchy without adding a second headline", () => {
+    expect(indexScreen).toContain('border-b border-[var(--blog-hairline)] pb-6');
+    expect(entryRow).toContain("md:aspect-square xl:w-60");
+    expect(entryRow).toContain("lg:text-2xl");
+    expect(entryRow.indexOf('<time dateTime={entry.data.date}')).toBeLessThan(
+      entryRow.indexOf('<h2 lang={entry.locale}'),
+    );
+    expect(cover).toContain('fill="var(--lore-brand-deep)"');
+    expect(cover).toContain('fill="var(--lore-brand-light)"');
+    expect(cover).toContain("rx={1}");
+    expect(cover).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(cover).toContain("bg-[var(--lore-brand-deep)] p-5");
+  });
+
+  test("lets the first visible story use the index's full reading stage", () => {
+    expect(indexScreen).toContain("featured={entry === cardPosts[0]}");
+    expect(entryRow).toContain("xl:aspect-[3/2] xl:w-[48%]");
+    expect(entryRow).toContain("xl:text-4xl");
+    expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*var\(--blog-shell-sidebar\) minmax\(0, 1fr\)/);
+    expect(controls).toContain("mt-2 flex flex-wrap gap-2 lg:block lg:space-y-1");
+  });
+
+  test("keeps the featured cover substantial at intermediate widths", () => {
+    expect(entryRow).toContain("sm:aspect-[16/10] sm:w-[40%]");
+    expect(entryRow).toContain("md:aspect-square md:w-[42%]");
+    expect(entryRow).toContain("sm:text-2xl xl:text-4xl");
+  });
+
+  test("lightens the editorial surface without removing its card boundary", () => {
+    expect(blogRules).toContain("--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);");
+    expect(entryRow).toContain("border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)]");
+    expect(entryRow).toContain("overflow-hidden rounded-sm ${coverSize}");
+    expect(entryRow).toContain("text-balance sm:text-2xl xl:text-4xl");
+    expect(entryRow).toContain("max-w-[60ch] xl:text-lg");
+    expect(entryRow).not.toContain("line-clamp");
+  });
+
+  test("keeps the quieter sidebar navigation touch-sized", () => {
+    expect(sidebarSource).toContain("min-h-[var(--lore-size-touch)]");
+    expect(sidebarSource).toContain("text-fd-muted-foreground");
+    expect(sidebarSource).not.toContain("border-l");
+    expect(controls).toContain("lg:mt-5 lg:space-y-4");
+  });
 });
 
 describe("blog index structure", () => {

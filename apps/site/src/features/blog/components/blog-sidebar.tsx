@@ -44,7 +44,7 @@ export function BlogSidebar({ lang, posts, category, sort }: BlogSidebarProps) {
 
   return (
     <nav aria-label={t.navBlog} className="text-sm">
-      <p className="text-fd-muted-foreground">{t.blogAllPosts}</p>
+      <p className="text-xs font-medium tracking-wide text-fd-muted-foreground">{t.blogAllPosts}</p>
       <ul className="mt-3 space-y-1">
         {posts.map((entry) => (
           <li key={`${entry.slug}-${entry.locale}`}>
@@ -54,7 +54,7 @@ export function BlogSidebar({ lang, posts, category, sort }: BlogSidebarProps) {
               // that page, the same rule the article's own links follow; the sidebar
               // is not a landmark for the site's top-level destinations.
               activeOptions={{ exact: true }}
-              className="blog-nav-link block rounded-sm px-2 py-1"
+              className="blog-nav-link flex min-h-[var(--lore-size-touch)] items-center rounded-sm px-2 py-2 text-fd-muted-foreground"
             >
               {entry.data.title}
             </Link>

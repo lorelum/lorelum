@@ -23,15 +23,17 @@ import type { ReactNode } from "react";
  */
 interface BlogShellProps {
   readonly children: ReactNode;
+  /** The index has no contents rail and can use that track for the story. */
+  readonly index?: boolean;
   /** The blog's own navigation. Absent when a screen has nothing to put there. */
   readonly sidebar?: ReactNode;
   /** The article's table of contents. */
   readonly rail?: ReactNode;
 }
 
-export function BlogShell({ children, sidebar, rail }: BlogShellProps) {
+export function BlogShell({ children, sidebar, rail, index = false }: BlogShellProps) {
   return (
-    <div className="blog-shell">
+    <div className={index ? "blog-shell blog-shell--index" : "blog-shell"}>
       {sidebar === undefined ? null : <div className="blog-shell__side">{sidebar}</div>}
       <div className="blog-shell__body min-w-0">{children}</div>
       {rail === undefined ? null : <div className="blog-shell__rail hidden">{rail}</div>}

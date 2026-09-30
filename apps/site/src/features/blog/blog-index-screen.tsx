@@ -23,14 +23,14 @@ interface BlogIndexScreenProps {
 }
 
 /**
- * Text-first blog index: a plain, deterministic list of posts. Summaries come
- * from each post's frontmatter description — one factual sentence, no hero copy
- * and no separate editorial teaser text.
+ * Editorial index: the first visible post uses the available stage, while
+ * subsequent posts retain the compact card. Summaries come from frontmatter,
+ * not invented teaser copy.
  *
  * The list itself still does no year grouping, pagination, series or related
  * posts while it is short: at n=1 those components would render nothing, and a
- * row gains its structure from the hairline between rows and its metadata, not
- * from the number of siblings. What the page gained instead is the shell around
+ * card gains its structure from its cover and metadata, not the number of
+ * siblings. What the page gained instead is the shell around
  * it — the same left column and reading column the article page uses, so the two
  * screens are one surface rather than two layouts. The reading column keeps its
  * measure inside the shell; the shell is what spans the viewport.
@@ -51,6 +51,7 @@ export function BlogIndexScreen({
   return (
     <BlogSurface lang={lang}>
       <BlogShell
+        index
         sidebar={
           <BlogSidebar lang={lang} posts={posts} category={category} sort={sort} />
         }
@@ -59,13 +60,9 @@ export function BlogIndexScreen({
             measure belongs to prose, and the card's own padding keeps the text at a
             comfortable width without capping the panel. */}
         <div className="w-full">
-          {/* A masthead at headline scale, not a form label: the index is an
-              editorial surface, and while it is short a page-sized title reads
-              as a first issue rather than as an empty page. The dek is gone by
-              review — on a production index the sentence read as scaffolding.
-              Rhythm follows the spacing roles — panel below the header, block
-              once the viewport has room. */}
-          <header className="mb-8 md:mb-10">
+          {/* The headline stands alone; the hairline separates the masthead
+              from entries without reintroducing the removed dek. */}
+          <header className="border-b border-[var(--blog-hairline)] pb-6 md:pb-8">
             <h1 className="text-4xl font-semibold leading-tight tracking-tight text-fd-foreground sm:text-5xl">
               {t.navBlog}
             </h1>
@@ -89,7 +86,12 @@ export function BlogIndexScreen({
           ) : (
             <ul className="mt-6 space-y-4">
               {cardPosts.map((entry) => (
-                <BlogEntryRow key={`${entry.slug}-${entry.locale}`} entry={entry} lang={lang} />
+                <BlogEntryRow
+                  key={`${entry.slug}-${entry.locale}`}
+                  entry={entry}
+                  lang={lang}
+                  featured={entry === cardPosts[0]}
+                />
               ))}
             </ul>
           )}

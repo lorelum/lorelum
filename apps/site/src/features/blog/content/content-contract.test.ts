@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { blogFrontmatterSchema } from "./frontmatter";
 
 /**
@@ -103,6 +103,14 @@ describe("blog content contract", () => {
           true,
         );
       }
+    }
+  });
+
+  test("authored covers resolve to site-public assets", () => {
+    for (const name of files) {
+      const image = frontmatterOf(read(name)).match(/^image:\s*(\/[^\s]+)$/m)?.[1];
+      if (image === undefined) continue;
+      expect(existsSync(new URL(`../../../../public${image}`, import.meta.url)), `${name}: ${image}`).toBe(true);
     }
   });
 

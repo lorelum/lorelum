@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" fill="none">
+  <defs>
+    <linearGradient id="field" x1="240" y1="750" x2="1020" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#09251F"/>
+      <stop offset="1" stop-color="#137C65"/>
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" stroke="#65D5A5" stroke-opacity=".07"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="750" fill="url(#field)"/>
+  <rect width="1200" height="750" fill="url(#grid)"/>
+  <g stroke="#65D5A5" stroke-opacity=".22">
+    <path d="M264 120H936M264 630H936"/>
+    <path d="M456 120V630M696 120V630" stroke-dasharray="3 9"/>
+  </g>
+  <g stroke="#B5F4D3" stroke-width="2">
+    <path d="M300 375H348V210H432M348 375H432M348 375V540H432"/>
+    <path d="M516 210H588M516 375H588M516 540H588"/>
+    <path d="M636 210H744M636 375H744M636 540H744"/>
+    <path d="M828 210H876V375H900M828 375H900M828 540H876V375"/>
+  </g>
+  <g fill="#0E382E" stroke="#B5F4D3" stroke-width="2">
+    <circle cx="300" cy="375" r="10"/>
+    <rect x="432" y="168" width="84" height="84" rx="6"/>
+    <rect x="432" y="333" width="84" height="84" rx="6"/>
+    <rect x="432" y="498" width="84" height="84" rx="6"/>
+    <circle cx="612" cy="210" r="24"/>
+    <circle cx="612" cy="375" r="24"/>
+    <circle cx="612" cy="540" r="24"/>
+    <rect x="744" y="168" width="84" height="84" rx="6"/>
+    <rect x="744" y="333" width="84" height="84" rx="6"/>
+    <rect x="744" y="498" width="84" height="84" rx="6"/>
+    <circle cx="900" cy="375" r="10"/>
+  </g>
+  <g stroke="#65D5A5" stroke-width="2">
+    <path d="M454 195H494M454 210H484M454 225H494"/>
+    <path d="M454 360H494M454 375H484M454 390H494"/>
+    <path d="M454 525H494M454 540H484M454 555H494"/>
+    <path d="M600 210H624M612 198V222M600 375H624M612 363V387M600 540H624M612 528V552"/>
+    <path d="M766 195H806M766 210H806M766 225H806"/>
+    <path d="M766 360H806M766 375H806M766 390H806"/>
+    <path d="M766 525H806M766 540H806M766 555H806"/>
+  </g>
+</svg>

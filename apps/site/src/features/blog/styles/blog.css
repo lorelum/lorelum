@@ -24,7 +24,7 @@
    */
   --blog-link: var(--accent-foreground);
   --blog-hairline: color-mix(in srgb, var(--border) 76%, transparent);
-  --blog-quiet-surface: color-mix(in srgb, var(--secondary) 62%, transparent);
+  --blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);
 
   /*
    * The blog's one sticky offset, shared by the table-of-contents rail (`top`)
@@ -365,8 +365,7 @@
  * all, which is how the first version of this rule shipped inert.
  */
 /*
- * The editorial shell: left column, reading column, right column, spanning the
- * whole surface.
+ * The editorial shell: left column, reading column, and an article-only TOC rail.
  *
  * It replaces a max-width that computed the same three parts and centred them
  * (`min(50vw …)`-style arithmetic: reading measure + rail + gaps), which made
@@ -398,6 +397,10 @@
   .blog-shell {
     grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr) var(--blog-toc-rail);
     column-gap: 2.5rem;
+  }
+
+  .blog-shell--index {
+    grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr);
   }
 }
 

@@ -111,8 +111,8 @@ function BlogPostBody({ lang, post, adjacent, posts, onMasthead }: BlogPostScree
               collapse; it is also the block a reader has finished once it is
               behind them. */}
           <div ref={onMasthead}>
-            <DocsTitle>{data.title}</DocsTitle>
-            <DocsDescription>{data.description}</DocsDescription>
+            <DocsTitle className="text-4xl leading-tight sm:text-5xl">{data.title}</DocsTitle>
+            <DocsDescription className="mt-5 leading-relaxed">{data.description}</DocsDescription>
 
             <BlogPostMeta
               slug={post.slug}
@@ -120,6 +120,15 @@ function BlogPostBody({ lang, post, adjacent, posts, onMasthead }: BlogPostScree
               alternateLocale={post.alternateLocale}
               data={data}
             />
+
+            {data.image === undefined ? null : (
+              <img
+                src={data.image}
+                alt=""
+                decoding="async"
+                className="mt-8 aspect-[16/9] w-full rounded-[var(--lore-radius-panel)] object-cover sm:aspect-[3/2]"
+              />
+            )}
           </div>
 
           <BlogTocDisclosure lang={lang} />

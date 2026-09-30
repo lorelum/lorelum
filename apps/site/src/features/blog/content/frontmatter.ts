@@ -24,10 +24,9 @@ const isoDate = z
  * Frontmatter contract for blog posts. The description doubles as the
  * list-page summary, so it stays a plain factual sentence — no positioning copy.
  *
- * `image` is the index card's cover art, as a site-public path (`/…`) served by
- * the app itself. It is optional, and deliberately not a URL: the card renders
- * it next to the post's own title, so a remote hop would make the index depend
- * on a third party for its own layout. A post without one gets a generated
+ * `image` is authored cover art for the index and article masthead, as a
+ * site-public path (`/…`) served by the app itself. It is optional, and
+ * deliberately not a remote URL: a post without one gets a generated index
  * cover, so the field is an upgrade, never a requirement.
  *
  * `updated` is a provenance signal, so a value earlier than `date` is a mistake:
