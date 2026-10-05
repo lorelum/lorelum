@@ -1,17 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { getStrings } from "@/shared/i18n/legacy-translations";
-import type { BlogCategory } from "../content/frontmatter";
 import { blogPostPath } from "../model/blog-routes";
-import type { BlogSort } from "../model/sort-posts";
-import { BlogIndexControls } from "./blog-index-controls";
 import type { BlogIndexEntry } from "../model/list-posts";
 
 /**
  * The blog's own navigation, as the shell's left column.
  *
- * The route passes the complete visible list, even while cards are filtered.
- * There is no second data source or new frontmatter field, and every post stays
- * reachable when the reader changes categories.
+ * The article route passes the complete visible list. There is no second data
+ * source or new frontmatter field, and every published post stays reachable.
  *
  * At one post this is a one-row list — thinned, not empty, and structurally the same
  * shape it will have at fifty. That is the deliberate trade: the column is
@@ -20,26 +16,13 @@ import type { BlogIndexEntry } from "../model/list-posts";
  * Rows carry symmetric horizontal padding because the marked row's tint *is* the
  * padding box: with padding on one side only, the highlight starts at the glyphs and
  * runs past them, which reads as a mistake rather than a state.
- *
- * The column also carries the index's filter and sort controls, which is where they
- * belong: they are navigation over the list, not a toolbar over the content. (They
- * were a strip across the top of the index; review called it ugly, and it was — a
- * full-width row of controls above the content competes with the content.)
  */
 interface BlogSidebarProps {
   readonly lang: string;
   readonly posts: readonly BlogIndexEntry[];
-  /**
-   * Where the reader is in the index, when this column is rendered beside it. Both
-   * are URL state. They are absent on the article page, where the controls are not
-   * rendered: a sort control that cannot affect the page the reader is on is a
-   * control that does nothing.
-   */
-  readonly category?: BlogCategory;
-  readonly sort?: BlogSort;
 }
 
-export function BlogSidebar({ lang, posts, category, sort }: BlogSidebarProps) {
+export function BlogSidebar({ lang, posts }: BlogSidebarProps) {
   const t = getStrings(lang);
 
   return (
@@ -62,9 +45,6 @@ export function BlogSidebar({ lang, posts, category, sort }: BlogSidebarProps) {
         ))}
       </ul>
 
-      {sort === undefined ? null : (
-        <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} />
-      )}
     </nav>
   );
 }

@@ -23,6 +23,7 @@ import { SiteFooter } from "@/components/landing/sections/site-footer";
 interface BlogSurfaceProps {
   readonly lang: string;
   readonly children: ReactNode;
+  readonly index?: boolean;
   /**
    * Whether the shared navbar renders its language control. The article turns
    * it off: the post's own translation entry is the accurate one.
@@ -42,6 +43,7 @@ export function BlogSurface({
   children,
   withLanguageToggle,
   collapseTrigger,
+  index = false,
 }: BlogSurfaceProps) {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -51,7 +53,7 @@ export function BlogSurface({
         collapseTrigger={collapseTrigger}
       />
 
-      <main className="lorelum-ui blog-scope w-full flex-1 px-4 pb-24 pt-24">{children}</main>
+      <main className={`lorelum-ui blog-scope w-full flex-1 ${index ? "blog-scope--index pb-16 pt-16" : "px-4 pb-24 pt-24"}`}>{children}</main>
 
       <SiteFooter lang={lang} />
     </div>

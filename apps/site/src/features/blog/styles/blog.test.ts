@@ -8,6 +8,7 @@ const surface = readFileSync(new URL("../components/blog-surface.tsx", import.me
 const controls = readFileSync(new URL("../components/blog-index-controls.tsx", import.meta.url), "utf8");
 const sidebarSource = readFileSync(new URL("../components/blog-sidebar.tsx", import.meta.url), "utf8");
 const entryRow = readFileSync(new URL("../components/blog-entry-row.tsx", import.meta.url), "utf8");
+const featuredEntry = readFileSync(new URL("../components/blog-featured-entry.tsx", import.meta.url), "utf8");
 const cover = readFileSync(new URL("../components/blog-cover.tsx", import.meta.url), "utf8");
 const appCss = readFileSync(new URL("../../../styles/app.css", import.meta.url), "utf8");
 
@@ -383,7 +384,7 @@ describe("blog link contract", () => {
   });
 
   test("gives the index an editorial hierarchy without adding a second headline", () => {
-    expect(indexScreen).toContain('border-b border-[var(--blog-hairline)] pb-6');
+    expect(indexScreen).toContain('<h1 className="text-sm font-medium text-fd-muted-foreground">');
     expect(entryRow).toContain("md:aspect-square xl:w-60");
     expect(entryRow).toContain("lg:text-2xl");
     expect(entryRow.indexOf('<time dateTime={entry.data.date}')).toBeLessThan(
@@ -398,24 +399,29 @@ describe("blog link contract", () => {
 
   test("lets the first visible story use the index's full reading stage", () => {
     expect(indexScreen).toContain("featured={entry === cardPosts[0]}");
-    expect(entryRow).toContain("xl:aspect-[3/2] xl:w-[48%]");
-    expect(entryRow).toContain("xl:text-4xl");
-    expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*var\(--blog-shell-sidebar\) minmax\(0, 1fr\)/);
-    expect(controls).toContain("mt-2 flex flex-wrap gap-2 lg:block lg:space-y-1");
+    expect(entryRow).toContain("if (featured) return <BlogFeaturedEntry");
+    expect(featuredEntry).toContain("lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]");
+    expect(featuredEntry).toContain("xl:text-[length:var(--lore-text-display)]");
+    expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(controls).toContain('data-blog-controls="category" className="flex flex-wrap gap-1.5"');
   });
 
   test("keeps the featured cover substantial at intermediate widths", () => {
-    expect(entryRow).toContain("sm:aspect-[16/10] sm:w-[40%]");
-    expect(entryRow).toContain("md:aspect-square md:w-[42%]");
-    expect(entryRow).toContain("sm:text-2xl xl:text-4xl");
+    expect(featuredEntry).toContain("blog-featured-cover aspect-[8/5] w-full min-w-0");
+    expect(featuredEntry).toContain("sm:text-4xl lg:text-5xl");
+    expect(featuredEntry).toContain("<BlogCover entry={entry} priority");
   });
 
-  test("lightens the editorial surface without removing its card boundary", () => {
+  test("separates the brand stage from its complete reading region", () => {
     expect(blogRules).toContain("--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);");
     expect(entryRow).toContain("border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)]");
     expect(entryRow).toContain("overflow-hidden rounded-sm ${coverSize}");
-    expect(entryRow).toContain("text-balance sm:text-2xl xl:text-4xl");
-    expect(entryRow).toContain("max-w-[60ch] xl:text-lg");
+    expect(featuredEntry).toContain("bg-[var(--lore-brand-deep)]");
+    expect(featuredEntry).toContain("blog-featured-reading");
+    expect(featuredEntry).toContain("max-w-[var(--blog-measure)]");
+    expect(featuredEntry).not.toContain("rounded-[var(--lore-radius-panel)]");
+    expect(featuredEntry).not.toContain("shadow-");
+    expect(featuredEntry).not.toContain("line-clamp");
     expect(entryRow).not.toContain("line-clamp");
   });
 
@@ -423,7 +429,7 @@ describe("blog link contract", () => {
     expect(sidebarSource).toContain("min-h-[var(--lore-size-touch)]");
     expect(sidebarSource).toContain("text-fd-muted-foreground");
     expect(sidebarSource).not.toContain("border-l");
-    expect(controls).toContain("lg:mt-5 lg:space-y-4");
+    expect(controls).toContain("blog-index-toolbar");
   });
 });
 
@@ -444,22 +450,16 @@ describe("blog index structure", () => {
     expect(blogRules).not.toContain(".blog-page");
   });
 
-  test("renders filter and sort controls in the sidebar and above mobile cards", () => {
-    // This used to assert the opposite — no filter chrome until a filter is active,
-    // on the argument that a permanent bar occupies the page while doing nothing.
-    // The maintainer asked for the reference's pattern instead, and then for it to
-    // sit in the left column rather than in a strip above the content. Mobile has
-    // no visible sidebar, so it gets the same links above the cards instead.
-    expect(sidebarSource).toContain("<BlogIndexControls");
-    expect(sidebarSource).toContain("category={category}");
-    expect(sidebarSource).toContain("sort={sort}");
-    const mobileControlsIndex = indexScreen.indexOf('<div className="lg:hidden">');
-    const controlsIndex = indexScreen.indexOf("<BlogIndexControls", mobileControlsIndex);
+  test("renders one horizontal discovery toolbar at every index width", () => {
+    expect(sidebarSource).not.toContain("<BlogIndexControls");
+    expect(indexScreen).not.toContain("<BlogSidebar");
+    expect(indexScreen).not.toContain('className="lg:hidden"');
+    const controlsIndex = indexScreen.indexOf("<BlogIndexControls");
     const cardsIndex = indexScreen.indexOf('<ul className="mt-6 space-y-4">');
-    expect(mobileControlsIndex).toBeGreaterThan(-1);
-    expect(controlsIndex).toBeGreaterThan(mobileControlsIndex);
+    expect(controlsIndex).toBeGreaterThan(-1);
+    expect(indexScreen.match(/<BlogIndexControls\b/g)?.length).toBe(1);
     expect(controlsIndex).toBeLessThan(cardsIndex);
-    expect(indexScreen).toContain("lang={lang} posts={posts} category={category} sort={sort}");
+    expect(indexScreen).toContain("lang={lang} posts={posts} category={category} sort={sort} q={q}");
     // Both controls are links carrying the full search state — a category click
     // preserves the ordering, an ordering click preserves the category — so
     // changing either is one plain navigation. The navigation works without
@@ -471,12 +471,14 @@ describe("blog index structure", () => {
     // popup is platform chrome no stylesheet reaches, so it read as foreign in
     // both themes.)
     expect(controls).toMatch(/<Link[^>]*to=\{blogIndexPath\(lang\)\}/);
-    expect(controls).toContain("search={{ category, sort: candidate }}");
+    expect(controls).toContain("search={{ category, sort: candidate, q }}");
+    expect(controls).toContain("search={{ category: candidate, sort, q }}");
     // The reset link strips both params explicitly: a Link without `search`
     // inherits the current one, which left "reset" pointing at the very state
     // it claims to clear (measured: it landed on `?sort=newest`).
-    expect(controls).toContain("search={{ category: undefined, sort: undefined }}");
-    expect(controls).not.toContain("<form");
+    expect(controls).toContain("search={{ category: undefined, sort: undefined, q: undefined }}");
+    expect(controls).toContain('role="search"');
+    expect(controls).toContain('method="get"');
     expect(controls).not.toContain("<select");
     // And they are sized as controls rather than as list text: the design
     // system's touch size and the shared focus ring. (The `--input` border role
@@ -484,19 +486,13 @@ describe("blog index structure", () => {
     // links take the ring.)
     expect(controls).toContain("var(--lore-size-touch)");
     expect(controls).toContain("var(--ring)");
-    // In the sidebar's column the orderings sit as a two-column grid: wrapped
-    // pills there stranded a lone last row (52/52/105/105px over two rows at
-    // 1440) while the same group fits one row above the mobile cards at 390.
-    expect(controls).toContain("lg:grid lg:grid-cols-2");
+    expect(controls).toContain('data-blog-controls="sort" className="flex flex-wrap gap-1.5"');
   });
 
   test("keeps navigation and filter choices complete while restricting cards", () => {
-    // The masthead sits at headline scale (text-4xl, text-5xl from sm) rather
-    // than at a form-label size: the index is an editorial surface, and while
-    // the list is short a page-sized title reads as a first issue rather than
-    // as an empty page.
-    expect(indexScreen).toContain("text-4xl font-semibold");
-    expect(indexScreen).toContain("sm:text-5xl");
+    expect(indexScreen).toContain('<h1 className="text-sm font-medium text-fd-muted-foreground">');
+    expect(featuredEntry).toContain("text-3xl font-semibold");
+    expect(featuredEntry).toContain("sm:text-4xl lg:text-5xl");
     expect(indexScreen).toContain("filteredPostSlugs?: readonly string[];");
     expect(indexScreen).toContain("posts.filter((entry) => cardSlugs.has(entry.slug))");
     expect(indexScreen).toContain("cardPosts.length === 0");

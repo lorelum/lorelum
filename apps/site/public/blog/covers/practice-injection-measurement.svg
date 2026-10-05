@@ -1,18 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" fill="none">
-  <defs>
-    <linearGradient id="field" x1="240" y1="750" x2="1020" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#09251F"/>
-      <stop offset="1" stop-color="#137C65"/>
-    </linearGradient>
-    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-      <path d="M48 0H0V48" stroke="#65D5A5" stroke-opacity=".07"/>
-    </pattern>
-  </defs>
-  <rect width="1200" height="750" fill="url(#field)"/>
-  <rect width="1200" height="750" fill="url(#grid)"/>
-  <g stroke="#65D5A5" stroke-opacity=".22">
-    <path d="M264 120H936M264 630H936"/>
-    <path d="M456 120V630M696 120V630" stroke-dasharray="3 9"/>
+  <g transform="translate(-300 -187.5) scale(1.5)">
+  <g stroke="#137C65" stroke-width="6">
+    <path d="M300 375H348V210H432M348 375H432M348 375V540H432"/>
+    <path d="M516 210H588M516 375H588M516 540H588"/>
+    <path d="M636 210H744M636 375H744M636 540H744"/>
+    <path d="M828 210H876V375H900M828 375H900M828 540H876V375"/>
   </g>
   <g stroke="#B5F4D3" stroke-width="2">
     <path d="M300 375H348V210H432M348 375H432M348 375V540H432"/>
@@ -41,5 +33,6 @@
     <path d="M766 195H806M766 210H806M766 225H806"/>
     <path d="M766 360H806M766 375H806M766 390H806"/>
     <path d="M766 525H806M766 540H806M766 555H806"/>
+  </g>
   </g>
 </svg>

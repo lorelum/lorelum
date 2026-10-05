@@ -399,9 +399,19 @@
     column-gap: 2.5rem;
   }
 
-  .blog-shell--index {
-    grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr);
-  }
+}
+
+.blog-shell--index {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.blog-scope .blog-featured-stage .blog-title-link,
+.blog-scope .blog-featured-stage .blog-title-link:hover {
+  color: inherit;
+}
+
+.blog-scope .blog-featured-stage .blog-title-link:focus-visible {
+  outline-color: currentColor;
 }
 
 /*

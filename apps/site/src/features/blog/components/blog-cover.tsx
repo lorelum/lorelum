@@ -4,6 +4,7 @@ import { coverCells, coverGrid, coverTierIndex } from "../model/cover-pattern";
 interface BlogCoverProps {
   readonly entry: BlogIndexEntry;
   readonly className?: string;
+  readonly priority?: boolean;
 }
 
 /**
@@ -20,15 +21,14 @@ interface BlogCoverProps {
  * beside the art naming the same post, so a screen reader would only hear the
  * title twice.
  */
-export function BlogCover({ entry, className }: BlogCoverProps) {
+export function BlogCover({ entry, className, priority = false }: BlogCoverProps) {
   if (entry.data.image !== undefined) {
     return (
       <img
         src={entry.data.image}
         alt=""
-        // Below the fold by construction (the index lists many cards), so the
-        // art never competes with the page's own content for bandwidth.
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : undefined}
         decoding="async"
         className={className}
       />

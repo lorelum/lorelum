@@ -35,6 +35,10 @@ export interface LandingStrings {
   blogSortTitleAsc: string;
   blogSortTitleDesc: string;
   blogReset: string;
+  blogSearch: string;
+  blogSearchPlaceholder: string;
+  blogSearchResults: string;
+  blogNoSearchResults: string;
   blogCategories: string;
   blogUpdatedOn: string;
   blogReadIn: string;
@@ -155,6 +159,10 @@ const en: LandingStrings = {
   blogSortTitleAsc: "Title (A–Z)",
   blogSortTitleDesc: "Title (Z–A)",
   blogReset: "Reset",
+  blogSearch: "Search",
+  blogSearchPlaceholder: "Search titles or summaries",
+  blogSearchResults: "Results: {count}",
+  blogNoSearchResults: "No posts match. Try another search or reset the filters.",
   blogUpdatedOn: "Updated",
   blogReadIn: "Read in",
   blogLanguageEnglish: "English",
@@ -286,6 +294,10 @@ const zh: LandingStrings = {
   blogSortTitleAsc: "标题（A–Z）",
   blogSortTitleDesc: "标题（Z–A）",
   blogReset: "重置",
+  blogSearch: "搜索",
+  blogSearchPlaceholder: "搜索标题或摘要",
+  blogSearchResults: "匹配文章：{count}",
+  blogNoSearchResults: "未找到匹配文章。试试其他关键词，或重置筛选。",
   blogUpdatedOn: "更新于",
   blogReadIn: "阅读",
   blogLanguageEnglish: "English",

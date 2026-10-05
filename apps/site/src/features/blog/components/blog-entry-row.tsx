@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { getStrings } from "@/shared/i18n/legacy-translations";
 import { BlogCover } from "./blog-cover";
-import { CategoryChip } from "./category-chip";
+import { BlogFeaturedEntry } from "./blog-featured-entry";
+import { categoryLabelKey } from "../model/category-label";
 import { languageHintKey } from "../model/entry-meta";
 import { blogPostPath } from "../model/blog-routes";
 import type { BlogIndexEntry } from "../model/list-posts";
@@ -34,35 +35,31 @@ interface BlogEntryRowProps {
  * page-locale href would 404.
  */
 export function BlogEntryRow({ entry, lang, featured = false }: BlogEntryRowProps) {
+  if (featured) return <BlogFeaturedEntry entry={entry} lang={lang} />;
   const t = getStrings(lang);
   const hintKey = languageHintKey(entry.locale, lang);
-  const coverSize = featured
-    ? "sm:aspect-[16/10] sm:w-[40%] md:aspect-square md:w-[42%] xl:aspect-[3/2] xl:w-[48%]"
-    : "sm:aspect-[16/10] sm:w-44 md:aspect-square xl:w-60";
-  const alignment = featured ? "sm:items-center xl:gap-10" : "sm:items-start xl:gap-8";
+  const coverSize = "sm:aspect-[16/10] sm:w-44 md:aspect-square xl:w-60";
 
   return (
-    <li className={`relative rounded-[var(--lore-radius-panel)] border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)] p-4 transition-[box-shadow,border-color,background-color] duration-200 focus-within:border-[var(--border-strong)] focus-within:shadow-[var(--lore-shadow-lift)] hover:border-[var(--border-strong)] hover:shadow-[var(--lore-shadow-lift)] sm:p-5 lg:p-6 ${featured ? "xl:p-8" : ""}`}>
-      <div className={`flex flex-col gap-6 sm:flex-row sm:gap-6 ${alignment}`}>
-        {/* The cover is framed inside the card. The featured story becomes
-            landscape again when the index gains the third track's space. */}
+    <li className="relative rounded-[var(--lore-radius-panel)] border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)] p-4 transition-[box-shadow,border-color,background-color] duration-200 focus-within:border-[var(--border-strong)] focus-within:shadow-[var(--lore-shadow-lift)] hover:border-[var(--border-strong)] hover:shadow-[var(--lore-shadow-lift)] sm:p-5 lg:p-6">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start xl:gap-8">
         <div className={`aspect-[16/9] w-full shrink-0 overflow-hidden rounded-sm ${coverSize}`}>
           <BlogCover entry={entry} className="h-full w-full object-cover" />
         </div>
 
-        <div className={`min-w-0 flex-1 ${featured ? "xl:py-4" : ""}`}>
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3 text-xs text-fd-muted-foreground">
             <time dateTime={entry.data.date} className="tabular-nums">
               {entry.data.date}
             </time>
-            <CategoryChip lang={lang} category={entry.data.category} pill />
+            <span data-blog-category={entry.data.category} className="rounded-full border border-[var(--input)] px-2.5 py-0.5 font-medium">{t[categoryLabelKey(entry.data.category)]}</span>
           </div>
 
           {/* The design system's title role is weight 600. On the latin side the
               display face carries the hierarchy; on the zh side the heading falls
               back to the reading face (the display face has no CJK glyphs), so
               there the weight step is the only contrast the title has left. */}
-          <h2 lang={entry.locale} className={`mt-3 text-xl font-semibold leading-snug lg:text-2xl ${featured ? "text-balance sm:text-2xl xl:text-4xl" : ""}`}>
+          <h2 lang={entry.locale} className="mt-3 text-xl font-semibold leading-snug lg:text-2xl">
             <Link
               to={blogPostPath(entry.locale, entry.slug)}
               hrefLang={entry.locale}
@@ -74,7 +71,7 @@ export function BlogEntryRow({ entry, lang, featured = false }: BlogEntryRowProp
 
           {hintKey ? <p className="mt-1 text-xs text-fd-muted-foreground">{t[hintKey]}</p> : null}
 
-          <p lang={entry.locale} className={`mt-4 leading-relaxed text-fd-muted-foreground ${featured ? "max-w-[60ch] xl:text-lg" : ""}`}>
+          <p lang={entry.locale} className="mt-4 leading-relaxed text-fd-muted-foreground">
             {entry.data.description}
           </p>
         </div>

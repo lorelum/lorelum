@@ -6,7 +6,6 @@ import type { BlogIndexEntry } from "./model/list-posts";
 import { BlogEntryRow } from "./components/blog-entry-row";
 import { BlogIndexControls } from "./components/blog-index-controls";
 import { BlogShell } from "./components/blog-shell";
-import { BlogSidebar } from "./components/blog-sidebar";
 import { BlogSurface } from "./components/blog-surface";
 import "./styles/blog.css";
 
@@ -14,12 +13,13 @@ interface BlogIndexScreenProps {
   readonly lang: string;
   /** All visible posts, ordered by the selected sort. */
   readonly posts: readonly BlogIndexEntry[];
-  /** Matching card slugs; omitted when no category is active. */
+  /** Matching card slugs; omitted when no category or query is active. */
   readonly filteredPostSlugs?: readonly string[];
   /** The active category filter, as validated from the search param. */
   readonly category?: BlogCategory;
   /** The active ordering, as validated from the search param. */
   readonly sort: BlogSort;
+  readonly q?: string;
 }
 
 /**
@@ -30,10 +30,8 @@ interface BlogIndexScreenProps {
  * The list itself still does no year grouping, pagination, series or related
  * posts while it is short: at n=1 those components would render nothing, and a
  * card gains its structure from its cover and metadata, not the number of
- * siblings. What the page gained instead is the shell around
- * it — the same left column and reading column the article page uses, so the two
- * screens are one surface rather than two layouts. The reading column keeps its
- * measure inside the shell; the shell is what spans the viewport.
+ * siblings. The index uses the shell's full width, while the article keeps its
+ * navigation and reading measure. Discovery controls belong above this list.
  */
 export function BlogIndexScreen({
   lang,
@@ -41,6 +39,7 @@ export function BlogIndexScreen({
   filteredPostSlugs,
   category,
   sort,
+  q,
 }: BlogIndexScreenProps) {
   const t = getStrings(lang);
   const cardSlugs =
@@ -49,39 +48,36 @@ export function BlogIndexScreen({
     cardSlugs === undefined ? posts : posts.filter((entry) => cardSlugs.has(entry.slug));
 
   return (
-    <BlogSurface lang={lang}>
-      <BlogShell
-        index
-        sidebar={
-          <BlogSidebar lang={lang} posts={posts} category={category} sort={sort} />
-        }
-      >
-        {/* The entries are bounded panels, so they span the column; the reading
-            measure belongs to prose, and the card's own padding keeps the text at a
-            comfortable width without capping the panel. */}
+    <BlogSurface lang={lang} index>
+      <BlogShell index>
         <div className="w-full">
-          {/* The headline stands alone; the hairline separates the masthead
-              from entries without reintroducing the removed dek. */}
-          <header className="border-b border-[var(--blog-hairline)] pb-6 md:pb-8">
-            <h1 className="text-4xl font-semibold leading-tight tracking-tight text-fd-foreground sm:text-5xl">
-              {t.navBlog}
-            </h1>
-          </header>
-
-          <div className="lg:hidden">
-            <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} />
+          <div className="grid items-center lg:grid-cols-[auto_minmax(0,1fr)]">
+            <header className="px-6 pt-4 lg:py-3 lg:pr-0 xl:pl-12">
+              <h1 className="text-sm font-medium text-fd-muted-foreground">
+                {t.navBlog}
+              </h1>
+            </header>
+            <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} q={q} />
           </div>
 
+          {q === undefined && category === undefined ? null : (
+            <p role="status" aria-live="polite" className="mt-4 px-6 text-sm text-fd-muted-foreground xl:px-12">
+              {t.blogSearchResults.replace("{count}", String(cardPosts.length))}
+            </p>
+          )}
+
           {cardPosts.length === 0 ? (
-            <p className="mt-8 text-fd-muted-foreground">
-              {category === undefined ? t.blogEmpty : t.blogNoPostsInCategory}{" "}
-              <Link
-                to="/$lang/docs/$"
-                params={{ lang, _splat: "" }}
-                className="blog-nav-link rounded-sm"
-              >
-                {t.readDocs}
-              </Link>
+            <p className="mt-8 px-6 text-fd-muted-foreground xl:px-12">
+              {q !== undefined ? t.blogNoSearchResults : category === undefined ? t.blogEmpty : t.blogNoPostsInCategory}{" "}
+              {q !== undefined ? null : (
+                <Link
+                  to="/$lang/docs/$"
+                  params={{ lang, _splat: "" }}
+                  className="blog-nav-link rounded-sm"
+                >
+                  {t.readDocs}
+                </Link>
+              )}
             </p>
           ) : (
             <ul className="mt-6 space-y-4">
