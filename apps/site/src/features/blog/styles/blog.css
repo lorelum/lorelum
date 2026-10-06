@@ -408,10 +408,15 @@
 .blog-scope .blog-featured-stage .blog-title-link,
 .blog-scope .blog-featured-stage .blog-title-link:hover {
   color: inherit;
+  text-decoration-line: none;
 }
 
 .blog-scope .blog-featured-stage .blog-title-link:focus-visible {
   outline-color: currentColor;
+}
+
+.blog-search-dialog [data-blog-search-results] > div {
+  max-height: min(460px, calc(100dvh - 11rem));
 }
 
 /*

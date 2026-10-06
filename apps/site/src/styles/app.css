@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+@source "../../../../packages/ui/src";
 /*
  * The design system's semantic tokens, imported **globally** rather than per
  * surface. They used to arrive only with the docs and blog chunks — each of those

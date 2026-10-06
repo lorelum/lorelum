@@ -6,6 +6,7 @@ const indexScreen = readFileSync(new URL("../blog-index-screen.tsx", import.meta
 const postScreen = readFileSync(new URL("../blog-post-screen.tsx", import.meta.url), "utf8");
 const surface = readFileSync(new URL("../components/blog-surface.tsx", import.meta.url), "utf8");
 const controls = readFileSync(new URL("../components/blog-index-controls.tsx", import.meta.url), "utf8");
+const searchDialog = readFileSync(new URL("../components/blog-search-dialog.tsx", import.meta.url), "utf8");
 const sidebarSource = readFileSync(new URL("../components/blog-sidebar.tsx", import.meta.url), "utf8");
 const entryRow = readFileSync(new URL("../components/blog-entry-row.tsx", import.meta.url), "utf8");
 const featuredEntry = readFileSync(new URL("../components/blog-featured-entry.tsx", import.meta.url), "utf8");
@@ -403,7 +404,7 @@ describe("blog link contract", () => {
     expect(featuredEntry).toContain("lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]");
     expect(featuredEntry).toContain("xl:text-[length:var(--lore-text-display)]");
     expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
-    expect(controls).toContain('data-blog-controls="category" className="flex flex-wrap gap-1.5"');
+    expect(controls).toContain('data-blog-controls="category"');
   });
 
   test("keeps the featured cover substantial at intermediate widths", () => {
@@ -460,25 +461,15 @@ describe("blog index structure", () => {
     expect(indexScreen.match(/<BlogIndexControls\b/g)?.length).toBe(1);
     expect(controlsIndex).toBeLessThan(cardsIndex);
     expect(indexScreen).toContain("lang={lang} posts={posts} category={category} sort={sort} q={q}");
-    // Both controls are links carrying the full search state — a category click
-    // preserves the ordering, an ordering click preserves the category — so
-    // changing either is one plain navigation. The navigation works without
-    // JavaScript; the narrowed list does not: a query URL is answered by the
-    // prerendered static index, and the filtering renders once scripts run. The
-    // spec states this; the earlier "the page arrives filtered with no
-    // JavaScript" claim was wrong and is gone. (The ordering was a GET form
-    // with a native select until review rejected the select: the select's open
-    // popup is platform chrome no stylesheet reaches, so it read as foreign in
-    // both themes.)
     expect(controls).toMatch(/<Link[^>]*to=\{blogIndexPath\(lang\)\}/);
-    expect(controls).toContain("search={{ category, sort: candidate, q }}");
-    expect(controls).toContain("search={{ category: candidate, sort, q }}");
+    expect(controls).toContain("search: { category, sort: candidate, q }");
+    expect(controls).toContain('search: { category: candidate === "all" ? undefined : candidate, sort, q }');
     // The reset link strips both params explicitly: a Link without `search`
     // inherits the current one, which left "reset" pointing at the very state
     // it claims to clear (measured: it landed on `?sort=newest`).
     expect(controls).toContain("search={{ category: undefined, sort: undefined, q: undefined }}");
-    expect(controls).toContain('role="search"');
-    expect(controls).toContain('method="get"');
+    expect(searchDialog).toContain('role="search"');
+    expect(searchDialog).toContain('method="get"');
     expect(controls).not.toContain("<select");
     // And they are sized as controls rather than as list text: the design
     // system's touch size and the shared focus ring. (The `--input` border role
@@ -486,7 +477,13 @@ describe("blog index structure", () => {
     // links take the ring.)
     expect(controls).toContain("var(--lore-size-touch)");
     expect(controls).toContain("var(--ring)");
-    expect(controls).toContain('data-blog-controls="sort" className="flex flex-wrap gap-1.5"');
+    expect(controls).toContain('data-blog-controls="sort"');
+  });
+
+  test("removes only the featured title's hover underline while retaining focus", () => {
+    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-stage \.blog-title-link:hover\s*\{[^}]*text-decoration-line:\s*none/);
+    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-stage \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*currentColor/);
+    expect(blogRules).toMatch(/\.blog-post__reading \.prose a:not\(\[data-card\]\)\s*\{[^}]*text-decoration-line:\s*underline/);
   });
 
   test("keeps navigation and filter choices complete while restricting cards", () => {

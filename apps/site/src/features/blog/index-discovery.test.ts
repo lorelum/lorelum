@@ -4,14 +4,17 @@ import { stripSearchParams } from "@tanstack/react-router";
 import type { BlogSort } from "./model/sort-posts";
 
 const controls = readFileSync(new URL("./components/blog-index-controls.tsx", import.meta.url), "utf8");
+const dialog = readFileSync(new URL("./components/blog-search-dialog.tsx", import.meta.url), "utf8");
 const screen = readFileSync(new URL("./blog-index-screen.tsx", import.meta.url), "utf8");
 const server = readFileSync(new URL("./server/list-blog-posts.ts", import.meta.url), "utf8");
 const routes = ["../../routes/blog/index.tsx", "../../routes/$lang/blog/index.tsx"].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
 
 describe("blog index discovery wiring", () => {
-  test("matches the full URL for every filter link so default sort is not also current", () => {
-    expect(controls).toMatch(/search=\{\{ category: candidate, sort, q \}\}\s+activeOptions=\{\{ exact: true, includeSearch: true \}\}/);
-    expect(controls).toMatch(/search=\{\{ category, sort: candidate, q \}\}\s+activeOptions=\{\{ exact: true, includeSearch: true \}\}/);
+  test("controls each dropdown from the committed URL and preserves the other fields", () => {
+    expect(controls).toContain('value={category ?? "all"}');
+    expect(controls).toContain("value={sort}");
+    expect(controls).toContain('search: { category: candidate === "all" ? undefined : candidate, sort, q }');
+    expect(controls).toContain("search: { category, sort: candidate, q }");
   });
 
   test("validates and propagates q through both route loaders and screens", () => {
@@ -34,26 +37,26 @@ describe("blog index discovery wiring", () => {
   });
 
   test("submits real searches with accessible labels and complete query state", () => {
-    expect(controls).toContain('action={blogIndexPath(lang)}');
-    expect(controls).toContain('htmlFor="blog-search"');
-    expect(controls).toContain('type="search"');
-    expect(controls).toContain('name="q"');
-    expect(controls).toContain("maxLength={200}");
-    expect(controls).toContain('type="hidden" name="category" value={category}');
-    expect(controls).toContain('type="hidden" name="sort" value={sort}');
-    expect(controls).toContain('type="submit"');
-    expect(controls).toContain('aria-label={t.blogSearch}');
-    expect(controls).toContain('useNavigate()');
-    expect(controls).not.toContain("Cmd");
+    expect(dialog).toContain('action={blogIndexPath(lang)}');
+    expect(dialog).toContain('form="blog-search-form"');
+    expect(dialog).toContain('type="search"');
+    expect(dialog).toContain('name="q"');
+    expect(dialog).toContain("maxLength={200}");
+    expect(dialog).toContain('type="hidden" name="category" value={category}');
+    expect(dialog).toContain('type="hidden" name="sort" value={sort}');
+    expect(dialog).toContain('type="submit"');
+    expect(dialog).toContain('aria-label={t.blogSearch}');
+    expect(dialog).toContain('useNavigate()');
+    expect(dialog).not.toContain("Cmd");
   });
 
   test("restores controlled input from committed URL state after navigation", () => {
-    expect(controls).toContain('useState(q ?? "")');
-    expect(controls).toContain('setSearchInput(q ?? "")');
-    expect(controls).toContain("[category, sort, q]");
-    expect(controls).toContain("value={searchInput}");
-    expect(controls).toContain("setSearchInput(event.target.value)");
-    expect(controls).not.toContain("defaultValue=");
+    expect(dialog).toContain('useState(q ?? "")');
+    expect(dialog).toContain('setSearch(q ?? "")');
+    expect(dialog).toContain("[category, sort, q]");
+    expect(dialog).toContain("search={search}");
+    expect(dialog).toContain("onSearchChange={setSearch}");
+    expect(dialog).not.toContain("defaultValue=");
   });
 
   test("removes the default sort from URLs without stripping active filters", () => {
@@ -65,12 +68,12 @@ describe("blog index discovery wiring", () => {
     expect(search.sort).toBe("newest");
   });
 
-  test("uses typed query navigation for scripted submits and retains native GET fallback", () => {
-    expect(controls).toContain("event.preventDefault()");
-    expect(controls).toContain("search: { category, sort, q: parseBlogQuery(searchInput) }");
-    expect(controls).toContain('method="get"');
-    expect(controls).toContain('action={blogIndexPath(lang)}');
-    const searchForm = controls.slice(controls.indexOf("<form"), controls.indexOf("</form>"));
+  test("uses typed query navigation and a GET form within the search popup", () => {
+    expect(dialog).toContain("event.preventDefault()");
+    expect(dialog).toContain("search: { category, sort, q: parseBlogQuery(search) }");
+    expect(dialog).toContain('method="get"');
+    expect(dialog).toContain('action={blogIndexPath(lang)}');
+    const searchForm = dialog.slice(dialog.indexOf("<form"), dialog.indexOf("</form>"));
     expect(searchForm).not.toContain("key={");
   });
 });

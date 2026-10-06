@@ -37,6 +37,8 @@ export interface LandingStrings {
   blogReset: string;
   blogSearch: string;
   blogSearchPlaceholder: string;
+  blogSearchApply: string;
+  blogSearchStart: string;
   blogSearchResults: string;
   blogNoSearchResults: string;
   blogCategories: string;
@@ -161,6 +163,8 @@ const en: LandingStrings = {
   blogReset: "Reset",
   blogSearch: "Search",
   blogSearchPlaceholder: "Search titles or summaries",
+  blogSearchApply: "View matching posts",
+  blogSearchStart: "Enter keywords to start searching.",
   blogSearchResults: "Results: {count}",
   blogNoSearchResults: "No posts match. Try another search or reset the filters.",
   blogUpdatedOn: "Updated",
@@ -296,6 +300,8 @@ const zh: LandingStrings = {
   blogReset: "重置",
   blogSearch: "搜索",
   blogSearchPlaceholder: "搜索标题或摘要",
+  blogSearchApply: "在列表中查看结果",
+  blogSearchStart: "输入关键词开始搜索。",
   blogSearchResults: "匹配文章：{count}",
   blogNoSearchResults: "未找到匹配文章。试试其他关键词，或重置筛选。",
   blogUpdatedOn: "更新于",
