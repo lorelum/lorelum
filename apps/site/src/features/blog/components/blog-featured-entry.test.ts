@@ -9,6 +9,13 @@ const styles = readFileSync(new URL("../styles/blog.css", import.meta.url), "utf
 const cover = readFileSync(new URL("./blog-cover.tsx", import.meta.url), "utf8");
 
 describe("brand editorial feature", () => {
+  test("rounds the green stage with the existing design token without clipping title focus", () => {
+    expect(featured).toContain("rounded-[var(--lore-radius-stage)]");
+    expect(featured).not.toContain("overflow-hidden");
+    expect(featured).toContain("blog-featured-entry relative cursor-pointer");
+    expect(styles).toContain("outline-color: currentColor");
+  });
+
   test("promotes only the designated entry while retaining compact cards", () => {
     expect(row).toContain("if (featured) return <BlogFeaturedEntry");
     expect(row).toContain("rounded-[var(--lore-radius-panel)]");
@@ -41,11 +48,23 @@ describe("brand editorial feature", () => {
     expect(featured).toContain("max-w-[var(--blog-measure)]");
   });
 
-  test("keeps named filter sections but removes their visual setup labels", () => {
+  test("keeps a named category filter without a sort setup section", () => {
     expect(controls).toContain("aria-label={t.blogFilterCategory}");
-    expect(controls).toContain("aria-label={t.blogSortBy}");
-    expect(controls).toContain('<p className="sr-only">{t.blogFilterCategory}</p>');
-    expect(controls).toContain('<p className="sr-only">{t.blogSortBy}</p>');
+    expect(controls).not.toContain("aria-label={t.blogSortBy}");
+    expect(controls).toContain("<nav aria-label={t.blogFilterCategory}");
+    expect(controls).not.toContain('<p className="sr-only">{t.blogSortBy}</p>');
+  });
+
+  test("pairs restrained pointer feedback with keyboard feedback without moving the card", () => {
+    expect(featured).toContain("cursor-pointer");
+    expect(row).toContain("blog-entry-row relative cursor-pointer");
+    expect(styles).toContain("@media (hover: hover) and (pointer: fine)");
+    expect(styles).toContain(".blog-featured-entry:hover .blog-featured-stage");
+    expect(styles).toContain(".blog-featured-entry:focus-within .blog-featured-stage");
+    expect(styles).toContain(".blog-entry-row:focus-within .shrink-0 > :is(img, svg)");
+    expect(styles).toContain("transition: transform 220ms ease");
+    expect(styles).toContain("transform: scale(1.015)");
+    expect(styles).not.toMatch(/\.blog-featured-entry\s*\{[^}]*transform:/);
   });
 });
 

@@ -9,11 +9,23 @@ const artwork = readFileSync(
 describe("measurement article artwork", () => {
   test("depicts three equally sized comparison paths, not numerical results", () => {
     expect(artwork).toContain('viewBox="0 0 1200 750"');
-    for (const verticalPosition of [168, 333, 498]) {
-      expect(artwork).toContain(`x="432" y="${verticalPosition}" width="84" height="84"`);
-      expect(artwork).toContain(`x="744" y="${verticalPosition}" width="84" height="84"`);
+    for (const condition of ["baseline", "placebo", "oracle"]) {
+      expect(artwork).toContain(`data-condition="${condition}"`);
+      expect(artwork).toContain(`>${condition.toUpperCase()}</text>`);
     }
-    expect(artwork).not.toMatch(/<text\b|<script\b|<animate\b|<foreignObject\b/);
+    expect(artwork.match(/width="420" height="130"/g)).toHaveLength(3);
+    expect(artwork).not.toMatch(/<script\b|<animate\b|<foreignObject\b/);
     expect(artwork).not.toMatch(/oracle_precision|delta_lift|https?:\/\/(?!www\.w3\.org)/);
+  });
+
+  test("explains the real intervention without implying numerical outcomes", () => {
+    for (const label of ["Same task", "Three contexts", "Same criteria", "No Practice", "Unrelated Practice", "Relevant Practice", "not measured results"]) {
+      expect(artwork).toContain(label);
+    }
+    expect(artwork).toContain('data-stage="task"');
+    expect(artwork).toContain('data-stage="evaluation"');
+    expect(artwork).toContain("aria-labelledby=");
+    expect(artwork).toContain("<desc");
+    expect(artwork).not.toMatch(/\d+(?:\.\d+)?\s*%|<image\b|<a\b|<iframe\b/);
   });
 });

@@ -17,8 +17,8 @@ export function BlogFeaturedEntry({ entry, lang }: BlogFeaturedEntryProps) {
   const hintKey = languageHintKey(entry.locale, lang);
 
   return (
-    <li className="blog-featured-entry relative" data-blog-featured>
-      <div className="blog-featured-stage grid items-center gap-6 bg-[var(--lore-brand-deep)] px-6 py-8 text-[var(--background)] dark:text-[var(--foreground)] sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-10 xl:px-12 xl:py-12">
+    <li className="blog-featured-entry relative cursor-pointer" data-blog-featured>
+      <div className="blog-featured-stage grid items-center gap-6 rounded-[var(--lore-radius-stage)] bg-[var(--lore-brand-deep)] px-6 py-8 text-[var(--background)] dark:text-[var(--foreground)] sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-10 xl:px-12 xl:py-12">
         <h2 lang={entry.locale} className="min-w-0 text-balance text-3xl font-semibold leading-[1.15] sm:text-4xl lg:text-5xl xl:text-[length:var(--lore-text-display)]">
           <Link
             to={blogPostPath(entry.locale, entry.slug)}

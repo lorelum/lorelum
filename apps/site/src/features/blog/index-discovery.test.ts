@@ -10,11 +10,12 @@ const server = readFileSync(new URL("./server/list-blog-posts.ts", import.meta.u
 const routes = ["../../routes/blog/index.tsx", "../../routes/$lang/blog/index.tsx"].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
 
 describe("blog index discovery wiring", () => {
-  test("controls each dropdown from the committed URL and preserves the other fields", () => {
-    expect(controls).toContain('value={category ?? "all"}');
-    expect(controls).toContain("value={sort}");
-    expect(controls).toContain('search: { category: candidate === "all" ? undefined : candidate, sort, q }');
-    expect(controls).toContain("search: { category, sort: candidate, q }");
+  test("links categories to the committed URL while preserving existing sort and query", () => {
+    expect(controls).toContain('aria-current={category === candidate ? "page" : undefined}');
+    expect(controls).not.toContain('id="blog-sort"');
+    expect(controls).toContain("search={{ category: undefined, sort, q }}");
+    expect(controls).toContain("search={{ category: candidate, sort, q }}");
+    expect(controls).toContain("category={category} sort={sort} q={q}");
   });
 
   test("validates and propagates q through both route loaders and screens", () => {

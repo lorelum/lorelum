@@ -26,14 +26,9 @@ export interface LandingStrings {
   blogNoPostsInCategory: string;
   /** Sidebar section headings. */
   blogAllPosts: string;
-  /** Index filter and sort controls. */
+  /** Index discovery toolbar: category navigation, search and reset. */
   blogFilterCategory: string;
-  blogAllCategories: string;
-  blogSortBy: string;
-  blogSortNewest: string;
-  blogSortOldest: string;
-  blogSortTitleAsc: string;
-  blogSortTitleDesc: string;
+  blogCategoryAll: string;
   blogReset: string;
   blogSearch: string;
   blogSearchPlaceholder: string;
@@ -154,12 +149,7 @@ const en: LandingStrings = {
   blogAllPosts: "All posts",
   blogCategories: "Categories",
   blogFilterCategory: "Category",
-  blogAllCategories: "All",
-  blogSortBy: "Sort by",
-  blogSortNewest: "Newest",
-  blogSortOldest: "Oldest",
-  blogSortTitleAsc: "Title (A–Z)",
-  blogSortTitleDesc: "Title (Z–A)",
+  blogCategoryAll: "ALL",
   blogReset: "Reset",
   blogSearch: "Search",
   blogSearchPlaceholder: "Search titles or summaries",
@@ -291,12 +281,7 @@ const zh: LandingStrings = {
   blogAllPosts: "全部文章",
   blogCategories: "分类",
   blogFilterCategory: "分类",
-  blogAllCategories: "全部",
-  blogSortBy: "排序",
-  blogSortNewest: "最新",
-  blogSortOldest: "最早",
-  blogSortTitleAsc: "标题（A–Z）",
-  blogSortTitleDesc: "标题（Z–A）",
+  blogCategoryAll: "ALL",
   blogReset: "重置",
   blogSearch: "搜索",
   blogSearchPlaceholder: "搜索标题或摘要",

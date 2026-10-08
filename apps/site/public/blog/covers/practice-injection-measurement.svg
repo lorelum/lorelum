@@ -1,38 +1,63 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" fill="none">
-  <g transform="translate(-300 -187.5) scale(1.5)">
-  <g stroke="#137C65" stroke-width="6">
-    <path d="M300 375H348V210H432M348 375H432M348 375V540H432"/>
-    <path d="M516 210H588M516 375H588M516 540H588"/>
-    <path d="M636 210H744M636 375H744M636 540H744"/>
-    <path d="M828 210H876V375H900M828 375H900M828 540H876V375"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" fill="none" role="img" aria-labelledby="cover-title cover-description">
+  <title id="cover-title">Practice injection: a controlled comparison</title>
+  <desc id="cover-description">The same coding task is run with no Practice, an unrelated Practice, or a relevant Practice. All three conditions use the same evaluation criteria. This diagram shows the experimental design, not measured results.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" stroke="#65D5A5" stroke-opacity=".08"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="m2 2 4 3-4 3" stroke="#B5F4D3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="750" rx="24" fill="#101E1C"/>
+  <rect width="1200" height="750" rx="24" fill="url(#grid)"/>
+  <g font-family="ui-sans-serif, system-ui, sans-serif" fill="#D7E9E2">
+    <text x="52" y="86" font-size="28">Same task</text>
+    <text x="350" y="86" font-size="28">Three contexts</text>
+    <text x="944" y="86" font-size="28">Same criteria</text>
   </g>
-  <g stroke="#B5F4D3" stroke-width="2">
-    <path d="M300 375H348V210H432M348 375H432M348 375V540H432"/>
-    <path d="M516 210H588M516 375H588M516 540H588"/>
-    <path d="M636 210H744M636 375H744M636 540H744"/>
-    <path d="M828 210H876V375H900M828 375H900M828 540H876V375"/>
+  <path d="M52 110H1148" stroke="#65D5A5" stroke-opacity=".25"/>
+  <g stroke="#B5F4D3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M234 375H288M288 200V550"/>
+    <path d="M288 200H328M288 375H328M288 550H328" marker-end="url(#arrow)"/>
+    <path d="M772 200H870V550M772 375H870M772 550H870"/>
+    <path d="M870 375H924" marker-end="url(#arrow)"/>
   </g>
-  <g fill="#0E382E" stroke="#B5F4D3" stroke-width="2">
-    <circle cx="300" cy="375" r="10"/>
-    <rect x="432" y="168" width="84" height="84" rx="6"/>
-    <rect x="432" y="333" width="84" height="84" rx="6"/>
-    <rect x="432" y="498" width="84" height="84" rx="6"/>
-    <circle cx="612" cy="210" r="24"/>
-    <circle cx="612" cy="375" r="24"/>
-    <circle cx="612" cy="540" r="24"/>
-    <rect x="744" y="168" width="84" height="84" rx="6"/>
-    <rect x="744" y="333" width="84" height="84" rx="6"/>
-    <rect x="744" y="498" width="84" height="84" rx="6"/>
-    <circle cx="900" cy="375" r="10"/>
+  <g data-stage="task">
+    <rect x="52" y="270" width="182" height="210" rx="16" fill="#1B302A" stroke="#65D5A5" stroke-opacity=".5"/>
+    <path d="M98 306H155L182 333V394H98V306Z" stroke="#B5F4D3" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M155 306V333H182M118 351L108 361L118 371M160 351L170 361L160 371M146 347L134 375" stroke="#B5F4D3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="143" y="443" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="44" font-weight="600" fill="#F0F2F4">TASK</text>
   </g>
-  <g stroke="#65D5A5" stroke-width="2">
-    <path d="M454 195H494M454 210H484M454 225H494"/>
-    <path d="M454 360H494M454 375H484M454 390H494"/>
-    <path d="M454 525H494M454 540H484M454 555H494"/>
-    <path d="M600 210H624M612 198V222M600 375H624M612 363V387M600 540H624M612 528V552"/>
-    <path d="M766 195H806M766 210H806M766 225H806"/>
-    <path d="M766 360H806M766 375H806M766 390H806"/>
-    <path d="M766 525H806M766 540H806M766 555H806"/>
+  <g data-condition="baseline" transform="translate(350 135)">
+    <rect width="420" height="130" rx="16" fill="#1B302A" stroke="#65D5A5" stroke-opacity=".5"/>
+    <path d="M30 38H70V92H30V38Z" stroke="#B5F4D3" stroke-width="3" stroke-dasharray="5 6"/>
+    <path d="M40 65H60" stroke="#B5F4D3" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="58" font-family="ui-sans-serif, system-ui, sans-serif" font-size="56" font-weight="600" fill="#F0F2F4">BASELINE</text>
+    <text x="100" y="97" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" fill="#BDD4CA">No Practice</text>
   </g>
+  <g data-condition="placebo" transform="translate(350 310)">
+    <rect width="420" height="130" rx="16" fill="#1B302A" stroke="#65D5A5" stroke-opacity=".5"/>
+    <path d="M30 38H70V92H30V38Z" stroke="#B5F4D3" stroke-width="3"/>
+    <path d="M40 52H60M40 65H56M40 78H60" stroke="#B5F4D3" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 5"/>
+    <text x="100" y="58" font-family="ui-sans-serif, system-ui, sans-serif" font-size="56" font-weight="600" fill="#F0F2F4">PLACEBO</text>
+    <text x="100" y="97" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" fill="#BDD4CA">Unrelated Practice</text>
   </g>
+  <g data-condition="oracle" transform="translate(350 485)">
+    <rect width="420" height="130" rx="16" fill="#1B302A" stroke="#65D5A5" stroke-opacity=".5"/>
+    <path d="M30 38H70V92H30V38Z" stroke="#B5F4D3" stroke-width="3"/>
+    <path d="M40 52H60M40 65H56M40 78H60" stroke="#B5F4D3" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="58" font-family="ui-sans-serif, system-ui, sans-serif" font-size="56" font-weight="600" fill="#F0F2F4">ORACLE</text>
+    <text x="100" y="97" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" fill="#BDD4CA">Relevant Practice</text>
+  </g>
+  <g data-stage="evaluation">
+    <rect x="944" y="270" width="204" height="210" rx="16" fill="#1B302A" stroke="#65D5A5" stroke-opacity=".5"/>
+    <g stroke="#B5F4D3" stroke-width="3" stroke-linecap="round">
+      <path d="M1000 328H1092M1000 356H1092M1000 384H1092"/>
+      <path d="M1024 318V338M1068 346V366M1038 374V394"/>
+    </g>
+    <text x="1046" y="443" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="600" fill="#F0F2F4">EVALUATE</text>
+  </g>
+  <path d="M52 663H1148" stroke="#65D5A5" stroke-opacity=".25"/>
+  <text x="52" y="706" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" fill="#BDD4CA">Experimental design · not measured results</text>
 </svg>

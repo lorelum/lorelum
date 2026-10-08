@@ -91,9 +91,15 @@ describe("blog identity", () => {
 
   test("keeps the landing page's eyebrow idiom out", () => {
     // `uppercase` does nothing for CJK text and `tracking-[…]` is the landing
-    // surface's label idiom; neither belongs on a reading surface.
+    // surface's label idiom; neither belongs on a reading surface. The index
+    // category navigation is toolbar chrome, approved (task 14.7) to render
+    // its Latin labels uppercase in the mono face; nothing else may.
+    const categoryNav = "components/blog-index-controls.tsx";
     for (const { path, text } of SOURCES) {
-      expect(/\buppercase\b/.test(text), `${path} uses uppercase`).toBe(false);
+      const reading = path.endsWith(categoryNav)
+        ? text.replace(/const categoryLinkClass = "[^"]*";/, "")
+        : text;
+      expect(/\buppercase\b/.test(reading), `${path} uses uppercase`).toBe(false);
       expect(text.includes("tracking-["), `${path} uses a tracking utility`).toBe(false);
     }
   });

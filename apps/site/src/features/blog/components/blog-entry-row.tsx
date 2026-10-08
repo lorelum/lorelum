@@ -41,7 +41,7 @@ export function BlogEntryRow({ entry, lang, featured = false }: BlogEntryRowProp
   const coverSize = "sm:aspect-[16/10] sm:w-44 md:aspect-square xl:w-60";
 
   return (
-    <li className="relative rounded-[var(--lore-radius-panel)] border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)] p-4 transition-[box-shadow,border-color,background-color] duration-200 focus-within:border-[var(--border-strong)] focus-within:shadow-[var(--lore-shadow-lift)] hover:border-[var(--border-strong)] hover:shadow-[var(--lore-shadow-lift)] sm:p-5 lg:p-6">
+    <li className="blog-entry-row relative cursor-pointer rounded-[var(--lore-radius-panel)] border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)] p-4 transition-[box-shadow,border-color,background-color] duration-200 focus-within:border-[var(--border-strong)] focus-within:shadow-[var(--lore-shadow-lift)] hover:border-[var(--border-strong)] hover:shadow-[var(--lore-shadow-lift)] sm:p-5 lg:p-6">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start xl:gap-8">
         <div className={`aspect-[16/9] w-full shrink-0 overflow-hidden rounded-sm ${coverSize}`}>
           <BlogCover entry={entry} className="h-full w-full object-cover" />

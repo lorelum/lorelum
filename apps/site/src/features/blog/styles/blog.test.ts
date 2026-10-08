@@ -462,8 +462,9 @@ describe("blog index structure", () => {
     expect(controlsIndex).toBeLessThan(cardsIndex);
     expect(indexScreen).toContain("lang={lang} posts={posts} category={category} sort={sort} q={q}");
     expect(controls).toMatch(/<Link[^>]*to=\{blogIndexPath\(lang\)\}/);
-    expect(controls).toContain("search: { category, sort: candidate, q }");
-    expect(controls).toContain('search: { category: candidate === "all" ? undefined : candidate, sort, q }');
+    expect(controls).toContain("category={category} sort={sort} q={q}");
+    expect(controls).toContain("search={{ category: candidate, sort, q }}");
+    expect(controls).toContain("search={{ category: undefined, sort, q }}");
     // The reset link strips both params explicitly: a Link without `search`
     // inherits the current one, which left "reset" pointing at the very state
     // it claims to clear (measured: it landed on `?sort=newest`).
@@ -477,7 +478,7 @@ describe("blog index structure", () => {
     // links take the ring.)
     expect(controls).toContain("var(--lore-size-touch)");
     expect(controls).toContain("var(--ring)");
-    expect(controls).toContain('data-blog-controls="sort"');
+    expect(controls).not.toContain('data-blog-controls="sort"');
   });
 
   test("removes only the featured title's hover underline while retaining focus", () => {
