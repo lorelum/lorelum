@@ -14,14 +14,13 @@ interface BlogEntryRowProps {
 }
 
 /**
- * One entry of the index, as a card.
+ * One entry of the index after the lead stage, as a separator-led list item.
  *
- * It used to be a bare row — no surface, no radius — on the argument that a row in
- * a sequence is not a card. Review saw the result: a list of pure text with no
- * structure to rest on. The card is the fix, and it stays inside the design
- * system's rules: a tonal surface (`--blog-quiet-surface`), the `panel` radius, and
- * layering by typography rather than by decoration.
- *
+ * v2 (redesign-site-blog-v2) replaces the v1 card: a tonal surface, border and
+ * radius made every entry a box, and boxes inside a reading column read as
+ * product panels. A hairline above each item gives the same sequence without a
+ * frame. Hover and focus take a faint tonal wash; the cover keeps its scale
+ * feedback. The rule is one hairline per item, never a card around it.
  * The cover stays beside the text above the narrowest viewports. Every card
  * carries art — `BlogCover` generates one when the post has none.
  *
@@ -38,13 +37,13 @@ export function BlogEntryRow({ entry, lang, featured = false }: BlogEntryRowProp
   if (featured) return <BlogFeaturedEntry entry={entry} lang={lang} />;
   const t = getStrings(lang);
   const hintKey = languageHintKey(entry.locale, lang);
-  const coverSize = "sm:aspect-[16/10] sm:w-44 md:aspect-square xl:w-60";
+  const coverSize = "sm:w-44 xl:w-60";
 
   return (
-    <li className="blog-entry-row relative cursor-pointer rounded-[var(--lore-radius-panel)] border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)] p-4 transition-[box-shadow,border-color,background-color] duration-200 focus-within:border-[var(--border-strong)] focus-within:shadow-[var(--lore-shadow-lift)] hover:border-[var(--border-strong)] hover:shadow-[var(--lore-shadow-lift)] sm:p-5 lg:p-6">
+    <li className="blog-entry-row relative cursor-pointer border-t border-[var(--blog-hairline)] py-6 transition-colors duration-200 hover:bg-[var(--blog-quiet-surface)] focus-within:bg-[var(--blog-quiet-surface)] sm:py-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start xl:gap-8">
-        <div className={`aspect-[16/9] w-full shrink-0 overflow-hidden rounded-sm ${coverSize}`}>
-          <BlogCover entry={entry} className="h-full w-full object-cover" />
+        <div className={`aspect-[8/5] w-full shrink-0 overflow-hidden rounded-sm bg-[var(--lore-brand-deep)] ${coverSize}`}>
+          <BlogCover entry={entry} className="h-full w-full object-contain" />
         </div>
 
         <div className="min-w-0 flex-1">

@@ -23,8 +23,8 @@ interface BlogIndexScreenProps {
 }
 
 /**
- * Editorial index: the first visible post uses the available stage, while
- * subsequent posts retain the compact card. Summaries come from frontmatter,
+ * Editorial index: the first visible post fills the brand stage, and the rest
+ * follow as a hairline-separated list. Summaries come from frontmatter,
  * not invented teaser copy.
  *
  * The list itself still does no year grouping, pagination, series or related
@@ -80,7 +80,7 @@ export function BlogIndexScreen({
               )}
             </p>
           ) : (
-            <ul className="mt-6 space-y-4">
+            <ul className="mt-10">
               {cardPosts.map((entry) => (
                 <BlogEntryRow
                   key={`${entry.slug}-${entry.locale}`}

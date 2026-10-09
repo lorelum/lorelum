@@ -122,12 +122,16 @@ function BlogPostBody({ lang, post, adjacent, posts, onMasthead }: BlogPostScree
             />
 
             {data.image === undefined ? null : (
-              <img
-                src={data.image}
-                alt=""
-                decoding="async"
-                className="mt-8 aspect-[16/9] w-full rounded-[var(--lore-radius-panel)] object-cover sm:aspect-[3/2]"
-              />
+              // v2: the article figure sits on the same brand stage as the index
+              // lead, so the first screen of both surfaces reads as one system.
+              <div className="mt-8 rounded-[var(--lore-radius-stage)] bg-[var(--lore-brand-deep)] p-6 sm:p-10">
+                <img
+                  src={data.image}
+                  alt=""
+                  decoding="async"
+                  className="aspect-[16/9] w-full rounded-sm object-cover sm:aspect-[3/2]"
+                />
+              </div>
             )}
           </div>
 

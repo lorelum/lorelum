@@ -371,9 +371,9 @@ describe("blog link contract", () => {
     // the surface and the `panel` radius. The rule it replaced is gone rather than
     // left inert — a dead selector is what the `.blog-page` test above is for.
     expect(blogRules).not.toContain(".blog-entry-list");
-    expect(indexScreen).toContain("space-y-");
-    expect(entryRow).toContain("bg-[var(--blog-quiet-surface)]");
-    expect(entryRow).toContain("rounded-[var(--lore-radius-panel)]");
+    expect(indexScreen).toContain("mt-10");
+    expect(entryRow).toContain("hover:bg-[var(--blog-quiet-surface)]");
+    expect(entryRow).toContain("border-t border-[var(--blog-hairline)]");
     // The whole card is clickable while the title stays the only interactive
     // element: the link stretches over it instead of the card becoming a link.
     expect(entryRow).toContain("after:absolute after:inset-0");
@@ -386,7 +386,7 @@ describe("blog link contract", () => {
 
   test("gives the index an editorial hierarchy without adding a second headline", () => {
     expect(indexScreen).toContain('<h1 className="text-sm font-medium text-fd-muted-foreground">');
-    expect(entryRow).toContain("md:aspect-square xl:w-60");
+    expect(entryRow).toContain("sm:w-44 xl:w-60");
     expect(entryRow).toContain("lg:text-2xl");
     expect(entryRow.indexOf('<time dateTime={entry.data.date}')).toBeLessThan(
       entryRow.indexOf('<h2 lang={entry.locale}'),
@@ -415,8 +415,8 @@ describe("blog link contract", () => {
 
   test("separates the brand stage from its complete reading region", () => {
     expect(blogRules).toContain("--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);");
-    expect(entryRow).toContain("border border-[var(--blog-hairline)] bg-[var(--blog-quiet-surface)]");
-    expect(entryRow).toContain("overflow-hidden rounded-sm ${coverSize}");
+    expect(entryRow).toContain("border-t border-[var(--blog-hairline)]");
+    expect(entryRow).toContain("overflow-hidden rounded-sm bg-[var(--lore-brand-deep)] ${coverSize}");
     expect(featuredEntry).toContain("bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("blog-featured-reading");
     expect(featuredEntry).toContain("max-w-[var(--blog-measure)]");
@@ -456,7 +456,7 @@ describe("blog index structure", () => {
     expect(indexScreen).not.toContain("<BlogSidebar");
     expect(indexScreen).not.toContain('className="lg:hidden"');
     const controlsIndex = indexScreen.indexOf("<BlogIndexControls");
-    const cardsIndex = indexScreen.indexOf('<ul className="mt-6 space-y-4">');
+    const cardsIndex = indexScreen.indexOf('<ul className="mt-10">');
     expect(controlsIndex).toBeGreaterThan(-1);
     expect(indexScreen.match(/<BlogIndexControls\b/g)?.length).toBe(1);
     expect(controlsIndex).toBeLessThan(cardsIndex);
@@ -506,14 +506,11 @@ describe("blog index structure", () => {
     expect(entryRow).toContain("<BlogCover");
     expect(cover).toMatch(/entry\.data\.image !== undefined/);
     expect(cover).toMatch(/coverCells\(entry\.slug\)/);
-    // The card is the reference's shape — art on one side, text on the other —
-    // rather than a text block with a picture nailed on top.
-    expect(entryRow).toMatch(/sm:flex-row/);
-    // The cover's ratio steps with the layout — 16/9 stacked, 16/10 beside the
-    // text at sm, square from md — so crossing 640px changes the composition
-    // once less at a stroke.
-    expect(entryRow).toContain("sm:aspect-[16/10]");
-    expect(entryRow).toContain("md:aspect-square");
+    // The list cover uses one 8:5 frame at every width, the lead stage's ratio,
+    // with `object-contain` on the brand ground so the whole figure shows.
+    // A cropped figure hid its own labels.
+    expect(entryRow).toContain("aspect-[8/5]");
+    expect(entryRow).toContain("object-contain");
   });
 
   test("calibrates the generated cover's tier strengths per theme", () => {

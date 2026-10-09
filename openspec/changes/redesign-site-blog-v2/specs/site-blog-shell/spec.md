@@ -1,0 +1,26 @@
+# site-blog-shell
+
+## ADDED Requirements
+
+### Requirement: 索引以主稿舞台与分隔列表呈现条目
+
+索引 SHALL 将第一个可见条目呈现为品牌绿色 stage 舞台：左侧标题、右侧图版；舞台 SHALL 为唯一外框，MUST NOT 在其外再包裹卡片。舞台下方 SHALL 有独立的摘要与元数据区，摘要保留完整真实内容，阅读宽度 MUST NOT 超过 76ch，壳上限 MUST NOT 超过 88rem。后续条目 SHALL 以分隔线列表呈现，标题 SHALL 为唯一交互元素，并通过拉伸覆盖层覆盖整条。该要求替换 `add-site-blog-editorial-shell` 中首稿有界卡片与后续紧凑卡片的呈现规则；v1 实现以 `blog-v1-baseline` 标签为准。
+
+索引 SHALL 保留常驻发现栏：分类为平铺真实分类链接（ALL 与可见分类），当前项 SHALL 通过 `aria-current` 表示；搜索 SHALL 通过复用 docs 组件的独立弹窗提供。默认排序 SHALL 为最新；既有 `sort` 参数 SHALL 保持兼容；分类与搜索变更 SHALL 保留其余查询状态；重置 SHALL 显式清除 category、sort、q。
+
+查询 URL 仍由静态预渲染索引应答：无脚本读者 SHALL 得到完整未过滤索引，查询交互 SHALL 在脚本水合后工作。未知分类或排序 SHALL 回落为默认值。
+
+#### Scenario: 主稿舞台与列表分隔
+
+- **WHEN** 在 ≥ 1024px 视口打开索引
+- **THEN** 第一个条目为无外层卡片的绿色 stage 舞台，左标题右图版；后续条目为分隔线列表，不使用卡片
+
+#### Scenario: 无脚本查询 URL
+
+- **WHEN** 关闭 JavaScript 后访问 `?category=<分类>` 或 `?sort=<排序>`
+- **THEN** 应答为预渲染的完整索引，无条目被剔除，不报错
+
+#### Scenario: 双语亮暗与窄屏
+
+- **WHEN** 在两种语言、亮暗及 375 至 1920px 视口打开索引
+- **THEN** 原题与摘要完整，零横向溢出，控件至少 44×44px，正文对比 ≥ 4.5:1，大字与图形 ≥ 3:1，焦点不裁切

@@ -16,9 +16,9 @@ describe("brand editorial feature", () => {
     expect(styles).toContain("outline-color: currentColor");
   });
 
-  test("promotes only the designated entry while retaining compact cards", () => {
+  test("promotes only the designated entry while the rest stay hairline-separated", () => {
     expect(row).toContain("if (featured) return <BlogFeaturedEntry");
-    expect(row).toContain("rounded-[var(--lore-radius-panel)]");
+    expect(row).toContain("border-t border-[var(--blog-hairline)]");
     expect(featured).toContain("data-blog-featured");
     expect(featured).not.toContain("shadow-");
     expect(featured).not.toContain("border border-");
@@ -79,7 +79,7 @@ describe("editorial cover loading", () => {
 
   test("keeps ordinary authored covers lazy", () => {
     expect(cover).toContain("priority = false");
-    expect(row).toContain('<BlogCover entry={entry} className="h-full w-full object-cover"');
+    expect(row).toContain('<BlogCover entry={entry} className="h-full w-full object-contain"');
   });
 
   test("preserves all 24 deterministic fallback cells in the feature", () => {
