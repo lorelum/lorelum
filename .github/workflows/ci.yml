@@ -32,7 +32,7 @@ jobs:
 
       # OpenSpec 1.7.0 requires Node >=20.19; keep the validation runtime explicit.
       - name: Setup Node for OpenSpec
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22.16.0'
 
