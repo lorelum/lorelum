@@ -30,6 +30,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # OpenSpec 1.7.0 requires Node >=20.19; keep the validation runtime explicit.
+      - name: Setup Node for OpenSpec
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+
+      - name: Validate active OpenSpec changes
+        run: bun run validate:openspec
+
       - name: Typecheck
         run: bun run typecheck
 

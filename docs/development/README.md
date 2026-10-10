@@ -8,6 +8,7 @@ This is the index for day-to-day development topics that do not belong in the pr
 - [CLI command index](../cli/README.md)
 - [Backend configuration](../configuration/README.md)
 - [Current OpenSpec capability contracts](../../openspec/specs/)
+- [Practice lifecycle event contract](./practice-lifecycle-event-contract.md) - v0.1 maintainer proposal under [OpenSpec design review](../../openspec/changes/define-practice-lifecycle-event-contract/proposal.md); not current runtime behavior.
 - [Environment and dependencies](../../CONTRIBUTING.md#development-environment)
 - [Tests and CI](../../CONTRIBUTING.md#testing--ci)
 - [Issues, branches, and PRs](../../CONTRIBUTING.md#development-workflow)

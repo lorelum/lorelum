@@ -35,6 +35,7 @@ docs/adr/
 ├── 0014-list-catalog-contract.md                # LocalStore-backed Pack catalog
 ├── 0015-pack-native-resources-and-locators.md   # Pack-native resources and verified local locators
 ├── 0016-public-pack-current-locator.md           # readable current Pack roots over sealed artifacts
+├── 0017-practice-lifecycle-event-contract.md     # Proposed Practice lifecycle semantic contract ownership
 └── 0000-template.md                           # copy this to start a new ADR
 ```
 
