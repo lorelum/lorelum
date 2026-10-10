@@ -26,8 +26,8 @@ describe("brand editorial feature", () => {
 
   test("keeps title before cover before real metadata and full summary", () => {
     expect(featured.indexOf("<h2")).toBeLessThan(featured.indexOf("<BlogCover"));
-    expect(featured.indexOf("<BlogCover")).toBeLessThan(featured.indexOf("<time"));
-    expect(featured.indexOf("<time")).toBeLessThan(featured.indexOf("{entry.data.description}"));
+    expect(featured.indexOf("<BlogCover")).toBeLessThan(featured.indexOf("<BlogEntryMeta"));
+    expect(featured.indexOf("<BlogEntryMeta")).toBeLessThan(featured.indexOf("{entry.data.description}"));
     expect(featured).toContain("featuredTitleParts(entry.data.title)");
     expect(featured).not.toContain("line-clamp");
   });
@@ -61,7 +61,7 @@ describe("brand editorial feature", () => {
     expect(styles).toContain("@media (hover: hover) and (pointer: fine)");
     expect(styles).toContain(".blog-featured-entry:hover .blog-featured-stage");
     expect(styles).toContain(".blog-featured-entry:focus-within .blog-featured-stage");
-    expect(styles).toContain(".blog-entry-row:focus-within .shrink-0 > :is(img, svg)");
+    expect(styles).toContain(".blog-entry-row:focus-within .blog-entry-cover > :is(img, svg)");
     expect(styles).toContain("transition: transform 220ms ease");
     expect(styles).toContain("transform: scale(1.015)");
     expect(styles).not.toMatch(/\.blog-featured-entry\s*\{[^}]*transform:/);

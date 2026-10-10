@@ -385,10 +385,13 @@ describe("blog link contract", () => {
   });
 
   test("gives the index an editorial hierarchy without adding a second headline", () => {
-    expect(indexScreen).toContain('<h1 className="text-sm font-medium text-fd-muted-foreground">');
-    expect(entryRow).toContain("sm:w-44 xl:w-60");
+    expect(indexScreen).toContain('<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">');
+    // The user struck the line under the masthead title (evidence §39); the
+    // string stays for the meta description only.
+    expect(indexScreen).not.toContain("blogIndexDescription");
+    expect(entryRow).toContain("md:grid-cols-[5fr_7fr]");
     expect(entryRow).toContain("lg:text-2xl");
-    expect(entryRow.indexOf('<time dateTime={entry.data.date}')).toBeLessThan(
+    expect(entryRow.indexOf("<BlogEntryMeta")).toBeLessThan(
       entryRow.indexOf('<h2 lang={entry.locale}'),
     );
     expect(cover).toContain('fill="var(--lore-brand-deep)"');
@@ -416,7 +419,7 @@ describe("blog link contract", () => {
   test("separates the brand stage from its complete reading region", () => {
     expect(blogRules).toContain("--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);");
     expect(entryRow).toContain("border-t border-[var(--blog-hairline)]");
-    expect(entryRow).toContain("overflow-hidden rounded-sm bg-[var(--lore-brand-deep)] ${coverSize}");
+    expect(entryRow).toContain("blog-entry-cover aspect-[8/5] w-full overflow-hidden rounded-[var(--lore-radius-panel)] bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("blog-featured-reading");
     expect(featuredEntry).toContain("max-w-[var(--blog-measure)]");
@@ -488,7 +491,7 @@ describe("blog index structure", () => {
   });
 
   test("keeps navigation and filter choices complete while restricting cards", () => {
-    expect(indexScreen).toContain('<h1 className="text-sm font-medium text-fd-muted-foreground">');
+    expect(indexScreen).toContain('<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">');
     expect(featuredEntry).toContain("text-3xl font-semibold");
     expect(featuredEntry).toContain("sm:text-4xl lg:text-5xl");
     expect(indexScreen).toContain("filteredPostSlugs?: readonly string[];");

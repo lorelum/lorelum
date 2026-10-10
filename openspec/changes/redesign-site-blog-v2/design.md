@@ -46,3 +46,14 @@
 ## 回滚演练
 
 在 `blog-v1-baseline` 的临时 worktree 中运行 test/lint/typecheck/build，确认 v1 可独立还原，然后删除临时 worktree。该演练只在 v2 验收后执行一次，结果写入证据台账。
+
+## 索引 v2.1：参考 Colorlib Original 的节奏
+
+用户认可 Original 模板的节奏，并按推荐默认裁定：只改索引页，文章页不动；不加右侧工具栏；不照搬横线与大写；日期块不覆盖封面。
+
+- 报头：居中 h1（headline 角色 2.5rem），不加标语。用户此前明确否决 h1 下的说明句（证据台账 §39），`blogIndexDescription` 仅保留给 meta description。主稿标题（display 3.5rem）仍是最大字，V1 不变。
+- 工具栏：上下细线，分类在 lg 起居中；搜索触发器保持与 docs 一致的样式（用户此前要求统一，故不改成下划线），仍打开 docs 搜索弹窗。
+- 条目：封面与文字 5fr/7fr；元数据块以日期块（日、本地化月份、年）开头，其后是分类、作者与语言提示，位于标题上方，无横线、无大写、无字距。日期块不覆盖封面，因为封面角落有必要的声明文字。
+- 日期：`dateTime` 保持 ISO；显示用固定语言标签（en-US、zh-CN）与 UTC，避免 SSR 与浏览器差异。
+- 拒绝：社交条、订阅、轮播、标签云、广告、Instagram 条、最新文章侧栏（无数据源或重复内容，且违反 DESIGN.md 或用户此前否决）。
+- 无新增动效、token 或 frontmatter 字段。

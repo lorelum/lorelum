@@ -51,14 +51,12 @@ export function BlogIndexScreen({
     <BlogSurface lang={lang} index>
       <BlogShell index>
         <div className="w-full">
-          <div className="grid items-center lg:grid-cols-[auto_minmax(0,1fr)]">
-            <header className="px-6 pt-4 lg:py-3 lg:pr-0 xl:pl-12">
-              <h1 className="text-sm font-medium text-fd-muted-foreground">
-                {t.navBlog}
-              </h1>
-            </header>
-            <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} q={q} />
-          </div>
+          <header className="px-6 pb-8 pt-12 text-center xl:px-12">
+            <h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">
+              {t.navBlog}
+            </h1>
+          </header>
+          <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} q={q} />
 
           {q === undefined && category === undefined ? null : (
             <p role="status" aria-live="polite" className="mt-4 px-6 text-sm text-fd-muted-foreground xl:px-12">

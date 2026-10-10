@@ -28,9 +28,9 @@ export function BlogIndexControls({ lang, posts, category, sort, q }: BlogIndexC
   const exactSearch = { exact: true, includeSearch: true, explicitUndefined: true } as const;
 
   return (
-    <div className="blog-index-toolbar grid gap-3 border-b border-[var(--blog-hairline)] px-6 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center xl:px-12">
-      <nav aria-label={t.blogFilterCategory} data-blog-controls="category" className="min-w-0">
-        <ul className="flex min-w-0 gap-6 scroll-px-1 overflow-x-auto whitespace-nowrap px-1 py-1">
+    <div className="blog-index-toolbar grid gap-3 border-y border-[var(--blog-hairline)] px-6 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center xl:px-12">
+      <nav aria-label={t.blogFilterCategory} data-blog-controls="category" className="min-w-0 lg:col-start-2 lg:row-start-1">
+        <ul className="flex min-w-0 gap-6 scroll-px-1 overflow-x-auto whitespace-nowrap px-1 py-1 lg:justify-center">
           <li className="shrink-0">
             <Link
               to={blogIndexPath(lang)}
@@ -59,7 +59,7 @@ export function BlogIndexControls({ lang, posts, category, sort, q }: BlogIndexC
           ))}
         </ul>
       </nav>
-      <div className="flex min-w-0 items-center justify-end gap-2">
+      <div className="flex min-w-0 items-center justify-end gap-2 lg:col-start-3 lg:row-start-1">
         <BlogSearchDialog lang={lang} posts={posts} category={category} sort={sort} q={q} />
         {filtering ? (
           <Link

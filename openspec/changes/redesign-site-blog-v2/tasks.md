@@ -26,3 +26,11 @@
 - [x] 5.2 门禁：test 308/0，lint 0 error / 21 warning，typecheck 仅两项既有错误，build exit 0
 - [x] 5.3 回滚演练（V9）：blog-v1-baseline 在干净 checkout 中 307 pass / 1 fail；该失败为临时 worktree CRLF 换行导致的多行字符串匹配，非 v1 逻辑缺陷
 - [x] 5.4 本地提交，未推送，未部署
+
+## 6. v2.1 参考 Original 的索引节奏
+
+- [x] 6.1 日期块模型 `date-tile`（UTC、固定语言标签）及测试（5 项）
+- [x] 6.2 条目元数据块、主稿与列表行重排；迁移 4 处相冲突的守卫，删除无消费者的 blog-meta.tsx
+- [x] 6.3 居中报头（仅 h1，不加标语：台账 §39 用户已否决）、工具栏上下细线与分类居中；搜索触发器保持 docs 样式，未改下划线（用户此前要求统一）
+- [x] 6.4 验收：3 篇夹具（已删除）下 双语×亮暗×5 断点 20 格零溢出；日期块对比度 5.05（亮）/7.89（暗）；摘要 834px = 76ch；日期块与封面不相交（12 行全 false）；搜索空态、命中、Esc 通过
+- [x] 6.5 门禁：test 313/0，lint 0 error / 21 warning，typecheck 仅两项既有错误，build exit 0；本地提交，未推送
