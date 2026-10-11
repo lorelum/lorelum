@@ -4,6 +4,7 @@ import { TOCProvider, TOCScrollArea, useTOCItems } from "fumadocs-ui/components/
 import { TOCItem, TOCItems } from "fumadocs-ui/components/toc/default";
 import { getStrings } from "@/shared/i18n/legacy-translations";
 import type { AdjacentPosts } from "./model/adjacent-posts";
+import { articleLanguageTarget } from "./model/language-target";
 import { readingTocItems } from "./model/toc-items";
 import { BlogClosing } from "./components/blog-closing";
 import { BlogPostMeta } from "./components/blog-post-meta";
@@ -114,12 +115,7 @@ function BlogPostBody({ lang, post, adjacent, posts, onMasthead }: BlogPostScree
             <DocsTitle className="text-4xl leading-tight sm:text-5xl">{data.title}</DocsTitle>
             <DocsDescription className="mt-5 leading-relaxed">{data.description}</DocsDescription>
 
-            <BlogPostMeta
-              slug={post.slug}
-              locale={post.locale}
-              alternateLocale={post.alternateLocale}
-              data={data}
-            />
+            <BlogPostMeta locale={post.locale} data={data} />
 
             {data.image === undefined ? null : (
               // The cover is full-bleed on its own brand ground, so the article
@@ -174,11 +170,14 @@ export function BlogPostScreen({ lang, post, adjacent, posts }: BlogPostScreenPr
     <BlogSurface
       lang={lang}
       collapseTrigger={masthead}
-      // The article's metadata line carries the translation entry, which the
-      // server only renders when the other locale publishes the post. The
-      // navbar's control swaps the locale prefix without knowing that, so on
-      // this route it is switched off rather than left to offer a 404.
-      withLanguageToggle={false}
+      // The navbar's language control goes to this post's published translation,
+      // or to the other language's blog index. Left to itself it would swap the
+      // locale prefix and could answer 404 on a missing or drafted translation.
+      languageHref={articleLanguageTarget({
+        lang,
+        slug: post.slug,
+        alternateLocale: post.alternateLocale,
+      })}
     >
       <Suspense
         fallback={

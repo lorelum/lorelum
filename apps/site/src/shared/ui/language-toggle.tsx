@@ -16,11 +16,23 @@ export function languageSwitchPath(pathname: string, lang: string): string {
   return suffix === "/" ? "/zh" : `/zh${suffix}`;
 }
 
-/** Compact site-wide language control that preserves the current page. */
-export function LanguageToggle({ lang, className }: { lang: string; className?: string }) {
+/**
+ * Compact site-wide language control. By default it preserves the current page
+ * by swapping the locale prefix; a surface that knows better (a blog article,
+ * which knows whether its translation is published) passes `href` instead.
+ */
+export function LanguageToggle({
+  lang,
+  className,
+  href,
+}: {
+  lang: string;
+  className?: string;
+  href?: string;
+}) {
   const { pathname } = useLocation();
   const targetLanguage = lang === "zh" ? i18n.defaultLanguage : "zh";
-  const targetPath = languageSwitchPath(pathname, lang);
+  const targetPath = href ?? languageSwitchPath(pathname, lang);
   const targetLabel = targetLanguage === "zh" ? "中文" : "EN";
   const t = getStrings(lang);
 

@@ -24,11 +24,10 @@ interface BlogSurfaceProps {
   readonly lang: string;
   readonly children: ReactNode;
   readonly index?: boolean;
-  /**
-   * Whether the shared navbar renders its language control. The article turns
-   * it off: the post's own translation entry is the accurate one.
-   */
+  /** Whether the shared navbar renders its language control; the blog 404 turns it off. */
   readonly withLanguageToggle?: boolean;
+  /** Explicit target for the navbar's language control (see `LandingNavbar`). */
+  readonly languageHref?: string;
   /**
    * Element whose bottom crossing puts the shared navbar into its compact
    * state. Blog screens pass the article's masthead so the navbar behaves on
@@ -42,6 +41,7 @@ export function BlogSurface({
   lang,
   children,
   withLanguageToggle,
+  languageHref,
   collapseTrigger,
   index = false,
 }: BlogSurfaceProps) {
@@ -50,6 +50,7 @@ export function BlogSurface({
       <LandingNavbar
         lang={lang}
         withLanguageToggle={withLanguageToggle}
+        languageHref={languageHref}
         collapseTrigger={collapseTrigger}
       />
 

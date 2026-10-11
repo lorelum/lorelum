@@ -101,14 +101,15 @@ describe("landing navigation current-location rule", () => {
     expect(brand).toContain('aria-current={onHome ? "page" : undefined}');
   });
 
-  test("the language control is on by default and can be switched off per surface", () => {
-    // The article and 404 screens pass `withLanguageToggle={false}`, because the
-    // control only swaps the locale prefix and cannot know whether the target page
-    // exists — on a drafted translation the prerender crawl followed it into a 404
-    // and failed the build. Flipping this default removes the control from every
-    // other surface (landing, docs, index) while every other test still passes;
-    // the round-4 review passed exactly that mutation.
+  test("the language control is on by default; a surface can give it a target or turn it off", () => {
+    // The blog 404 passes `withLanguageToggle={false}` (the post is missing in both
+    // languages); the article passes `languageHref` (its translation, or the other
+    // language's index) because the default prefix swap cannot know whether the
+    // target exists — on a drafted translation the prerender crawl followed it into
+    // a 404 and failed the build. Flipping this default removes the control from
+    // every other surface (landing, docs, index) while every other test still
+    // passes; the round-4 review passed exactly that mutation.
     expect(navbar).toMatch(/withLanguageToggle = true/);
-    expect(navbar).toContain("withLanguageToggle ? <LanguageToggle lang={lang} /> : null");
+    expect(navbar).toContain("withLanguageToggle ? <LanguageToggle lang={lang} href={languageHref} /> : null");
   });
 });

@@ -38,9 +38,6 @@ export interface LandingStrings {
   blogNoSearchResults: string;
   blogCategories: string;
   blogUpdatedOn: string;
-  blogReadIn: string;
-  blogLanguageEnglish: string;
-  blogLanguageChinese: string;
   blogEarlierPost: string;
   blogNewerPost: string;
   blogNotFoundTitle: string;
@@ -158,9 +155,6 @@ const en: LandingStrings = {
   blogSearchResults: "Results: {count}",
   blogNoSearchResults: "No posts match. Try another search or reset the filters.",
   blogUpdatedOn: "Updated",
-  blogReadIn: "Read in",
-  blogLanguageEnglish: "English",
-  blogLanguageChinese: "中文",
   blogEarlierPost: "Earlier post",
   blogNewerPost: "Newer post",
   blogNotFoundTitle: "That post does not exist",
@@ -290,9 +284,6 @@ const zh: LandingStrings = {
   blogSearchResults: "匹配文章：{count}",
   blogNoSearchResults: "未找到匹配文章。试试其他关键词，或重置筛选。",
   blogUpdatedOn: "更新于",
-  blogReadIn: "阅读",
-  blogLanguageEnglish: "English",
-  blogLanguageChinese: "中文",
   blogEarlierPost: "更早的一篇",
   blogNewerPost: "更新的一篇",
   blogNotFoundTitle: "文章不存在",

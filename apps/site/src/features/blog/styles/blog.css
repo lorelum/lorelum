@@ -423,8 +423,7 @@
   overflow: hidden;
 }
 
-.blog-featured-cover > :is(img, svg),
-.blog-entry-cover > :is(img, svg) {
+.blog-featured-cover > :is(img, svg) {
   transition: transform 220ms ease;
 }
 
@@ -432,14 +431,45 @@
   background-color: color-mix(in srgb, var(--lore-brand-deep) 94%, var(--lore-brand-light));
 }
 
-.blog-featured-entry:focus-within .blog-featured-cover > :is(img, svg),
-.blog-entry-row:focus-within .blog-entry-cover > :is(img, svg) {
+.blog-featured-entry:focus-within .blog-featured-cover > :is(img, svg) {
   transform: scale(1.015);
 }
 
+/*
+ * Shared by every card that is not the lead: the grid cards, the split feature
+ * and its thumbnails, the band, and the article's neighbour cards. The cover is
+ * clipped to its own box (square: images carry no radius) and eases in a slight
+ * zoom on focus, and on hover for a fine pointer.
+ */
+.blog-card-cover {
+  overflow: hidden;
+}
+
+.blog-card-cover > :is(img, svg) {
+  transition: transform 220ms ease;
+}
+
+.blog-card:focus-within .blog-card-cover > :is(img, svg) {
+  transform: scale(1.015);
+}
+
+/*
+ * The split's feature spans one grid row per thumbnail beside it, so the two
+ * columns end together. Only at `lg`, where the thumbnails sit beside it: below
+ * that everything is one column and a span would only add empty rows and gaps.
+ */
+@media (min-width: 1024px) {
+  .blog-split-feature {
+    grid-row: span var(--blog-split-rows, 1);
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .blog-featured-entry:hover .blog-featured-cover > :is(img, svg),
-  .blog-entry-row:hover .blog-entry-cover > :is(img, svg) {
+  .blog-featured-entry:hover .blog-featured-cover > :is(img, svg) {
+    transform: scale(1.015);
+  }
+
+  .blog-card:hover .blog-card-cover > :is(img, svg) {
     transform: scale(1.015);
   }
 

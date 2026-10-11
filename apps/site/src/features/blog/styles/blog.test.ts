@@ -8,7 +8,8 @@ const surface = readFileSync(new URL("../components/blog-surface.tsx", import.me
 const controls = readFileSync(new URL("../components/blog-index-controls.tsx", import.meta.url), "utf8");
 const searchDialog = readFileSync(new URL("../components/blog-search-dialog.tsx", import.meta.url), "utf8");
 const sidebarSource = readFileSync(new URL("../components/blog-sidebar.tsx", import.meta.url), "utf8");
-const entryRow = readFileSync(new URL("../components/blog-entry-row.tsx", import.meta.url), "utf8");
+const entryRow = readFileSync(new URL("../components/blog-card.tsx", import.meta.url), "utf8");
+const blocks = readFileSync(new URL("../components/blog-index-blocks.tsx", import.meta.url), "utf8");
 const featuredEntry = readFileSync(new URL("../components/blog-featured-entry.tsx", import.meta.url), "utf8");
 const cover = readFileSync(new URL("../components/blog-cover.tsx", import.meta.url), "utf8");
 const appCss = readFileSync(new URL("../../../styles/app.css", import.meta.url), "utf8");
@@ -371,9 +372,9 @@ describe("blog link contract", () => {
     // the surface and the `panel` radius. The rule it replaced is gone rather than
     // left inert — a dead selector is what the `.blog-page` test above is for.
     expect(blogRules).not.toContain(".blog-entry-list");
-    expect(indexScreen).toContain("mt-10");
+    expect(blocks).toContain("mt-10");
     expect(entryRow).toContain("hover:bg-[var(--blog-quiet-surface)]");
-    expect(entryRow).toContain("border-t border-[var(--blog-hairline)]");
+    expect(entryRow).toContain("border border-[var(--blog-hairline)]");
     // The whole card is clickable while the title stays the only interactive
     // element: the link stretches over it instead of the card becoming a link.
     expect(entryRow).toContain("after:absolute after:inset-0");
@@ -381,7 +382,8 @@ describe("blog link contract", () => {
     // face already carries the hierarchy, but the zh heading falls back to the
     // reading face (no CJK glyphs in the display face), where this weight step
     // is the only contrast the title has.
-    expect(entryRow).toContain("text-xl font-semibold");
+    expect(entryRow).toContain("font-semibold");
+    expect(entryRow).toContain("text-xl");
   });
 
   test("gives the index an editorial hierarchy without adding a second headline", () => {
@@ -389,7 +391,7 @@ describe("blog link contract", () => {
     // The user struck the line under the masthead title (evidence §39); the
     // string stays for the meta description only.
     expect(indexScreen).not.toContain("blogIndexDescription");
-    expect(entryRow).toContain("md:grid-cols-[5fr_7fr]");
+    expect(entryRow).toContain("md:grid-cols-[7fr_5fr]");
     expect(entryRow).toContain("lg:text-2xl");
     expect(entryRow.indexOf("<BlogEntryMeta")).toBeLessThan(
       entryRow.indexOf('<h2 lang={entry.locale}'),
@@ -402,8 +404,8 @@ describe("blog link contract", () => {
   });
 
   test("lets the first visible story use the index's full reading stage", () => {
-    expect(indexScreen).toContain("featured={entry === cardPosts[0]}");
-    expect(entryRow).toContain("if (featured) return <BlogFeaturedEntry");
+    expect(indexScreen).toContain("layoutIndex(cardPosts)");
+    expect(blocks).toContain("<BlogFeaturedEntry");
     expect(featuredEntry).toContain("blog-featured-stage overflow-hidden bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("lg:aspect-[21/9]");
     expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
@@ -418,8 +420,8 @@ describe("blog link contract", () => {
 
   test("separates the brand stage from its complete reading region", () => {
     expect(blogRules).toContain("--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);");
-    expect(entryRow).toContain("border-t border-[var(--blog-hairline)]");
-    expect(entryRow).toContain("blog-entry-cover aspect-[8/5] w-full overflow-hidden bg-[var(--lore-brand-deep)]");
+    expect(entryRow).toContain("border border-[var(--blog-hairline)]");
+    expect(entryRow).toContain("blog-card-cover overflow-hidden bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("blog-featured-reading");
     expect(featuredEntry).toContain("max-w-[var(--blog-measure)]");
@@ -442,7 +444,7 @@ describe("blog index structure", () => {
     // The regression for a single-locale post: an href built from the page's
     // language pointed readers of the other language at a slug that does not
     // exist there.
-    const row = readFileSync(new URL("../components/blog-entry-row.tsx", import.meta.url), "utf8");
+    const row = readFileSync(new URL("../components/blog-card.tsx", import.meta.url), "utf8");
     expect(row).toContain("blogPostPath(entry.locale, entry.slug)");
     expect(indexScreen).not.toContain("translatedMarker");
   });
@@ -459,7 +461,7 @@ describe("blog index structure", () => {
     expect(indexScreen).not.toContain("<BlogSidebar");
     expect(indexScreen).not.toContain('className="lg:hidden"');
     const controlsIndex = indexScreen.indexOf("<BlogIndexControls");
-    const cardsIndex = indexScreen.indexOf('<ul className="mt-10">');
+    const cardsIndex = indexScreen.indexOf("<BlogIndexBlocks");
     expect(controlsIndex).toBeGreaterThan(-1);
     expect(indexScreen.match(/<BlogIndexControls\b/g)?.length).toBe(1);
     expect(controlsIndex).toBeLessThan(cardsIndex);
@@ -497,7 +499,7 @@ describe("blog index structure", () => {
     expect(indexScreen).toContain("filteredPostSlugs?: readonly string[];");
     expect(indexScreen).toContain("posts.filter((entry) => cardSlugs.has(entry.slug))");
     expect(indexScreen).toContain("cardPosts.length === 0");
-    expect(indexScreen).toContain("cardPosts.map((entry) =>");
+    expect(indexScreen).toContain("layoutIndex(cardPosts)");
   });
 
   test("reveals the lead's text only for a fine pointer, and always on focus", () => {
@@ -545,10 +547,10 @@ describe("blog index structure", () => {
     expect(entryRow).toContain("<BlogCover");
     expect(cover).toMatch(/entry\.data\.image !== undefined/);
     expect(cover).toMatch(/coverCells\(entry\.slug\)/);
-    // The list cover uses one 8:5 frame at every width, the lead stage's ratio,
-    // with `object-cover`: the cover art is full-bleed on its own ground, so it
-    // fills the frame instead of sitting letterboxed inside it.
-    expect(entryRow).toContain("aspect-[8/5]");
+    // Cards use fixed frames (16:9 for grid and band-on-mobile, 16:10 for the
+    // split feature), with `object-cover`: the cover art is full-bleed on its
+    // own ground, so it fills the frame instead of sitting letterboxed inside it.
+    expect(entryRow).toContain("aspect-[16/9]");
     expect(entryRow).toContain("object-cover");
     expect(entryRow).not.toContain("object-contain");
   });

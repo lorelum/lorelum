@@ -3,10 +3,11 @@ import { getStrings } from "@/shared/i18n/legacy-translations";
 import type { BlogCategory } from "./content/frontmatter";
 import type { BlogSort } from "./model/sort-posts";
 import type { BlogIndexEntry } from "./model/list-posts";
-import { BlogEntryRow } from "./components/blog-entry-row";
+import { BlogIndexBlocks } from "./components/blog-index-blocks";
 import { BlogIndexControls } from "./components/blog-index-controls";
 import { BlogShell } from "./components/blog-shell";
 import { BlogSurface } from "./components/blog-surface";
+import { layoutIndex } from "./model/index-layout";
 import "./styles/blog.css";
 
 interface BlogIndexScreenProps {
@@ -24,8 +25,9 @@ interface BlogIndexScreenProps {
 
 /**
  * Editorial index: the first visible post fills the brand stage, and the rest
- * follow as a hairline-separated list. Summaries come from frontmatter,
- * not invented teaser copy.
+ * follow as bordered cards in a magazine layout (`layoutIndex`): two side
+ * cards under the lead, then grid, band and split blocks in turn. Summaries come
+ * from frontmatter, not invented teaser copy.
  *
  * The list itself still does no year grouping, pagination, series or related
  * posts while it is short: at n=1 those components would render nothing, and a
@@ -78,16 +80,7 @@ export function BlogIndexScreen({
               )}
             </p>
           ) : (
-            <ul className="mt-10">
-              {cardPosts.map((entry) => (
-                <BlogEntryRow
-                  key={`${entry.slug}-${entry.locale}`}
-                  entry={entry}
-                  lang={lang}
-                  featured={entry === cardPosts[0]}
-                />
-              ))}
-            </ul>
+            <BlogIndexBlocks blocks={layoutIndex(cardPosts)} lang={lang} />
           )}
         </div>
       </BlogShell>

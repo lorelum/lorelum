@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { coverCells } from "../model/cover-pattern";
 
 const featured = readFileSync(new URL("./blog-featured-entry.tsx", import.meta.url), "utf8");
-const row = readFileSync(new URL("./blog-entry-row.tsx", import.meta.url), "utf8");
+const row = readFileSync(new URL("./blog-card.tsx", import.meta.url), "utf8");
+const blocks = readFileSync(new URL("./blog-index-blocks.tsx", import.meta.url), "utf8");
 const controls = readFileSync(new URL("./blog-index-controls.tsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../styles/blog.css", import.meta.url), "utf8");
 const cover = readFileSync(new URL("./blog-cover.tsx", import.meta.url), "utf8");
@@ -19,9 +20,15 @@ describe("brand editorial feature", () => {
     expect(styles).toContain("outline-color: var(--ring)");
   });
 
-  test("promotes only the designated entry while the rest stay hairline-separated", () => {
-    expect(row).toContain("if (featured) return <BlogFeaturedEntry");
-    expect(row).toContain("border-t border-[var(--blog-hairline)]");
+  test("promotes only the lead entry while the rest are bordered cards in one list", () => {
+    // Exactly one lead stage, fed the hero's lead: a second `BlogFeaturedEntry`
+    // anywhere would give several eager, high-priority stages.
+    expect(blocks.match(/<BlogFeaturedEntry\b/g)?.length).toBe(1);
+    expect(blocks).toContain("entry={block.lead}");
+    // One list for the whole index, so assistive tech reports the real count.
+    expect(blocks.match(/<ul\b/g)?.length).toBe(1);
+    expect(row).toContain("border border-[var(--blog-hairline)]");
+    expect(row).toContain("languageHintKey(entry.locale, lang)");
     expect(featured).toContain("data-blog-featured");
     expect(featured).not.toContain("shadow-");
     expect(featured).not.toContain("border border-");
@@ -60,11 +67,11 @@ describe("brand editorial feature", () => {
 
   test("pairs restrained pointer feedback with keyboard feedback without moving the card", () => {
     expect(featured).toContain("cursor-pointer");
-    expect(row).toContain("blog-entry-row relative cursor-pointer");
+    expect(row).toContain("blog-card relative flex min-w-0 cursor-pointer");
     expect(styles).toContain("@media (hover: hover) and (pointer: fine)");
     expect(styles).toContain(".blog-featured-entry:hover .blog-featured-reading");
     expect(styles).toContain(".blog-featured-entry:focus-within .blog-featured-stage");
-    expect(styles).toContain(".blog-entry-row:focus-within .blog-entry-cover > :is(img, svg)");
+    expect(styles).toContain(".blog-card:focus-within .blog-card-cover > :is(img, svg)");
     expect(styles).toContain("transition: transform 220ms ease");
     expect(styles).toContain("transform: scale(1.015)");
     expect(styles).not.toMatch(/\.blog-featured-entry\s*\{[^}]*transform:/);

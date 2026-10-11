@@ -15,15 +15,18 @@ const heroId = "landing-hero";
 interface LandingNavbarProps {
   readonly lang: string;
   /**
-   * Render the site-wide language control (default `true`).
-   *
-   * It swaps the locale prefix of the current path, so it cannot know whether
-   * the target page exists. A blog article does know: it renders its own
-   * translation entry only when the other locale actually publishes the post,
-   * and the article page therefore turns this control off rather than offer a
-   * URL that answers 404.
+   * Render the site-wide language control (default `true`). A surface that has
+   * no sensible target (the blog 404, where the post is missing in both
+   * languages) turns it off.
    */
   readonly withLanguageToggle?: boolean;
+  /**
+   * Explicit target for the language control. Without it the control swaps the
+   * locale prefix of the current path, which cannot know whether the target
+   * page exists. A blog article does know, so it passes the translation or the
+   * other language's index instead of offering a URL that may answer 404.
+   */
+  readonly languageHref?: string;
   /**
    * Element whose bottom crossing collapses the panel into its compact state.
    * Surfaces without a hero pass the first element the reader scrolls past — the
@@ -40,6 +43,7 @@ interface LandingNavbarProps {
 export function LandingNavbar({
   lang,
   withLanguageToggle = true,
+  languageHref,
   collapseTrigger,
 }: LandingNavbarProps) {
   const homePath = lang === i18n.defaultLanguage ? "/" : `/${lang}`;
@@ -73,7 +77,7 @@ export function LandingNavbar({
           <LandingPrimaryNavigation lang={lang} />
 
           <div className="flex items-center justify-self-end gap-1">
-            {withLanguageToggle ? <LanguageToggle lang={lang} /> : null}
+            {withLanguageToggle ? <LanguageToggle lang={lang} href={languageHref} /> : null}
             <ThemeToggle lang={lang} />
             <GitHubLink />
           </div>

@@ -4,10 +4,6 @@ import { readFileSync } from "node:fs";
 const postScreen = readFileSync(new URL("./blog-post-screen.tsx", import.meta.url), "utf8");
 const meta = readFileSync(new URL("./components/blog-post-meta.tsx", import.meta.url), "utf8");
 const closing = readFileSync(new URL("./components/blog-closing.tsx", import.meta.url), "utf8");
-const languageEntry = readFileSync(
-  new URL("./components/blog-language-entry.tsx", import.meta.url),
-  "utf8",
-);
 const notFound = readFileSync(new URL("./components/blog-not-found.tsx", import.meta.url), "utf8");
 const blogCss = readFileSync(new URL("./styles/blog.css", import.meta.url), "utf8");
 const rules = blogCss.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -90,22 +86,9 @@ describe("article metadata line", () => {
     expect(meta).toMatch(/data\.updated === undefined \? null :/);
   });
 
-  test("the translation entry only exists when the other locale has a file", () => {
-    expect(meta).toMatch(/alternateLocale === undefined \? null :/);
-    expect(languageEntry).toContain("hrefLang={alternateLocale}");
-    // The language name is written in its own language and tagged as such.
-    expect(languageEntry).toContain("<span lang={alternateLocale}>");
-  });
-
-  test("the translation entry is named by its text, with no overriding label", () => {
-    // The visible text is the accessible name, so it already matches what a
-    // voice-control user says. An `aria-label` would take over the naming and
-    // the inner `<span lang>` would stop counting — the language name would be
-    // read in the page's language, which is what the tag prevents.
-    expect(languageEntry).not.toMatch(/aria-label=/);
-    expect(languageEntry).toMatch(
-      /\{t\.blogReadIn\} <span lang=\{alternateLocale\}>\{name\}<\/span>/,
-    );
+  test("carries no translation entry: the navbar's language control is the one switch", () => {
+    expect(meta).not.toContain("hrefLang");
+    expect(meta).not.toContain("blogReadIn");
   });
 
   test("the category is a pill on the article and still a category URL", () => {
@@ -114,41 +97,31 @@ describe("article metadata line", () => {
 });
 
 describe("article closing block", () => {
-  test("always renders, so an article never ends without a way back", () => {
-    // Only the neighbour rows are conditional; the back link is unconditional.
-    expect(closing).not.toMatch(/return null/);
-    expect(closing).toContain("blog-post__closing");
-    expect(closing).toMatch(/<p className="mt-6">\s*<Link\s+to=\{blogIndexPath\(locale\)\}/);
+  test("offers no way back to the index: that button was removed on request", () => {
+    // The metadata line's back link and the closing block's back button are both
+    // gone; the navbar and the site's own navigation carry the way out. Only the
+    // not-found screen keeps a link to the index, because the reader is lost there.
+    expect(closing).not.toContain("blogIndexPath");
+    expect(closing).not.toContain("buttonVariants");
+    expect(meta).not.toContain("blogIndexPath");
   });
 
-  test("the back links mark the blog index current only on the blog index", () => {
+  test("the not-found back link marks the blog index current only on the blog index", () => {
     // `Link` marks a route active by prefix match, so a link to `/blog` from
-    // `/blog/<slug>` announced `aria-current="page"` on an article — the reader
-    // was told the index was the page they were on. The option has to sit on the
-    // link that points at the index, so this asserts per link tag: counting the
-    // option anywhere in the file would pass with it on the neighbour links.
-    // Two, not three: the metadata line's back link was removed on request. The
-    // invariant is unchanged — every Link that points at the index carries the
-    // option — and the count still catches a link added without it.
-    const backTags = [
-      ...(closing.match(/<Link\b[^>]*>/g) ?? []),
-      ...(meta.match(/<Link\b[^>]*>/g) ?? []),
-      ...(notFound.match(/<Link\b[^>]*>/g) ?? []),
-    ].filter((tag) => tag.includes("to={blogIndexPath("));
-    expect(backTags.length).toBe(2);
-    expect(meta).not.toContain("to={blogIndexPath(");
-    for (const tag of backTags) {
-      expect(tag).toContain("activeOptions={{ exact: true }}");
-    }
+    // `/blog/no-such-post` announced `aria-current="page"` on the missing post.
+    const backTags = (notFound.match(/<Link\b[^>]*>/g) ?? []).filter((tag) =>
+      tag.includes("to={blogIndexPath("),
+    );
+    expect(backTags.length).toBe(1);
+    expect(backTags[0]).toContain("activeOptions={{ exact: true }}");
   });
 
-  test("neighbours are individual rows that can each be absent", () => {
+  test("neighbours are individual cards that can each be absent", () => {
     // Rows are built before the list is rendered, so an absent neighbour leaves
-    // no element behind: the first version emitted an empty `<li>` and an empty
-    // `<nav>` when a post had no neighbours at all.
+    // no element behind, and a post with no neighbours renders no footer at all.
     expect(closing).toMatch(/if \(previous !== undefined\) \{/);
     expect(closing).toMatch(/if \(next !== undefined\) \{/);
-    expect(closing).toMatch(/rows\.length === 0 \? null :/);
+    expect(closing).toMatch(/if \(rows\.length === 0\) return null;/);
     expect(closing).toMatch(/rows\.map\(\(row\) =>/);
     expect(closing).not.toMatch(/\{previous === undefined \? null :/);
   });
@@ -211,14 +184,18 @@ describe("blog not-found body", () => {
     expect(notFound).toContain("withLanguageToggle={false}");
   });
 
-  test("the article turns the navbar's language control off", () => {
-    // The control only swaps the locale prefix and cannot know whether the target
-    // page exists. On a drafted translation the prerender crawl followed it into a
-    // 404 and failed the whole build, so the article carries its own accurate
-    // entry instead. Deleting this prop silently brings the crawl back and leaves
-    // the 404 screen's identical prop — and every other test in the suite — green:
-    // the round-4 review passed exactly that mutation.
-    expect(postScreen).toContain("withLanguageToggle={false}");
+  test("the article hands the navbar's language control an explicit, safe target", () => {
+    // Left alone the control swaps the locale prefix and cannot know whether the
+    // target page exists; on a drafted translation the prerender crawl followed it
+    // into a 404 and failed the whole build. The article knows (its loader reports
+    // the other locale only when published), so it passes the target instead of
+    // switching the control off. This control is the article's only language
+    // switch: the metadata line carries no translation entry.
+    expect(postScreen).not.toContain("withLanguageToggle={false}");
+    expect(postScreen).toContain("languageHref={articleLanguageTarget(");
+    expect(postScreen).toContain("alternateLocale: post.alternateLocale");
+    expect(meta).not.toContain("BlogLanguageEntry");
+    expect(meta).not.toContain("alternateLocale");
   });
 });
 

@@ -1,12 +1,9 @@
 import { getStrings } from "@/shared/i18n/legacy-translations";
 import type { BlogFrontmatter } from "../content/frontmatter";
-import { BlogLanguageEntry } from "./blog-language-entry";
 import { CategoryChip } from "./category-chip";
 
 interface BlogPostMetaProps {
-  readonly slug: string;
   readonly locale: string;
-  readonly alternateLocale?: string;
   readonly data: BlogFrontmatter;
 }
 
@@ -19,21 +16,16 @@ interface BlogPostMetaProps {
  * post, not navigation.
  *
  * Order: published, `updated` only when the author recorded one, author,
- * category, then the translation entry. An absent `updated` is omitted entirely —
+ * category. An absent `updated` is omitted entirely —
  * a synthesised one would claim a provenance signal this design exists to make
- * trustworthy.
+ * trustworthy. The language switch is the navbar's, not an entry in this line.
  *
  * The line used to end with a back-to-index link pushed to the far end. It was
  * removed on request: the shell's left column lists every post and the navbar
  * carries the blog destination, so a third way back — trailing the metadata,
  * where it read as an afterthought — was navigation the page did not need.
  */
-export function BlogPostMeta({
-  slug,
-  locale,
-  alternateLocale,
-  data,
-}: BlogPostMetaProps) {
+export function BlogPostMeta({ locale, data }: BlogPostMetaProps) {
   const t = getStrings(locale);
 
   return (
@@ -53,10 +45,6 @@ export function BlogPostMeta({
 
       <span aria-hidden="true" className="h-3.5 w-px bg-[var(--blog-hairline)]" />
       <CategoryChip lang={locale} category={data.category} pill />
-
-      {alternateLocale === undefined ? null : (
-        <BlogLanguageEntry slug={slug} locale={locale} alternateLocale={alternateLocale} />
-      )}
     </div>
   );
 }

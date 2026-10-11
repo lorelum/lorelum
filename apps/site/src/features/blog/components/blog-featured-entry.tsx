@@ -8,6 +8,8 @@ import { BlogEntryMeta } from "./blog-entry-meta";
 interface BlogFeaturedEntryProps {
   readonly entry: BlogIndexEntry;
   readonly lang: string;
+  /** Placement classes from the list that holds this item. */
+  readonly className?: string;
 }
 
 /**
@@ -22,9 +24,9 @@ interface BlogFeaturedEntryProps {
  * link stretches over the whole entry, so it is still the only interactive
  * element.
  */
-export function BlogFeaturedEntry({ entry, lang }: BlogFeaturedEntryProps) {
+export function BlogFeaturedEntry({ entry, lang, className = "" }: BlogFeaturedEntryProps) {
   return (
-    <li className="blog-featured-entry relative cursor-pointer" data-blog-featured>
+    <li className={`blog-featured-entry relative cursor-pointer ${className}`} data-blog-featured>
       <div className="blog-featured-stage overflow-hidden bg-[var(--lore-brand-deep)]">
         <div className="blog-featured-cover aspect-[8/5] w-full min-w-0 lg:aspect-[21/9]">
           <BlogCover entry={entry} priority className="h-full w-full object-cover" />
