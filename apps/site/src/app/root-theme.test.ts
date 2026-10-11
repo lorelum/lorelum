@@ -31,8 +31,7 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const siteFile = (relative: string) =>
-  readFileSync(new URL(relative, import.meta.url), "utf8");
+const siteFile = (relative: string) => readFileSync(new URL(relative, import.meta.url), "utf8");
 
 const documentShell = siteFile("./root-document.tsx");
 const rootHead = siteFile("./root-head.ts");
@@ -53,7 +52,9 @@ const tokenBackground = (scheme: "light" | "dark") => {
 
 describe("theme-color", () => {
   test("both schemes are declared, with their media queries, in the document shell", () => {
-    const tags = [...documentShell.matchAll(/<meta\s+name="theme-color"[^>]*\/>/g)].map((m) => m[0]);
+    const tags = [...documentShell.matchAll(/<meta\s+name="theme-color"[^>]*\/>/g)].map(
+      (m) => m[0],
+    );
     expect(tags).toHaveLength(2);
     expect(tags.some((tag) => tag.includes('media="(prefers-color-scheme: light)"'))).toBe(true);
     expect(tags.some((tag) => tag.includes('media="(prefers-color-scheme: dark)"'))).toBe(true);
@@ -111,7 +112,9 @@ describe("the Fumadocs token names are bound to the design system once", () => {
       // A declaration (as opposed to a use like `color: var(--color-fd-foreground)`)
       // is what would duplicate the binding.
       const declarations = [...source.matchAll(/^\s*--color-fd-[a-z-]+:/gm)];
-      expect({ file: relative, declarations: declarations.length }).toMatchObject({ declarations: 0 });
+      expect({ file: relative, declarations: declarations.length }).toMatchObject({
+        declarations: 0,
+      });
     }
   });
 });

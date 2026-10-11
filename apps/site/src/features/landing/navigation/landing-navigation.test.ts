@@ -66,7 +66,7 @@ describe("landing navigation current-location rule", () => {
       ],
       docs: [
         'to="/$lang/docs/$"',
-        "params={{ lang, _splat: \"\" }}",
+        'params={{ lang, _splat: "" }}',
         "activeOptions={{ exact: true }}",
         'aria-current={mark("docs")}',
         "{t.navDocs}",
@@ -110,6 +110,8 @@ describe("landing navigation current-location rule", () => {
     // every other surface (landing, docs, index) while every other test still
     // passes; the round-4 review passed exactly that mutation.
     expect(navbar).toMatch(/withLanguageToggle = true/);
-    expect(navbar).toContain("withLanguageToggle ? <LanguageToggle lang={lang} href={languageHref} /> : null");
+    expect(navbar).toContain(
+      "withLanguageToggle ? <LanguageToggle lang={lang} href={languageHref} /> : null",
+    );
   });
 });

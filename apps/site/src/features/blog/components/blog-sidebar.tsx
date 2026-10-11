@@ -44,7 +44,6 @@ export function BlogSidebar({ lang, posts }: BlogSidebarProps) {
           </li>
         ))}
       </ul>
-
     </nav>
   );
 }

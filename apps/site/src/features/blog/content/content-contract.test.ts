@@ -99,9 +99,10 @@ describe("blog content contract", () => {
       if (data?.updated !== undefined) {
         // A provenance signal that runs backwards would make the metadata line
         // claim the post was revised before it was written.
-        expect(data.updated >= data.date, `${name}: updated ${data.updated} < date ${data.date}`).toBe(
-          true,
-        );
+        expect(
+          data.updated >= data.date,
+          `${name}: updated ${data.updated} < date ${data.date}`,
+        ).toBe(true);
       }
     }
   });
@@ -110,7 +111,10 @@ describe("blog content contract", () => {
     for (const name of files) {
       const image = frontmatterOf(read(name)).match(/^image:\s*(\/[^\s]+)$/m)?.[1];
       if (image === undefined) continue;
-      expect(existsSync(new URL(`../../../../public${image}`, import.meta.url)), `${name}: ${image}`).toBe(true);
+      expect(
+        existsSync(new URL(`../../../../public${image}`, import.meta.url)),
+        `${name}: ${image}`,
+      ).toBe(true);
     }
   });
 

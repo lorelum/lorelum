@@ -4,8 +4,24 @@ import { buildBlogIndex, filterBlogIndex } from "./list-posts";
 import { parseBlogQuery, searchBlogIndex } from "./search-posts";
 import { sortBlogIndex } from "./sort-posts";
 
-function entry(slug: string, title: string, description = "", category: BlogIndexEntry["data"]["category"] = "benchmark"): BlogIndexEntry {
-  return { slug, locale: "en", data: { title, description, category, date: "2026-09-18", author: "Only in author", draft: false } };
+function entry(
+  slug: string,
+  title: string,
+  description = "",
+  category: BlogIndexEntry["data"]["category"] = "benchmark",
+): BlogIndexEntry {
+  return {
+    slug,
+    locale: "en",
+    data: {
+      title,
+      description,
+      category,
+      date: "2026-09-18",
+      author: "Only in author",
+      draft: false,
+    },
+  };
 }
 
 describe("blog search query", () => {
@@ -22,7 +38,10 @@ describe("blog search query", () => {
 });
 
 describe("blog title and summary search", () => {
-  const entries = [entry("measure", "Practice injection", "可信测量 and calibration"), entry("other", "Other title", "A different summary")];
+  const entries = [
+    entry("measure", "Practice injection", "可信测量 and calibration"),
+    entry("other", "Other title", "A different summary"),
+  ];
 
   test("matches a title or summary without matching author metadata", () => {
     expect(searchBlogIndex(entries, "injection")).toEqual([entries[0]!]);
@@ -64,8 +83,13 @@ describe("blog title and summary search", () => {
   });
 
   test("intersects with category without changing available categories", () => {
-    const records = [entry("bench", "Practice benchmark"), entry("pack", "Practice pack", "", "packs")];
-    expect(searchBlogIndex(filterBlogIndex(records, "benchmark"), "practice")).toEqual([records[0]!]);
+    const records = [
+      entry("bench", "Practice benchmark"),
+      entry("pack", "Practice pack", "", "packs"),
+    ];
+    expect(searchBlogIndex(filterBlogIndex(records, "benchmark"), "practice")).toEqual([
+      records[0]!,
+    ]);
     expect(searchBlogIndex(filterBlogIndex(records, "packs"), "benchmark")).toEqual([]);
     expect(records.length).toBe(2);
   });
@@ -74,7 +98,10 @@ describe("blog title and summary search", () => {
     const records = [
       entry("measure", "English-only phrase"),
       { ...entry("measure", "中文标题", "本地摘要"), locale: "zh" },
-      { ...entry("draft", "Hidden phrase"), data: { ...entries[0]!.data, title: "Hidden phrase", draft: true } },
+      {
+        ...entry("draft", "Hidden phrase"),
+        data: { ...entries[0]!.data, title: "Hidden phrase", draft: true },
+      },
     ];
     const merged = buildBlogIndex(records, "zh", { isDevelopment: false });
     expect(searchBlogIndex(merged, "中文").length).toBe(1);

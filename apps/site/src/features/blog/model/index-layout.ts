@@ -14,10 +14,18 @@ import type { BlogIndexEntry } from "./list-posts";
  *   outgrow the lead.
  */
 export type IndexBlock =
-  | { readonly kind: "hero"; readonly lead: BlogIndexEntry; readonly sides: readonly BlogIndexEntry[] }
+  | {
+      readonly kind: "hero";
+      readonly lead: BlogIndexEntry;
+      readonly sides: readonly BlogIndexEntry[];
+    }
   | { readonly kind: "grid"; readonly items: readonly BlogIndexEntry[] }
   | { readonly kind: "band"; readonly entry: BlogIndexEntry }
-  | { readonly kind: "split"; readonly feature: BlogIndexEntry; readonly list: readonly BlogIndexEntry[] };
+  | {
+      readonly kind: "split";
+      readonly feature: BlogIndexEntry;
+      readonly list: readonly BlogIndexEntry[];
+    };
 
 const heroSides = 2;
 const gridSize = 3;

@@ -54,7 +54,11 @@ export function BlogSurface({
         collapseTrigger={collapseTrigger}
       />
 
-      <main className={`lorelum-ui blog-scope w-full flex-1 ${index ? "blog-scope--index pb-16 pt-16" : "px-4 pb-24 pt-24"}`}>{children}</main>
+      <main
+        className={`lorelum-ui blog-scope w-full flex-1 ${index ? "blog-scope--index pb-16 pt-16" : "px-4 pb-24 pt-24"}`}
+      >
+        {children}
+      </main>
 
       <SiteFooter lang={lang} />
     </div>

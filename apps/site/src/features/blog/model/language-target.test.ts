@@ -3,8 +3,12 @@ import { articleLanguageTarget } from "./language-target";
 
 describe("articleLanguageTarget", () => {
   test("goes to the translation when the other locale publishes the post", () => {
-    expect(articleLanguageTarget({ lang: "en", slug: "a-post", alternateLocale: "zh" })).toBe("/zh/blog/a-post");
-    expect(articleLanguageTarget({ lang: "zh", slug: "a-post", alternateLocale: "en" })).toBe("/blog/a-post");
+    expect(articleLanguageTarget({ lang: "en", slug: "a-post", alternateLocale: "zh" })).toBe(
+      "/zh/blog/a-post",
+    );
+    expect(articleLanguageTarget({ lang: "zh", slug: "a-post", alternateLocale: "en" })).toBe(
+      "/blog/a-post",
+    );
   });
 
   test("falls back to the other language's blog index, never to a missing translation", () => {

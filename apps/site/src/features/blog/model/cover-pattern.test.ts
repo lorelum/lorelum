@@ -38,7 +38,7 @@ describe("coverCells", () => {
       expect(cell.column).toBeLessThan(coverGrid.columns);
       expect(cell.row).toBeGreaterThanOrEqual(0);
       expect(cell.row).toBeLessThan(coverGrid.rows);
-      expect((coverGrid.tiers as readonly number[])).toContain(cell.opacity);
+      expect(coverGrid.tiers as readonly number[]).toContain(cell.opacity);
     }
   });
 

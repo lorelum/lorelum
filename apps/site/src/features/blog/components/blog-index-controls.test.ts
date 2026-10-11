@@ -14,13 +14,15 @@ describe("blog discovery control consistency", () => {
 
   test("marks only the chosen destination current, not ALL or Reset by subset match", () => {
     expect(controls).toContain("explicitUndefined: true");
-    const linkOptions = [...controls.matchAll(/activeOptions=\{([^}]+)\}/g)].map((match) => match[1]);
+    const linkOptions = [...controls.matchAll(/activeOptions=\{([^}]+)\}/g)].map(
+      (match) => match[1],
+    );
     expect(linkOptions).toHaveLength(3);
     for (const options of linkOptions) expect(options).toBe("exactSearch");
   });
 
   test("uses a flat horizontal category navigation without dropdowns or pills", () => {
-    expect(controls).toContain("<nav aria-label={t.blogFilterCategory}");
+    expect(controls).toMatch(/<nav\s+aria-label=\{t\.blogFilterCategory\}/);
     expect(controls).not.toContain("<Select");
     expect(controls).toContain('data-blog-controls="category"');
     expect(controls).not.toContain('data-blog-controls="sort"');
@@ -41,10 +43,19 @@ describe("blog discovery control consistency", () => {
   });
 
   test("uses the docs search dialog rather than a hover-only inline field", () => {
-    expect(controls).toContain("<BlogSearchDialog lang={lang} posts={posts} category={category} sort={sort} q={q}");
+    expect(controls).toContain(
+      "<BlogSearchDialog lang={lang} posts={posts} category={category} sort={sort} q={q}",
+    );
     expect(controls).not.toContain('id="blog-search"');
     expect(dialog).toContain('from "fumadocs-ui/components/dialog/search"');
-    for (const part of ["SearchDialogOverlay", "SearchDialogContent", "SearchDialogInput", "SearchDialogList", "SearchDialogClose"]) expect(dialog).toContain(`<${part}`);
+    for (const part of [
+      "SearchDialogOverlay",
+      "SearchDialogContent",
+      "SearchDialogInput",
+      "SearchDialogList",
+      "SearchDialogClose",
+    ])
+      expect(dialog).toContain(`<${part}`);
     expect(dialog).not.toContain("<kbd");
   });
 

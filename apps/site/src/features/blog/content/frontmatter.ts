@@ -45,7 +45,10 @@ export const blogFrontmatterSchema = z
       .string()
       // A lookahead keeps the second character from being a slash, so
       // protocol-relative URLs (`//cdn…`) are rejected alongside bare words.
-      .regex(/^\/(?!\/)[^\s?#]*[^/\s?#]$/, "image must be a site-public path like /blog/covers/art.svg")
+      .regex(
+        /^\/(?!\/)[^\s?#]*[^/\s?#]$/,
+        "image must be a site-public path like /blog/covers/art.svg",
+      )
       .optional(),
     updated: isoDate.optional(),
     draft: z.boolean().default(false),

@@ -33,21 +33,33 @@ export function BlogFeaturedEntry({ entry, lang, className = "" }: BlogFeaturedE
         </div>
       </div>
       <div className="blog-featured-reading px-6 py-8 sm:px-8 sm:py-10 xl:px-12">
-        <h2 lang={entry.locale} className="min-w-0 text-balance text-2xl font-semibold leading-[1.2] sm:text-3xl lg:text-4xl">
+        <h2
+          lang={entry.locale}
+          className="min-w-0 text-balance text-2xl font-semibold leading-[1.2] sm:text-3xl lg:text-4xl"
+        >
           <Link
             to={blogPostPath(entry.locale, entry.slug)}
             hrefLang={entry.locale}
             className="blog-title-link rounded-sm after:absolute after:inset-0"
           >
-            {featuredTitleParts(entry.data.title).map((part, index) => (
-              keepTitlePartTogether(part) ? <span key={index} className="inline-block">{part}</span> : part
-            ))}
+            {featuredTitleParts(entry.data.title).map((part, index) =>
+              keepTitlePartTogether(part) ? (
+                <span key={index} className="inline-block">
+                  {part}
+                </span>
+              ) : (
+                part
+              ),
+            )}
           </Link>
         </h2>
         <div className="mt-6">
           <BlogEntryMeta entry={entry} lang={lang} />
         </div>
-        <p lang={entry.locale} className="blog-featured-summary mt-6 max-w-[var(--blog-measure)] text-base leading-relaxed text-fd-foreground sm:text-lg">
+        <p
+          lang={entry.locale}
+          className="blog-featured-summary mt-6 max-w-[var(--blog-measure)] text-base leading-relaxed text-fd-foreground sm:text-lg"
+        >
           {entry.data.description}
         </p>
       </div>

@@ -4,9 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
 import {
-  SearchDialog, SearchDialogClose, SearchDialogContent, SearchDialogFooter,
-  SearchDialogHeader, SearchDialogIcon, SearchDialogInput, SearchDialogList,
-  SearchDialogListItem, SearchDialogOverlay,
+  SearchDialog,
+  SearchDialogClose,
+  SearchDialogContent,
+  SearchDialogFooter,
+  SearchDialogHeader,
+  SearchDialogIcon,
+  SearchDialogInput,
+  SearchDialogList,
+  SearchDialogListItem,
+  SearchDialogOverlay,
 } from "fumadocs-ui/components/dialog/search";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import { getStrings } from "@/shared/i18n/legacy-translations";
@@ -77,23 +84,52 @@ export function BlogSearchDialog({ lang, posts, category, sort, q }: BlogSearchD
         <Search size={16} aria-hidden="true" className="shrink-0" />
         <span className="truncate">{q ?? t.blogSearchPlaceholder}</span>
       </button>
-      {portalContainer === null ? null : createPortal(<SearchDialogOverlay data-blog-search-overlay />, portalContainer)}
-      <SearchDialogContent finalFocus={trigger} className="lorelum-ui blog-search-dialog [overflow-wrap:anywhere]">
+      {portalContainer === null
+        ? null
+        : createPortal(<SearchDialogOverlay data-blog-search-overlay />, portalContainer)}
+      <SearchDialogContent
+        finalFocus={trigger}
+        className="lorelum-ui blog-search-dialog [overflow-wrap:anywhere]"
+      >
         <SearchDialogHeader>
           <SearchDialogIcon />
-          <SearchDialogInput id="blog-search" name="q" form="blog-search-form" type="search" autoComplete="off" maxLength={200} aria-label={t.blogSearch} placeholder={t.blogSearchPlaceholder} className="min-h-[var(--lore-size-touch)]" />
-          <SearchDialogClose data-blog-search-close className="min-h-[var(--lore-size-touch)] min-w-[var(--lore-size-touch)]" />
+          <SearchDialogInput
+            id="blog-search"
+            name="q"
+            form="blog-search-form"
+            type="search"
+            autoComplete="off"
+            maxLength={200}
+            aria-label={t.blogSearch}
+            placeholder={t.blogSearchPlaceholder}
+            className="min-h-[var(--lore-size-touch)]"
+          />
+          <SearchDialogClose
+            data-blog-search-close
+            className="min-h-[var(--lore-size-touch)] min-w-[var(--lore-size-touch)]"
+          />
         </SearchDialogHeader>
         <SearchDialogList
           items={items}
           data-blog-search-results
-          Empty={() => <p className="px-3 py-10 text-center text-sm text-fd-muted-foreground">{hasQuery ? t.blogNoSearchResults : t.blogSearchStart}</p>}
+          Empty={() => (
+            <p className="px-3 py-10 text-center text-sm text-fd-muted-foreground">
+              {hasQuery ? t.blogNoSearchResults : t.blogSearchStart}
+            </p>
+          )}
           Item={({ item, onClick }) => {
             const entry = byId.get(item.id);
             return (
-              <SearchDialogListItem item={item} onClick={onClick} lang={entry?.locale} className="min-h-[var(--lore-size-touch)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--ring)]">
+              <SearchDialogListItem
+                item={item}
+                onClick={onClick}
+                lang={entry?.locale}
+                className="min-h-[var(--lore-size-touch)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--ring)]"
+              >
                 <p className="font-medium">{entry?.data.title}</p>
-                <p className="mt-1 text-sm leading-relaxed text-fd-muted-foreground">{entry?.data.description}</p>
+                <p className="mt-1 text-sm leading-relaxed text-fd-muted-foreground">
+                  {entry?.data.description}
+                </p>
               </SearchDialogListItem>
             );
           }}
@@ -114,14 +150,27 @@ export function BlogSearchDialog({ lang, posts, category, sort, q }: BlogSearchD
             onSubmit={(event) => {
               event.preventDefault();
               setOpen(false);
-              void navigate({ to: blogIndexPath(lang), search: { category, sort, q: parseBlogQuery(search) } });
+              void navigate({
+                to: blogIndexPath(lang),
+                search: { category, sort, q: parseBlogQuery(search) },
+              });
             }}
             className="flex w-full items-center justify-between gap-3"
           >
-            <p role="status" aria-live="polite" className="text-sm text-fd-muted-foreground">{t.blogSearchResults.replace("{count}", String(results.length))}</p>
-            {category === undefined ? null : <input type="hidden" name="category" value={category} />}
+            <p role="status" aria-live="polite" className="text-sm text-fd-muted-foreground">
+              {t.blogSearchResults.replace("{count}", String(results.length))}
+            </p>
+            {category === undefined ? null : (
+              <input type="hidden" name="category" value={category} />
+            )}
             <input type="hidden" name="sort" value={sort} />
-            <button type="submit" data-blog-search-apply className={`${buttonVariants({ color: "outline" })} min-h-[var(--lore-size-touch)] shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]`}>{t.blogSearchApply}</button>
+            <button
+              type="submit"
+              data-blog-search-apply
+              className={`${buttonVariants({ color: "outline" })} min-h-[var(--lore-size-touch)] shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]`}
+            >
+              {t.blogSearchApply}
+            </button>
           </form>
         </SearchDialogFooter>
       </SearchDialogContent>

@@ -62,7 +62,13 @@ export function BlogIndexBlocks({ blocks, lang }: BlogIndexBlocksProps) {
             ));
           case "band":
             return [
-              <BlogCard key={key(block.entry)} entry={block.entry} lang={lang} variant="band" className="col-span-full" />,
+              <BlogCard
+                key={key(block.entry)}
+                entry={block.entry}
+                lang={lang}
+                variant="band"
+                className="col-span-full"
+              />,
             ];
           case "split":
             return [

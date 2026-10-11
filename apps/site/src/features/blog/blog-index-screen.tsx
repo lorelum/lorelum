@@ -44,8 +44,7 @@ export function BlogIndexScreen({
   q,
 }: BlogIndexScreenProps) {
   const t = getStrings(lang);
-  const cardSlugs =
-    filteredPostSlugs === undefined ? undefined : new Set(filteredPostSlugs);
+  const cardSlugs = filteredPostSlugs === undefined ? undefined : new Set(filteredPostSlugs);
   const cardPosts =
     cardSlugs === undefined ? posts : posts.filter((entry) => cardSlugs.has(entry.slug));
 
@@ -62,14 +61,22 @@ export function BlogIndexScreen({
           <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} q={q} />
 
           {q === undefined && category === undefined ? null : (
-            <p role="status" aria-live="polite" className="mt-4 px-6 text-sm text-fd-muted-foreground xl:px-12">
+            <p
+              role="status"
+              aria-live="polite"
+              className="mt-4 px-6 text-sm text-fd-muted-foreground xl:px-12"
+            >
               {t.blogSearchResults.replace("{count}", String(cardPosts.length))}
             </p>
           )}
 
           {cardPosts.length === 0 ? (
             <p className="mt-8 px-6 text-fd-muted-foreground xl:px-12">
-              {q !== undefined ? t.blogNoSearchResults : category === undefined ? t.blogEmpty : t.blogNoPostsInCategory}{" "}
+              {q !== undefined
+                ? t.blogNoSearchResults
+                : category === undefined
+                  ? t.blogEmpty
+                  : t.blogNoPostsInCategory}{" "}
               {q !== undefined ? null : (
                 <Link
                   to="/$lang/docs/$"

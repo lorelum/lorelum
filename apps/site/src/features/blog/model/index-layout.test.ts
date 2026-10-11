@@ -62,7 +62,16 @@ describe("layoutIndex", () => {
 
   test("the cycle repeats once a split is full", () => {
     expect(shape(13)).toEqual(["hero:3", "grid:3", "band:1", "split:5", "grid:1"]);
-    expect(shape(24)).toEqual(["hero:3", "grid:3", "band:1", "split:5", "grid:3", "band:1", "split:5", "grid:3"]);
+    expect(shape(24)).toEqual([
+      "hero:3",
+      "grid:3",
+      "band:1",
+      "split:5",
+      "grid:3",
+      "band:1",
+      "split:5",
+      "grid:3",
+    ]);
   });
 
   test("every entry appears exactly once, in order, whatever the length", () => {

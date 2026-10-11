@@ -15,7 +15,9 @@ describe("brand editorial feature", () => {
     // The stage clips the image's hover zoom to its square edge. The title link
     // sits in the reading block after it, so its focus ring is never clipped.
     expect(featured.match(/overflow-hidden/g)).toHaveLength(1);
-    expect(featured.indexOf("overflow-hidden")).toBeLessThan(featured.indexOf("blog-featured-reading"));
+    expect(featured.indexOf("overflow-hidden")).toBeLessThan(
+      featured.indexOf("blog-featured-reading"),
+    );
     expect(featured).toContain("blog-featured-entry relative cursor-pointer");
     expect(styles).toContain("outline-color: var(--ring)");
   });
@@ -37,7 +39,9 @@ describe("brand editorial feature", () => {
   test("keeps the image first, then title, real metadata and full summary", () => {
     expect(featured.indexOf("<BlogCover")).toBeLessThan(featured.indexOf("<h2"));
     expect(featured.indexOf("<h2")).toBeLessThan(featured.indexOf("<BlogEntryMeta"));
-    expect(featured.indexOf("<BlogEntryMeta")).toBeLessThan(featured.indexOf("{entry.data.description}"));
+    expect(featured.indexOf("<BlogEntryMeta")).toBeLessThan(
+      featured.indexOf("{entry.data.description}"),
+    );
     expect(featured).toContain("featuredTitleParts(entry.data.title)");
     expect(featured).not.toContain("line-clamp");
   });
@@ -61,7 +65,7 @@ describe("brand editorial feature", () => {
   test("keeps a named category filter without a sort setup section", () => {
     expect(controls).toContain("aria-label={t.blogFilterCategory}");
     expect(controls).not.toContain("aria-label={t.blogSortBy}");
-    expect(controls).toContain("<nav aria-label={t.blogFilterCategory}");
+    expect(controls).toMatch(/<nav\s+aria-label=\{t\.blogFilterCategory\}/);
     expect(controls).not.toContain('<p className="sr-only">{t.blogSortBy}</p>');
   });
 

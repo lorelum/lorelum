@@ -12,9 +12,7 @@ import type { BlogIndexEntry } from "./list-posts";
  * The order is the vocabulary's, not the entries', so the list does not reshuffle
  * when a post is added.
  */
-export function offeredCategories(
-  entries: readonly BlogIndexEntry[],
-): readonly BlogCategory[] {
+export function offeredCategories(entries: readonly BlogIndexEntry[]): readonly BlogCategory[] {
   return blogCategories.filter((candidate) =>
     entries.some((entry) => entry.data.category === candidate),
   );

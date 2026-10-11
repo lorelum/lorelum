@@ -126,12 +126,7 @@ const draftEn = () => page("unfinished-notes", "en", true);
 const draftZh = () => page("unfinished-notes", "zh", true);
 
 /** Every case runs against the same corpus; only the environment varies. */
-const PRODUCTION_CORPUS: readonly FakePage[] = [
-  publishedEn(),
-  publishedZh(),
-  draftEn(),
-  draftZh(),
-];
+const PRODUCTION_CORPUS: readonly FakePage[] = [publishedEn(), publishedZh(), draftEn(), draftZh()];
 
 const pages: FakePage[] = [];
 const corpus = (...next: FakePage[]) => {

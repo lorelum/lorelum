@@ -5,12 +5,27 @@ const blogCss = readFileSync(new URL("./blog.css", import.meta.url), "utf8");
 const indexScreen = readFileSync(new URL("../blog-index-screen.tsx", import.meta.url), "utf8");
 const postScreen = readFileSync(new URL("../blog-post-screen.tsx", import.meta.url), "utf8");
 const surface = readFileSync(new URL("../components/blog-surface.tsx", import.meta.url), "utf8");
-const controls = readFileSync(new URL("../components/blog-index-controls.tsx", import.meta.url), "utf8");
-const searchDialog = readFileSync(new URL("../components/blog-search-dialog.tsx", import.meta.url), "utf8");
-const sidebarSource = readFileSync(new URL("../components/blog-sidebar.tsx", import.meta.url), "utf8");
+const controls = readFileSync(
+  new URL("../components/blog-index-controls.tsx", import.meta.url),
+  "utf8",
+);
+const searchDialog = readFileSync(
+  new URL("../components/blog-search-dialog.tsx", import.meta.url),
+  "utf8",
+);
+const sidebarSource = readFileSync(
+  new URL("../components/blog-sidebar.tsx", import.meta.url),
+  "utf8",
+);
 const entryRow = readFileSync(new URL("../components/blog-card.tsx", import.meta.url), "utf8");
-const blocks = readFileSync(new URL("../components/blog-index-blocks.tsx", import.meta.url), "utf8");
-const featuredEntry = readFileSync(new URL("../components/blog-featured-entry.tsx", import.meta.url), "utf8");
+const blocks = readFileSync(
+  new URL("../components/blog-index-blocks.tsx", import.meta.url),
+  "utf8",
+);
+const featuredEntry = readFileSync(
+  new URL("../components/blog-featured-entry.tsx", import.meta.url),
+  "utf8",
+);
 const cover = readFileSync(new URL("../components/blog-cover.tsx", import.meta.url), "utf8");
 const appCss = readFileSync(new URL("../../../styles/app.css", import.meta.url), "utf8");
 
@@ -262,7 +277,7 @@ describe("blog typography contract", () => {
     // scoped text somewhere.
     const selectors = [...blogRules.matchAll(/([^{}]*)\{/g)]
       .flatMap((match) => (match[1] ?? "").split(","))
-      .map((selector) => selector.trim())
+      .map((selector) => selector.trim().replace(/\s+/g, " "))
       .filter((selector) => selector.includes(".prose"));
 
     expect(selectors.length).toBeGreaterThan(0);
@@ -387,19 +402,23 @@ describe("blog link contract", () => {
   });
 
   test("gives the index an editorial hierarchy without adding a second headline", () => {
-    expect(indexScreen).toContain('<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">');
+    expect(indexScreen).toContain(
+      '<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">',
+    );
     // The user struck the long description under the masthead title (evidence
     // §39), which stays the meta description only; v2.11 then asked for a short
     // small line there. It is its own string, not the description, and it is a
     // paragraph rather than a second headline.
     expect(indexScreen).not.toContain("blogIndexDescription");
     expect(indexScreen).toContain("{t.blogIndexTitle}");
-    expect(indexScreen).toContain('<p className="mt-3 text-sm text-fd-muted-foreground">{t.blogIndexTagline}</p>');
+    expect(indexScreen).toContain(
+      '<p className="mt-3 text-sm text-fd-muted-foreground">{t.blogIndexTagline}</p>',
+    );
     expect(indexScreen.match(/<h1\b/g)?.length).toBe(1);
     expect(entryRow).toContain("md:grid-cols-[7fr_5fr]");
     expect(entryRow).toContain("lg:text-2xl");
     expect(entryRow.indexOf("<BlogEntryMeta")).toBeLessThan(
-      entryRow.indexOf('<h2 lang={entry.locale}'),
+      entryRow.search(/<h2\s+lang=\{entry\.locale\}/),
     );
     expect(cover).toContain('fill="var(--lore-brand-deep)"');
     expect(cover).toContain('fill="var(--lore-brand-light)"');
@@ -411,9 +430,13 @@ describe("blog link contract", () => {
   test("lets the first visible story use the index's full reading stage", () => {
     expect(indexScreen).toContain("layoutIndex(cardPosts)");
     expect(blocks).toContain("<BlogFeaturedEntry");
-    expect(featuredEntry).toContain("blog-featured-stage overflow-hidden bg-[var(--lore-brand-deep)]");
+    expect(featuredEntry).toContain(
+      "blog-featured-stage overflow-hidden bg-[var(--lore-brand-deep)]",
+    );
     expect(featuredEntry).toContain("lg:aspect-[21/9]");
-    expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(blogRules).toMatch(
+      /\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
     expect(controls).toContain('data-blog-controls="category"');
   });
 
@@ -424,7 +447,9 @@ describe("blog link contract", () => {
   });
 
   test("separates the brand stage from its complete reading region", () => {
-    expect(blogRules).toContain("--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);");
+    expect(blogRules).toContain(
+      "--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);",
+    );
     expect(entryRow).toContain("border border-[var(--blog-hairline)]");
     expect(entryRow).toContain("blog-card-cover overflow-hidden bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("bg-[var(--lore-brand-deep)]");
@@ -470,7 +495,9 @@ describe("blog index structure", () => {
     expect(controlsIndex).toBeGreaterThan(-1);
     expect(indexScreen.match(/<BlogIndexControls\b/g)?.length).toBe(1);
     expect(controlsIndex).toBeLessThan(cardsIndex);
-    expect(indexScreen).toContain("lang={lang} posts={posts} category={category} sort={sort} q={q}");
+    expect(indexScreen).toContain(
+      "lang={lang} posts={posts} category={category} sort={sort} q={q}",
+    );
     expect(controls).toMatch(/<Link[^>]*to=\{blogIndexPath\(lang\)\}/);
     expect(controls).toContain("category={category} sort={sort} q={q}");
     expect(controls).toContain("search={{ category: candidate, sort, q }}");
@@ -492,13 +519,21 @@ describe("blog index structure", () => {
   });
 
   test("removes only the featured title's hover underline while retaining focus", () => {
-    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-entry \.blog-title-link:hover\s*\{[^}]*text-decoration-line:\s*none/);
-    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-entry \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*var\(--ring\)/);
-    expect(blogRules).toMatch(/\.blog-post__reading \.prose a:not\(\[data-card\]\)\s*\{[^}]*text-decoration-line:\s*underline/);
+    expect(blogRules).toMatch(
+      /\.blog-scope \.blog-featured-entry \.blog-title-link:hover\s*\{[^}]*text-decoration-line:\s*none/,
+    );
+    expect(blogRules).toMatch(
+      /\.blog-scope \.blog-featured-entry \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*var\(--ring\)/,
+    );
+    expect(blogRules).toMatch(
+      /\.blog-post__reading \.prose a:not\(\[data-card\]\)\s*\{[^}]*text-decoration-line:\s*underline/,
+    );
   });
 
   test("keeps navigation and filter choices complete while restricting cards", () => {
-    expect(indexScreen).toContain('<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">');
+    expect(indexScreen).toContain(
+      '<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">',
+    );
     expect(featuredEntry).toContain("text-2xl font-semibold");
     expect(featuredEntry).toContain("sm:text-3xl lg:text-4xl");
     expect(indexScreen).toContain("filteredPostSlugs?: readonly string[];");
@@ -518,14 +553,20 @@ describe("blog index structure", () => {
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*position:/);
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*transform:/);
     expect(blogRules).toMatch(/\.blog-featured-reading\s*\{[^}]*margin-bottom:\s*-3rem/);
-    expect(blogRules).toMatch(/\.blog-featured-entry:hover \.blog-featured-reading[^{]*\{[^}]*margin-bottom:\s*0/);
+    expect(blogRules).toMatch(
+      /\.blog-featured-entry:hover \.blog-featured-reading[^{]*\{[^}]*margin-bottom:\s*0/,
+    );
     expect(media).toBeGreaterThan(-1);
     // Scrim reveal: a dark scrim grows over the image and the text sits on it
     // with no panel, blur or rim. It never rebinds the Fumadocs tokens (another
     // test pins them to one place).
     expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*transform:\s*scale\(0\)/);
-    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*background:\s*color-mix\(in srgb, black 50%, transparent\)/);
-    expect(blogRules).toMatch(/\.blog-featured-entry:focus-within \.blog-featured-stage::before\s*\{[^}]*transform:\s*scale\(1\)/);
+    expect(blogRules).toMatch(
+      /\.blog-featured-stage::before\s*\{[^}]*background:\s*color-mix\(in srgb, black 50%, transparent\)/,
+    );
+    expect(blogRules).toMatch(
+      /\.blog-featured-entry:focus-within \.blog-featured-stage::before\s*\{[^}]*transform:\s*scale\(1\)/,
+    );
     // The scrim animates by transform, never by `inset` (layout every frame).
     expect(blogRules).not.toMatch(/\.blog-featured-stage::before\s*\{[^}]*transition:[^;]*inset/);
     // Enter is staggered: the text fades in after a delay, once the scrim is open.
@@ -539,13 +580,19 @@ describe("blog index structure", () => {
     expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*z-index:\s*1/);
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*--color-fd-/);
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*border:/);
-    expect(blogRules).toMatch(/\.blog-featured-reading \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*currentColor/);
+    expect(blogRules).toMatch(
+      /\.blog-featured-reading \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*currentColor/,
+    );
     // The hiding rule lives inside the fine-pointer query, so touch screens and
     // anything without hover keep the title below the stage.
     expect(hidden).toBeGreaterThan(media);
-    expect(blogRules).toMatch(/\.blog-featured-entry:focus-within \.blog-featured-reading\s*\{[^}]*opacity:\s*1/);
+    expect(blogRules).toMatch(
+      /\.blog-featured-entry:focus-within \.blog-featured-reading\s*\{[^}]*opacity:\s*1/,
+    );
     expect(blogRules).toMatch(/\.blog-featured-entry:hover \.blog-featured-reading/);
-    expect(blogRules).toMatch(/\.blog-featured-reading \.blog-title-link\s*\{[^}]*pointer-events:\s*auto/);
+    expect(blogRules).toMatch(
+      /\.blog-featured-reading \.blog-title-link\s*\{[^}]*pointer-events:\s*auto/,
+    );
     expect(featuredEntry).not.toContain("group-hover");
   });
 
@@ -577,9 +624,17 @@ describe("blog index structure", () => {
 
     const tierRules = [...blogRules.matchAll(/\[data-tier="([1-4])"\]\s*\{\s*opacity:\s*[\d.]+;/g)];
     expect(tierRules.length).toBe(8); // four tiers × two themes
-    expect(blogRules).toMatch(/\.blog-scope \.blog-cover-art \[data-tier="1"\][^}]*opacity:\s*0\.14/);
-    expect(blogRules).toMatch(/\.dark \.blog-scope \.blog-cover-art \[data-tier="1"\][^}]*opacity:\s*0\.28/);
-    expect(blogRules).toMatch(/\.blog-scope \.blog-cover-art \[data-tier="4"\][^}]*opacity:\s*0\.62/);
-    expect(blogRules).toMatch(/\.dark \.blog-scope \.blog-cover-art \[data-tier="4"\][^}]*opacity:\s*0\.78/);
+    expect(blogRules).toMatch(
+      /\.blog-scope \.blog-cover-art \[data-tier="1"\][^}]*opacity:\s*0\.14/,
+    );
+    expect(blogRules).toMatch(
+      /\.dark \.blog-scope \.blog-cover-art \[data-tier="1"\][^}]*opacity:\s*0\.28/,
+    );
+    expect(blogRules).toMatch(
+      /\.blog-scope \.blog-cover-art \[data-tier="4"\][^}]*opacity:\s*0\.62/,
+    );
+    expect(blogRules).toMatch(
+      /\.dark \.blog-scope \.blog-cover-art \[data-tier="4"\][^}]*opacity:\s*0\.78/,
+    );
   });
 });

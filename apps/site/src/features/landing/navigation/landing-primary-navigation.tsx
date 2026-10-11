@@ -22,9 +22,7 @@ export function LandingPrimaryNavigation({ lang }: { lang: string }) {
   const { pathname } = useLocation();
   const t = getStrings(lang);
   const mark = (destination: NavigationDestination) =>
-    isCurrentDestination(pathname, destination, i18n.languages)
-      ? ("page" as const)
-      : undefined;
+    isCurrentDestination(pathname, destination, i18n.languages) ? ("page" as const) : undefined;
 
   return (
     <div className="hidden items-center gap-1 md:flex">

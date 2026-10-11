@@ -137,18 +137,17 @@ describe("post visibility, through the server functions a reader reaches", () =>
     for (const dev of [false, true]) {
       setDev(dev);
       expect(loadBlogPost({ slug: "notes", lang: "en" })?.slug).toBe("notes");
-      expect(loadBlogPost({ slug: "zhongwen-bijiao", lang: "zh" })?.slug).toBe(
-        "zhongwen-bijiao",
-      );
+      expect(loadBlogPost({ slug: "zhongwen-bijiao", lang: "zh" })?.slug).toBe("zhongwen-bijiao");
       // The sitemap is the list of what should be indexed: both posts, in both
       // environments, and neither the older one nor the shorter slug is special.
       expect(getPublishedBlogPages()).toHaveLength(2);
       // The index merges both locales, so each list holds both published slugs.
       for (const lang of ["en", "zh"]) {
-        expect(listBlogPosts(lang).map((entry) => entry.slug).sort()).toEqual([
-          "notes",
-          "zhongwen-bijiao",
-        ]);
+        expect(
+          listBlogPosts(lang)
+            .map((entry) => entry.slug)
+            .sort(),
+        ).toEqual(["notes", "zhongwen-bijiao"]);
       }
     }
   });

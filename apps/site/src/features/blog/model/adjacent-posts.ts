@@ -16,10 +16,7 @@ export interface AdjacentPosts {
  * the language they are reading, and an entry that only exists in the other
  * language would otherwise send them across locales without saying so.
  */
-export function adjacentPosts(
-  entries: readonly BlogIndexEntry[],
-  slug: string,
-): AdjacentPosts {
+export function adjacentPosts(entries: readonly BlogIndexEntry[], slug: string): AdjacentPosts {
   const index = entries.findIndex((entry) => entry.slug === slug);
   if (index === -1) return {};
 

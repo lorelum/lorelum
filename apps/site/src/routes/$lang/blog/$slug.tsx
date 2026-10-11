@@ -39,7 +39,5 @@ const pageLoader = createServerFn({ method: "GET" })
 function Page() {
   const { lang } = Route.useParams();
   const { post, adjacent, posts } = Route.useLoaderData();
-  return (
-    <BlogPostScreen lang={lang} post={post} adjacent={adjacent} posts={posts} />
-  );
+  return <BlogPostScreen lang={lang} post={post} adjacent={adjacent} posts={posts} />;
 }

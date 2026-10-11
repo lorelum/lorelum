@@ -82,7 +82,9 @@ describe("post visibility wiring", () => {
     // while every other test in the suite stays green — the stage-4 review proved
     // exactly that mutation passes.
     expect(listBlogPosts).toContain("{ isDevelopment: import.meta.env.DEV }");
-    expect(listBlogPosts).toMatch(/buildBlogIndex\([\s\S]*?\{\s*isDevelopment:\s*import\.meta\.env\.DEV\s*\}/);
+    expect(listBlogPosts).toMatch(
+      /buildBlogIndex\([\s\S]*?\{\s*isDevelopment:\s*import\.meta\.env\.DEV\s*\}/,
+    );
     // The model already answers visibility with the environment, so an inline
     // draft check here would answer it a second time — hiding drafts from the dev
     // index while their URLs still serve (the inconsistency stage-4 task 2.2

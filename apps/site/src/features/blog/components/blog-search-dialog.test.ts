@@ -24,7 +24,9 @@ describe("blog search dialog composition", () => {
   test("portals the full-screen backdrop outside the query container after mounting", () => {
     expect(source).toContain("useState<HTMLElement | null>(null)");
     expect(source).toContain("useEffect(() => {\n    setPortalContainer(document.body);\n  }, [])");
-    expect(source).toContain("createPortal(<SearchDialogOverlay data-blog-search-overlay />, portalContainer)");
+    expect(source).toContain(
+      "createPortal(<SearchDialogOverlay data-blog-search-overlay />, portalContainer)",
+    );
   });
 
   test("restores applied q and limits draft input without changing the route per keystroke", () => {

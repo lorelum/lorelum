@@ -15,8 +15,14 @@ import { readFileSync } from "node:fs";
  */
 const hook = readFileSync(new URL("./use-landing-navbar-morph.ts", import.meta.url), "utf8");
 const navbar = readFileSync(new URL("./landing-navbar.tsx", import.meta.url), "utf8");
-const blogSurface = readFileSync(new URL("../../blog/components/blog-surface.tsx", import.meta.url), "utf8");
-const postScreen = readFileSync(new URL("../../blog/blog-post-screen.tsx", import.meta.url), "utf8");
+const blogSurface = readFileSync(
+  new URL("../../blog/components/blog-surface.tsx", import.meta.url),
+  "utf8",
+);
+const postScreen = readFileSync(
+  new URL("../../blog/blog-post-screen.tsx", import.meta.url),
+  "utf8",
+);
 const docsScreen = readFileSync(new URL("../../docs/docs-screen.tsx", import.meta.url), "utf8");
 
 describe("the navbar's compact state is wired for surfaces without a hero", () => {
@@ -35,7 +41,9 @@ describe("the navbar's compact state is wired for surfaces without a hero", () =
     expect(blogSurface).toContain("collapseTrigger={collapseTrigger}");
     // The article hands over its masthead through state, because the masthead
     // arrives with the suspended body.
-    expect(postScreen).toContain("const [masthead, setMasthead] = useState<HTMLElement | null>(null);");
+    expect(postScreen).toContain(
+      "const [masthead, setMasthead] = useState<HTMLElement | null>(null);",
+    );
     expect(postScreen).toContain("ref={onMasthead}");
     expect(postScreen).toContain("collapseTrigger={masthead}");
   });

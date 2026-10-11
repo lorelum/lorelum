@@ -26,13 +26,17 @@ export const Route = createFileRoute("/$lang/blog/")({
   loaderDeps: ({ search }) => ({ category: search.category, sort: search.sort, q: search.q }),
   loader: async ({ params, deps }) => {
     if (!isSupportedBlogLocale(params.lang)) throw notFound();
-    return indexLoader({ data: { lang: params.lang, category: deps.category, sort: deps.sort, q: deps.q } });
+    return indexLoader({
+      data: { lang: params.lang, category: deps.category, sort: deps.sort, q: deps.q },
+    });
   },
   head: ({ params }) => blogIndexHead(params.lang),
 });
 
 const indexLoader = createServerFn({ method: "GET" })
-  .validator((params: { lang: string; category?: BlogCategory; sort?: BlogSort; q?: string }) => params)
+  .validator(
+    (params: { lang: string; category?: BlogCategory; sort?: BlogSort; q?: string }) => params,
+  )
   .handler(async ({ data }) => listBlogIndex(data.lang, data.category, data.sort, data.q));
 
 function Page() {

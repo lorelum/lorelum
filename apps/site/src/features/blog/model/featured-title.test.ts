@@ -17,7 +17,13 @@ describe("featured title break opportunities", () => {
   });
 
   test("preserves repeated terms, punctuation, whitespace and an absent title", () => {
-    for (const title of ["", "系统系统", "Practice & Practice", "  测量，结果  ", "A measured system"]) {
+    for (const title of [
+      "",
+      "系统系统",
+      "Practice & Practice",
+      "  测量，结果  ",
+      "A measured system",
+    ]) {
       expect(featuredTitleParts(title).join("")).toBe(title);
     }
     expect(keepTitlePartTogether("practice")).toBe(false);

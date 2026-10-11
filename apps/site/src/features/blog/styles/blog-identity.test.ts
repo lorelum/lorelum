@@ -97,7 +97,7 @@ describe("blog identity", () => {
     const categoryNav = "components/blog-index-controls.tsx";
     for (const { path, text } of SOURCES) {
       const reading = path.endsWith(categoryNav)
-        ? text.replace(/const categoryLinkClass = "[^"]*";/, "")
+        ? text.replace(/const categoryLinkClass =\s*"[^"]*";/, "")
         : text;
       expect(/\buppercase\b/.test(reading), `${path} uses uppercase`).toBe(false);
       expect(text.includes("tracking-["), `${path} uses a tracking utility`).toBe(false);

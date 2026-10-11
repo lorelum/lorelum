@@ -74,8 +74,12 @@ describe("article page structure", () => {
     expect(postScreen).toContain("data.image === undefined ? null");
     expect(postScreen).toContain("src={data.image}");
     expect(postScreen).toContain('alt=""');
-    expect(postScreen.indexOf("<BlogPostMeta")).toBeLessThan(postScreen.indexOf("src={data.image}"));
-    expect(postScreen.indexOf("src={data.image}")).toBeLessThan(postScreen.indexOf("<BlogTocDisclosure"));
+    expect(postScreen.indexOf("<BlogPostMeta")).toBeLessThan(
+      postScreen.indexOf("src={data.image}"),
+    );
+    expect(postScreen.indexOf("src={data.image}")).toBeLessThan(
+      postScreen.indexOf("<BlogTocDisclosure"),
+    );
   });
 });
 
@@ -132,7 +136,7 @@ describe("article closing block", () => {
     expect(closing).toContain("t.blogEarlierPost");
     expect(closing).toContain("t.blogNewerPost");
     expect(closing).not.toContain("blogPrevious");
-    expect(closing).not.toContain("blogNext\"");
+    expect(closing).not.toContain('blogNext"');
   });
 });
 
@@ -202,9 +206,7 @@ describe("blog not-found body", () => {
 describe("article style adapter", () => {
   test("heading anchors are visible at rest, not only on hover", () => {
     // A hover-only anchor cannot be reached on a touch device.
-    expect(rules).toMatch(
-      /button\[aria-label\]\s*\{[^}]*opacity:\s*1/,
-    );
+    expect(rules).toMatch(/button\[aria-label\]\s*\{[^}]*opacity:\s*1/);
     expect(rules).toMatch(/button\[aria-label\]:hover/);
   });
 
@@ -233,9 +235,7 @@ describe("article style adapter", () => {
     const fromWrapper = postScreen.slice(postScreen.indexOf(wrapper));
     expect(fromWrapper).toContain("<DocsBody>");
     expect(fromWrapper).toContain("</DocsBody>");
-    expect(postScreen.indexOf("BlogTocDisclosure")).toBeLessThan(
-      postScreen.indexOf(wrapper),
-    );
+    expect(postScreen.indexOf("BlogTocDisclosure")).toBeLessThan(postScreen.indexOf(wrapper));
   });
 
   test("paragraphs break long tokens in every locale, not only in CJK", () => {

@@ -14,7 +14,6 @@
  */
 
 .blog-scope {
-
   /*
    * Blog-local aliases, following the `--docs-*` precedent: compositions of
    * production tokens that this surface owns, not new palette values. The
@@ -82,7 +81,6 @@
    * docs surface consumes that token (docs.css) and this change is about the blog.
    */
   --blog-measure: 76ch;
-
 
   /*
    * The body font is bound here as a property rather than by rebinding
@@ -316,7 +314,6 @@
   font-style: normal;
 }
 
-
 /*
  * Evidence appendix: the documents a post's numbers rest on, all visible
  * without interaction. Bullets are dropped and rows separated by the inline
@@ -398,7 +395,6 @@
     grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr) var(--blog-toc-rail);
     column-gap: 2.5rem;
   }
-
 }
 
 .blog-shell--index {
@@ -750,7 +746,11 @@
 }
 
 .blog-scope .blog-post__reading .prose :is(h1, h2, h3, h4, h5, h6) button[aria-label]:hover,
-.blog-scope .blog-post__reading .prose :is(h1, h2, h3, h4, h5, h6) button[aria-label]:focus-visible {
+.blog-scope
+  .blog-post__reading
+  .prose
+  :is(h1, h2, h3, h4, h5, h6)
+  button[aria-label]:focus-visible {
   color: var(--foreground);
 }
 

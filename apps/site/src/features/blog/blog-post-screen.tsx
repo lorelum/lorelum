@@ -91,7 +91,13 @@ function BlogTocDisclosure({ lang }: { lang: string }) {
   );
 }
 
-function BlogPostBody({ lang, post, adjacent, posts, onMasthead }: BlogPostScreenProps & {
+function BlogPostBody({
+  lang,
+  post,
+  adjacent,
+  posts,
+  onMasthead,
+}: BlogPostScreenProps & {
   /** Set by the masthead once it is in the document; see the hook's note. */
   readonly onMasthead: (element: HTMLElement | null) => void;
 }) {

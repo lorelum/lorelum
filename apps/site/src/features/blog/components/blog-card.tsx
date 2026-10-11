@@ -65,13 +65,18 @@ export function BlogCard({ entry, lang, variant, className = "", style }: BlogCa
       data-blog-card={variant}
       style={style}
     >
-      <div className={`blog-card-cover overflow-hidden bg-[var(--lore-brand-deep)] ${coverBox[variant]}`}>
+      <div
+        className={`blog-card-cover overflow-hidden bg-[var(--lore-brand-deep)] ${coverBox[variant]}`}
+      >
         <BlogCover entry={entry} className="h-full w-full object-cover" />
       </div>
 
       <div className={compact ? "min-w-0" : "min-w-0 p-5 sm:p-6 lg:p-8"}>
         {compact ? null : <BlogEntryMeta entry={entry} lang={lang} />}
-        <h2 lang={entry.locale} className={`${compact ? "" : "mt-5 "}font-semibold ${titleSize[variant]}`}>
+        <h2
+          lang={entry.locale}
+          className={`${compact ? "" : "mt-5 "}font-semibold ${titleSize[variant]}`}
+        >
           <Link
             to={blogPostPath(entry.locale, entry.slug)}
             hrefLang={entry.locale}

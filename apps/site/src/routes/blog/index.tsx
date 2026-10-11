@@ -25,12 +25,16 @@ export const Route = createFileRoute("/blog/")({
   // param reaches the server-side loader.
   loaderDeps: ({ search }) => ({ category: search.category, sort: search.sort, q: search.q }),
   loader: async ({ deps }) =>
-    indexLoader({ data: { lang: i18n.defaultLanguage, category: deps.category, sort: deps.sort, q: deps.q } }),
+    indexLoader({
+      data: { lang: i18n.defaultLanguage, category: deps.category, sort: deps.sort, q: deps.q },
+    }),
   head: () => blogIndexHead(i18n.defaultLanguage),
 });
 
 const indexLoader = createServerFn({ method: "GET" })
-  .validator((params: { lang: string; category?: BlogCategory; sort?: BlogSort; q?: string }) => params)
+  .validator(
+    (params: { lang: string; category?: BlogCategory; sort?: BlogSort; q?: string }) => params,
+  )
   .handler(async ({ data }) => listBlogIndex(data.lang, data.category, data.sort, data.q));
 
 function Page() {
