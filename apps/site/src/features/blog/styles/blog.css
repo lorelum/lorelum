@@ -424,7 +424,7 @@
 }
 
 .blog-featured-cover > :is(img, svg) {
-  transition: transform 220ms ease;
+  transition: transform 550ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .blog-featured-entry:focus-within .blog-featured-stage {
@@ -506,18 +506,28 @@
     height: 100%;
   }
 
+  /*
+   * The scrim grows by `transform: scale`, not by `inset`: scaling a full-size
+   * layer from its centre is the same picture (the stage and the scrim share an
+   * aspect ratio) but is composited, while animating `inset` re-runs layout and
+   * paint on every frame, which is what made the reveal stutter.
+   */
   .blog-featured-stage::before {
     content: "";
     position: absolute;
     z-index: 1;
-    inset: 50%;
+    inset: 0;
     background: color-mix(in srgb, black 50%, transparent);
-    transition: inset 600ms ease;
+    transform: scale(0);
+    will-change: transform;
+    transition: transform 400ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .blog-featured-entry:hover .blog-featured-stage::before,
   .blog-featured-entry:focus-within .blog-featured-stage::before {
-    inset: 0;
+    transform: scale(1);
+    transition-duration: 550ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .blog-featured-reading {
@@ -543,7 +553,9 @@
     opacity: 0;
     margin-bottom: -3rem;
     pointer-events: none;
-    transition: opacity 300ms ease, margin-bottom 300ms ease;
+    transition:
+      opacity 150ms ease,
+      margin-bottom 250ms ease;
   }
 
   .blog-featured-reading * {
@@ -576,10 +588,20 @@
     outline-color: currentColor;
   }
 
+  /*
+   * Entering is choreographed: the scrim opens first, the image zoom runs with
+   * it, and the text fades in only once the scrim already darkens its area, so
+   * it never shows over the bare image. Leaving runs the other way round: the
+   * text goes at once (the base transition above, no delay) while the scrim
+   * closes more slowly behind it.
+   */
   .blog-featured-entry:hover .blog-featured-reading,
   .blog-featured-entry:focus-within .blog-featured-reading {
     opacity: 1;
     margin-bottom: 0;
+    transition:
+      opacity 350ms ease 180ms,
+      margin-bottom 450ms cubic-bezier(0.22, 1, 0.36, 1) 120ms;
   }
 }
 

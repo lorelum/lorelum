@@ -99,3 +99,16 @@
 - [x] 14.2 删除 `BlogLanguageEntry`、`BlogPostMeta` 的 `slug` / `alternateLocale` 参数，以及 `blogReadIn`、`blogLanguageEnglish`、`blogLanguageChinese` 文案；守卫改为断言元数据行不含翻译入口、导航栏仍传显式目标
 - [x] 14.3 删除文末「返回博客」按钮与 `blogBackToIndex` 文案；无上下篇时收尾块不渲染；404 页的返回链接保留
 - [x] 14.4 门禁：test 323/0，lint 0 error，typecheck 仅两项既有 Docs 错误
+
+## 15. v2.10 首稿遮罩浮现更顺滑
+
+- [x] 15.1 根因：遮罩用 `inset` 过渡（每帧重排重绘）；文字 300ms 淡入而遮罩要 600ms，文字出现时遮罩还没盖住，文字先压在原图上再被盖暗；进出同参数，离开时文字拖在遮罩后面
+- [x] 15.2 改为 `transform: scale(0→1)` 过渡（合成层，画面与原来一致），进入 550ms 缓出、离开 400ms；文字进入延迟 180ms 再淡入 350ms，离开 150ms 即消失；图片缩放同为 550ms 缓出，与遮罩同步
+- [x] 15.3 实测（rAF 逐帧，1440 暗色）：进入 77ms 遮罩 60%、200ms 文字开始浮现时遮罩已 91%，约 500ms 全部完成；离开 150ms 文字已消失，遮罩约 380ms 收完
+- [x] 15.4 守卫：遮罩初始 `scale(0)`、悬停 `scale(1)`，不得用 `inset` 过渡，文字进入过渡必须带延迟；门禁 test 323/0
+
+## 16. v2.11 索引报头改为「Lorelum Developer Blog」并加一行小字（用户要求）
+
+- [x] 16.1 新增 `blogIndexTitle`（Lorelum Developer Blog / Lorelum 开发者博客）与 `blogIndexTagline`（取自原 meta 描述的第一句：Benchmarks, evaluation methods, and Pack engineering. / benchmark、评测方法与 Pack 工程。）；h1 仍只有一个，小字是 `p` 而非第二个标题；导航栏、页面 `<title>` 与 meta 描述不变（仍为 Blog / 博客）
+- [x] 16.2 更正 §39 的守卫：被用户否决的是 `blogIndexDescription` 那段长描述，仍不得出现在索引屏；小字用独立字符串
+- [x] 16.3 实测（en/zh，亮暗，1440 与 375）：1440 标题单行，375 折两行，零横向溢出；门禁 test 323/0，build exit 0

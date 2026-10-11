@@ -388,9 +388,14 @@ describe("blog link contract", () => {
 
   test("gives the index an editorial hierarchy without adding a second headline", () => {
     expect(indexScreen).toContain('<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">');
-    // The user struck the line under the masthead title (evidence §39); the
-    // string stays for the meta description only.
+    // The user struck the long description under the masthead title (evidence
+    // §39), which stays the meta description only; v2.11 then asked for a short
+    // small line there. It is its own string, not the description, and it is a
+    // paragraph rather than a second headline.
     expect(indexScreen).not.toContain("blogIndexDescription");
+    expect(indexScreen).toContain("{t.blogIndexTitle}");
+    expect(indexScreen).toContain('<p className="mt-3 text-sm text-fd-muted-foreground">{t.blogIndexTagline}</p>');
+    expect(indexScreen.match(/<h1\b/g)?.length).toBe(1);
     expect(entryRow).toContain("md:grid-cols-[7fr_5fr]");
     expect(entryRow).toContain("lg:text-2xl");
     expect(entryRow.indexOf("<BlogEntryMeta")).toBeLessThan(
@@ -518,9 +523,15 @@ describe("blog index structure", () => {
     // Scrim reveal: a dark scrim grows over the image and the text sits on it
     // with no panel, blur or rim. It never rebinds the Fumadocs tokens (another
     // test pins them to one place).
-    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*inset:\s*50%/);
+    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*transform:\s*scale\(0\)/);
     expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*background:\s*color-mix\(in srgb, black 50%, transparent\)/);
-    expect(blogRules).toMatch(/\.blog-featured-entry:focus-within \.blog-featured-stage::before\s*\{[^}]*inset:\s*0/);
+    expect(blogRules).toMatch(/\.blog-featured-entry:focus-within \.blog-featured-stage::before\s*\{[^}]*transform:\s*scale\(1\)/);
+    // The scrim animates by transform, never by `inset` (layout every frame).
+    expect(blogRules).not.toMatch(/\.blog-featured-stage::before\s*\{[^}]*transition:[^;]*inset/);
+    // Enter is staggered: the text fades in after a delay, once the scrim is open.
+    expect(blogRules).toMatch(
+      /\.blog-featured-entry:hover \.blog-featured-reading[^{]*\{[^}]*transition:[^;]*opacity\s+\d+ms\s+\S+\s+\d+ms/,
+    );
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*backdrop-filter/);
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*background:/);
     // The image gains a transform on hover, which stacks above an unindexed

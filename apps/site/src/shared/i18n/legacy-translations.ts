@@ -18,6 +18,9 @@ export interface LandingStrings {
   navBlog: string;
   // Blog
   blogIndexDescription: string;
+  /** The index masthead's title and the one small line under it. */
+  blogIndexTitle: string;
+  blogIndexTagline: string;
   blogEmpty: string;
   blogOnThisPage: string;
   /** Prefix rendered before the active category's label in the filter row. */
@@ -138,6 +141,8 @@ const en: LandingStrings = {
   navBlog: "Blog",
   blogIndexDescription:
     "Benchmarks, evaluation methods, and Pack engineering. Each post states what was measured, the size of the sample, and where the evidence comes from.",
+  blogIndexTitle: "Lorelum Developer Blog",
+  blogIndexTagline: "Benchmarks, evaluation methods, and Pack engineering.",
   blogEmpty: "No posts yet.",
   blogOnThisPage: "On this page",
   blogFilteredByPrefix: "Filtered by: ",
@@ -267,6 +272,8 @@ const zh: LandingStrings = {
   navDocs: "文档",
   navBlog: "博客",
   blogIndexDescription: "benchmark、评测方法与 Pack 工程。每篇说明测量口径、样本规模与证据来源。",
+  blogIndexTitle: "Lorelum 开发者博客",
+  blogIndexTagline: "benchmark、评测方法与 Pack 工程。",
   blogEmpty: "暂无文章。",
   blogOnThisPage: "本页目录",
   blogFilteredByPrefix: "分类：",

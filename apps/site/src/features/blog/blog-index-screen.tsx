@@ -55,8 +55,9 @@ export function BlogIndexScreen({
         <div className="w-full">
           <header className="px-6 pb-8 pt-12 text-center xl:px-12">
             <h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">
-              {t.navBlog}
+              {t.blogIndexTitle}
             </h1>
+            <p className="mt-3 text-sm text-fd-muted-foreground">{t.blogIndexTagline}</p>
           </header>
           <BlogIndexControls lang={lang} posts={posts} category={category} sort={sort} q={q} />
 
