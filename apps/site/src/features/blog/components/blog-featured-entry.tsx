@@ -10,11 +10,28 @@ interface BlogFeaturedEntryProps {
   readonly lang: string;
 }
 
+/**
+ * The lead entry: one full-bleed image on the brand stage.
+ *
+ * The title, metadata and summary live in one reading block. On a fine pointer
+ * a scrim grows over the image on hover or keyboard focus and the title and
+ * metadata slide up onto it as plain text (see `blog.css`); the summary is
+ * hidden visually there. Everywhere else, including touch screens that cannot
+ * hover, the whole block sits below the stage, so no device loses the title.
+ * It stays in the DOM and the accessibility tree either way, and the title
+ * link stretches over the whole entry, so it is still the only interactive
+ * element.
+ */
 export function BlogFeaturedEntry({ entry, lang }: BlogFeaturedEntryProps) {
   return (
     <li className="blog-featured-entry relative cursor-pointer" data-blog-featured>
-      <div className="blog-featured-stage grid items-center gap-6 rounded-[var(--lore-radius-stage)] bg-[var(--lore-brand-deep)] px-6 py-8 text-[var(--background)] dark:text-[var(--foreground)] sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-10 xl:px-12 xl:py-12">
-        <h2 lang={entry.locale} className="min-w-0 text-balance text-3xl font-semibold leading-[1.15] sm:text-4xl lg:text-5xl xl:text-[length:var(--lore-text-display)]">
+      <div className="blog-featured-stage overflow-hidden rounded-[var(--lore-radius-stage)] bg-[var(--lore-brand-deep)]">
+        <div className="blog-featured-cover aspect-[8/5] w-full min-w-0 lg:aspect-[21/9]">
+          <BlogCover entry={entry} priority className="h-full w-full object-cover" />
+        </div>
+      </div>
+      <div className="blog-featured-reading px-6 py-8 sm:px-8 sm:py-10 xl:px-12">
+        <h2 lang={entry.locale} className="min-w-0 text-balance text-2xl font-semibold leading-[1.2] sm:text-3xl lg:text-4xl">
           <Link
             to={blogPostPath(entry.locale, entry.slug)}
             hrefLang={entry.locale}
@@ -25,13 +42,10 @@ export function BlogFeaturedEntry({ entry, lang }: BlogFeaturedEntryProps) {
             ))}
           </Link>
         </h2>
-        <div className="blog-featured-cover aspect-[8/5] w-full min-w-0">
-          <BlogCover entry={entry} priority className="h-full w-full object-contain" />
+        <div className="mt-6">
+          <BlogEntryMeta entry={entry} lang={lang} />
         </div>
-      </div>
-      <div className="blog-featured-reading px-6 py-8 sm:px-8 sm:py-10 xl:px-12">
-        <BlogEntryMeta entry={entry} lang={lang} />
-        <p lang={entry.locale} className="mt-6 max-w-[var(--blog-measure)] text-base leading-relaxed text-fd-foreground sm:text-lg">
+        <p lang={entry.locale} className="blog-featured-summary mt-6 max-w-[var(--blog-measure)] text-base leading-relaxed text-fd-foreground sm:text-lg">
           {entry.data.description}
         </p>
       </div>

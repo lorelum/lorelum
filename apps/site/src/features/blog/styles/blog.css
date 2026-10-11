@@ -405,14 +405,14 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.blog-scope .blog-featured-stage .blog-title-link,
-.blog-scope .blog-featured-stage .blog-title-link:hover {
+.blog-scope .blog-featured-entry .blog-title-link,
+.blog-scope .blog-featured-entry .blog-title-link:hover {
   color: inherit;
   text-decoration-line: none;
 }
 
-.blog-scope .blog-featured-stage .blog-title-link:focus-visible {
-  outline-color: currentColor;
+.blog-scope .blog-featured-entry .blog-title-link:focus-visible {
+  outline-color: var(--ring);
 }
 
 .blog-featured-stage {
@@ -438,13 +438,110 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .blog-featured-entry:hover .blog-featured-stage {
-    background-color: color-mix(in srgb, var(--lore-brand-deep) 94%, var(--lore-brand-light));
-  }
-
   .blog-featured-entry:hover .blog-featured-cover > :is(img, svg),
   .blog-entry-row:hover .blog-entry-cover > :is(img, svg) {
     transform: scale(1.015);
+  }
+
+  /*
+   * Reveal, after the reference page's lead card: a dark scrim grows from the
+   * centre of the image to cover it, and the title and metadata slide up from
+   * the bottom edge as plain light text on the scrim, with no panel behind
+   * them. Only a fine pointer hides the reading block at rest; touch screens
+   * and anything without hover keep it below the stage. Opacity and transform
+   * (not display or visibility) keep it in the accessibility tree and
+   * reachable by keyboard, and focus reveals it exactly as hover does.
+   *
+   * The scrim, not the image, decides contrast: light text on the bare brand
+   * green only reaches 4.56:1 in the dark theme, so the scrim is dense enough
+   * to clear 4.5:1 over the lighter parts of the image. The text tokens are
+   * re-pointed to the pair that is light on a dark scrim in either theme.
+   * The summary is not part of the overlay (the reference shows title and
+   * metadata only); it stays in the DOM, visually hidden here.
+   */
+  .blog-featured-entry {
+    display: grid;
+  }
+
+  .blog-featured-stage,
+  .blog-featured-reading {
+    grid-area: 1 / 1;
+  }
+
+  .blog-featured-stage {
+    position: relative;
+  }
+
+  .blog-featured-cover {
+    height: 100%;
+  }
+
+  .blog-featured-stage::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    inset: 50%;
+    background: color-mix(in srgb, black 60%, transparent);
+    transition: inset 600ms ease;
+  }
+
+  .blog-featured-entry:hover .blog-featured-stage::before,
+  .blog-featured-entry:focus-within .blog-featured-stage::before {
+    inset: 0;
+  }
+
+  .blog-featured-reading {
+    --scrim-text: var(--background);
+    --scrim-edge: color-mix(in srgb, var(--scrim-text) 35%, transparent);
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-self: start;
+    align-self: end;
+    max-width: 48rem;
+    padding: clamp(1.5rem, 4vw, 3.125rem);
+    color: var(--scrim-text);
+    opacity: 0;
+    transform: translateY(3rem);
+    pointer-events: none;
+    transition: opacity 300ms ease, transform 300ms ease;
+  }
+
+  .blog-featured-reading * {
+    color: inherit;
+  }
+
+  .blog-featured-reading time {
+    border-color: var(--scrim-edge);
+  }
+
+  .dark .blog-featured-reading {
+    --scrim-text: var(--foreground);
+  }
+
+  .blog-featured-summary {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .blog-featured-reading .blog-title-link {
+    pointer-events: auto;
+  }
+
+  .blog-featured-reading .blog-title-link:focus-visible {
+    outline-color: currentColor;
+  }
+
+  .blog-featured-entry:hover .blog-featured-reading,
+  .blog-featured-entry:focus-within .blog-featured-reading {
+    opacity: 1;
+    transform: none;
   }
 }
 

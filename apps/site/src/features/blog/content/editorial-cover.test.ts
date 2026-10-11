@@ -13,7 +13,11 @@ describe("measurement article artwork", () => {
       expect(artwork).toContain(`data-condition="${condition}"`);
       expect(artwork).toContain(`>${condition.toUpperCase()}</text>`);
     }
-    expect(artwork.match(/width="420" height="130"/g)).toHaveLength(3);
+    expect(artwork.match(/width="520" height="96"/g)).toHaveLength(3);
+    // Full-bleed: a ground rect covers the whole viewBox, with no inner plate
+    // or rounded corner that would show a seam when the cover is cropped.
+    expect(artwork).toContain('<rect width="1200" height="750" fill="url(#ground)"/>');
+    expect(artwork).not.toMatch(/<rect width="1200" height="750" rx=/);
     expect(artwork).not.toMatch(/<script\b|<animate\b|<foreignObject\b/);
     expect(artwork).not.toMatch(/oracle_precision|delta_lift|https?:\/\/(?!www\.w3\.org)/);
   });

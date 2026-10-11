@@ -404,15 +404,15 @@ describe("blog link contract", () => {
   test("lets the first visible story use the index's full reading stage", () => {
     expect(indexScreen).toContain("featured={entry === cardPosts[0]}");
     expect(entryRow).toContain("if (featured) return <BlogFeaturedEntry");
-    expect(featuredEntry).toContain("lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]");
-    expect(featuredEntry).toContain("xl:text-[length:var(--lore-text-display)]");
+    expect(featuredEntry).toContain("blog-featured-stage overflow-hidden rounded-[var(--lore-radius-stage)]");
+    expect(featuredEntry).toContain("lg:aspect-[21/9]");
     expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
     expect(controls).toContain('data-blog-controls="category"');
   });
 
   test("keeps the featured cover substantial at intermediate widths", () => {
     expect(featuredEntry).toContain("blog-featured-cover aspect-[8/5] w-full min-w-0");
-    expect(featuredEntry).toContain("sm:text-4xl lg:text-5xl");
+    expect(featuredEntry).toContain("sm:text-3xl lg:text-4xl");
     expect(featuredEntry).toContain("<BlogCover entry={entry} priority");
   });
 
@@ -485,19 +485,47 @@ describe("blog index structure", () => {
   });
 
   test("removes only the featured title's hover underline while retaining focus", () => {
-    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-stage \.blog-title-link:hover\s*\{[^}]*text-decoration-line:\s*none/);
-    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-stage \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*currentColor/);
+    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-entry \.blog-title-link:hover\s*\{[^}]*text-decoration-line:\s*none/);
+    expect(blogRules).toMatch(/\.blog-scope \.blog-featured-entry \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*var\(--ring\)/);
     expect(blogRules).toMatch(/\.blog-post__reading \.prose a:not\(\[data-card\]\)\s*\{[^}]*text-decoration-line:\s*underline/);
   });
 
   test("keeps navigation and filter choices complete while restricting cards", () => {
     expect(indexScreen).toContain('<h1 className="text-[length:var(--lore-text-headline)] font-semibold leading-tight">');
-    expect(featuredEntry).toContain("text-3xl font-semibold");
-    expect(featuredEntry).toContain("sm:text-4xl lg:text-5xl");
+    expect(featuredEntry).toContain("text-2xl font-semibold");
+    expect(featuredEntry).toContain("sm:text-3xl lg:text-4xl");
     expect(indexScreen).toContain("filteredPostSlugs?: readonly string[];");
     expect(indexScreen).toContain("posts.filter((entry) => cardSlugs.has(entry.slug))");
     expect(indexScreen).toContain("cardPosts.length === 0");
     expect(indexScreen).toContain("cardPosts.map((entry) =>");
+  });
+
+  test("reveals the lead's text only for a fine pointer, and always on focus", () => {
+    const media = blogRules.indexOf("@media (hover: hover) and (pointer: fine)");
+    const hidden = blogRules.search(/\.blog-featured-reading\s*\{[^}]*display:\s*flex/);
+    expect(blogRules).toMatch(/\.blog-featured-reading\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1/);
+    expect(media).toBeGreaterThan(-1);
+    // Scrim reveal: a dark scrim grows over the image and the text sits on it
+    // with no panel, blur or rim. It never rebinds the Fumadocs tokens (another
+    // test pins them to one place).
+    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*inset:\s*50%/);
+    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*background:\s*color-mix\(in srgb, black 60%, transparent\)/);
+    expect(blogRules).toMatch(/\.blog-featured-entry:focus-within \.blog-featured-stage::before\s*\{[^}]*inset:\s*0/);
+    expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*backdrop-filter/);
+    expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*background:/);
+    // The image gains a transform on hover, which stacks above an unindexed
+    // sibling; the scrim must carry its own z-index to stay on top of it.
+    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*z-index:\s*1/);
+    expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*--color-fd-/);
+    expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*border:/);
+    expect(blogRules).toMatch(/\.blog-featured-reading \.blog-title-link:focus-visible\s*\{[^}]*outline-color:\s*currentColor/);
+    // The hiding rule lives inside the fine-pointer query, so touch screens and
+    // anything without hover keep the title below the stage.
+    expect(hidden).toBeGreaterThan(media);
+    expect(blogRules).toMatch(/\.blog-featured-entry:focus-within \.blog-featured-reading\s*\{[^}]*opacity:\s*1/);
+    expect(blogRules).toMatch(/\.blog-featured-entry:hover \.blog-featured-reading/);
+    expect(blogRules).toMatch(/\.blog-featured-reading \.blog-title-link\s*\{[^}]*pointer-events:\s*auto/);
+    expect(featuredEntry).not.toContain("group-hover");
   });
 
   test("every index card carries cover art, generated when the post has none", () => {
@@ -510,10 +538,11 @@ describe("blog index structure", () => {
     expect(cover).toMatch(/entry\.data\.image !== undefined/);
     expect(cover).toMatch(/coverCells\(entry\.slug\)/);
     // The list cover uses one 8:5 frame at every width, the lead stage's ratio,
-    // with `object-contain` on the brand ground so the whole figure shows.
-    // A cropped figure hid its own labels.
+    // with `object-cover`: the cover art is full-bleed on its own ground, so it
+    // fills the frame instead of sitting letterboxed inside it.
     expect(entryRow).toContain("aspect-[8/5]");
-    expect(entryRow).toContain("object-contain");
+    expect(entryRow).toContain("object-cover");
+    expect(entryRow).not.toContain("object-contain");
   });
 
   test("calibrates the generated cover's tier strengths per theme", () => {

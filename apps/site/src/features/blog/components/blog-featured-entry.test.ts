@@ -11,9 +11,12 @@ const cover = readFileSync(new URL("./blog-cover.tsx", import.meta.url), "utf8")
 describe("brand editorial feature", () => {
   test("rounds the green stage with the existing design token without clipping title focus", () => {
     expect(featured).toContain("rounded-[var(--lore-radius-stage)]");
-    expect(featured).not.toContain("overflow-hidden");
+    // The stage clips the full-bleed image to its radius. The title link sits in
+    // the reading block after it, so its focus ring is never clipped.
+    expect(featured.match(/overflow-hidden/g)).toHaveLength(1);
+    expect(featured.indexOf("overflow-hidden")).toBeLessThan(featured.indexOf("blog-featured-reading"));
     expect(featured).toContain("blog-featured-entry relative cursor-pointer");
-    expect(styles).toContain("outline-color: currentColor");
+    expect(styles).toContain("outline-color: var(--ring)");
   });
 
   test("promotes only the designated entry while the rest stay hairline-separated", () => {
@@ -24,9 +27,9 @@ describe("brand editorial feature", () => {
     expect(featured).not.toContain("border border-");
   });
 
-  test("keeps title before cover before real metadata and full summary", () => {
-    expect(featured.indexOf("<h2")).toBeLessThan(featured.indexOf("<BlogCover"));
-    expect(featured.indexOf("<BlogCover")).toBeLessThan(featured.indexOf("<BlogEntryMeta"));
+  test("keeps the image first, then title, real metadata and full summary", () => {
+    expect(featured.indexOf("<BlogCover")).toBeLessThan(featured.indexOf("<h2"));
+    expect(featured.indexOf("<h2")).toBeLessThan(featured.indexOf("<BlogEntryMeta"));
     expect(featured.indexOf("<BlogEntryMeta")).toBeLessThan(featured.indexOf("{entry.data.description}"));
     expect(featured).toContain("featuredTitleParts(entry.data.title)");
     expect(featured).not.toContain("line-clamp");
@@ -41,10 +44,10 @@ describe("brand editorial feature", () => {
     }
   });
 
-  test("uses readable theme colors and preserves a contrasting feature focus ring", () => {
-    expect(featured).toContain("text-[var(--background)] dark:text-[var(--foreground)]");
-    expect(styles).toContain(".blog-scope .blog-featured-stage .blog-title-link:hover");
-    expect(styles).toContain("outline-color: currentColor");
+  test("keeps the lead's title off the stage and its focus ring a themed token", () => {
+    expect(featured.indexOf("<h2")).toBeGreaterThan(featured.indexOf("blog-featured-reading"));
+    expect(styles).toContain(".blog-scope .blog-featured-entry .blog-title-link:hover");
+    expect(styles).toContain("outline-color: var(--ring)");
     expect(featured).toContain("max-w-[var(--blog-measure)]");
   });
 
@@ -59,7 +62,7 @@ describe("brand editorial feature", () => {
     expect(featured).toContain("cursor-pointer");
     expect(row).toContain("blog-entry-row relative cursor-pointer");
     expect(styles).toContain("@media (hover: hover) and (pointer: fine)");
-    expect(styles).toContain(".blog-featured-entry:hover .blog-featured-stage");
+    expect(styles).toContain(".blog-featured-entry:hover .blog-featured-reading");
     expect(styles).toContain(".blog-featured-entry:focus-within .blog-featured-stage");
     expect(styles).toContain(".blog-entry-row:focus-within .blog-entry-cover > :is(img, svg)");
     expect(styles).toContain("transition: transform 220ms ease");
@@ -79,7 +82,7 @@ describe("editorial cover loading", () => {
 
   test("keeps ordinary authored covers lazy", () => {
     expect(cover).toContain("priority = false");
-    expect(row).toContain('<BlogCover entry={entry} className="h-full w-full object-contain"');
+    expect(row).toContain('<BlogCover entry={entry} className="h-full w-full object-cover"');
   });
 
   test("preserves all 24 deterministic fallback cells in the feature", () => {
