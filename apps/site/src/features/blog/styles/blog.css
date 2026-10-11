@@ -481,7 +481,7 @@
     position: absolute;
     z-index: 1;
     inset: 50%;
-    background: color-mix(in srgb, black 60%, transparent);
+    background: color-mix(in srgb, black 50%, transparent);
     transition: inset 600ms ease;
   }
 
@@ -493,7 +493,15 @@
   .blog-featured-reading {
     --scrim-text: var(--background);
     --scrim-edge: color-mix(in srgb, var(--scrim-text) 35%, transparent);
-    position: relative;
+    /*
+     * No `position` and no `transform` here: either would make this block the
+     * containing block of the title link's stretched `::after`, shrinking the
+     * click area from the whole entry to this block and, while the block sits
+     * 3rem low at rest, pushing it below the image. The pointer would then
+     * enter it, the reveal would lift the block away, and the hover would
+     * flicker. `z-index` works on a grid item without either, and the slide is
+     * done with margin, which does not move the link's containing block.
+     */
     z-index: 1;
     display: flex;
     flex-direction: column;
@@ -503,9 +511,9 @@
     padding: clamp(1.5rem, 4vw, 3.125rem);
     color: var(--scrim-text);
     opacity: 0;
-    transform: translateY(3rem);
+    margin-bottom: -3rem;
     pointer-events: none;
-    transition: opacity 300ms ease, transform 300ms ease;
+    transition: opacity 300ms ease, margin-bottom 300ms ease;
   }
 
   .blog-featured-reading * {
@@ -541,7 +549,7 @@
   .blog-featured-entry:hover .blog-featured-reading,
   .blog-featured-entry:focus-within .blog-featured-reading {
     opacity: 1;
-    transform: none;
+    margin-bottom: 0;
   }
 }
 

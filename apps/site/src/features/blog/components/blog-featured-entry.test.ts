@@ -9,10 +9,10 @@ const styles = readFileSync(new URL("../styles/blog.css", import.meta.url), "utf
 const cover = readFileSync(new URL("./blog-cover.tsx", import.meta.url), "utf8");
 
 describe("brand editorial feature", () => {
-  test("rounds the green stage with the existing design token without clipping title focus", () => {
-    expect(featured).toContain("rounded-[var(--lore-radius-stage)]");
-    // The stage clips the full-bleed image to its radius. The title link sits in
-    // the reading block after it, so its focus ring is never clipped.
+  test("keeps the stage square, clipping only the image and never the title focus", () => {
+    expect(featured).not.toContain("rounded-[var(--lore-radius-stage)]");
+    // The stage clips the image's hover zoom to its square edge. The title link
+    // sits in the reading block after it, so its focus ring is never clipped.
     expect(featured.match(/overflow-hidden/g)).toHaveLength(1);
     expect(featured.indexOf("overflow-hidden")).toBeLessThan(featured.indexOf("blog-featured-reading"));
     expect(featured).toContain("blog-featured-entry relative cursor-pointer");

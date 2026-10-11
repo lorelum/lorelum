@@ -404,7 +404,7 @@ describe("blog link contract", () => {
   test("lets the first visible story use the index's full reading stage", () => {
     expect(indexScreen).toContain("featured={entry === cardPosts[0]}");
     expect(entryRow).toContain("if (featured) return <BlogFeaturedEntry");
-    expect(featuredEntry).toContain("blog-featured-stage overflow-hidden rounded-[var(--lore-radius-stage)]");
+    expect(featuredEntry).toContain("blog-featured-stage overflow-hidden bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("lg:aspect-[21/9]");
     expect(blogRules).toMatch(/\.blog-shell--index\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
     expect(controls).toContain('data-blog-controls="category"');
@@ -419,7 +419,7 @@ describe("blog link contract", () => {
   test("separates the brand stage from its complete reading region", () => {
     expect(blogRules).toContain("--blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);");
     expect(entryRow).toContain("border-t border-[var(--blog-hairline)]");
-    expect(entryRow).toContain("blog-entry-cover aspect-[8/5] w-full overflow-hidden rounded-[var(--lore-radius-panel)] bg-[var(--lore-brand-deep)]");
+    expect(entryRow).toContain("blog-entry-cover aspect-[8/5] w-full overflow-hidden bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("bg-[var(--lore-brand-deep)]");
     expect(featuredEntry).toContain("blog-featured-reading");
     expect(featuredEntry).toContain("max-w-[var(--blog-measure)]");
@@ -503,13 +503,21 @@ describe("blog index structure", () => {
   test("reveals the lead's text only for a fine pointer, and always on focus", () => {
     const media = blogRules.indexOf("@media (hover: hover) and (pointer: fine)");
     const hidden = blogRules.search(/\.blog-featured-reading\s*\{[^}]*display:\s*flex/);
-    expect(blogRules).toMatch(/\.blog-featured-reading\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1/);
+    expect(blogRules).toMatch(/\.blog-featured-reading\s*\{[^}]*z-index:\s*1/);
+    // The title link's `::after` stretches over the whole entry only while the
+    // reading block is neither positioned nor transformed; otherwise it anchors
+    // to the block, which sits 3rem low at rest, so the hover area sticks out
+    // below the image and the reveal flickers there.
+    expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*position:/);
+    expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*transform:/);
+    expect(blogRules).toMatch(/\.blog-featured-reading\s*\{[^}]*margin-bottom:\s*-3rem/);
+    expect(blogRules).toMatch(/\.blog-featured-entry:hover \.blog-featured-reading[^{]*\{[^}]*margin-bottom:\s*0/);
     expect(media).toBeGreaterThan(-1);
     // Scrim reveal: a dark scrim grows over the image and the text sits on it
     // with no panel, blur or rim. It never rebinds the Fumadocs tokens (another
     // test pins them to one place).
     expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*inset:\s*50%/);
-    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*background:\s*color-mix\(in srgb, black 60%, transparent\)/);
+    expect(blogRules).toMatch(/\.blog-featured-stage::before\s*\{[^}]*background:\s*color-mix\(in srgb, black 50%, transparent\)/);
     expect(blogRules).toMatch(/\.blog-featured-entry:focus-within \.blog-featured-stage::before\s*\{[^}]*inset:\s*0/);
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*backdrop-filter/);
     expect(blogRules).not.toMatch(/\.blog-featured-reading\s*\{[^}]*background:/);

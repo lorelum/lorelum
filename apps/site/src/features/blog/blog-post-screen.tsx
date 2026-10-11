@@ -128,7 +128,7 @@ function BlogPostBody({ lang, post, adjacent, posts, onMasthead }: BlogPostScree
                 src={data.image}
                 alt=""
                 decoding="async"
-                className="mt-8 aspect-[16/9] w-full rounded-[var(--lore-radius-stage)] object-cover sm:aspect-[3/2]"
+                className="mt-8 aspect-[16/9] w-full object-cover sm:aspect-[3/2]"
               />
             )}
           </div>

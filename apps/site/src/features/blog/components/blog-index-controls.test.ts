@@ -58,7 +58,10 @@ describe("blog discovery control consistency", () => {
 
   test("scrolls only the category row while allowing visible keyboard focus", () => {
     expect(controls).toContain("overflow-x-auto whitespace-nowrap px-1 py-1");
-    expect(controls).toContain('className="min-w-0 lg:col-start-2 lg:row-start-1"');
+    expect(controls).toContain('className="min-w-0 lg:col-start-1 lg:row-start-1"');
+    expect(controls).toContain("lg:grid-cols-[minmax(0,1fr)_auto]");
+    expect(controls).toContain("lg:justify-start");
+    expect(controls).not.toContain("lg:justify-center");
     expect(controls).toContain("aria-[current=page]:text-fd-foreground");
     expect(controls).toContain("focus-visible:outline-offset-2");
     expect(controls).not.toContain('role="tablist"');

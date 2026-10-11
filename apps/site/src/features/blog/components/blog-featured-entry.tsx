@@ -25,7 +25,7 @@ interface BlogFeaturedEntryProps {
 export function BlogFeaturedEntry({ entry, lang }: BlogFeaturedEntryProps) {
   return (
     <li className="blog-featured-entry relative cursor-pointer" data-blog-featured>
-      <div className="blog-featured-stage overflow-hidden rounded-[var(--lore-radius-stage)] bg-[var(--lore-brand-deep)]">
+      <div className="blog-featured-stage overflow-hidden bg-[var(--lore-brand-deep)]">
         <div className="blog-featured-cover aspect-[8/5] w-full min-w-0 lg:aspect-[21/9]">
           <BlogCover entry={entry} priority className="h-full w-full object-cover" />
         </div>

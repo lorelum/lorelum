@@ -37,7 +37,7 @@ export function BlogEntryRow({ entry, lang, featured = false }: BlogEntryRowProp
   return (
     <li className="blog-entry-row relative cursor-pointer border-t border-[var(--blog-hairline)] px-6 py-8 transition-colors duration-200 hover:bg-[var(--blog-quiet-surface)] focus-within:bg-[var(--blog-quiet-surface)] lg:py-12 xl:px-12">
       <div className="grid items-start gap-6 md:grid-cols-[5fr_7fr] md:gap-8 xl:gap-12">
-        <div className="blog-entry-cover aspect-[8/5] w-full overflow-hidden rounded-[var(--lore-radius-panel)] bg-[var(--lore-brand-deep)]">
+        <div className="blog-entry-cover aspect-[8/5] w-full overflow-hidden bg-[var(--lore-brand-deep)]">
           <BlogCover entry={entry} className="h-full w-full object-cover" />
         </div>
 

@@ -7,29 +7,31 @@ const artwork = readFileSync(
 );
 
 describe("measurement article artwork", () => {
-  test("depicts three equally sized comparison paths, not numerical results", () => {
-    expect(artwork).toContain('viewBox="0 0 1200 750"');
-    for (const condition of ["baseline", "placebo", "oracle"]) {
-      expect(artwork).toContain(`data-condition="${condition}"`);
-      expect(artwork).toContain(`>${condition.toUpperCase()}</text>`);
-    }
-    expect(artwork.match(/width="520" height="96"/g)).toHaveLength(3);
-    // Full-bleed: a ground rect covers the whole viewBox, with no inner plate
-    // or rounded corner that would show a seam when the cover is cropped.
-    expect(artwork).toContain('<rect width="1200" height="750" fill="url(#ground)"/>');
-    expect(artwork).not.toMatch(/<rect width="1200" height="750" rx=/);
-    expect(artwork).not.toMatch(/<script\b|<animate\b|<foreignObject\b/);
-    expect(artwork).not.toMatch(/oracle_precision|delta_lift|https?:\/\/(?!www\.w3\.org)/);
+  test("is pure geometry: no text, no script, no external reference", () => {
+    // The cover follows the reference blog's standard: abstract shapes on a
+    // soft gradient, never lettering. Text would also fight the title that the
+    // lead entry reveals over the image.
+    expect(artwork).not.toMatch(/<text\b|<tspan\b|<script\b|<animate\b|<foreignObject\b|<image\b/);
+    expect(artwork).not.toMatch(/https?:\/\/(?!www\.w3\.org)/);
   });
 
-  test("explains the real intervention without implying numerical outcomes", () => {
-    for (const label of ["Same task", "Three contexts", "Same criteria", "No Practice", "Unrelated Practice", "Relevant Practice", "not measured results"]) {
-      expect(artwork).toContain(label);
+  test("keeps the subject inside the band every crop shows", () => {
+    // The art is 8:5 but is cropped to 21:9 on the lead stage with object-cover,
+    // which keeps only the middle 686px of its 1000px height. Everything that
+    // matters is inside that band; the gradient bleeds to the edges.
+    expect(artwork).toContain('viewBox="0 0 1600 1000"');
+    for (const [, cy, r] of artwork.matchAll(/<circle cx="\d+" cy="(\d+)" r="(180|262|300)"/g)) {
+      const radius = Number(r);
+      if (radius === 180) {
+        expect(Number(cy) - radius).toBeGreaterThanOrEqual(157);
+        expect(Number(cy) + radius).toBeLessThanOrEqual(843);
+      }
     }
-    expect(artwork).toContain('data-stage="task"');
-    expect(artwork).toContain('data-stage="evaluation"');
-    expect(artwork).toContain("aria-labelledby=");
+  });
+
+  test("is described for assistive technology", () => {
+    expect(artwork).toContain('role="img"');
+    expect(artwork).toContain("<title");
     expect(artwork).toContain("<desc");
-    expect(artwork).not.toMatch(/\d+(?:\.\d+)?\s*%|<image\b|<a\b|<iframe\b/);
   });
 });
