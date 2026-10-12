@@ -10,7 +10,7 @@ icon: Wrench
 
 ## 命令失败时先查看原始 trace
 
-普通 CLI failure 会在 stderr 显示 code、message、recovery 和 `diagnostics.traceId`。这个 trace 属于原始调用，重试前先复制它：
+普通 CLI failure 会在 stderr 显示 code、完整可执行 message、适用的 resource 和 `diagnostics.traceId`，不携带 Backend 恢复策略。这个 trace 属于原始调用，重试前先复制它：
 
 ```sh
 lore logs --trace-id <traceId> --limit 100
@@ -27,6 +27,10 @@ lore --debug query "相同的最小任务描述"
 这次复现会产生新的 trace，不能把它的日志当作原始 failure 的现场。只有需要 protocol 字段或脚本需要 JSON envelope 时才使用 `--json`；不要为了取得原始 trace 而重跑命令。
 
 Host Hook 的 stdout 保持宿主 raw protocol，不会附带普通 CLI diagnostics。不要从它的 stdout 解析 trace。若 Hook 问题反复出现，可设置 `logging.level: debug`，或通过宿主支持的路径复现，再有意识地检查产生的本机证据。
+
+## Backend 版本不匹配或未运行
+
+按完整错误消息执行 `lore backend stop --if-idle`；只有返回 `state: "stopped"` 才运行 `lore backend start`，启动成功后以相同参数重试原命令。若 stop 返回 `deferred`，保留实例与任务，说明安全拒绝，不后台重试，也不在未经用户明确同意时使用普通 stop。query、model/index 状态和 backend status 不会因 mismatch 自动停止实例。若返回 `backend.unavailable`，执行 `lore backend start` 后重试原命令；ownership、无关 listener 或认证失败则先修正错误消息指出的具体问题，不盲目 stop。
 
 ## 查询返回 `preparing`
 

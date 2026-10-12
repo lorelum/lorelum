@@ -42,7 +42,9 @@ Show the artifact paths, included evidence classes, `externalReview`, and `missi
 
 ## Backend or Store errors
 
-- For a `backend.*` error, inspect `lore backend status --json` and resolve the reported startup, port, or compatibility problem before retrying.
+- For `backend.build-mismatch` or `backend.protocol-mismatch`, follow the complete error message. Run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent.
+- For `backend.unavailable`, run `lore backend start` as instructed, then retry the original command. For other `backend.*` errors, fix the specific startup, ownership, listener, authentication, or configuration problem before retrying. Query and status reads do not stop a Backend because of mismatch.
+- When maintaining a Lorelum-dependent long-task lease, retain the opaque lease ID, renew it before expiry, and release it in a `finally` path using the existing `backend lease acquire`/`renew`/`release` commands. Do not bypass lease or unknown-activity refusal.
 - For `store.busy` or `store.recovery-required`, do not treat the failure as an empty result. Wait for concurrent work to finish or recover the selected Store, then retry the same query.
 
 ## Keyword mode remains explicit

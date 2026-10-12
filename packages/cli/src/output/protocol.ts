@@ -53,16 +53,8 @@ export interface ProtocolFailure extends EnvelopeBase {
   error: {
     code: string;
     message: string;
-    recovery?: ErrorRecovery;
     resource?: ResourceFailure;
   };
-}
-
-export interface ErrorRecovery {
-  readonly action: "backend.stop-if-idle";
-  readonly automation: "auto" | "defer";
-  readonly reason: "idle" | "active-long-task" | "unknown-activity";
-  readonly retry: "original-command";
 }
 
 /** Validates the outer response only; command `data` uses its registry result schema. */
@@ -108,17 +100,6 @@ export const protocolResponseSchema = {
           properties: {
             code: { type: "string" },
             message: { type: "string" },
-            recovery: {
-              type: "object",
-              additionalProperties: false,
-              required: ["action", "automation", "reason", "retry"],
-              properties: {
-                action: { const: "backend.stop-if-idle" },
-                automation: { enum: ["auto", "defer"] },
-                reason: { enum: ["idle", "active-long-task", "unknown-activity"] },
-                retry: { const: "original-command" },
-              },
-            },
             resource: {
               type: "object",
               additionalProperties: false,
@@ -166,7 +147,6 @@ export function createFailureEnvelope(
   command: string,
   code: string,
   message: string,
-  recovery?: ErrorRecovery,
   diagnostics: ProtocolDiagnostics = { traceId: createTraceId() },
   resource?: ResourceFailure,
 ): ProtocolFailure {
@@ -179,7 +159,6 @@ export function createFailureEnvelope(
     error: {
       code,
       message,
-      ...(recovery === undefined ? {} : { recovery }),
       ...(resource === undefined ? {} : { resource }),
     },
   };

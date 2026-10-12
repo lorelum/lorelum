@@ -24,7 +24,6 @@ export function lifecycleCommand(
           throw new CliError(
             error.code,
             error.message,
-            undefined,
             error instanceof EmbeddingError ? error.resource : undefined,
           );
         throw error;

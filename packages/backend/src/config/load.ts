@@ -28,7 +28,6 @@ function invalidSetting(source: string, key?: string): BackendError {
   return new BackendError(
     "backend.config-invalid",
     undefined,
-    undefined,
     `Invalid ${target}. Correct or remove that setting, then retry.`,
   );
 }

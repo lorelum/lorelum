@@ -81,7 +81,7 @@ Agent 的正常调用使用默认 text 并直接阅读。`pack list`、`query`�
 | 显示 `state: preparing`、退出码 `1` | 检查模型状态，用 `lore model load` 等待，再重试原查询。 |
 | query 可用，但显示空结果列表 | 检查已安装 Pack，必要时补充更具体的任务描述。 |
 | index operation 已被接受 | 根据可见的 operation ID 检查，直到完成或失败。 |
-| 命令失败、退出码 `2` | 阅读 code/recovery 和原始 `diagnostics.traceId`；需要诊断时只查看该 trace，并按[故障排查](./troubleshooting)处理。只有需要 protocol 字段时才用 `--json`。 |
+| 命令失败、退出码 `2` | 阅读 code、完整 message 和原始 `diagnostics.traceId`；需要诊断时只查看该 trace，并按[故障排查](./troubleshooting)处理。只有需要 protocol 字段时才用 `--json`。 |
 
 默认使用 semantic query。语义查询失败不代表没有相关指导。仅在明确需要离线查询或隔离语义运行时问题时使用 keyword 模式，并明确说明检索模式。
 

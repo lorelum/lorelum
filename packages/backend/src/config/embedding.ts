@@ -56,7 +56,6 @@ export function resolveEmbeddingConfig(
     throw new BackendError(
       "backend.config-invalid",
       undefined,
-      undefined,
       `Invalid ${known && key !== undefined && key.length > 0 ? `embedding.${key.join(".")}` : "embedding section"} in the configuration file. Correct or remove the setting, then retry.`,
     );
   }

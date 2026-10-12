@@ -1,7 +1,7 @@
 import type { BackendSupervisor } from "@lorelum/backend/control";
 import { expect, test } from "bun:test";
 
-import { BackendError, type BackendStatus } from "@lorelum/backend/protocol";
+import type { BackendStatus } from "@lorelum/backend/protocol";
 
 import { run as runCli } from "../main";
 import { validateJsonSchema, validateProtocolSchema } from "../output/protocol-schema.test-helper";
@@ -30,12 +30,6 @@ function backendSupervisor(overrides: Partial<BackendSupervisor> = {}): BackendS
     status: async () => ready,
     stop: async () => ({ state: "stopped", model: "unloaded" }),
     stopIfIdle: async () => ({ state: "stopped" }),
-    inspectCompatibilityRecovery: async () => ({
-      action: "backend.stop-if-idle",
-      automation: "defer",
-      reason: "unknown-activity",
-      retry: "original-command",
-    }),
     acquireTaskLease: async () => ({
       leaseId: "0f8fad5b-d9cb-469f-a165-70867728950e",
       expiresAt: "2026-09-16T00:00:00.000Z",
@@ -192,21 +186,7 @@ test("publishes backend lifecycle and machine lease commands from the parser reg
   });
 });
 
-test("preserves declared backend failures without exposing unexpected details", async () => {
-  const expected = await invoke(
-    "backend.status",
-    backendSupervisor({
-      status: async () => {
-        throw new BackendError("backend.unavailable");
-      },
-    }),
-  );
-  expect(expected.exitCode).toBe(2);
-  expect(expected.response.error).toEqual({
-    code: "backend.unavailable",
-    message: "The local backend is not running.",
-  });
-
+test("unexpected backend failures do not expose private details", async () => {
   const unexpected = await invoke(
     "backend.status",
     backendSupervisor({

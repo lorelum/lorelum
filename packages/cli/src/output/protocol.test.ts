@@ -48,7 +48,6 @@ test("creates structured protocol failures", () => {
     "unknown",
     "usage.invalid",
     "The command invocation is invalid.",
-    undefined,
     { traceId },
   );
 
@@ -62,35 +61,32 @@ test("creates structured protocol failures", () => {
   expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 });
 
-test("creates optional machine recovery without widening unrelated failures", () => {
-  const response = createFailureEnvelope(
-    "query",
-    "backend.build-mismatch",
-    "A different Lorelum build owns the local backend.",
-    {
-      action: "backend.stop-if-idle",
-      automation: "auto",
-      reason: "idle",
-      retry: "original-command",
-    },
-    { traceId },
-  );
-  expect(response).toMatchObject({
-    error: {
-      code: "backend.build-mismatch",
-      recovery: {
-        action: "backend.stop-if-idle",
-        automation: "auto",
-        reason: "idle",
-        retry: "original-command",
-      },
-    },
+test("rejects the removed recovery field with the exported schema", () => {
+  const response = createFailureEnvelope("query", "backend.build-mismatch", "Build mismatch.", {
+    traceId,
   });
   expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
+  expect(
+    validateProtocolSchema(
+      {
+        ...response,
+        error: {
+          ...response.error,
+          recovery: {
+            action: "backend.stop-if-idle",
+            automation: "auto",
+            reason: "idle",
+            retry: "original-command",
+          },
+        },
+      },
+      protocolResponseSchema,
+    ),
+  ).not.toEqual([]);
 });
 
 test("rejects an undeclared details field with the exported schema", () => {
-  const response = createFailureEnvelope("query", "usage.invalid", "Invalid input.", undefined, {
+  const response = createFailureEnvelope("query", "usage.invalid", "Invalid input.", {
     traceId,
   });
   expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);

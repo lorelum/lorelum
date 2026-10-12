@@ -77,12 +77,6 @@ test("renders a default text error with every public error field", () => {
     command: "query",
     code: "backend.build-mismatch",
     message: "A different Lorelum build owns the local backend.",
-    recovery: {
-      action: "backend.stop-if-idle",
-      automation: "auto",
-      reason: "idle",
-      retry: "original-command",
-    },
     resource,
     diagnostics: { traceId: "00000000-0000-4000-8000-000000000002" as never },
   });
@@ -90,11 +84,6 @@ test("renders a default text error with every public error field", () => {
   expect(writer.value).toBe(`error:
   code: backend.build-mismatch
   message: A different Lorelum build owns the local backend.
-  recovery:
-    action: backend.stop-if-idle
-    automation: auto
-    reason: idle
-    retry: original-command
   resource:
     kind: native
     file: native/darwin-arm64/llama-server

@@ -85,8 +85,8 @@ Every `--json` CLI envelope includes `protocolVersion`, `toolVersion`, `command`
 | `ok` | Whether the invocation produced a successful command result. |
 | `data` | Command-specific result on success. |
 | `error.code` | Stable error identifier on failure. |
-| `error.message` | Human-readable explanation on failure. |
-| `error.recovery` | Optional Backend recovery action when one is available. |
+| `error.message` | Complete explanation and actionable next steps, identical to default text. |
+| `error.resource` | Optional safe resource-verification details: logical file, check, and available expected/actual values; not a Backend recovery policy. |
 
 Branch on error codes instead of parsing messages. Within a successful result, inspect command-specific state before treating asynchronous work as complete.
 

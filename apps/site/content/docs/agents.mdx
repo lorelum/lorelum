@@ -81,7 +81,7 @@ For normal Agent calls, use default text and read it directly. `pack list`, `que
 | Query shows `state: preparing`, exit `1` | Check model state, wait with `lore model load`, then retry the same query. |
 | Ready query shows an empty result list | Check installed Packs and refine the task description if useful. |
 | Index operation is accepted | Follow its visible operation ID until it is ready or failed. |
-| Command failure, exit `2` | Read its code/recovery and original `diagnostics.traceId`; if diagnosis is needed, inspect only that trace and follow [Troubleshooting](./troubleshooting). Use `--json` only for protocol-level fields. |
+| Command failure, exit `2` | Read its code, complete message, and original `diagnostics.traceId`; if diagnosis is needed, inspect only that trace and follow [Troubleshooting](./troubleshooting). Use `--json` only for protocol-level fields. |
 
 Semantic query is the default. A failed semantic query does not mean that relevant guidance is absent. Use keyword mode only for an intentional offline lookup or to isolate a semantic-runtime problem, and identify that mode explicitly.
 

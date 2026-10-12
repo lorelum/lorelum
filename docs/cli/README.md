@@ -1,6 +1,6 @@
 # CLI 文档
 
-Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`、`query`、`get` 的默认 text 是按当前决策用途精简后的视图，不保证逐字段呈现公开 `data`；这三个命令可用 `--verbose` 查看完整 data 的 text。传入 `--json` 时，stdout 输出完整 JSON envelope；成功包含 `command`、`ok: true` 和完整 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, recovery? }`。`--json` 的内容不受 `--verbose` 影响。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。
+Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`、`query`、`get` 的默认 text 是按当前决策用途精简后的视图，不保证逐字段呈现公开 `data`；这三个命令可用 `--verbose` 查看完整 data 的 text。传入 `--json` 时，stdout 输出完整 JSON envelope；成功包含 `command`、`ok: true` 和完整 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, resource? }`。`--json` 的内容不受 `--verbose` 影响。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。compatibility recovery policy 已移除；独立的 resource 资源故障详情与 diagnostics 仍保留。
 
 普通命令正常成功退出码为 `0`，可见命令错误为 `2`。机器调用方必须传 `--json` 并按稳定的 `error.code` 处理结果，不解析 message 或 text；`error.message` 面向人解释原因及修正方向，text 与 JSON 使用同一消息。`lore describe --json` 返回当前 protocol 命令和每个 `resultSchema`，可用于动态发现未来新增的普通命令；宿主 Hook ABI 使用各自的专门文档定义的输出。
 

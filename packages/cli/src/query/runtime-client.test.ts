@@ -4,7 +4,6 @@ import {
   type ModelPreparation,
   type BackendQueryResult,
   EmbeddingError,
-  BackendError,
   PROTOCOL_VERSION,
 } from "@lorelum/backend/protocol";
 
@@ -178,35 +177,5 @@ test("semantic query preserves resource details from a failed preparation status
     code: "embedding.native-resource-invalid",
     resource,
     message: new EmbeddingError("embedding.native-resource-invalid", undefined, resource).message,
-  });
-});
-
-test("annotates a compatibility error with the local automatic recovery policy", async () => {
-  const coordinator: SemanticRuntimeCoordinator = {
-    connect: async () => {
-      throw new BackendError("backend.build-mismatch");
-    },
-    beginModelPreparation: async () => {
-      throw new Error("must not prepare");
-    },
-    observeModelPreparation: async () => {
-      throw new Error("must not observe");
-    },
-  };
-  await expect(
-    createSemanticRuntimeClient(coordinator, undefined, async () => ({
-      action: "backend.stop-if-idle",
-      automation: "auto",
-      reason: "idle",
-      retry: "original-command",
-    })).query(root, { text: "recover", minCoveragePercent: 0 }),
-  ).rejects.toMatchObject({
-    code: "backend.build-mismatch",
-    recovery: {
-      action: "backend.stop-if-idle",
-      automation: "auto",
-      reason: "idle",
-      retry: "original-command",
-    },
   });
 });

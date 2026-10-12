@@ -87,23 +87,14 @@ When there are no eligible current vectors, or the caller requires more coverage
 
 ## Errors and exit codes
 
-Ready query results exit `0`. A successful preparing result exits `1`. Failures exit `2`. Default text success remains on stdout; default errors show complete `error.code`/message/recovery on stderr. `--json` writes the complete envelope on stdout. Build/protocol mismatch additionally includes a `recovery` object; machine callers should pass `--json` and branch on `data.state`, `error.code`, and—when supplied—`error.recovery`, not parse text or message.
+Ready query results exit `0`. A successful preparing result exits `1`. Failures exit `2`. Default text success remains on stdout; default errors show complete `error.code` and message, plus diagnostics and resource information when present, on stderr. `--json` writes the complete envelope on stdout. Text and JSON use the same complete message. Machine callers branch on `data.state` and `error.code`, not text or message; failures do not contain a compatibility recovery policy.
 
-```json
-{
-  "action": "backend.stop-if-idle",
-  "automation": "auto | defer",
-  "reason": "idle | active-long-task | unknown-activity",
-  "retry": "original-command"
-}
-```
-
-For `auto`, a supported host Agent runs `lore backend stop --if-idle` and retries the original query only after it reports `state: "stopped"`. For `defer`, it leaves the other task running and retries in the background; it does not ask the user to choose whether to stop another Backend. `query` itself never runs stop or falls back to keyword retrieval.
+Follow the complete error message: run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent. `query` itself never runs stop or falls back to keyword retrieval.
 
 | Code | Meaning |
 | --- | --- |
 | `usage.invalid` | Missing or invalid text, `--top-k`, or `--mode`. Validation happens before a semantic query connects to the Backend. |
-| `backend.build-mismatch` / `backend.protocol-mismatch` | A verified Backend belongs to another build or protocol. Consume `error.recovery`: auto handoff only uses `backend stop --if-idle`; active or unknown work is deferred and retried in the background. |
+| `backend.build-mismatch` / `backend.protocol-mismatch` | A verified Backend belongs to another build or protocol. Follow the message: `lore backend stop --if-idle`, only after stopped run `lore backend start`, then retry the original query. On deferred, leave the task running; no background retry or ordinary stop without explicit user consent. |
 | other `backend.*` | The automatic Backend start could not safely complete because of a port conflict, busy state, or deadline. Inspect the reported condition. |
 | `embedding.*` | Automatic preparation was disabled, failed, or cannot safely continue. A failed accepted operation returns this code rather than `indexing`; check `lore model status`, fix configuration/resources, then use `lore model load` to retry and wait. |
 | `semantic.index-not-ready` | Compatibility-only Backend callers omitted the derived cache route. Normal CLI semantic query starts or joins its operation automatically. |

@@ -18,26 +18,25 @@ export const backendErrorCodes = [
 ] as const;
 export type BackendErrorCode = (typeof backendErrorCodes)[number];
 
-export interface BackendCompatibilityRecovery {
-  readonly action: "backend.stop-if-idle";
-  readonly automation: "auto" | "defer";
-  readonly reason: "idle" | "active-long-task" | "unknown-activity";
-  readonly retry: "original-command";
-}
-
 const messages: Record<BackendErrorCode, string> = {
-  "backend.unavailable": "The local backend is not running.",
-  "backend.port-conflict": "The local backend address is occupied by an unverified service.",
+  "backend.unavailable":
+    "The local backend is not running. Run `lore backend start`, then retry this command.",
+  "backend.port-conflict":
+    "The local backend address is occupied by an unverified service. Free 127.0.0.1:26186, then retry this command. Do not terminate an unverified process.",
   "backend.incompatible": "The backend does not match this client build or protocol.",
-  "backend.build-mismatch": "A different Lorelum build owns the local backend.",
-  "backend.protocol-mismatch": "The local backend uses an incompatible Lorelum protocol.",
-  "backend.unauthorized": "The local backend could not authenticate this request.",
+  "backend.build-mismatch":
+    "A different Lorelum build owns the local backend. Run `lore backend stop --if-idle`; if stopped, run `lore backend start`, then retry this command. If deferred, leave it running and obtain explicit user approval before running `lore backend stop`; do not retry in the background.",
+  "backend.protocol-mismatch":
+    "The local backend uses an incompatible Lorelum protocol. Run `lore backend stop --if-idle`; if stopped, run `lore backend start`, then retry this command. If deferred, leave it running and obtain explicit user approval before running `lore backend stop`; do not retry in the background.",
+  "backend.unauthorized":
+    "The local backend could not authenticate this request. Use the CLI and runtime credentials from the same local installation, then retry this command. Do not stop an unauthenticated service.",
   "backend.invalid-request": "The backend request is invalid.",
   "backend.operation-expired":
     "The semantic index operation is no longer available in this backend instance.",
   "backend.busy": "The local backend is busy or stopping.",
   "backend.deadline-exceeded": "The backend operation did not finish before its deadline.",
-  "backend.state-invalid": "The backend runtime state cannot be safely used or recovered.",
+  "backend.state-invalid":
+    "The backend runtime state cannot be safely used or recovered. Inspect this command's diagnostic trace, correct the reported runtime ownership or process identity problem, then retry this command. Do not delete the runtime record or kill an unverified process.",
   "backend.config-invalid": "The local backend configuration is invalid.",
   "backend.failed": "The backend operation failed.",
 };
@@ -45,7 +44,6 @@ export class BackendError extends Error {
   constructor(
     readonly code: BackendErrorCode,
     options?: ErrorOptions,
-    readonly recovery?: BackendCompatibilityRecovery,
     message = messages[code],
   ) {
     super(message, options);

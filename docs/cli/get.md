@@ -53,7 +53,7 @@ Separate invocations can observe different Store revisions or project source sta
 
 ## Errors and exit codes
 
-Success exits `0`. Failures exit `2`。默认成功写保留完整指导正文与来源 locator 的精简 text 到 stdout；`--verbose` 显示完整旧 data 的 text。默认失败写 `error.code`、message 和存在时的 recovery 到 stderr；`--json` 时 success/failure 都在 stdout 写完整 envelope 和 data。
+Success exits `0`. Failures exit `2`。默认成功写保留完整指导正文与来源 locator 的精简 text 到 stdout；`--verbose` 显示完整旧 data 的 text。默认失败写 `error.code`、完整 message 及适用的 diagnostics/resource 到 stderr；`--json` 时 success/failure 都在 stdout 写完整 envelope 和 data。text 与 JSON 使用同一错误消息，不包含 compatibility recovery policy。
 
 | Code | Meaning |
 | --- | --- |

@@ -30,9 +30,9 @@ If the semantic model is still preparing, data is `{ "state": "preparing", "prep
 | `embedding.native-resource-invalid` | Reinstall the matching complete CLI package, including `native/<target>/`; redownloading the model will not repair it. |
 | `embedding.resource-invalid` | Inspect `lore model status --json` and correct the reported cached or configured model file before retrying `lore model load`. |
 | `semantic.embedding-failed` or other `embedding.*` | Check `lore model status` and the specific error guidance before retrying. |
-| `backend.build-mismatch` / `backend.protocol-mismatch` | A verified Backend belongs to another Lorelum build or protocol. A supported Agent reads `error.recovery`: it automatically runs `lore backend stop --if-idle` and retries only when the Backend is proven idle; active or unknown work is left running and retried in the background. |
+| `backend.build-mismatch` / `backend.protocol-mismatch` | Follow the complete error message: run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent. |
 | `query.unavailable` / `query.failed` | Inspect the keyword index and Store state. |
 | `store.busy` / `store.recovery-required` | Wait for the active Store operation or perform the documented recovery. |
 | `usage.invalid` | Correct the query text or option values. |
 
-Successful results exit `0`; preparation exits `1`; failures exit `2`. Build/protocol mismatch failures additionally expose `error.recovery` with `action`, `automation`, `reason`, and `retry`; callers use it instead of parsing an error message or asking a user to stop another Backend. For the installed schema and complete error allowlist, run `lore describe query`.
+Successful results exit `0`; preparation exits `1`; failures exit `2`. Default text and JSON error.message use the same complete message; failures retain applicable resource and diagnostics, without a Backend recovery policy. Machine callers branch on error.code rather than parsing messages. For the installed schema and complete error allowlist, run `lore describe query`.

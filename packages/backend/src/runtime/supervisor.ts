@@ -13,7 +13,7 @@ import {
 } from "../config";
 import { createBackendClient, type BackendClient } from "../client";
 import { BACKEND_URL, PROTOCOL_VERSION } from "../protocol/constants";
-import { BackendError, type BackendCompatibilityRecovery } from "../protocol/errors";
+import { BackendError } from "../protocol/errors";
 import type { BackendStatus } from "../modules/backend/model";
 import {
   assessRuntimeActivity,
@@ -68,7 +68,6 @@ export interface BackendSupervisor {
   stop(): Promise<BackendStatus>;
   /** Safe automatic handoff. It never signals an active or unverifiable lifecycle. */
   stopIfIdle(): Promise<BackendHandoffResult>;
-  inspectCompatibilityRecovery(): Promise<BackendCompatibilityRecovery>;
   acquireTaskLease(ttlMs: number): Promise<LeaseGrant>;
   renewTaskLease(leaseId: string, ttlMs: number): Promise<LeaseGrant>;
   releaseTaskLease(leaseId: string): Promise<void>;
@@ -124,27 +123,6 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
       return stopped;
     }
     return client(record).status();
-  }
-
-  async function inspectCompatibilityRecovery(): Promise<BackendCompatibilityRecovery> {
-    try {
-      const record = await readRecord(directory);
-      if (record === undefined || !(await isSameProcess(record)))
-        return deferred("unknown-activity");
-      const assessment = await withActivityLock(directory, timeoutMs, () =>
-        inspectActivity(record),
-      );
-      return assessment.state === "idle"
-        ? {
-            action: "backend.stop-if-idle",
-            automation: "auto",
-            reason: "idle",
-            retry: "original-command",
-          }
-        : deferred(assessment.reason);
-    } catch {
-      return deferred("unknown-activity");
-    }
   }
 
   async function inspectActivity(record: RuntimeRecord): Promise<RuntimeActivityAssessment> {
@@ -249,7 +227,6 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
           releaseTaskLease(directory, record.instanceId, leaseId),
         ),
       ),
-    inspectCompatibilityRecovery,
   };
 
   async function stopLocked(): Promise<BackendStatus> {
@@ -398,15 +375,6 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
       throw new BackendError("backend.failed", { cause: error });
     }
   }
-}
-
-function deferred(reason: Exclude<RuntimeActivityReason, "idle">): BackendCompatibilityRecovery {
-  return {
-    action: "backend.stop-if-idle",
-    automation: "defer",
-    reason,
-    retry: "original-command",
-  };
 }
 
 async function currentProcessIdentity(): Promise<ProcessIdentity> {

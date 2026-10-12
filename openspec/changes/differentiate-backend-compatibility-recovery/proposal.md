@@ -1,3 +1,5 @@
+> 本提案的结构化自动/等待恢复策略已由 `complete-managed-backend-upgrade-cutover` 的用户批准修订替代：删除 compatibility recovery policy，改用完整错误消息与 `backend stop --if-idle` → stopped 后 `backend start` → 原命令重试。deferred 不后台重试、不未经明确同意强停。下文仅保留历史提案背景；错误码区分、ownership、guarded stop 和 task lease 安全边界继续保留，不代表实施状态或验证已完成。
+
 ## Why
 
 当前 `backend.incompatible` 将已验证的 build mismatch 与 protocol mismatch 混为同一错误。不同 source worktree 的绝对路径参与 build identity，即使处于同一 commit 也会频繁触发前者；调用方因此既不知道能否安全恢复，也不能在不打断另一项工作的前提下帮助用户继续。已完成的安装器升级会在替换命令入口前关闭旧 Backend，但旧安装器、手工替换或中断升级仍可能留下旧 daemon；新版 CLI 不应要求用户找回已删除的旧 CLI 才能恢复。

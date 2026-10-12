@@ -10,7 +10,7 @@ import {
   type QueryResult,
 } from "@lorelum/engine";
 import type { BackendClient } from "@lorelum/backend/client";
-import { BackendError, EmbeddingError } from "@lorelum/backend/protocol";
+import { EmbeddingError } from "@lorelum/backend/protocol";
 
 import { run as runCli } from "../main.js";
 import {
@@ -414,37 +414,6 @@ test("maps undeclared query failures without exposing details", async () => {
   expect(result.exitCode).toBe(2);
   expect(result.response.error.code).toBe("runtime.unexpected");
   expect(JSON.stringify(result.response)).not.toContain("internal-path");
-});
-
-test("publishes compatibility recovery as an optional query failure field", async () => {
-  const result = await invoke(
-    ["query", "recover this task"],
-    {
-      async query() {
-        return queryResult;
-      },
-    },
-    async () => ({
-      async query() {
-        throw new BackendError("backend.protocol-mismatch", undefined, {
-          action: "backend.stop-if-idle",
-          automation: "defer",
-          reason: "active-long-task",
-          retry: "original-command",
-        });
-      },
-    }),
-  );
-  expect(result.exitCode).toBe(2);
-  expect(result.response.error).toMatchObject({
-    code: "backend.protocol-mismatch",
-    recovery: {
-      action: "backend.stop-if-idle",
-      automation: "defer",
-      reason: "active-long-task",
-      retry: "original-command",
-    },
-  });
 });
 
 test("publishes query arguments, schema, error allowlist, and exit codes through discovery", () => {

@@ -30,9 +30,9 @@ lore query "token session cookie" --mode keyword
 | `embedding.native-resource-invalid` | 重新安装包含 `native/<target>/` 的匹配完整 CLI 包；重新下载模型无效。 |
 | `embedding.resource-invalid` | 查看 `lore model status --json`，修正所报告的缓存或配置模型文件，再重试 `lore model load`。 |
 | `semantic.embedding-failed` 或其他 `embedding.*` | 查看 `lore model status` 和具体错误指引，再决定是否重试。 |
-| `backend.build-mismatch` / `backend.protocol-mismatch` | 已验证的 Backend 属于另一 Lorelum build 或 protocol。支持的 Agent 读取 `error.recovery`：只有证明 Backend idle 时才自动运行 `lore backend stop --if-idle` 并重试；active 或无法确认 activity 时保持另一任务运行，在后台重试。 |
+| `backend.build-mismatch` / `backend.protocol-mismatch` | 按完整错误消息执行 `lore backend stop --if-idle`；只有返回 `state: "stopped"` 才运行 `lore backend start`，启动成功后以相同参数重试原命令。若 stop 返回 `deferred`，保留实例与任务，说明安全拒绝，不后台重试，也不在未经用户明确同意时使用普通 stop。 |
 | `query.unavailable` / `query.failed` | 检查 keyword index 与 Store 状态。 |
 | `store.busy` / `store.recovery-required` | 等待 Store 操作完成或按文档执行恢复。 |
 | `usage.invalid` | 修正查询文本或选项值。 |
 
-成功退出 `0`，准备中退出 `1`，失败退出 `2`。build/protocol mismatch 失败还会提供 `error.recovery` 的 `action`、`automation`、`reason` 与 `retry`；调用方应消费它，而不是解析 message 或询问用户是否停止另一个 Backend。完整 schema 与错误允许列表见 `lore describe query`。
+成功退出 `0`，准备中退出 `1`，失败退出 `2`。默认 text 与 JSON error.message 使用同一完整消息；failure 保留适用的 resource 与 diagnostics，不包含 Backend 恢复策略。机器调用方按 error.code 分支，不解析 message。完整 schema 与错误允许列表见 `lore describe query`。

@@ -42,11 +42,9 @@ Show the artifact paths, included evidence classes, `externalReview`, and `missi
 
 ## Backend or Store errors
 
-- For `backend.build-mismatch` or `backend.protocol-mismatch`, read `error.recovery`; do not inspect `backend status`, ask the user whether to stop, or run ordinary `lore backend stop`.
-  - `automation: "auto"`: run `lore backend stop --if-idle --json`. If its data state is `stopped`, retry the original query immediately. If it returns `deferred`, treat it as the defer path below.
-  - `automation: "defer"`: leave the other Backend running, keep the current task moving, and retry the original query in the background with bounded backoff. Do not kill, stop, or prompt the user about the other task.
-- Before a host Agent starts a Lorelum-dependent long task, acquire a machine lease with `lore backend lease acquire`; retain its opaque `leaseId`, renew it before the returned expiry with `lore backend lease renew <leaseId>`, and release it in a `finally` path with `lore backend lease release <leaseId>`. This is host automation, not a user-facing setup step. If a lease cannot be maintained, do not attempt automatic Backend handoff.
-- For other `backend.*` errors, inspect the documented startup, port, or configuration condition before retrying.
+- For `backend.build-mismatch` or `backend.protocol-mismatch`, follow the complete error message. Run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent.
+- Before a host Agent starts a Lorelum-dependent long task, acquire a machine lease with `lore backend lease acquire`; retain its opaque `leaseId`, renew it before the returned expiry with `lore backend lease renew <leaseId>`, and release it in a `finally` path with `lore backend lease release <leaseId>`. This remains host automation, not user-facing setup; do not bypass a valid lease or unknown activity.
+- For `backend.unavailable`, follow the message to run `lore backend start`, then retry the original command. For other `backend.*` errors, fix the specific startup, ownership, listener, authentication, or configuration problem before retrying. Query and status reads never stop a Backend because of mismatch.
 - For `store.busy` or `store.recovery-required`, do not treat the failure as an empty result. Wait for concurrent work to finish or recover the selected Store, then retry the same query.
 
 ## Keyword mode remains explicit

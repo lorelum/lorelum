@@ -2,7 +2,6 @@ import {
   assertJsonValue,
   createFailureEnvelope,
   createSuccessEnvelope,
-  type ErrorRecovery,
   type JsonValue,
   type OutputWriter,
   type ProtocolDiagnostics,
@@ -29,7 +28,6 @@ export type RenderableResult =
       command: string;
       code: string;
       message: string;
-      recovery?: ErrorRecovery;
       resource?: ResourceFailure;
       diagnostics?: ProtocolDiagnostics;
     }>;
@@ -70,7 +68,6 @@ export function renderResult(
           result.command,
           result.code,
           message,
-          result.recovery,
           result.diagnostics ?? { traceId: createTraceId() },
           result.resource,
         ),
@@ -84,7 +81,6 @@ export function renderResult(
       error: {
         code: result.code,
         message,
-        ...(result.recovery === undefined ? {} : { recovery: result.recovery }),
         ...(result.resource === undefined ? {} : { resource: result.resource }),
       },
       diagnostics: result.diagnostics ?? { traceId: createTraceId() },

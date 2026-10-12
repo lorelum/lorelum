@@ -17,8 +17,8 @@ lore backend stop --if-idle
 
 升级后，当前 CLI 可以显式停止另一 build 的、已经验证为同一实例的本地 Backend。protocol 兼容时走 authenticated shutdown；protocol 不兼容时，当前 CLI 使用私有 runtime record 与精确进程身份，在 graceful deadline 后只终止同一 owned lifecycle。它不要求旧 CLI 仍存在，也不会因为某个进程占用了本地端口就终止它。
 
-`stop --if-idle` 是支持的 Agent 自动恢复专用的受限动作。它在 lifecycle lock 内重新检查私有 activity 与 task lease：只有证明 idle 的 Backend 才会停止。模型准备、semantic indexing、有效 Agent lease 或无法判断 activity 时返回 `deferred`，另一任务保持不动。Agent 只有收到 query 的 `error.recovery` 时才会自动使用它，绝不会自主调用普通 `stop`。
+`stop --if-idle` 在 lifecycle lock 内重新检查私有 activity 与 task lease，仅停止可证明 idle 的 Backend。模型准备、semantic indexing、有效 lease 或未知 activity 返回 `deferred`，不打断另一任务。按完整错误消息执行 `lore backend stop --if-idle`；只有返回 `state: "stopped"` 才运行 `lore backend start`，启动成功后以相同参数重试原命令。若 stop 返回 `deferred`，保留实例与任务，说明安全拒绝，不后台重试，也不在未经用户明确同意时使用普通 stop。
 
 默认服务地址为 loopback（`127.0.0.1:26186`）。全局 `--store-root` 只影响 Store 数据；`--log-level` 控制 stderr 的进度与诊断日志。
 
-常见错误包括 `backend.unavailable`、`backend.port-conflict`、`backend.build-mismatch`、`backend.protocol-mismatch`、`backend.incompatible`、`backend.config-invalid`、`backend.busy`、`backend.failed` 和 `backend.deadline-exceeded`。build/protocol mismatch 的 query failure 会提供 machine-readable recovery，不要求用户处理 worktree 细节。成功退出 `0`，失败退出 `2`。各子命令 schema 见 `lore describe backend.start` 等。
+常见错误包括 `backend.unavailable`、`backend.port-conflict`、`backend.build-mismatch`、`backend.protocol-mismatch`、`backend.incompatible`、`backend.config-invalid`、`backend.busy`、`backend.failed` 和 `backend.deadline-exceeded`。跨 query/model/index/backend 的 build/protocol mismatch 使用完整 message 指导安全恢复，不携带策略对象；unavailable 指示 `lore backend start` 后重试。ownership、listener 与认证问题返回具体修正方向。query 和状态读取不会因 mismatch 自动停止进程。成功退出 `0`，失败退出 `2`。各子命令 schema 见 `lore describe backend.start` 等。

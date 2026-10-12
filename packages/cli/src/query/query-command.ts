@@ -210,7 +210,6 @@ function throwVisibleQueryError(error: unknown): never {
     throw new CliError(
       error.code,
       error.message,
-      error instanceof BackendError ? error.recovery : undefined,
       error instanceof EmbeddingError ? error.resource : undefined,
     );
   }

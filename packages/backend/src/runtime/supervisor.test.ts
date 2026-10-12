@@ -211,11 +211,6 @@ test.concurrent(
       const otherBuild = createBackendSupervisor({ ...options, buildIdentity: "different-build" });
       await owner.start();
       const record = (await readRecord(directory))!;
-      expect(await otherBuild.inspectCompatibilityRecovery()).toMatchObject({
-        automation: "auto",
-        reason: "idle",
-      });
-
       const lease = await owner.acquireTaskLease(60_000);
       expect(await otherBuild.stopIfIdle()).toEqual({
         state: "deferred",
