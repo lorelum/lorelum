@@ -26,7 +26,7 @@ function storePractice(id: string, body = id): EffectivePractice {
   return Object.freeze({ practiceId: id, ...canonical, sources: Object.freeze([]) });
 }
 
-test("builds a project semantic artifact during the query wait budget", async () => {
+test("project query starts indexing and reads the completed semantic artifact", async () => {
   const [root, cache] = await Promise.all([
     createIsolatedProjectSandbox("lorelum-backend-project-runtime-"),
     mkdtemp(join(tmpdir(), "lorelum-backend-project-runtime-cache-")),
@@ -41,6 +41,10 @@ test("builds a project semantic artifact during the query wait budget", async ()
       "---\nid: platform.query\ntitle: Project query\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When querying a project-local Pack.\n---\nUse an incrementally published semantic cache.\n",
     );
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    let releaseEmbedding!: () => void;
+    const embeddingGate = new Promise<void>((resolve) => {
+      releaseEmbedding = resolve;
+    });
     const runtime = new ContentAddressedSemanticRuntime(
       {
         async readEffectivePracticeSnapshot() {
@@ -59,6 +63,7 @@ test("builds a project semantic artifact during the query wait budget", async ()
       {
         maxBatchSize: 8,
         async embed(inputs) {
+          await embeddingGate;
           return { encodingId, vectors: inputs.map(() => [1, 0]) };
         },
       },
@@ -78,18 +83,28 @@ test("builds a project semantic artifact during the query wait budget", async ()
       },
     );
 
-    await expect(
-      runtime.query(
-        { rootPath: join(root, "store") },
-        { kind: "project", projectRoot: root, cacheRoot: cache },
-        { text: "incrementally published cache" },
-        { maxWaitMs: 1_000, minCoveragePercent: 0 },
-      ),
-    ).resolves.toMatchObject({
-      mode: "semantic",
-      coverage: "complete",
-      results: [{ practiceId: "platform.query" }],
-    });
+    const storageRoot = { rootPath: join(root, "store") };
+    const target = { kind: "project" as const, projectRoot: root, cacheRoot: cache };
+    const query = { text: "incrementally published cache" };
+    const policy = { maxWaitMs: 0, minCoveragePercent: 0 };
+    try {
+      // Hold publication explicitly; runner speed must not decide the query state.
+      await expect(runtime.query(storageRoot, target, query, policy)).resolves.toMatchObject({
+        state: "indexing",
+        indexedPracticeCount: 0,
+        totalPracticeCount: 1,
+      });
+      releaseEmbedding();
+      await runtime.waitForIdle();
+      await expect(runtime.query(storageRoot, target, query, policy)).resolves.toMatchObject({
+        mode: "semantic",
+        coverage: "complete",
+        results: [{ practiceId: "platform.query" }],
+      });
+    } finally {
+      releaseEmbedding();
+      await runtime.waitForIdle();
+    }
   } finally {
     await Promise.all([
       rm(root, { recursive: true, force: true }),

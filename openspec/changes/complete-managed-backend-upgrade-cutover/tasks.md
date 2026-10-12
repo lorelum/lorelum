@@ -11,3 +11,4 @@
 - 有效 task lease 与缺失 activity 时，guarded stop 拒绝终止；无关 listener 返回具体 port conflict，服务仍可访问。Backend 停止后的 model status 返回 unavailable 和启动指引，启动后原状态读取成功。
 - `bun test packages/cli packages/backend`：684 pass、6 skip、0 fail；`bun run typecheck`、`bun run fmt:check` 与本地固定 OpenSpec 1.7.0 的 strict 验证通过；`bun run lint` 通过，4 个 warning 位于未修改的 update/log 文件。
 - 临时 smoke 脚本、daemon、runtime 与 Store 已清理。Windows 未实测；安装器、停止权限及进程终止机制未改动。
+- 首次 Linux CI 在 project query 的 1 秒完成假设处失败（run 38269008691）。测试改为显式阻塞 embedding，断言 indexing，再释放并等待任务完成、断言 complete，生产逻辑和 timeout 不变。修复后目标文件 8 pass；macOS 按 CI 命令 `bun test --parallel=4 --max-concurrency=3` 全仓库 1292 pass、19 skip、0 fail，typecheck/lint/fmt 再次通过。
