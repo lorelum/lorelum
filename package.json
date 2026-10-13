@@ -16,7 +16,6 @@
     "fmt:check": "oxfmt --check . '!**/*.md' '!**/*.mdx'",
     "db:generate": "bun scripts/db/generate.ts",
     "design:lint": "designmd lint DESIGN.md",
-    "validate:openspec": "node node_modules/@fission-ai/openspec/bin/openspec.js validate --changes --strict --no-interactive",
     "typecheck": "bun scripts/ci/typecheck.ts",
     "build:native": "bun scripts/native/build-embedding.ts",
     "build:cli": "bun scripts/release/build.ts",
@@ -28,7 +27,6 @@
     "versions:site": "cd apps/site && npx wrangler versions upload"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "1.7.0",
     "@google/design.md": "0.4.0",
     "@types/bun": "1.4.2",
     "drizzle-kit": "0.31.10",
