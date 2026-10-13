@@ -1,0 +1,89 @@
+---
+title: Pi Coding Agent
+description: 安装 Lorelum Pi Package，自动发现 Pack 并按需检索工程指导。
+icon: Plug
+---
+
+Lorelum Pi Package 一起加载 Extension 和 Skill。Extension 在会话开始及上下文压缩成功后提供精简的 Installed Pack Catalog；Skill 指导 Agent 有针对性地执行 `lore query`，再用 `lore get` 阅读全文。Extension 从不自动检索 Practice 正文。
+
+## 开始前
+
+先完成[快速开始](./quickstart)，确保 Pi 实际执行命令的环境中 `lore --version` 可用。集成面向 Pi Coding Agent 1.2.0；CLI 和 Knowledge Pack 仍独立于这个 Package 安装和管理。
+
+Extension 具有 Pi 进程的本机权限，安装前请审阅来源。项目级资源继续遵守 Pi 原生项目信任决策，Lorelum 不会替你批准项目。
+
+## 安装
+
+使用可信的 Lorelum checkout，并通过 Pi 原生本地路径安装 Package。不需要安装 Bun 或构建 Lorelum 源码。
+
+以下命令可用于 macOS/Linux shell 和 Windows PowerShell：
+
+```sh
+git clone https://github.com/lorelum/lorelum.git "$HOME/lorelum-pi"
+pi install "$HOME/lorelum-pi/plugins/pi/lorelum"
+pi list
+pi
+```
+
+如果 checkout 目录已经存在，审阅后使用它或另选一个空位置，不要覆盖。也可以从其他可信 checkout 的 `plugins/pi/lorelum` 绝对路径安装。
+
+请保留 checkout：Pi 直接加载本地 Package 文件，不会复制一份。默认是个人安装；仅为当前项目声明时使用 `pi install --local <absolute-package-path>`，并按 Pi 正常信任流程决定是否加载。机器专属的绝对路径不是可移植的团队配置。
+
+不要使用 Git 子目录 URI、其他宿主的 marketplace selector 或尚未发布的 npm 包作为安装来源。
+
+## 第一次使用
+
+开始一个任务，告诉 Pi：
+
+```text
+请在确定这个变更的计划前，用 Lorelum 查找相关工程指导。
+```
+
+Pi 获得的是 Pack 名称和相关性提示，不是全部 Practice 正文。Catalog 只是路由元数据，缺失 description 或被截断的条目不代表没有相关指导。Agent 在重要判断时进行一次有针对性的语义检索，使用选中的 Practice 前阅读全文。
+
+需要显式调用时使用原生 Skill 命令：
+
+```text
+/skill:lorelum 为当前变更查找工程指导。
+```
+
+没有额外的 `/lore` 命令。自动 Catalog 不可用但 Skill 仍启用时，Skill 可以为当前任务列一次已安装 Pack，再遵循正常 CLI 恢复指引。
+
+## 会话与压缩
+
+新建、恢复、切换、fork 会话和 `/reload` 都会刷新 Catalog。手动或自动压缩成功后也会刷新，包括 Pi 内部的 compact-and-retry 继续请求，不要求用户再发一条消息。
+
+普通模型请求和工具迭代复用快照，没有文件监控或定时刷新。外部安装或移除 Pack 后，可用 `/reload` 立即刷新。
+
+这一版不向命令传递会话身份，也不向子 Agent 传递主 Agent 的已读 Practice 候选。发现 Pack 不会自动安装 CLI/Pack、启动 Backend 或下载模型。
+
+## 更新与移除
+
+更新可信 checkout 后，在 Pi 中执行 `/reload`：
+
+```sh
+git -C "$HOME/lorelum-pi" pull --ff-only
+```
+
+Git 提示本地修改或历史分叉时，请保留工作并先处理该提示。`pi update --extensions` 不会替你更新本地 checkout。
+
+用同一绝对来源移除个人 Package：
+
+```sh
+pi remove "$HOME/lorelum-pi/plugins/pi/lorelum"
+```
+
+项目级安装使用 `--local`，随后重启 Pi 或 `/reload`。移除不会卸载 CLI 或删除 Pack，不要为清理 Extension 删除 Lorelum Store。
+
+## 故障排查
+
+Catalog 故障不阻断普通 Pi 任务，也不被当作空检索结果。交互提示给出恢复动作；非交互模式不会向 Pi 协议输出添加文本。
+
+| 情况 | 结果 | 下一步 |
+| --- | --- | --- |
+| CLI 缺失或版本太旧 | 没有自动 Catalog，任务继续 | [安装或更新 CLI](./installation) 后 `/reload`。 |
+| 空 Store | Catalog 明确显示没有已安装 Knowledge Pack | [安装所需 Pack](./packs) 后 `/reload`。 |
+| Store 故障、超时或响应无效 | 不把旧 Catalog 冒充本次成功刷新 | 执行 `lore pack list --details`，按 CLI 提示排障后 `/reload`。 |
+| Package 被禁用或项目尚未信任 | 自动发现不可用 | 审阅并启用资源，或按 Pi 正常流程完成信任决策。 |
+
+语义检索或模型问题请查看[故障排查](./troubleshooting)。Package 增加的是知识发现，不是第二套检索引擎。

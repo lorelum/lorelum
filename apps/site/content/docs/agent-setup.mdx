@@ -15,11 +15,12 @@ Lorelum helps your coding agent find relevant engineering guidance while it work
 | ZCode                         | Install the [Lorelum Plugin](./zcode).                     |
 | Claude Code                   | Install the [Lorelum Plugin](./claude).                    |
 | Cursor                        | Install the [Lorelum Plugin](./cursor).                    |
+| Pi Coding Agent               | Install the [Lorelum Pi Package](./pi).                    |
 | Another command-capable agent | Use its supported Skill mechanism or project instructions. |
 
 ## Host capabilities
 
-All five official Plugins provide the Lorelum Skill and a SessionStart Pack Catalog. They use the same `lore query` and `lore get` CLI; the differences below concern what each host's native Hooks can pass between a session and its subagents.
+The five official Plugins and Pi Package provide the Lorelum Skill and a lifecycle Pack Catalog. They use the same `lore query` and `lore get` CLI; the differences below concern native session and subagent capabilities.
 
 | Host | SessionStart Pack Catalog | Associate successful `lore get` reads with a session | Show read candidates to a new subagent |
 | --- | --- | --- | --- |
@@ -28,6 +29,7 @@ All five official Plugins provide the Lorelum Skill and a SessionStart Pack Cata
 | [Cursor](./cursor) | Yes, but it may appear after the first turn | Yes, through Shell `preToolUse` | No; its subagent-start response cannot inject context |
 | [WorkBuddy](./workbuddy) | Yes | Yes, through Bash `PreToolUse` | No; the host does not deliver `SubagentStart` Hook output to the subagent |
 | [ZCode](./zcode) | Yes | Yes, through Bash `PreToolUse` | No; the host does not provide a subagent-start event |
+| [Pi](./pi) | Yes, through its Extension; restored after successful compaction | No identity injection | No parent read-candidate handoff |
 
 Cursor starts its Catalog Hook without waiting; if the Catalog is not yet visible, its Skill can list installed Packs once. Read association requires a successful `get`, an already-running Backend, and a usable session identity; a missed read never changes the result of `get`. The shared [shell setting](./configuration#agent-shell-session-identity) determines which eligible commands receive identity. A recorded read is only a possibly relevant candidate, not proof that the parent adopted a Practice. Even in Codex and Claude Code, the subagent receives bounded metadata, not the full Practice body. The SessionStart Catalog is Pack metadata, not a substitute for these read-candidate hints.
 
@@ -64,4 +66,4 @@ For hosts that can pass session identity to shell commands, the shared [Agent se
 
 ## Update
 
-For a file-based Skill, replace `SKILL.md` with the latest version. For Codex, WorkBuddy, ZCode, Claude Code, and Cursor, update the Plugin in the host application; their installation pages explain the exact steps.
+For a file-based Skill, replace `SKILL.md` with the latest version. For Codex, WorkBuddy, ZCode, Claude Code, and Cursor, update the Plugin in the host application; their installation pages explain the exact steps. For [Pi](./pi#update-and-remove), update the local checkout and `/reload`.

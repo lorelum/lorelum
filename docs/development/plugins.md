@@ -81,7 +81,7 @@ codex plugin add lorelum@lorelum-plugins
 
 ## Pi checkout install
 
-Pi installs the repository checkout as a native local Package; it has no marketplace registration. From a Pi session or the terminal:
+Pi installs the repository checkout as a native local Package; it has no marketplace registration. From the repository root in a terminal:
 
 ```sh
 pi install "$PWD/plugins/pi/lorelum"
