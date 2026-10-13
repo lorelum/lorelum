@@ -1,0 +1,89 @@
+---
+title: Pi Coding Agent
+description: Install Lorelum's Pi Package for automatic Pack discovery and targeted retrieval.
+icon: Plug
+---
+
+The Lorelum Pi Package loads an Extension and Skill together. The Extension provides a compact Installed Pack Catalog at session start and after successful context compaction. The Skill guides targeted `lore query` and full `lore get` reads; the Extension never retrieves Practice bodies automatically.
+
+## Before you start
+
+Complete [Quickstart](./quickstart), and make sure `lore --version` works in the environment where Pi runs commands. The integration targets Pi Coding Agent 1.2.0. CLI installation and Knowledge Packs remain independent of this Package.
+
+An Extension runs with Pi's local permissions. Review the Package source before installing it. Project-level resources also follow Pi's normal project-trust decision; Lorelum does not approve projects for you.
+
+## Install
+
+Use a trusted Lorelum checkout and Pi's native local Package installation. No Bun installation or Lorelum source build is needed.
+
+The following commands work in macOS/Linux shells and Windows PowerShell:
+
+```sh
+git clone https://github.com/lorelum/lorelum.git "$HOME/lorelum-pi"
+pi install "$HOME/lorelum-pi/plugins/pi/lorelum"
+pi list
+pi
+```
+
+If that checkout directory already exists, use it after reviewing it, or choose a different empty location; do not overwrite it. You can also install from the absolute `plugins/pi/lorelum` path in another trusted checkout.
+
+Keep the checkout: Pi loads local Package files directly rather than copying them. The default installation is personal. For a project-only declaration, use `pi install --local <absolute-package-path>` and follow Pi's trust prompts. A machine-specific absolute path is not a portable team configuration.
+
+Do not use a Git subdirectory URI, another host's marketplace selector, or an unpublished npm Package as the install source.
+
+## First use
+
+Start a task and ask Pi:
+
+```text
+Use Lorelum to find relevant engineering guidance before finalizing this change's plan.
+```
+
+Pi receives Pack names and relevance hints, not all Practice bodies. The Catalog is only routing metadata: missing descriptions and truncated entries do not prove that guidance is absent. The Agent performs a targeted semantic query at a material decision and reads each selected Practice in full before using it.
+
+For an explicit entry, use the native Skill command:
+
+```text
+/skill:lorelum Find guidance for the current change.
+```
+
+There is no additional `/lore` command. If automatic Catalog injection is unavailable but the Skill is enabled, it can list installed Packs once for the current task and follow the normal CLI recovery guidance.
+
+## Sessions and compaction
+
+A new, resumed, switched or forked session, and `/reload`, refresh the Catalog. Successful manual or automatic compaction refreshes it too, including Pi's internal compact-and-retry continuation without another user message.
+
+Ordinary model/tool iterations reuse the snapshot. There are no watchers or periodic refreshes. After installing or removing a Pack externally, run `/reload` to refresh it immediately.
+
+This version does not pass session identity to commands or share the parent Agent's read-Practice candidates with subagents. It does not automatically install CLI/Packs, start the Backend or download models just to discover Packs.
+
+## Update and remove
+
+Update the trusted checkout, then run `/reload` in Pi:
+
+```sh
+git -C "$HOME/lorelum-pi" pull --ff-only
+```
+
+If Git reports local edits or diverged history, preserve your work and resolve that warning first. `pi update --extensions` does not update a local checkout for you.
+
+Remove the personal Package with the same absolute source:
+
+```sh
+pi remove "$HOME/lorelum-pi/plugins/pi/lorelum"
+```
+
+Use `--local` for a project-only installation, then restart Pi or `/reload`. Removal does not uninstall the CLI or delete Packs; do not remove the Lorelum Store as cleanup.
+
+## Troubleshoot
+
+Catalog failures do not block an ordinary Pi task and are not treated as empty retrieval results. Interactive notices give a recovery action; non-interactive modes do not add text to Pi's protocol output.
+
+| Situation | Outcome | Next action |
+| --- | --- | --- |
+| CLI missing or too old | No automatic Catalog; task continues | Install/update [Lorelum CLI](./installation), then `/reload`. |
+| Empty Store | Catalog explicitly says no Knowledge Packs are installed | [Install a Pack](./packs), then `/reload`. |
+| Store failure, timeout or invalid response | No stale Catalog is presented as a successful refresh | Run `lore pack list --details`, follow the CLI diagnosis, then `/reload`. |
+| Package disabled or awaiting project trust | Automatic discovery is unavailable | Review and enable the resources or complete Pi's normal trust decision. |
+
+For semantic retrieval/model problems, use [Troubleshooting](./troubleshooting). The Package adds discovery, not a second retrieval engine.

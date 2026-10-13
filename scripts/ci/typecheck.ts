@@ -13,6 +13,7 @@ export const workspaceTypecheckConfigs = [
   "packages/shared/tsconfig.json",
   "packages/ui/tsconfig.json",
   "apps/site/tsconfig.json",
+  "plugins/pi/lorelum/tsconfig.json",
 ] as const;
 
 export const releaseTypecheckConfig = "scripts/release/tsconfig.json";

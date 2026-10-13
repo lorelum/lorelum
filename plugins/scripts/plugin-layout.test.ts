@@ -217,6 +217,29 @@ test("each host registration declares only its own host artifact", async () => {
   }
 });
 
+test("keeps Pi on its native Package and out of every other host marketplace", async () => {
+  const root = join(import.meta.dir, "../..");
+  const registrations = await Promise.all(
+    [
+      ".agents/plugins/marketplace.json",
+      "marketplace.json",
+      ".cursor-plugin/marketplace.json",
+      ".codebuddy-plugin/marketplace.json",
+      ".claude-plugin/marketplace.json",
+    ].map((path) => readFile(join(root, path), "utf8")),
+  );
+  for (const registration of registrations) {
+    expect(registration).not.toContain("plugins/pi");
+  }
+
+  const piManifest = JSON.parse(
+    await readFile(join(root, "plugins/pi/lorelum/package.json"), "utf8"),
+  ) as { name: string; pi: { extensions: readonly string[]; skills: readonly string[] } };
+  expect(piManifest.name).toBe("lorelum");
+  expect(piManifest.pi.extensions).toEqual(["./extensions/lorelum.ts"]);
+  expect(piManifest.pi.skills).toEqual(["./skills/lorelum"]);
+});
+
 test("layout validation rejects public host suffixes, cross-host sources, and version drift", () => {
   expect(() =>
     assertHostPluginIdentity({

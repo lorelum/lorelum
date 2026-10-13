@@ -1,6 +1,6 @@
 # CLI 文档
 
-Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`、`query`、`get` 的默认 text 是按当前决策用途精简后的视图，不保证逐字段呈现公开 `data`；这三个命令可用 `--verbose` 查看完整 data 的 text。传入 `--json` 时，stdout 输出完整 JSON envelope；成功包含 `command`、`ok: true` 和完整 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, resource? }`。`--json` 的内容不受 `--verbose` 影响。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。compatibility recovery policy 已移除；独立的 resource 资源故障详情与 diagnostics 仍保留。
+Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`、`query`、`get` 的默认 text 是按当前决策用途精简后的视图，不保证逐字段呈现公开 `data`；这三个命令可用 `--verbose` 查看完整 data 的 text。传入 `--json` 时，stdout 输出完整 JSON envelope；成功包含 `command`、`ok: true` 和完整 `data`，失败包含 `command`、`ok: false` 和 `error: { code, message, resource? }`。`--json` 的内容不受 `--verbose` 影响。默认 text 失败写 stderr，并在同一结构化响应中显示 `diagnostics.traceId`；诊断和模型下载进度也写 stderr。`lore hook codex`、`lore hook cursor`、`lore hook workbuddy`、`lore hook zcode` 与 `lore hook pi` 是集成 ABI 例外：它们输出各自的宿主 Hook envelope，而不参与普通 format 协商。compatibility recovery policy 已移除；独立的 resource 资源故障详情与 diagnostics 仍保留。
 
 普通命令正常成功退出码为 `0`，可见命令错误为 `2`。机器调用方必须传 `--json` 并按稳定的 `error.code` 处理结果，不解析 message 或 text；`error.message` 面向人解释原因及修正方向，text 与 JSON 使用同一消息。`lore describe --json` 返回当前 protocol 命令和每个 `resultSchema`，可用于动态发现未来新增的普通命令；宿主 Hook ABI 使用各自的专门文档定义的输出。
 
@@ -16,7 +16,7 @@ Lorelum CLI 的普通命令默认在 stdout 输出可读 text。`lore pack list`
 - [Get](get.md)：读取一个已安装 Practice。
 - [Pack catalog](list.md)：列出已安装 Pack 或其 Practice 目录。
 - [Pack 生命周期](packs.md)：安装、更新或移除某个 Pack。
-- [Host Hooks](hook.md)：向 Codex、Cursor、WorkBuddy 与 ZCode 注入受限的 Installed Pack Catalog，并提供 Codex 的可选会话候选提示。
+- [Host Hooks](hook.md)：向 Codex、Cursor、WorkBuddy、ZCode 与 Pi 注入受限的 Installed Pack Catalog，并提供 Codex 的可选会话候选提示。
 
 使用 `lore --version` 查询 CLI 版本；`--help`、`--json`、`--debug` 和 `--log-level` 是全局选项。`--debug` 仅提升本次调用的持久本机日志到 debug；当调用进入 Backend 时，它只传给同一条 authenticated request 及关联 lifecycle，不改变 daemon 全局配置或其他调用的收集等级。`--log-level` 只控制 stderr 呈现。持续 debug 可在 `~/.lorelum/config.yaml` 设置 `logging.level: debug`。需要 Store 的命令支持 `--store-root <path>`；backend/model 命令不读取或修改 LocalStore，传入该选项不会改变它们的模型来源。`query`、`index` 与 cache 命令支持 `--cache-root <path>`，它只选择本次调用的用户级派生数据位置；未指定时默认使用 `~/.lorelum/cache`。
 
@@ -71,4 +71,4 @@ lore pack list --details --json
 
 `model load` 的 stdout 在任务最终完成前保持沉默；stderr 使用 `model: resolving`、`model: downloading 50% (attempt 1)`、`model: verifying` 和 `model: starting` 这样的文案，只输出发生变化的阶段、百分比或 attempt。被取消、下载失败或 native 启动失败在默认格式以 text error 返回，在 `--json` 格式以最终 failure envelope 返回；两者都不把 202 接受状态当作命令成功。
 
-每个 `--json` CLI envelope 的 `diagnostics.traceId` 是该次调用的本机排障关联 ID；普通 text failure 也会在 stderr 中显示同一个 ID。它可用于 `lore logs --trace-id <traceId>` 或后续生成本地 feedback 草稿；它不是鉴权 token，也不会出现在 Codex/ZCode/Cursor/WorkBuddy Hook envelope。`--debug` 不改变 stdout 单行 JSON、progress 输出、已接受后台 operation 或退出码；`--log-level` 仍只控制 stderr。面向用户的排查顺序见[站点故障排查说明](../../apps/site/content/docs/troubleshooting.mdx)。
+每个 `--json` CLI envelope 的 `diagnostics.traceId` 是该次调用的本机排障关联 ID；普通 text failure 也会在 stderr 中显示同一个 ID。它可用于 `lore logs --trace-id <traceId>` 或后续生成本地 feedback 草稿；它不是鉴权 token，也不会出现在 Codex/ZCode/Cursor/WorkBuddy/Pi Hook envelope。`--debug` 不改变 stdout 单行 JSON、progress 输出、已接受后台 operation 或退出码；`--log-level` 仍只控制 stderr。面向用户的排查顺序见[站点故障排查说明](../../apps/site/content/docs/troubleshooting.mdx)。

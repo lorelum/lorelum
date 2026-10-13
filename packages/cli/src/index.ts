@@ -52,6 +52,18 @@ export {
   type RunWorkbuddyHookOptions,
 } from "./hook/workbuddy.js";
 export {
+  buildPiHookResponse,
+  createPiHookResponse,
+  parsePiHookInvocation,
+  runPiHook,
+  type PiHookEvent,
+  type PiHookInput,
+  type PiHookResponse,
+  type PiHookServices,
+  type PiHookInvocation,
+  type RunPiHookOptions,
+} from "./hook/pi.js";
+export {
   DEFAULT_MAX_CHARACTERS as CODEX_HOOK_CATALOG_MAX_CHARACTERS,
   renderPackCatalog,
   type InstalledPackCatalogEntry,

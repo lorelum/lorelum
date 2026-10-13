@@ -1,11 +1,12 @@
 # Host Plugin checkout development
 
-Read [Host Plugin conventions](./plugin-conventions.md) first. This guide is for working on the current host Plugin artifacts (Claude Code, Codex, Cursor, WorkBuddy, and ZCode) from a checkout; it does not define their public identities or marketplace schemas.
+Read [Host Plugin conventions](./plugin-conventions.md) first. This guide is for working on the current host Plugin artifacts (Claude Code, Codex, Cursor, Pi, WorkBuddy, and ZCode) from a checkout; it does not define their public identities or marketplace schemas.
 
 | Host | Source root | Plugin validation |
 | --- | --- | --- |
 | Codex | [`plugins/codex/lorelum`](../../plugins/codex/lorelum) | Codex validator and configuration tests |
 | Cursor | [`plugins/cursor/lorelum`](../../plugins/cursor/lorelum) | Configuration tests |
+| Pi | [`plugins/pi/lorelum`](../../plugins/pi/lorelum) | Native Pi Package; configuration and process-adapter tests |
 | WorkBuddy | [`plugins/workbuddy/lorelum`](../../plugins/workbuddy/lorelum) | Configuration tests and a real-host install |
 | ZCode | [`plugins/zcode/lorelum`](../../plugins/zcode/lorelum) | Configuration tests and a real-host install |
 | Claude Code | [`plugins/claude/lorelum`](../../plugins/claude/lorelum) | `claude plugin validate --strict`, configuration tests, and a real-host install |
@@ -18,6 +19,7 @@ From the repository root:
 
 ```sh
 bun test plugins/scripts plugins/claude/lorelum/scripts plugins/codex/lorelum/scripts plugins/cursor/lorelum/scripts plugins/workbuddy/lorelum/scripts plugins/zcode/lorelum/scripts
+bun test plugins/pi/lorelum
 bun test packages/cli/src/hook
 python3 "$HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py" \
   plugins/codex/lorelum
@@ -43,6 +45,9 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
 
 printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | bun packages/cli/src/main.ts hook claude --store-root /absolute/path/to/isolated-store
+
+printf '%s\n' '{"hook_event_name":"session_start"}' \
+  | bun packages/cli/src/main.ts hook pi --store-root /absolute/path/to/isolated-store
 ```
 
 The WorkBuddy and Cursor identity rewrites can be smoke-checked the same way —
@@ -73,6 +78,19 @@ codex plugin marketplace remove lorelum-plugins
 codex plugin marketplace add "$PWD"
 codex plugin add lorelum@lorelum-plugins
 ```
+
+## Pi checkout install
+
+Pi installs the repository checkout as a native local Package; it has no marketplace registration. From the repository root in a terminal:
+
+```sh
+pi install "$PWD/plugins/pi/lorelum"
+pi list
+```
+
+A local Package is loaded from the resolved path without copying, so a checkout edit takes effect after `/reload`. Pi never modifies the checkout, and the Package declares no runtime dependency: it calls the released `lore` on `PATH`. Verify discovery by starting a session and confirming the injected Catalog reaches the first model request; the Pi site page documents the user-facing install, trust, update, and removal path. See [`plugins/pi/lorelum/README.md`](../../plugins/pi/lorelum/README.md) for the lifecycle, process-adapter, and failure boundaries.
+
+## Codex local iteration
 
 For a local iteration, update the development-only cachebuster, reinstall the Plugin, then start a new task. Re-trust Hooks after changing `hooks/hooks.json`.
 

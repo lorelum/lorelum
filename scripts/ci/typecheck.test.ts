@@ -19,6 +19,10 @@ test("uses the root native tsc binary for every configuration", () => {
   ]);
 });
 
+test("statically checks the Pi Package with its own configuration", () => {
+  expect(workspaceTypecheckConfigs).toContain("plugins/pi/lorelum/tsconfig.json");
+});
+
 test("keeps all workspace checks ahead of the release-script check", async () => {
   const configs: string[] = [];
   const exitCode = await runTypecheck({

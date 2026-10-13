@@ -9,8 +9,11 @@ Each supported host artifact lives at `plugins/<hostKey>/lorelum/`. The director
 | ZCode | [`zcode/lorelum`](./zcode/lorelum) | [`marketplace.json`](../marketplace.json) |
 | Cursor | [`cursor/lorelum`](./cursor/lorelum) | [`.cursor-plugin/marketplace.json`](../.cursor-plugin/marketplace.json) |
 | Claude Code | [`claude/lorelum`](./claude/lorelum) | [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) |
+| Pi | [`pi/lorelum`](./pi/lorelum) | Native Pi Package (`package.json` `pi` manifest) |
 
 Read [Host Plugin conventions](../docs/development/plugin-conventions.md) before changing an artifact, registration, public ID, or version. All artifacts call the released `lore` CLI for Pack metadata. They must not import Engine packages, read LocalStore files directly, or reproduce retrieval and ranking behavior.
+
+Pi is the native Package exception: `plugins/pi/lorelum/` installs through `pi install <checkout>/plugins/pi/lorelum` and is deliberately absent from every host marketplace registration. Its `package.json` manifest names the single Extension entry and the `lorelum` Skill explicitly, so helpers and tests are never discovered as Extensions.
 
 ## Current integration boundary
 

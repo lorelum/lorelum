@@ -7,9 +7,9 @@ Use this page before adding, moving, or releasing a Lorelum host Plugin. It defi
 | Concept | Rule | Current examples |
 | --- | --- | --- |
 | Product ID | Always `lorelum`; this is the user-facing Plugin and Skill identity. | Codex, WorkBuddy, ZCode, Cursor, and Claude Code manifests all use `lorelum`. |
-| Host key | Lowercase kebab-case; it identifies the host adapter, not the product. | `codex`, `workbuddy`, `zcode`, `cursor`, `claude` |
-| Source root | `plugins/<hostKey>/lorelum/` | [`plugins/codex/lorelum`](../../plugins/codex/lorelum), [`plugins/workbuddy/lorelum`](../../plugins/workbuddy/lorelum), [`plugins/zcode/lorelum`](../../plugins/zcode/lorelum), [`plugins/cursor/lorelum`](../../plugins/cursor/lorelum), [`plugins/claude/lorelum`](../../plugins/claude/lorelum) |
-| Marketplace | A host-owned registration file with its host-native schema. | [Codex registration](../../.agents/plugins/marketplace.json), [WorkBuddy registration](../../.codebuddy-plugin/marketplace.json), [ZCode registration](../../marketplace.json), [Cursor registration](../../.cursor-plugin/marketplace.json), [Claude Code registration](../../.claude-plugin/marketplace.json) |
+| Host key | Lowercase kebab-case; it identifies the host adapter, not the product. | `codex`, `workbuddy`, `zcode`, `cursor`, `claude`, `pi` |
+| Source root | `plugins/<hostKey>/lorelum/` | [`plugins/codex/lorelum`](../../plugins/codex/lorelum), [`plugins/workbuddy/lorelum`](../../plugins/workbuddy/lorelum), [`plugins/zcode/lorelum`](../../plugins/zcode/lorelum), [`plugins/cursor/lorelum`](../../plugins/cursor/lorelum), [`plugins/claude/lorelum`](../../plugins/claude/lorelum), [`plugins/pi/lorelum`](../../plugins/pi/lorelum) |
+| Marketplace | A host-owned registration file with its host-native schema. Pi uses its native Package mechanism instead and MUST NOT be registered in another host's marketplace. | [Codex registration](../../.agents/plugins/marketplace.json), [WorkBuddy registration](../../.codebuddy-plugin/marketplace.json), [ZCode registration](../../marketplace.json), [Cursor registration](../../.cursor-plugin/marketplace.json), [Claude Code registration](../../.claude-plugin/marketplace.json) |
 | Selector | Unique inside the host marketplace. It is not a global key across hosts. | `lorelum@lorelum-plugins` |
 | Release version | Each host uses its native version fields. When the marketplace participates in update detection, its entry version MUST equal the native manifest version. | Cursor `.cursor-plugin/marketplace.json`, WorkBuddy `.codebuddy-plugin/marketplace.json`, ZCode `marketplace.json`, Claude Code `.claude-plugin/marketplace.json`, and their `plugin.json` manifests |
 
@@ -84,6 +84,26 @@ Claude Code discovers a Plugin's `skills/` and `hooks/hooks.json` from their con
 Claude Code Hooks use the shell `command` form. Use the chained command `lore hook claude || lore.cmd hook claude` rather than a bare `lore` invocation or the exec (`args`) form: on macOS and Linux the first term resolves the plain `lore` executable and short-circuits; the second term only covers Windows, where Claude Code runs Hook commands through Git Bash and the Windows installer's `lore.cmd` shim resolves only with its extension (a bare `lore` fails with command-not-found), while the exec form cannot spawn `.cmd`/`.bat` shims at all. No `commandWindows` or `additionalContextLimit` field exists in the Claude Code Hook schema — omit both. SessionStart matchers are exact-token lists; include `fork` (`startup|resume|clear|compact|fork`) because a forked session loses the injected Catalog. Claude Code treats every Hook failure as non-blocking (the session continues), and `lore hook claude` additionally degrades its own failures to `{"continue":true}` with exit code 0, so a wrapper fallback is not used; a missing CLI stays visible as the shell's non-zero exit.
 
 The read-Practice hint chain adds two Hook entries. `PreToolUse` matches the exact token list `Bash|PowerShell` (Claude Code may run shell commands through its PowerShell tool — without Git Bash on Windows the Bash tool is not registered at all) and rewrites the command with session identity; unlike Codex, the rewrite syntax keys on the tool name rather than the platform — the Bash tool runs through a POSIX-style shell even on Windows, so it always gets `export` assignments, and the PowerShell tool always gets `$env:` assignments. The rewrite response carries `updatedInput` without a `permissionDecision`, so Claude Code's normal permission flow still evaluates the rewritten command; Codex's existing `"allow"` shape is unchanged. Because these two Hooks fire on every shell tool call and every subagent start, their commands use the fail-open wrapper (CLI missing or exiting non-zero prints `{}`) instead of the bare `||` chain, and the PreToolUse wrapper additionally normalizes a legacy `{"continue":true}` degrade to `{}`. `SubagentStart` declares no matcher so every subagent type can receive the bounded hint.
+
+### Pi Package declaration
+
+Pi is the one host whose source root is a native **Pi Package** rather than a marketplace artifact. `plugins/pi/lorelum/package.json` uses the product name `lorelum` and an explicit manifest so tests and helper modules cannot be auto-discovered as Extensions:
+
+```json
+{
+  "pi": {
+    "extensions": ["./extensions/lorelum.ts"],
+    "skills": ["./skills/lorelum"]
+  },
+  "peerDependencies": { "@earendil-works/pi-coding-agent": "*" }
+}
+```
+
+The host package is a type-only `peerDependencies` entry with a `"*"` range: Pi provides it to loaded extensions and the Package must not bundle or list it in `dependencies`. The Package carries no other runtime dependency and no CLI, Store, or model runtime.
+
+The Extension registers only lifecycle handlers in its factory and starts no process, timer, or watcher. `session_start` and a successful `session_compact` clear the previous snapshot and read a bounded Installed Pack Catalog through the `lore hook pi` ABI; the request-time `context` handler projects exactly one `customType: lorelum:pack-catalog` message and never runs the CLI, persists the message, or takes over the system prompt or tools. `session_shutdown` aborts an in-flight call and clears the snapshot; cleanup stays idempotent because cancellation, reload, session replacement, and exit can converge on it. Every failure path degrades without blocking the Pi task, and a stale Catalog is never re-injected as a fresh success.
+
+The Pi adapter runs `lore hook pi` from `PATH` with the payload on stdin, a 5000 ms deadline, a 16 KiB stdout retention cap, and an 8 KiB stderr retention cap. On Windows it prefers a directly executable `lore` and only falls back to the installer's `lore.cmd` through a fixed `cmd.exe` invocation when that executable is missing; termination targets the whole shim process tree through the process id created by that invocation. See [`plugins/pi/lorelum/README.md`](../../plugins/pi/lorelum/README.md) for the distribution model.
 
 ## Add a host only when it has a real integration need
 
