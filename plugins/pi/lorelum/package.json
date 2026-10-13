@@ -1,0 +1,25 @@
+{
+  "name": "lorelum",
+  "version": "0.1.0-alpha.5",
+  "private": true,
+  "description": "Surface relevant Lorelum engineering Practices in Pi when they can inform a task or decision.",
+  "keywords": [
+    "engineering-guidance",
+    "lorelum",
+    "pi",
+    "practices"
+  ],
+  "license": "Apache-2.0",
+  "repository": "https://github.com/lorelum/lorelum",
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/lorelum.ts"
+    ],
+    "skills": [
+      "./skills/lorelum"
+    ]
+  }
+}

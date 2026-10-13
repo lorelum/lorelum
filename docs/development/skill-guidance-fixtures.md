@@ -28,6 +28,18 @@ Use these scenarios to review the observable behavior of Lorelum's portable and 
 
 **Expected:** reuse the Catalog without another list, issue a targeted natural-language semantic query, then read any Practice it will use in full. For a resource link, use the corresponding Store source's `packRoot` from `lore get`; keep multiple sources distinct rather than choosing one without Pack context.
 
+## Pi Skill: extension-injected Catalog
+
+**Given:** the Lorelum Pi Extension projected an Installed Pack Catalog into the current request context, and a material decision needs guidance.
+
+**Expected:** reuse the Catalog without another list, issue one targeted natural-language semantic query, then read each Practice it will use with `lore get <practice-id>` in full. The Extension never runs `lore query` or `lore get` for the Agent.
+
+## Pi Skill: explicit request without automatic Catalog
+
+**Given:** the Extension supplied no Catalog (for example a missing or outdated CLI) and the user invokes `/skill:lorelum` for the current task.
+
+**Expected:** treat the missing injected Catalog as the generic absent-Catalog case, run `lore pack list --details` once for the task, and do not interpret the injection failure as "no relevant guidance exists".
+
 ## Semantic preparation
 
 **Given:** the initial semantic query returns `data.state: "preparing"`.
