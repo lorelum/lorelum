@@ -24,6 +24,7 @@ import {
   type WorkbuddyHookServices,
 } from "./hook/workbuddy.js";
 import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
+import { parsePiHookInvocation, runPiHook, type PiHookServices } from "./hook/pi.js";
 import { resolveOutputFormat } from "./output/format-selection.js";
 import { renderHelpText } from "./output/presentation.js";
 import { renderResult, type OutputFormat } from "./output/render.js";
@@ -57,6 +58,8 @@ export interface RunOptions {
   claudeHookServices?: ClaudeHookServices;
   /** Override the raw WorkBuddy Hook Store adapter in source-level tests. */
   workbuddyHookServices?: WorkbuddyHookServices;
+  /** Override the raw Pi Extension Hook Store adapter in source-level tests. */
+  piHookServices?: PiHookServices;
   stderr?: OutputWriter;
   stdout?: OutputWriter;
   /** Source-test override; production calls always create a fresh invocation trace. */
@@ -182,6 +185,29 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       stderr,
       ...(options.claudeHookServices === undefined ? {} : { services: options.claudeHookServices }),
       ...(claudeHook.storeRoot === undefined ? {} : { storeRoot: claudeHook.storeRoot }),
+      log: runtime.log,
+    });
+    await runtime.flush();
+    return exitCode;
+  }
+  const piHook = parsePiHookInvocation(arguments_);
+  if (piHook !== undefined) {
+    const runtime = await createProcessLogRuntime(stderr, traceId, {
+      debug: piHook.debug ?? false,
+      source: "hook",
+      host: "pi",
+      ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      persist:
+        (options.stdout === undefined && options.stderr === undefined) ||
+        options.logDirectory !== undefined,
+    });
+    runtime.log.info("hook.started");
+    const exitCode = await runPiHook({
+      stdin: options.stdin ?? standardInput,
+      stdout,
+      stderr,
+      ...(options.piHookServices === undefined ? {} : { services: options.piHookServices }),
+      ...(piHook.storeRoot === undefined ? {} : { storeRoot: piHook.storeRoot }),
       log: runtime.log,
     });
     await runtime.flush();

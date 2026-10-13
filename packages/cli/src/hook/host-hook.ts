@@ -17,12 +17,15 @@ import { loadAgentHookSettings, type AgentHookSettings } from "./agent-settings.
 import { renderReadHints } from "../practice-hints/render.js";
 
 /** Hosts with a versioned raw session Hook ABI (`lore hook <host>`). */
-export type HostHookName = "claude" | "codex" | "cursor" | "workbuddy" | "zcode";
+export type HostHookName = "claude" | "codex" | "cursor" | "workbuddy" | "zcode" | "pi";
 
 export type HostHookEvent = "SessionStart" | "SubagentStart";
 
 /** Cursor's native session Hook spells the event in camelCase. */
 export type CursorHookEvent = "sessionStart";
+
+/** Pi's native Extension sends the lifecycle event in snake_case. */
+export type PiHookEvent = "session_start" | "session_compact";
 
 export interface HostHookInput {
   readonly hook_event_name?: string;
@@ -53,6 +56,15 @@ export interface CursorHookResponse {
   readonly additional_context?: string;
   /** Cursor's preToolUse form: a flat field that replaces the tool input. */
   readonly updated_input?: Record<string, unknown>;
+}
+
+/**
+ * Pi's Extension adapter consumes a flat `additionalContext` object. This is
+ * the Lorelum Extension/CLI adaptation contract, not Pi's own shell Hook
+ * response schema; the Extension parses it and projects it through the Pi API.
+ */
+export interface PiHookResponse {
+  readonly additionalContext: string;
 }
 
 export interface TextInput {
@@ -172,19 +184,7 @@ export async function runHostHook(options: RunHostHookOptions): Promise<0> {
   } catch (error) {
     options.log?.error("hook.degraded", { host: options.host }, error);
     options.stderr.write(`lore hook ${options.host} degraded: ${diagnosticMessage(error)}\n`);
-    // Hint hosts need an empty result on tool events; Cursor uses camelCase.
-    // ZCode is not in this set and accepts the shared `continue` no-op.
-    const normalizedEvent = eventName?.toLowerCase();
-    options.stdout.write(
-      isPracticeHintHost(options.host) &&
-        normalizedEvent !== undefined &&
-        normalizedEvent !== "sessionstart" &&
-        (normalizedEvent === "pretooluse" ||
-          normalizedEvent === "posttooluse" ||
-          normalizedEvent === "subagentstart")
-        ? "{}\n"
-        : '{"continue":true}\n',
-    );
+    options.stdout.write(degradedEnvelope(options.host, eventName));
   }
   return 0;
 }
@@ -194,6 +194,25 @@ type PracticeHintHost = "claude" | "codex" | "cursor" | "workbuddy";
 
 function isPracticeHintHost(host: HostHookName): host is PracticeHintHost {
   return host === "claude" || host === "codex" || host === "cursor" || host === "workbuddy";
+}
+
+/**
+ * The host-safe no-op each host accepts when a Hook cannot answer. Pi's raw
+ * Extension adapter treats `{}` as unavailable; hint hosts need an empty result
+ * on Cursor's camelCase tool/subagent events; ZCode and the remaining hosts are
+ * not in that set and accept the shared `continue` no-op.
+ */
+function degradedEnvelope(host: HostHookName, eventName: string | undefined): string {
+  if (host === "pi") return "{}\n";
+  const normalizedEvent = eventName?.toLowerCase();
+  return isPracticeHintHost(host) &&
+    normalizedEvent !== undefined &&
+    normalizedEvent !== "sessionstart" &&
+    (normalizedEvent === "pretooluse" ||
+      normalizedEvent === "posttooluse" ||
+      normalizedEvent === "subagentstart")
+    ? "{}\n"
+    : '{"continue":true}\n';
 }
 
 /** The session-start event literal each hint host sends. */
@@ -206,7 +225,10 @@ function respondToHostHook(
   host: HostHookName,
   services: HostHookServices,
   storeRoot?: string,
-): Promise<HostHookResponse | CursorHookResponse> {
+): Promise<HostHookResponse | CursorHookResponse | PiHookResponse> {
+  if (host === "pi") {
+    return respondToPiHook(input, services, storeRoot);
+  }
   if (isPracticeHintHost(host) && input.hook_event_name !== sessionStartEvent(host)) {
     return respondToPracticeHint(
       input,
@@ -236,6 +258,24 @@ function respondToHostHook(
         ? buildCursorHookResponse(details)
         : buildHostHookResponse("SessionStart", details),
     );
+}
+
+/**
+ * Pi's Extension adapter answers only its two lifecycle events and returns the
+ * shared Catalog in a flat object. Unknown events are a degraded `{}` for the
+ * caller, matching the ABI's fail-open contract.
+ */
+async function respondToPiHook(
+  input: HostHookInput,
+  services: HostHookServices,
+  storeRoot?: string,
+): Promise<PiHookResponse> {
+  const eventName = input.hook_event_name;
+  if (eventName !== "session_start" && eventName !== "session_compact") {
+    throw new Error(`Lorelum ${hostLabel("pi")} Hook received an unsupported event.`);
+  }
+  const storageRoot = resolveInvocationStorageRoot(storeRoot, services.storageRoot);
+  return buildPiHookResponse(await services.list.listPackDetails({ storageRoot }));
 }
 
 async function respondToPracticeHint(
@@ -362,6 +402,12 @@ export async function createHostHookResponse(
 ): Promise<CursorHookResponse>;
 export async function createHostHookResponse(
   input: HostHookInput,
+  host: "pi",
+  services?: HostHookServices,
+  storeRoot?: string,
+): Promise<PiHookResponse>;
+export async function createHostHookResponse(
+  input: HostHookInput,
   host: "claude" | "codex" | "workbuddy" | "zcode",
   services?: HostHookServices,
   storeRoot?: string,
@@ -371,7 +417,7 @@ export async function createHostHookResponse(
   host: HostHookName,
   services: HostHookServices = defaultServices,
   storeRoot?: string,
-): Promise<HostHookResponse | CursorHookResponse> {
+): Promise<HostHookResponse | CursorHookResponse | PiHookResponse> {
   return respondToHostHook(input, host, services, storeRoot);
 }
 
@@ -391,6 +437,11 @@ export function buildCursorHookResponse(details: ListPackDetailsResult): CursorH
   return { additional_context: renderPackCatalog(catalogEntries(details)) };
 }
 
+/** Render the shared Catalog into Pi's flat Extension adapter envelope. */
+export function buildPiHookResponse(details: ListPackDetailsResult): PiHookResponse {
+  return { additionalContext: renderPackCatalog(catalogEntries(details)) };
+}
+
 function catalogEntries(details: ListPackDetailsResult) {
   return details.packs.map((pack) => ({
     name: pack.name,
@@ -405,13 +456,14 @@ function supportedSessionEvent(host: HostHookName): HostHookEvent | CursorHookEv
 }
 
 const hostLabels: Readonly<
-  Record<HostHookName, "Claude Code" | "Codex" | "Cursor" | "Workbuddy" | "Zcode">
+  Record<HostHookName, "Claude Code" | "Codex" | "Cursor" | "Workbuddy" | "Zcode" | "Pi">
 > = Object.freeze({
   claude: "Claude Code",
   codex: "Codex",
   cursor: "Cursor",
   workbuddy: "Workbuddy",
   zcode: "Zcode",
+  pi: "Pi",
 });
 
 function hostLabel(host: HostHookName) {
