@@ -2,11 +2,17 @@
   "name": "lorelum",
   "version": "0.1.0-alpha.5",
   "description": "Lorelum Pack Catalog and retrieval Skill for omp",
-  "type": "module",
   "license": "Apache-2.0",
-  "files": ["extensions", "skills", "README.md"],
+  "files": [
+    "extensions",
+    "skills",
+    "README.md"
+  ],
+  "type": "module",
   "omp": {
     "name": "lorelum",
-    "extensions": ["./extensions/catalog.ts"]
+    "extensions": [
+      "./extensions/catalog.ts"
+    ]
   }
 }
