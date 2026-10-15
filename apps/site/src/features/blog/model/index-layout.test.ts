@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type IndexBlock, layoutIndex } from "./index-layout";
+import { layoutIndex, parseBlogPage } from "./index-layout";
 import type { BlogIndexEntry } from "./list-posts";
 
 function entries(n: number): BlogIndexEntry[] {
@@ -16,77 +16,133 @@ function entries(n: number): BlogIndexEntry[] {
   })) as unknown as BlogIndexEntry[];
 }
 
-/** The entries a block shows, in reading order. */
-function slugsOf(block: IndexBlock): string[] {
-  switch (block.kind) {
-    case "hero":
-      return [block.lead, ...block.sides].map((e) => e.slug);
-    case "grid":
-      return block.items.map((e) => e.slug);
-    case "band":
-      return [block.entry.slug];
-    case "split":
-      return [block.feature, ...block.list].map((e) => e.slug);
-  }
-}
+describe("parseBlogPage", () => {
+  test("accepts positive integer numbers and numeric strings", () => {
+    for (const value of [1, 2, 26, "1", "2", "26", " 3 "]) {
+      expect(parseBlogPage(value)).toBe(Number(value));
+    }
+  });
 
-const shape = (n: number) => layoutIndex(entries(n)).map((b) => `${b.kind}:${slugsOf(b).length}`);
+  test("defaults invalid URL values to page one", () => {
+    for (const value of [
+      undefined,
+      null,
+      true,
+      false,
+      {},
+      [],
+      [2],
+      "",
+      " ",
+      "two",
+      "2oops",
+      "NaN",
+      "Infinity",
+      "1.5",
+      "0",
+      "-2",
+      NaN,
+      Infinity,
+      -Infinity,
+      0,
+      -2,
+      1.5,
+    ]) {
+      expect(parseBlogPage(value)).toBe(1);
+    }
+  });
+});
 
 describe("layoutIndex", () => {
-  test("a list of one is a lone hero, and an empty list has no blocks", () => {
-    expect(layoutIndex([])).toEqual([]);
-    expect(shape(1)).toEqual(["hero:1"]);
-  });
-
-  test("the hero takes the lead plus up to two side images", () => {
-    expect(shape(2)).toEqual(["hero:2"]);
-    expect(shape(3)).toEqual(["hero:3"]);
-  });
-
-  test("after the hero come grid, band, split in that order, each as full as the list allows", () => {
-    expect(shape(4)).toEqual(["hero:3", "grid:1"]);
-    expect(shape(6)).toEqual(["hero:3", "grid:3"]);
-    expect(shape(7)).toEqual(["hero:3", "grid:3", "band:1"]);
-    expect(shape(9)).toEqual(["hero:3", "grid:3", "band:1", "split:2"]);
-    expect(shape(12)).toEqual(["hero:3", "grid:3", "band:1", "split:5"]);
-  });
-
-  test("a lone entry where a split would open is a band, never a split without thumbnails", () => {
-    expect(shape(8)).toEqual(["hero:3", "grid:3", "band:1", "band:1"]);
-    for (let n = 1; n <= 60; n++) {
-      for (const block of layoutIndex(entries(n))) {
-        if (block.kind === "split") expect(block.list.length).toBeGreaterThan(0);
+  test("reserves the first entry without counting it toward the 12-post window", () => {
+    for (const [count, sizes] of [
+      [1, [0]],
+      [3, [2]],
+      [12, [11]],
+      [13, [12]],
+      [26, [12, 12, 1]],
+    ] as const) {
+      const input = entries(count);
+      for (let page = 1; page <= sizes.length; page++) {
+        const layout = layoutIndex(input, { page, featureLatest: true });
+        expect(layout.featured).toBe(page === 1 ? input[0] : undefined);
+        expect(layout.posts.length).toBe(sizes[page - 1]);
+        expect(layout.page).toBe(page);
+        expect(layout.pageCount).toBe(sizes.length);
+        expect(layout.total).toBe(count);
       }
     }
   });
 
-  test("the cycle repeats once a split is full", () => {
-    expect(shape(13)).toEqual(["hero:3", "grid:3", "band:1", "split:5", "grid:1"]);
-    expect(shape(24)).toEqual([
-      "hero:3",
-      "grid:3",
-      "band:1",
-      "split:5",
-      "grid:3",
-      "band:1",
-      "split:5",
-      "grid:3",
-    ]);
-  });
-
-  test("every entry appears exactly once, in order, whatever the length", () => {
-    for (let n = 0; n <= 40; n++) {
-      const input = entries(n).map((e) => e.slug);
-      const out = layoutIndex(entries(n)).flatMap(slugsOf);
-      expect(out).toEqual(input);
-    }
-  });
-
-  test("a block never renders empty", () => {
-    for (let n = 1; n <= 40; n++) {
-      for (const block of layoutIndex(entries(n))) {
-        expect(slugsOf(block).length).toBeGreaterThan(0);
+  test("result mode never promotes an entry, even for short results", () => {
+    for (const [count, sizes] of [
+      [1, [1]],
+      [3, [3]],
+      [12, [12]],
+      [13, [12, 1]],
+      [26, [12, 12, 2]],
+    ] as const) {
+      const input = entries(count);
+      for (let page = 1; page <= sizes.length; page++) {
+        const layout = layoutIndex(input, { page, featureLatest: false });
+        expect(layout.featured).toBeUndefined();
+        expect(layout.posts.length).toBe(sizes[page - 1]);
+        expect(layout.pageCount).toBe(sizes.length);
+        expect(layout.total).toBe(count);
       }
     }
+  });
+
+  test("every entry appears exactly once across pages, preserving supplied order", () => {
+    for (const featureLatest of [true, false]) {
+      for (let count = 0; count <= 60; count++) {
+        const input = entries(count).reverse();
+        const first = layoutIndex(input, { page: 1, featureLatest });
+        const observed: BlogIndexEntry[] = [];
+        for (let page = 1; page <= first.pageCount; page++) {
+          const layout = layoutIndex(input, { page, featureLatest });
+          if (layout.featured) observed.push(layout.featured);
+          observed.push(...layout.posts);
+        }
+        expect(observed).toEqual(input);
+        expect(new Set(observed.map((entry) => entry.slug)).size).toBe(count);
+      }
+    }
+  });
+
+  test("empty results always have one empty page", () => {
+    for (const featureLatest of [true, false]) {
+      expect(layoutIndex([], { page: 99, featureLatest })).toEqual({
+        featured: undefined,
+        posts: [],
+        page: 1,
+        pageCount: 1,
+        total: 0,
+      });
+    }
+  });
+
+  test("normalizes invalid page numbers and clamps valid oversized pages", () => {
+    const input = entries(26);
+    for (const featureLatest of [true, false]) {
+      const first = layoutIndex(input, { page: 1, featureLatest });
+      for (const page of [0, -1, 1.5, NaN, Infinity, -Infinity]) {
+        expect(layoutIndex(input, { page, featureLatest })).toEqual(first);
+      }
+      const last = layoutIndex(input, { page: 3, featureLatest });
+      expect(layoutIndex(input, { page: 999, featureLatest })).toEqual(last);
+      expect(last.featured).toBeUndefined();
+      expect(last.page).toBe(3);
+    }
+  });
+
+  test("does not mutate the input or clone its entries", () => {
+    const input = Object.freeze(entries(26).map((entry) => Object.freeze(entry)));
+    const original = [...input];
+    for (const featureLatest of [true, false]) {
+      const layout = layoutIndex(input, { page: 2, featureLatest });
+      expect(layout.posts[0]).toBe(input[featureLatest ? 13 : 12]);
+    }
+    expect(input).toEqual(original);
   });
 });

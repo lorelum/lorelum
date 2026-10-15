@@ -10,11 +10,9 @@ interface BlogCoverProps {
 /**
  * A card's cover art.
  *
- * The reference indexes the maintainer pointed at — OpenAI's and Claude's —
- * ship no text-only card, so art here is not gated on an author supplying it:
- * a post with frontmatter `image` renders that file, and a post without one
- * gets a generated mosaic (see `cover-pattern.ts`), seeded by its slug so both
- * locales of one post carry the same art.
+ * Index cards only request authored images; callers without an image omit the
+ * media area entirely. Article closing cards can still request a generated
+ * mosaic, seeded by slug so both locales share the same art.
  *
  * The generated branch is `aria-hidden` and the author image carries an empty
  * alt: the frontmatter has no alt text to honour, and the title sits directly

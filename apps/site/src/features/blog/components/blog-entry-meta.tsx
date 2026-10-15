@@ -9,39 +9,24 @@ interface BlogEntryMetaProps {
   readonly lang: string;
 }
 
-/**
- * An entry's metadata block: a date tile, then category, author and the
- * language hint. It sits above the title and never over the cover, whose
- * corners carry required labels.
- *
- * The tile is display only: `dateTime` keeps the ISO record date, and the
- * parts come from fixed locale tags in UTC (see `dateTileParts`). Text stays
- * sentence case with no tracking, so it is metadata rather than an eyebrow.
- */
+/** Compact semantic metadata; wraps naturally rather than clipping labels. */
 export function BlogEntryMeta({ entry, lang }: BlogEntryMetaProps) {
   const t = getStrings(lang);
   const hintKey = languageHintKey(entry.locale, lang);
   const { day, month, year } = dateTileParts(entry.data.date, lang);
 
   return (
-    <div className="flex items-center gap-4 text-sm text-fd-muted-foreground">
-      <time
-        dateTime={entry.data.date}
-        className="flex w-16 shrink-0 flex-col items-center border border-[var(--blog-hairline)] py-2 tabular-nums leading-none"
-      >
-        <span className="text-2xl font-semibold text-fd-foreground">{day}</span>
-        <span className="mt-1 text-xs">{month}</span>
-        <span className="mt-0.5 text-xs">{year}</span>
+    <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs leading-relaxed text-fd-muted-foreground">
+      <span data-blog-category={entry.data.category} className="font-medium text-fd-foreground">
+        {t[categoryLabelKey(entry.data.category)]}
+      </span>
+      <span aria-hidden="true">·</span>
+      <span>{entry.data.author}</span>
+      <span aria-hidden="true">·</span>
+      <time dateTime={entry.data.date} className="tabular-nums">
+        {lang === "zh" ? `${year} ${month}${day}日` : `${month} ${day}, ${year}`}
       </time>
-      <div className="min-w-0">
-        <p>
-          <span data-blog-category={entry.data.category} className="font-medium text-fd-foreground">
-            {t[categoryLabelKey(entry.data.category)]}
-          </span>
-          <span> · {entry.data.author}</span>
-        </p>
-        {hintKey ? <p className="mt-1 text-xs">{t[hintKey]}</p> : null}
-      </div>
-    </div>
+      {hintKey === undefined ? null : <span>{t[hintKey]}</span>}
+    </p>
   );
 }

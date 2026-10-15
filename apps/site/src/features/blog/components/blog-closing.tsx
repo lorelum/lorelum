@@ -49,7 +49,7 @@ export function BlogClosing({ locale, adjacent }: BlogClosingProps) {
           {rows.map((row) => (
             <li
               key={row.entry.slug}
-              className={`blog-card relative flex min-w-0 flex-col border border-[var(--blog-hairline)] transition-colors duration-200 hover:bg-[var(--blog-quiet-surface)] focus-within:bg-[var(--blog-quiet-surface)] ${
+              className={`blog-card relative flex min-w-0 flex-col overflow-hidden rounded-[var(--lore-radius-panel)] bg-fd-card transition-colors duration-200 hover:bg-[var(--blog-quiet-surface)] focus-within:bg-[var(--blog-quiet-surface)] ${
                 row.newer ? "sm:col-start-2" : "sm:col-start-1"
               }`}
             >

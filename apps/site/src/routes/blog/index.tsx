@@ -4,6 +4,7 @@ import { BlogIndexScreen } from "@/features/blog";
 import type { BlogCategory } from "@/features/blog/content/frontmatter";
 import { blogIndexHead } from "@/features/blog/model/blog-head";
 import { parseBlogCategory } from "@/features/blog/model/category-label";
+import { parseBlogPage } from "@/features/blog/model/index-layout";
 import { parseBlogSort, type BlogSort } from "@/features/blog/model/sort-posts";
 import { parseBlogQuery } from "@/features/blog/model/search-posts";
 import { listBlogIndex } from "@/features/blog/server/list-blog-posts";
@@ -11,15 +12,16 @@ import { i18n } from "@/shared/i18n/config";
 
 export const Route = createFileRoute("/blog/")({
   component: Page,
-  search: { middlewares: [stripSearchParams({ sort: "newest" })] },
+  search: { middlewares: [stripSearchParams({ sort: "newest", page: 1 })] },
   // The category entry is a real URL, so the param is validated here rather
   // than trusted: anything that is not a known category means "no filter".
   validateSearch: (
     search: Record<string, unknown>,
-  ): { category?: BlogCategory; sort: BlogSort; q?: string } => ({
+  ): { category?: BlogCategory; sort: BlogSort; q?: string; page: number } => ({
     category: parseBlogCategory(search.category),
     sort: parseBlogSort(search.sort),
     q: parseBlogQuery(search.q),
+    page: parseBlogPage(search.page),
   }),
   // The loader context exposes `deps`, not `search`; this is how the validated
   // param reaches the server-side loader.
@@ -38,7 +40,7 @@ const indexLoader = createServerFn({ method: "GET" })
   .handler(async ({ data }) => listBlogIndex(data.lang, data.category, data.sort, data.q));
 
 function Page() {
-  const { category, sort, q } = Route.useSearch();
+  const { category, sort, q, page } = Route.useSearch();
   const { posts, filteredPostSlugs } = Route.useLoaderData();
   return (
     <BlogIndexScreen
@@ -48,6 +50,7 @@ function Page() {
       category={category}
       sort={sort}
       q={q}
+      page={page}
     />
   );
 }

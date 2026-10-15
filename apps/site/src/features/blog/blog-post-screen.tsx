@@ -106,7 +106,7 @@ function BlogPostBody({
                 src={data.image}
                 alt=""
                 decoding="async"
-                className="mt-8 aspect-[16/9] w-full object-cover sm:aspect-[3/2]"
+                className="mt-8 block aspect-[16/9] w-full rounded-[var(--lore-radius-panel)] object-cover sm:aspect-[3/2]"
               />
             )}
           </div>
@@ -114,7 +114,7 @@ function BlogPostBody({
           <BlogTocDisclosure lang={lang} />
 
           {/* Scope prose rules separately: Fumadocs TOC items also carry `prose`. */}
-          <div className="blog-post__reading">
+          <div className="blog-post__reading mt-8 sm:mt-12">
             <DocsBody>
               <MDX components={useBlogMdxComponents()} />
             </DocsBody>

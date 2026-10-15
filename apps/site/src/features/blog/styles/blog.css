@@ -211,6 +211,20 @@
   line-height: var(--lore-leading-body);
 }
 
+.blog-scope .blog-post__reading .prose img {
+  margin-block: var(--lore-space-panel);
+  border-radius: var(--lore-radius-panel);
+}
+
+/* Captioned images keep spacing on the figure, not between image and caption. */
+.blog-scope .blog-post__reading .prose figure:has(img) {
+  margin-block: var(--lore-space-panel);
+}
+
+.blog-scope .blog-post__reading .prose figure img {
+  margin-block: 0;
+}
+
 /* Fumadocs italicises quotes. The design system rejects the italic editorial
    voice, and for Chinese the italic would be synthesised. */
 .blog-scope .blog-post__reading .prose blockquote:not([class~="not-prose"]) {
@@ -275,42 +289,64 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.blog-scope .blog-featured-entry .blog-title-link,
-.blog-scope .blog-featured-entry .blog-title-link:hover {
-  color: inherit;
-  text-decoration-line: none;
+/* The lead and ordinary entries share one stretched-link interaction. */
+.blog-index-entry {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+  transition: background-color var(--lore-motion-feedback) var(--lore-ease-feedback);
 }
 
-.blog-scope .blog-featured-entry .blog-title-link:focus-visible {
-  outline-color: var(--ring);
+.blog-index-entry:is(:hover, :focus-within) {
+  background: var(--blog-quiet-surface);
 }
 
-.blog-featured-stage {
-  transition: background-color 220ms ease;
+.blog-index-entry .blog-title-link:focus-visible,
+.blog-card .blog-title-link:focus-visible {
+  outline: none;
 }
 
-.blog-featured-cover {
-  overflow: hidden;
+.blog-index-entry:has(.blog-title-link:focus-visible),
+.blog-card:has(.blog-title-link:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
 }
 
-.blog-featured-cover > :is(img, svg) {
-  transition: transform 550ms cubic-bezier(0.22, 1, 0.36, 1);
+.blog-index-list {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+  margin-top: 2rem;
+  padding-inline: 1.5rem;
+  list-style: none;
 }
 
-.blog-featured-entry:focus-within .blog-featured-stage {
-  background-color: color-mix(in srgb, var(--lore-brand-deep) 94%, var(--lore-brand-light));
+.blog-featured-entry {
+  display: grid;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 2rem;
+  padding-block: 1.5rem 2.5rem;
 }
 
-.blog-featured-entry:focus-within .blog-featured-cover > :is(img, svg) {
-  transform: scale(1.015);
+@media (min-width: 768px) {
+  .blog-index-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .blog-featured-entry:has(.blog-featured-cover) {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  }
 }
 
-/*
- * Shared by every card that is not the lead: the grid cards, the split feature
- * and its thumbnails, the band, and the article's neighbour cards. The cover is
- * clipped to its own box (square: images carry no radius) and eases in a slight
- * zoom on focus, and on hover for a fine pointer.
- */
+@media (min-width: 1280px) {
+  .blog-index-list {
+    padding-inline: 3rem;
+  }
+}
+
+/* Article neighbour cards retain their existing cover feedback. */
 .blog-card-cover {
   overflow: hidden;
 }
@@ -323,139 +359,9 @@
   transform: scale(1.015);
 }
 
-/*
- * The split's feature spans one grid row per thumbnail beside it, so the two
- * columns end together. Only at `lg`, where the thumbnails sit beside it: below
- * that everything is one column and a span would only add empty rows and gaps.
- */
-@media (min-width: 1024px) {
-  .blog-split-feature {
-    grid-row: span var(--blog-split-rows, 1);
-  }
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .blog-featured-entry:hover .blog-featured-cover > :is(img, svg) {
-    transform: scale(1.015);
-  }
-
   .blog-card:hover .blog-card-cover > :is(img, svg) {
     transform: scale(1.015);
-  }
-
-  /*
-   * Fine pointers reveal title and metadata over a dark scrim; touch keeps
-   * the full reading block below the cover. Opacity preserves keyboard and
-   * accessibility-tree access to the title and summary.
-   */
-  .blog-featured-entry {
-    display: grid;
-  }
-
-  .blog-featured-stage,
-  .blog-featured-reading {
-    grid-area: 1 / 1;
-  }
-
-  .blog-featured-stage {
-    position: relative;
-  }
-
-  .blog-featured-cover {
-    height: 100%;
-  }
-
-  /* Scale the full-size scrim to avoid animating layout. */
-  .blog-featured-stage::before {
-    content: "";
-    position: absolute;
-    z-index: 1;
-    inset: 0;
-    background: color-mix(in srgb, black 50%, transparent);
-    transform: scale(0);
-    will-change: transform;
-    transition: transform 400ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .blog-featured-entry:hover .blog-featured-stage::before,
-  .blog-featured-entry:focus-within .blog-featured-stage::before {
-    transform: scale(1);
-    transition-duration: 550ms;
-    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .blog-featured-reading {
-    --scrim-text: var(--background);
-    --scrim-edge: color-mix(in srgb, var(--scrim-text) 35%, transparent);
-    /*
-     * No `position` and no `transform` here: either would make this block the
-     * containing block of the title link's stretched `::after`, shrinking the
-     * click area from the whole entry to this block and, while the block sits
-     * 3rem low at rest, pushing it below the image. The pointer would then
-     * enter it, the reveal would lift the block away, and the hover would
-     * flicker. `z-index` works on a grid item without either, and the slide is
-     * done with margin, which does not move the link's containing block.
-     */
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    justify-self: start;
-    align-self: end;
-    max-width: 48rem;
-    padding: clamp(1.5rem, 4vw, 3.125rem);
-    color: var(--scrim-text);
-    opacity: 0;
-    margin-bottom: -3rem;
-    pointer-events: none;
-    transition:
-      opacity 150ms ease,
-      margin-bottom 250ms ease;
-  }
-
-  .blog-featured-reading * {
-    color: inherit;
-  }
-
-  .blog-featured-reading time {
-    border-color: var(--scrim-edge);
-  }
-
-  .dark .blog-featured-reading {
-    --scrim-text: var(--foreground);
-  }
-
-  .blog-featured-summary {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .blog-featured-reading .blog-title-link {
-    pointer-events: auto;
-  }
-
-  .blog-featured-reading .blog-title-link:focus-visible {
-    outline-color: currentColor;
-  }
-
-  /*
-   * Entering is choreographed: the scrim opens first, the image zoom runs with
-   * it, and the text fades in only once the scrim already darkens its area, so
-   * it never shows over the bare image. Leaving runs the other way round: the
-   * text goes at once (the base transition above, no delay) while the scrim
-   * closes more slowly behind it.
-   */
-  .blog-featured-entry:hover .blog-featured-reading,
-  .blog-featured-entry:focus-within .blog-featured-reading {
-    opacity: 1;
-    margin-bottom: 0;
-    transition:
-      opacity 350ms ease 180ms,
-      margin-bottom 450ms cubic-bezier(0.22, 1, 0.36, 1) 120ms;
   }
 }
 

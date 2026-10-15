@@ -1,76 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" fill="none" role="img" aria-labelledby="cover-title cover-description">
-  <title id="cover-title">Three overlapping glass circles</title>
-  <desc id="cover-description">An abstract geometric composition: three translucent circles overlap on a soft green and amber gradient, with a bright lens where all three meet.</desc>
-  <defs>
-    <linearGradient id="ground" x1="0" y1="0" x2="1600" y2="1000" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0B4F47"/>
-      <stop offset="0.55" stop-color="#127A62"/>
-      <stop offset="1" stop-color="#1B9A72"/>
-    </linearGradient>
-    <filter id="soft" x="-400" y="-400" width="2400" height="1800" filterUnits="userSpaceOnUse">
-      <feGaussianBlur stdDeviation="90"/>
-    </filter>
-    <filter id="grain" x="0" y="0" width="1600" height="1000" filterUnits="userSpaceOnUse">
-      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.09 0"/>
-    </filter>
-    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.26"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.07"/>
-    </linearGradient>
-    <linearGradient id="fadeLeft" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#000000"/>
-    </linearGradient>
-    <linearGradient id="fadeRight" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#000000"/>
-      <stop offset="1" stop-color="#FFFFFF"/>
-    </linearGradient>
-    <mask id="maskLeft"><rect x="0" y="0" width="560" height="1000" fill="url(#fadeLeft)"/></mask>
-    <mask id="maskRight"><rect x="1040" y="0" width="560" height="1000" fill="url(#fadeRight)"/></mask>
-    <pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <line x1="0" y1="0" x2="0" y2="9" stroke="#FFFFFF" stroke-opacity="0.32" stroke-width="1"/>
-    </pattern>
-    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
-      <circle cx="8" cy="8" r="1.3" fill="#FFFFFF" fill-opacity="0.55"/>
-    </pattern>
-    <clipPath id="clipA"><circle cx="710" cy="560" r="180"/></clipPath>
-    <clipPath id="clipB"><circle cx="890" cy="560" r="180"/></clipPath>
-  </defs>
-
-  <rect width="1600" height="1000" fill="url(#ground)"/>
-
-  <g filter="url(#soft)">
-    <circle cx="520" cy="330" r="270" fill="#F6B04A" fill-opacity="0.9"/>
-    <circle cx="820" cy="470" r="250" fill="#F6F0C4" fill-opacity="0.75"/>
-    <circle cx="1180" cy="690" r="300" fill="#7EE2B2" fill-opacity="0.8"/>
-    <circle cx="1330" cy="230" r="230" fill="#6FC6D8" fill-opacity="0.6"/>
-    <circle cx="130" cy="760" r="260" fill="#073F3D" fill-opacity="0.85"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" fill="none" role="img" aria-labelledby="cover-title cover-description">
+  <title id="cover-title">Three conditions. One evaluation.</title>
+  <desc id="cover-description">A controlled comparison of Baseline, Placebo and Oracle, using the same tasks and a shared evaluation. The three conditions have equal visual weight; no scores or experimental results are represented.</desc>
+  <rect width="1200" height="750" fill="#F0F2EB"/>
+  <g fill="#17634F" font-family="system-ui, sans-serif">
+    <text x="72" y="82" font-size="22" font-weight="600" letter-spacing="3">PRACTICE / EVALUATION</text>
+    <text x="68" y="180" font-size="76" font-weight="600" letter-spacing="-3">Three conditions.</text>
+    <text x="68" y="268" font-size="76" font-weight="600" letter-spacing="-3">One evaluation.</text>
   </g>
-
-  <g mask="url(#maskLeft)"><rect x="0" y="0" width="560" height="1000" fill="url(#hatch)"/></g>
-  <g mask="url(#maskRight)"><rect x="1040" y="0" width="560" height="1000" fill="url(#hatch)"/></g>
-  <g mask="url(#maskLeft)"><rect x="90" y="400" width="420" height="220" fill="url(#dots)"/></g>
-  <g mask="url(#maskRight)"><rect x="1090" y="400" width="420" height="220" fill="url(#dots)"/></g>
-
-  <circle cx="800" cy="508" r="300" stroke="#FFFFFF" stroke-opacity="0.4" stroke-width="1.5" stroke-dasharray="2 11" stroke-linecap="round"/>
-  <circle cx="800" cy="508" r="262" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="1"/>
-
-  <circle cx="710" cy="560" r="180" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="1.5"/>
-  <circle cx="890" cy="560" r="180" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="1.5"/>
-  <circle cx="800" cy="404" r="180" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="1.5"/>
-
-  <g clip-path="url(#clipA)">
-    <g clip-path="url(#clipB)">
-      <circle cx="800" cy="404" r="180" fill="#FFFFFF" fill-opacity="0.34"/>
-    </g>
+  <g fill="#E1E9DF">
+    <rect x="72" y="326" width="320" height="258" rx="24"/>
+    <rect x="440" y="326" width="320" height="258" rx="24"/>
+    <rect x="808" y="326" width="320" height="258" rx="24"/>
   </g>
-
-  <path d="M540.9 498.4 A180 180 0 0 1 678.8 382.7" stroke="#FFFFFF" stroke-opacity="0.85" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M720.9 498.4 A180 180 0 0 1 858.8 382.7" stroke="#FFFFFF" stroke-opacity="0.85" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M630.9 342.4 A180 180 0 0 1 768.8 226.7" stroke="#FFFFFF" stroke-opacity="0.85" stroke-width="2.5" stroke-linecap="round"/>
-
-  <circle cx="800" cy="508" r="5" fill="#FFFFFF" fill-opacity="0.95"/>
-
-  <rect width="1600" height="1000" filter="url(#grain)"/>
+  <g stroke="#27785E" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="232" cy="422" r="43"/>
+    <rect x="557" y="374" width="68" height="68" rx="14"/>
+    <rect x="578" y="395" width="68" height="68" rx="14" fill="#E1E9DF"/>
+    <circle cx="968" cy="422" r="43"/>
+    <circle cx="968" cy="422" r="20"/>
+  </g>
+  <g fill="#174A3C" font-family="system-ui, sans-serif" font-size="38" font-weight="600" text-anchor="middle">
+    <text x="232" y="535">Baseline</text>
+    <text x="600" y="535">Placebo</text>
+    <text x="968" y="535">Oracle</text>
+  </g>
+  <path d="M72 630H1128" stroke="#B6C9BA" stroke-width="2"/>
+  <g fill="#466B59" font-family="system-ui, sans-serif" font-size="22" font-weight="500" letter-spacing="2">
+    <text x="72" y="686">SAME TASKS</text>
+    <text x="1128" y="686" text-anchor="end">SHARED EVALUATION</text>
+  </g>
 </svg>
