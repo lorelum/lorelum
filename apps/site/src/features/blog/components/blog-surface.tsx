@@ -2,24 +2,7 @@ import type { ReactNode } from "react";
 import { LandingNavbar } from "@/features/landing/navigation/landing-navbar";
 import { SiteFooter } from "@/components/landing/sections/site-footer";
 
-/**
- * The site's chrome around a blog surface.
- *
- * The navbar and footer are the site's and stay outside `.blog-scope`, so the
- * blog cannot restyle shared chrome and shared chrome cannot disagree between
- * blog routes.
- *
- * This is deliberately *not* where the columns live: what sits beside the
- * reading column is the screen's business (`BlogShell`), and this element only
- * spans the surface. It used to carry a reading-measure max-width, which made
- * every blog screen a centred island — at 1920px the index used 664px of a
- * 1905px viewport and the article's rail sat 481px from the right edge.
- *
- * The scope's stylesheet is imported by the screens rather than here: both
- * screens already load `styles/blog.css` for their own scoped rules, and the
- * bundle is deduplicated, so keeping the import at the screen keeps one
- * obvious place where a screen declares the surface it renders.
- */
+/** Shared site chrome around the blog scope; column layout belongs to `BlogShell`. */
 interface BlogSurfaceProps {
   readonly lang: string;
   readonly children: ReactNode;
@@ -28,12 +11,7 @@ interface BlogSurfaceProps {
   readonly withLanguageToggle?: boolean;
   /** Explicit target for the navbar's language control (see `LandingNavbar`). */
   readonly languageHref?: string;
-  /**
-   * Element whose bottom crossing puts the shared navbar into its compact
-   * state. Blog screens pass the article's masthead so the navbar behaves on
-   * scroll the way it does on the landing page, where the hero plays that role;
-   * the docs surface passes nothing and keeps the full-width navbar.
-   */
+  /** Masthead whose bottom crossing collapses the navbar; omitted on the index. */
   readonly collapseTrigger?: HTMLElement | null;
 }
 

@@ -17,20 +17,9 @@ function getCompactWidth() {
 }
 
 /**
- * Keep background attachment and shape transitions independent.
- *
- * `collapseTrigger` is for surfaces that have no hero: the landing page measures
- * the hero's bottom edge, and every other route used to get no morph at all
- * (the trigger was simply not created, so the navbar stayed full width however
- * far the reader scrolled). A surface that passes an element gets the same
- * compact state, entered when that element's bottom passes the navbar — the
- * article passes its masthead. Surfaces that pass nothing are unchanged.
- *
- * It takes the element, not a ref: the article's masthead arrives with the
- * suspended body, after the navbar's own effect has already run, so a ref read
- * once at mount would be `null` and the morph would never be created (measured:
- * the panel stayed 1425px and square however far the page scrolled). Passing the
- * element makes the effect re-run when it appears.
+ * Background and elevation follow scrolling; the compact shape follows the hero
+ * or supplied masthead. Accept an element so the effect reruns when Suspense
+ * mounts the article's masthead.
  */
 export function useLandingNavbarMorph(
   navRef: RefObject<HTMLElement | null>,
@@ -43,12 +32,7 @@ export function useLandingNavbarMorph(
     const surface = nav?.querySelector<HTMLElement>(".landing-navbar__surface");
     if (!nav || !panel || !surface) return;
 
-    // The hero is optional: every non-landing route renders this navbar without
-    // one. It used to be part of the guard above, so on those routes the whole
-    // effect returned early and the surface timeline was never created — the
-    // navbar stayed at its initial opacity however far the reader scrolled
-    // (measured: opacity 0 at the top and after 600px on the blog index, the
-    // legacy /blog path and the article, against 0 → 1 on the landing page).
+    // Hero-less pages still reveal the background and elevation when scrolled.
     const hero = document.getElementById(heroId);
 
     registerGsapPlugins();
@@ -93,9 +77,17 @@ export function useLandingNavbarMorph(
       const detachTrigger = ScrollTrigger.create({
         start: 1,
         end: 1,
-        onEnter: () => background.play(),
-        onLeaveBack: () => background.reverse(),
+        onEnter: () => {
+          panel.classList.add("landing-navbar__panel--detached");
+          background.play();
+        },
+        onLeaveBack: () => {
+          panel.classList.remove("landing-navbar__panel--detached");
+          background.reverse();
+        },
       });
+      // Suspense can rerun the effect after the page has already crossed the trigger.
+      panel.classList.toggle("landing-navbar__panel--detached", detachTrigger.progress > 0);
 
       // The morph needs something to measure: the hero on the landing page, or
       // whatever a hero-less surface hands over. Without either, the surface
@@ -116,6 +108,7 @@ export function useLandingNavbarMorph(
         scrollTrigger?.kill();
         background.kill();
         morph?.kill();
+        panel.classList.remove("landing-navbar__panel--detached");
       };
     }, nav);
 

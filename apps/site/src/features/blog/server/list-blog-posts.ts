@@ -7,20 +7,9 @@ import { pickFrontmatter } from "./pick-frontmatter";
 import { blogSource } from "./source";
 
 /**
- * Builds the deterministic blog index for one locale from the full source
- * (both locales are indexed by the Fumadocs source; merging happens in the
- * pure model so it stays testable without a filesystem).
- *
- * The category and search match is computed here and returned as slugs beside the complete
- * visible list. The screen can render only matching cards while keeping every
- * valid category and article link available. This narrowing describes what the
- * renderer receives when it actually runs: on the prerendered canonical index
- * there is no category or query, and a query URL is answered by that static page before
- * any server function sees one (see the controls' comment for the full picture).
- *
- * Visibility is the article loader's own rule (`isPostVisible`), with the same
- * environment input: while developing, the index lists a draft because its URL
- * answers; in a build it does not, because that URL 404s.
+ * Merge the locale versions using the article loader's visibility rule.
+ * Return matching slugs separately so filtering cards preserves the full
+ * navigation list and category choices.
  */
 export function listBlogIndex(
   lang: string,

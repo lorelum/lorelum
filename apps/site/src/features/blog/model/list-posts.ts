@@ -50,20 +50,12 @@ export function buildBlogIndex(
 ): BlogIndexEntry[] {
   const bySlug = new Map<string, BlogIndexEntry>();
 
-  const localeRank = (locale: string) => (locale === lang ? 0 : 1);
-  const ordered = [...records].sort(
-    (a, b) => localeRank(a.locale) - localeRank(b.locale) || a.slug.localeCompare(b.slug),
-  );
-
-  for (const record of ordered) {
+  for (const record of records) {
     if (!isPostVisible({ draft: record.data.draft, isDevelopment })) continue;
-    if (bySlug.has(record.slug)) continue;
-
-    bySlug.set(record.slug, {
-      slug: record.slug,
-      locale: record.locale,
-      data: record.data,
-    });
+    const existing = bySlug.get(record.slug);
+    if (existing === undefined || (record.locale === lang && existing.locale !== lang)) {
+      bySlug.set(record.slug, record);
+    }
   }
 
   return [...bySlug.values()].sort(

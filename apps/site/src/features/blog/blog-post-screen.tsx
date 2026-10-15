@@ -32,17 +32,7 @@ function BlogTocList() {
 
   return (
     <TOCScrollArea>
-      {/* `thumbBox={false}` drops the thumb indicator dot — that prop is what
-          the dot is gated on. It does *not* remove the track: `TOCItems`
-          renders `ThumbTrack` whenever its measurement produced an SVG, and
-          that component ignores `thumbBox` except for the dot. Measured in the
-          built rail: 0 dot elements, 1 track svg.
-          The reason is preference, not correctness. The drafts claimed the
-          thumb was measured in `useLayoutEffect` and would misalign inside a
-          closed `<details>`, but the installed version measures in `useEffect`
-          and returns early when `container.clientHeight === 0`, so a closed
-          disclosure never renders one. A short list whose active entry is
-          already marked with colour and weight does not need the dot. */}
+      {/* Hide the optional active-item dot; Fumadocs still renders its track. */}
       <TOCItems thumbBox={false}>
         {items.map((item) => (
           <TOCItem key={item.url} item={item} />
@@ -67,15 +57,7 @@ function BlogTocRail({ lang }: { lang: string }) {
   );
 }
 
-/**
- * Narrow viewports get the same list inside a native disclosure, placed right
- * after the metadata line.
- *
- * This makes the table of contents *reachable* without JavaScript, which is all
- * a `<details>` can promise: once the reader opens it and scrolls, it closes
- * behind them. A persistent narrow-viewport navigator would be a separate
- * feature (a sticky bar or a progress indicator) and is not attempted here.
- */
+/** Native table-of-contents disclosure below the masthead on narrow viewports. */
 function BlogTocDisclosure({ lang }: { lang: string }) {
   const t = getStrings(lang);
 
@@ -98,25 +80,21 @@ function BlogPostBody({
   posts,
   onMasthead,
 }: BlogPostScreenProps & {
-  /** Set by the masthead once it is in the document; see the hook's note. */
+  /** Callback ref keeps the navbar in sync when the suspended masthead mounts. */
   readonly onMasthead: (element: HTMLElement | null) => void;
 }) {
   const { default: MDX, toc } = use(loadBlogContent(post.path));
   const { data } = post;
 
   return (
-    // The provider observes heading anchors across the reading row, so it has to
-    // wrap the shell — the article and the rail are two of its columns, and they
-    // are no longer siblings inside one flex row.
+    // The provider observes headings in the article and drives both TOC lists.
     <TOCProvider toc={toc}>
       <BlogShell
         sidebar={<BlogSidebar lang={lang} posts={posts} />}
         rail={<BlogTocRail lang={lang} />}
       >
         <article className="blog-post__body mx-auto w-full min-w-0 max-w-[var(--blog-measure)]">
-          {/* The masthead is what the shared navbar measures to decide when to
-              collapse; it is also the block a reader has finished once it is
-              behind them. */}
+          {/* The navbar collapses after the reader scrolls past the masthead. */}
           <div ref={onMasthead}>
             <DocsTitle className="text-4xl leading-tight sm:text-5xl">{data.title}</DocsTitle>
             <DocsDescription className="mt-5 leading-relaxed">{data.description}</DocsDescription>
@@ -124,8 +102,6 @@ function BlogPostBody({
             <BlogPostMeta locale={post.locale} data={data} />
 
             {data.image === undefined ? null : (
-              // The cover is full-bleed on its own brand ground, so the article
-              // shows it directly at the index stage's radius.
               <img
                 src={data.image}
                 alt=""
@@ -137,11 +113,7 @@ function BlogPostBody({
 
           <BlogTocDisclosure lang={lang} />
 
-          {/* `.blog-post__reading` is the prose scope hook. The disclosure above
-              renders Fumadocs TOC entries, which carry the `prose` class
-              themselves, so scoping the body rules to `article` would restyle
-              them as body text. This wrapper is the narrowest ancestor that
-              holds the prose content and nothing else. */}
+          {/* Scope prose rules separately: Fumadocs TOC items also carry `prose`. */}
           <div className="blog-post__reading">
             <DocsBody>
               <MDX components={useBlogMdxComponents()} />
@@ -155,30 +127,16 @@ function BlogPostBody({
   );
 }
 
-/**
- * Browser screen for a single blog post: the site navbar plus a reading column
- * with a table of contents. The Fumadocs page atoms (title, description, prose
- * body, TOC) render inside the `.blog-scope` token adapter; the navbar and
- * footer intentionally keep the global landing theme.
- *
- * The body is wrapped in `Suspense` because the MDX module is loaded on the
- * client: the fallback is a static placeholder of the reading column's own
- * width, so resolving it does not shift the column.
- */
+/** Load the article MDX inside the blog shell without shifting the reading column. */
 export function BlogPostScreen({ lang, post, adjacent, posts }: BlogPostScreenProps) {
-  // Read by the shared navbar: the panel collapses once the masthead's bottom
-  // passes it, which is the role the hero plays on the landing page. State rather
-  // than a ref, because the masthead arrives with the suspended body — the ref
-  // would be null when the navbar's effect runs.
+  // State updates the navbar when the suspended masthead mounts; a ref would not.
   const [masthead, setMasthead] = useState<HTMLElement | null>(null);
 
   return (
     <BlogSurface
       lang={lang}
       collapseTrigger={masthead}
-      // The navbar's language control goes to this post's published translation,
-      // or to the other language's blog index. Left to itself it would swap the
-      // locale prefix and could answer 404 on a missing or drafted translation.
+      // Use a published translation, or its locale's index, rather than a blind prefix swap.
       languageHref={articleLanguageTarget({
         lang,
         slug: post.slug,

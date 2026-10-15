@@ -9,19 +9,7 @@ const frontmatter = {
   author: "Starduet",
 };
 
-/**
- * The visibility rule reads `draft`, the index and the post loader and the
- * sitemap all read it from this projection, so this is the one place where
- * answering the flag instead of reading the author's would make every one of
- * those call sites agree on the wrong answer.
- *
- * The stage-4 review demonstrated that effect: a projection returning
- * `draft: false` publishes both drafts — both article pages built, both slugs in
- * the sitemap, article URLs answering 200 — with the whole suite green. The
- * wiring guards in `post-visibility-wiring.test.ts` pin the environment each
- * caller passes; these assertions hold the value itself, behaviourally, because
- * `pickFrontmatter` is a pure function and needs no rendered page to test.
- */
+/** The projection must preserve the author's draft flag for every visibility consumer. */
 describe("pickFrontmatter", () => {
   test("keeps the author's draft flag rather than answering it", () => {
     expect(pickFrontmatter({ ...frontmatter, draft: true }).draft).toBe(true);

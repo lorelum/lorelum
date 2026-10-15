@@ -14,6 +14,12 @@
   overflow: hidden;
   pointer-events: auto;
   border-radius: 0;
+  transition: box-shadow var(--lore-motion-theme) var(--lore-ease-feedback);
+}
+
+.landing-navbar__panel--detached {
+  /* The panel owns elevation: its overflow clips shadows on the inner surface. */
+  box-shadow: var(--lore-shadow-lift);
 }
 
 .landing-navbar__surface {

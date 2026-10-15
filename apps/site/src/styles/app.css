@@ -2,14 +2,7 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @source "../../../../packages/ui/src";
-/*
- * The design system's semantic tokens, imported **globally** rather than per
- * surface. They used to arrive only with the docs and blog chunks — each of those
- * feature stylesheets imported them itself — which is why the landing page, which
- * loads neither chunk, never had them, and why `body`, sitting outside every
- * surface container, kept Fumadocs' neutral palette. With the values here, the
- * binding below at `.lorelum-ui` resolves on every route.
- */
+/* Load production tokens for every route, including landing chrome. */
 @import "@lorelum/ui/tokens.css";
 @import "./vendor.css";
 @import "./landing.css";
@@ -29,30 +22,7 @@
   --color-run: #34d399;
 }
 
-/*
- * The Fumadocs token names, bound to the design system's semantic tokens **once**,
- * on the design system's own scope.
- *
- * The value side lives in `@lorelum/ui`'s `tokens.css`, whose two rules are
- * `.lorelum-ui` (the token set) and `.dark .lorelum-ui` (the dark ones). Note the
- * descendant combinator: the dark set needs `.dark` on an **ancestor**, so the
- * scope cannot sit on `<html>` itself — which is why the document root carries the
- * class on `<body>` (`app/root-document.tsx`).
- *
- * Fumadocs defines `--color-fd-*` with its neutral palette — a `#f5f5f5`
- * background, `#737373` muted text, `#cccccc80` borders, a `#171717` primary — and
- * paints `body` with `--color-fd-background`. The docs and blog surfaces each
- * re-bound the whole set inside their own container, so everything outside those
- * containers — `body`, every margin around a scoped column, and the shared navbar
- * and footer — kept the Fumadocs palette. That is the seam between the article
- * column and the page, and the reason chrome and content could disagree. Binding
- * here, at the scope the document now carries, covers all of it, and the
- * per-surface copies are gone.
- *
- * Every value is a token reference, so light/dark resolve through `--background`
- * and the rest on the element that carries the scope — the scheme is the one
- * `.dark` selects on its ancestor.
- */
+/* Bind Fumadocs roles once on the body scope; `.dark` lives on <html>. */
 .lorelum-ui {
   --color-fd-background: var(--background);
   --color-fd-foreground: var(--foreground);
@@ -77,18 +47,7 @@
   --color-fd-success: var(--success);
   --color-fd-idea: var(--primary);
 
-  /*
-   * The text-level brand green for chrome (the navbar's current destination, the
-   * hover state of both toggles), mirroring the choice the blog scope already makes
-   * for `--blog-link`.
-   *
-   * `--primary` is a *surface* role: in light it resolves to `#168263`, which as
-   * text on its own 8% tint measures 4.08:1 — below the 4.5:1 that 14px text needs,
-   * and below the 14.51:1 the navbar had while `--color-fd-primary` still carried
-   * Fumadocs' `#171717`. `--accent-foreground` is the token that has a value in
-   * both themes for this role; dark flips to `--primary`, as the blog's link token
-   * does, because there the accent foreground is neutral rather than green.
-   */
+  /* Use the text-level brand colour; the primary surface colour is too light. */
   --site-link: var(--accent-foreground);
 }
 

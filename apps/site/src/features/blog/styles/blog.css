@@ -1,95 +1,32 @@
 @import "@lorelum/ui/tokens.css";
 
-/*
- * Fumadocs adapter for the blog surfaces.
- *
- * The shared package owns semantic tokens and Fumadocs owns the generated markup
- * and interaction behavior; the `--color-fd-*` set is bound to those tokens in one
- * place (`styles/app.css`, on the design system's own scope), so this scope no
- * longer re-binds it. The scope
- * stays because the blog-local aliases and reading-column rules below belong to
- * it. The navbar and footer still sit outside it — but they now resolve the same
- * production tokens as everything else, instead of the Fumadocs defaults this
- * comment used to describe as "the global landing theme".
- */
+/* Blog aliases and reading styles; shared Fumadocs tokens are bound in app.css. */
 
 .blog-scope {
-  /*
-   * Blog-local aliases, following the `--docs-*` precedent: compositions of
-   * production tokens that this surface owns, not new palette values. The
-   * colour aliases are entirely `var()`/`color-mix()` compositions; the two
-   * size aliases are literal lengths because production has no token for
-   * either one.
-   */
+  /* Surface-owned compositions of production tokens and column dimensions. */
   --blog-link: var(--accent-foreground);
   --blog-hairline: color-mix(in srgb, var(--border) 76%, transparent);
   --blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);
 
-  /*
-   * The blog's one sticky offset, shared by the table-of-contents rail (`top`)
-   * and every heading's `scroll-margin-top`, so an anchor jump lands where the
-   * rail expects the active item. 7rem is the value Fumadocs already computes
-   * for its own heading anchor (`scroll-m-28` = `--spacing * 28` at Tailwind's
-   * 0.25rem step), so adopting it preserves the current jump position; the rail
-   * previously sat at 5rem and so disagreed with the headings by 2rem.
-   */
+  /* Shared by the TOC rail and heading anchors. */
   --blog-sticky-offset: 7rem;
 
   /* Width of the article's table-of-contents rail. */
   --blog-toc-rail: 15rem;
 
-  /*
-   * Width of the shell's left column — the blog's own navigation (all posts,
-   * categories). A separate alias from `--blog-toc-rail` because the two name
-   * different roles even though the value matches: a reviewer reading a rule
-   * that says "sidebar" should not have to know it is borrowing the rail's
-   * width. Both are literal lengths, as the size aliases are, because the
-   * production token set has no column width.
-   */
+  /* Left navigation column, independent of the contents rail. */
   --blog-shell-sidebar: 15rem;
 
-  /*
-   * The shell's ceiling. Without one the shell spans the viewport and the middle
-   * track absorbs every spare pixel, which is what "the article looks squeezed in
-   * the middle" actually measured: at 1920px the text column was 664px inside a
-   * 1328px track — 332px of nothing on each side. Capping the shell brings that to
-   * tens of pixels beside a 742px column, which is the composition the reference
-   * pages use (their stage leaves roughly 220px of outer margin at 1914).
-   *
-   * 88rem is the smallest round value that does not squeeze the column: the three
-   * tracks plus both column gaps and the surface padding come to 1334px, and a
-   * ceiling below that would make the middle track narrower than the measure and
-   * shrink the text it is supposed to protect.
-   */
+  /* Room for the reading measure, both side columns and their gutters. */
   --blog-shell-max: 88rem;
 
-  /*
-   * The gutter a full-column figure or table keeps from the column's edges. Not a
-   * design token elsewhere — it exists so the block-level evidence does not touch
-   * the grid's rails. 2rem is the design system's `panel` spacing step.
-   */
+  /* Inset wide figures and tables from the body container's edges. */
   --blog-figure-gutter: 2rem;
 
-  /*
-   * The blog's own reading measure. The production token is 68ch, which measures
-   * 664px at 16px Manrope; the blog reads wider because it is the only surface
-   * with a shell that also carries a left column, and 68ch left the text looking
-   * pinched between the wings. 76ch is ~742px and stays inside the usual 45–75ch
-   * guidance once optical margins are counted.
-   *
-   * It is a blog-local alias rather than a change to `--lore-reading-width`: the
-   * docs surface consumes that token (docs.css) and this change is about the blog.
-   */
+  /* Blog-local reading measure; docs retain the production reading-width token. */
   --blog-measure: 76ch;
 
-  /*
-   * The body font is bound here as a property rather than by rebinding
-   * `--font-sans`. Custom properties resolve on the element that *uses* them,
-   * and the site's `html { font-family: var(--default-font-family) }` chain
-   * resolves at the document root — so rebinding `--font-sans` on this scope
-   * would inherit the already-computed system stack instead. `--lore-font-sans`
-   * is Manrope with a system CJK fallback.
-   */
+  /* Set the property here: rebinding a font variable cannot change the root's computed font. */
   font-family: var(--lore-font-sans);
 
   background: var(--color-fd-background);
@@ -108,22 +45,7 @@
   --blog-quiet-surface: color-mix(in srgb, var(--secondary) 54%, transparent);
 }
 
-/*
- * The generated cover's four tiers, calibrated per theme. The pattern model
- * owns the tier *vocabulary* — its numbers are what the rects carry as their
- * opacity attribute, the no-CSS baseline. How strong each tier *reads* is this
- * adapter's decision, because the two themes pair optically rather than
- * inverting mechanically: on the dark card surface the baseline alphas
- * measured ≈1.1:1 for the lower half of the band, which read as art that
- * failed to render rather than as a quiet field. Dark lifts the band until all
- * four tiers stay perceptible; light rises one step so both themes carry the
- * same number of visible tiers.
- *
- * Keyed by the rects' data-tier attribute rather than by a new --blog-* alias:
- * these are presentation rules, not compositions of production tokens, and the
- * frozen-alias contract in blog.test.ts is exactly about keeping the alias set
- * to named roles.
- */
+/* Generated cover tiers are optically calibrated per theme, not mechanically inverted. */
 .blog-scope .blog-cover-art [data-tier="1"] {
   opacity: 0.14;
 }
@@ -268,28 +190,9 @@
 }
 
 /*
- * Fumadocs' prose roles resolve through `--color-fd-*`, which this scope
- * already rebinds, but each role still ships its own default. Rebind every role
- * the blog actually renders, plus the body metrics.
- *
- * Scoped to `.blog-post__reading`, the wrapper around the prose body, not to
- * `.prose` alone: Fumadocs' table-of-contents entries carry the `prose` class
- * themselves (`prose relative py-1.5 text-sm`), so a bare `.blog-scope .prose`
- * also took the rail from the 14px/20px its `text-sm` asks for to 16px/26px,
- * which pushed the rail into scrolling at short viewports. `article` was tried
- * next as the hook and is too broad for the same reason in the other direction:
- * the narrow-viewport disclosure renders those same entries *inside* the
- * article, and they measured 16px/26px again (rail 14/20). Only the prose
- * wrapper holds the body text and nothing else.
- *
- * The body metrics are the base the `:lang(zh)` multiplier further up scales
- * (26px × 1.08 = 28.08px). Without this binding the base is Fumadocs' own 28px.
- *
- * `--radius-lg` is Tailwind's default-theme 0.5rem here — the site never loads
- * `theme.css`, so Fumadocs' `border-radius: var(--radius-lg)` was resolving to
- * something that is not the production radius. Rebinding the variable moves the
- * table to the production radius without out-specifying the rule that consumes
- * it: measured 8px → 12px.
+ * Bind body metrics and prose roles only inside the reading wrapper:
+ * Fumadocs TOC entries also carry `prose`. Keep the table radius on the
+ * production token rather than Tailwind's default.
  */
 .blog-scope .blog-post__reading .prose {
   --tw-prose-links: var(--blog-link);
@@ -346,36 +249,7 @@
  * ---------------------------------------------------------------------------
  */
 
-/*
- * The frame holds the reading column and the table-of-contents rail side by
- * side. The measure stays on the column itself (`--blog-measure`), so the
- * rail never narrows the text; this only sets how much room both together need.
- *
- * The two literal terms are the surface's own chrome, not new design values:
- * `2.5rem` is the row's `xl:gap-10`, which is the gap in force wherever the rail
- * is visible, and `2rem` is `BlogSurface`'s `px-4` (1rem each side). Leaving the
- * gutter out was measurable: the column came out 32px narrow at 1440
- * (631.67px against its own 663.68px measure).
- *
- * Both classes sit on the same `<main>`, so this is a compound selector rather
- * than a descendant one — `.blog-scope .blog-post__frame` matches nothing at
- * all, which is how the first version of this rule shipped inert.
- */
-/*
- * The editorial shell: left column, reading column, and an article-only TOC rail.
- *
- * It replaces a max-width that computed the same three parts and centred them
- * (`min(50vw …)`-style arithmetic: reading measure + rail + gaps), which made
- * the blog a fixed island — measured at 1920px the rail sat 481px from the right
- * edge and the index used 664px of a 1905px viewport. The tracks reference the
- * aliases rather than repeating their values, and the reading column keeps its
- * own measure inside the middle track, so widening the shell does not widen the
- * text.
- *
- * The breakpoint sets are written here rather than as three arbitrary-value
- * utility variants because each track list is a different composition of two
- * aliases; in utilities that is four hand-written strings that must agree.
- */
+/* Responsive editorial tracks; the article keeps its own measure inside the body track. */
 .blog-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -470,20 +344,9 @@
   }
 
   /*
-   * Reveal, after the reference page's lead card: a dark scrim grows from the
-   * centre of the image to cover it, and the title and metadata slide up from
-   * the bottom edge as plain light text on the scrim, with no panel behind
-   * them. Only a fine pointer hides the reading block at rest; touch screens
-   * and anything without hover keep it below the stage. Opacity and transform
-   * (not display or visibility) keep it in the accessibility tree and
-   * reachable by keyboard, and focus reveals it exactly as hover does.
-   *
-   * The scrim, not the image, decides contrast: light text on the bare brand
-   * green only reaches 4.56:1 in the dark theme, so the scrim is dense enough
-   * to clear 4.5:1 over the lighter parts of the image. The text tokens are
-   * re-pointed to the pair that is light on a dark scrim in either theme.
-   * The summary is not part of the overlay (the reference shows title and
-   * metadata only); it stays in the DOM, visually hidden here.
+   * Fine pointers reveal title and metadata over a dark scrim; touch keeps
+   * the full reading block below the cover. Opacity preserves keyboard and
+   * accessibility-tree access to the title and summary.
    */
   .blog-featured-entry {
     display: grid;
@@ -502,12 +365,7 @@
     height: 100%;
   }
 
-  /*
-   * The scrim grows by `transform: scale`, not by `inset`: scaling a full-size
-   * layer from its centre is the same picture (the stage and the scrim share an
-   * aspect ratio) but is composited, while animating `inset` re-runs layout and
-   * paint on every frame, which is what made the reveal stutter.
-   */
+  /* Scale the full-size scrim to avoid animating layout. */
   .blog-featured-stage::before {
     content: "";
     position: absolute;
@@ -614,35 +472,9 @@
 }
 
 /*
- * Figures and tables use the column, not the reading measure.
- *
- * A wide result table inside a 664px text column either overflows or scrolls
- * inside its own box, and at 1920px that left ~324px of empty space on each side
- * of the text while the table strained. Letting the block-level evidence — tables
- * and figures — take the column is the ordinary editorial answer: prose keeps the
- * measure that makes it readable, and the evidence gets the room it needs.
- *
- * The arithmetic is container-relative: `100cqw` is the middle column's width, so
- * the element is inset by one gutter from each side, and the negative-ish inline
- * margin re-centres it — the block is inside the measured text column, which is
- * itself centred in the container, so the shift is half the difference. Below the
- * shell's second breakpoint the container is the single column and the two terms
- * cancel, leaving the block at its normal width.
- */
-/* Two selectors rather than `:is(table, figure)`: the typing guard that keeps
- * prose rules off the TOC entries splits selector lists on commas before matching,
- * so a comma inside a functional pseudo-class would be read as two selectors and
- * reported as a leak. Each part carries the scope on its own.
- *
- * The offset is computed from percentages, not from the measure alias: `ch`
- * resolves against the font of the element it is used on, so using it here
- * measured the figure's font instead of the column's and pushed blocks out of the
- * page (measured: 78px of horizontal overflow at 375px).
- * `100%` is the containing block, which is the measured column, so the two terms
- * describe the same geometry in the same units.
- *
- * Gated so it only fires when the column is actually wider than the measure plus
- * both gutters: below that the rule would shrink the block inside its own column.
+ * Wide figures and tables use the body container minus its gutters. Percentage
+ * offsets centre them relative to the reading column without font-dependent
+ * `ch` arithmetic. Apply only when the container has room for both gutters.
  */
 @container (min-width: 46rem) {
   .blog-scope .blog-post__reading .prose > :has(> table),
@@ -696,16 +528,7 @@
   overflow-wrap: break-word;
 }
 
-/*
- * A long unbroken run anywhere in the blog scope must wrap rather than widen the
- * page. `overflow-wrap` is inherited, so one declaration on the scope covers every
- * role an author can fill: headings, the article dek, the metadata line, index row
- * summaries, the closing block's neighbour titles, and body paragraphs. The first
- * attempt listed only `:is(h1..h6)` and the reading column's paragraphs; the
- * round-4 review then put the same 105-character token in the other roles and
- * measured what that left open at 375px — the dek gave 292px of page scroll, the
- * author 151px, an index row summary 221px and a neighbour title 158px.
- */
+/* Inherited wrapping also protects headings, metadata and card summaries. */
 .blog-scope {
   overflow-wrap: break-word;
 }
@@ -719,19 +542,6 @@
 .blog-scope :is(h1, h2, h3, h4, h5, h6) > *,
 .blog-scope .blog-post__meta > * {
   min-width: 0;
-}
-
-/*
- * The closing block's neighbour row needs one more rule, of a different kind:
- * its link is an `inline-flex` box, and a shrink-to-fit box is floored at its
- * min-content width — the width of the one unbreakable run — so the link stayed
- * 502px wide inside a 328px column even with the run's own wrap inherited
- * (measured: 158px of page scroll at 375px with a 105-character title in the
- * neighbour row; capping the link removes it, while putting `min-width: 0` on the
- * link's children changes nothing, which is why that rule is not here).
- */
-.blog-scope .blog-post__closing .blog-nav-link {
-  max-width: 100%;
 }
 
 /*

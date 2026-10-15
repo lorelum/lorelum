@@ -23,18 +23,7 @@ interface BlogIndexScreenProps {
   readonly q?: string;
 }
 
-/**
- * Editorial index: the first visible post fills the brand stage, and the rest
- * follow as bordered cards in a magazine layout (`layoutIndex`): two side
- * cards under the lead, then grid, band and split blocks in turn. Summaries come
- * from frontmatter, not invented teaser copy.
- *
- * The list itself still does no year grouping, pagination, series or related
- * posts while it is short: at n=1 those components would render nothing, and a
- * card gains its structure from its cover and metadata, not the number of
- * siblings. The index uses the shell's full width, while the article keeps its
- * navigation and reading measure. Discovery controls belong above this list.
- */
+/** Lead feature followed by magazine-layout cards, using authored frontmatter. */
 export function BlogIndexScreen({
   lang,
   posts,

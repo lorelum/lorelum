@@ -1,9 +1,11 @@
 # site-blog-content Specification
 
 ## Purpose
+
 定义 Lorelum 博客的内容契约：frontmatter 字段与一致性、草稿的可见性边界、证据来源与表格来源的呈现要求、EN/ZH 结构与排版对齐、分类与语言入口行为、长不可断文本的换行边界，以及博客面不引入 reduced-motion 处理。它使文章在两种语言、两种主题与无 JS 条件下都保持可读、可验证，并阻止发布界面无法消费的字段或需要交互才能读到的证据。
 
 ## Requirements
+
 ### Requirement: Blog frontmatter contract and consistency
 
 每篇博客文章的 frontmatter MUST 提供非空的 `title`、非空的 `description`、作为真实日历日的 `date`（`YYYY-MM-DD`）、`category`（`benchmark` / `packs` / `lorelum` 三者之一）与非空 `author`。`updated` 为可选字段，`draft` 为可选字段并默认 `false`。
@@ -176,4 +178,3 @@ dev 环境下索引 MUST 列出草稿，与「草稿的 URL 在 dev 可访问」
 
 - **WHEN** 博客样式或 screen 引入 `prefers-reduced-motion` 或 `motion-reduce:`
 - **THEN** 博客护栏测试 MUST 失败
-

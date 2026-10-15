@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { createDialogHandle } from "@lorelum/ui";
+import { Dialog } from "@lorelum/ui";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
@@ -37,7 +37,7 @@ export function BlogSearchDialog({ lang, posts, category, sort, q }: BlogSearchD
   const navigate = useNavigate();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [dialogHandle] = useState(createDialogHandle);
+  const [dialogHandle] = useState(() => Dialog.createHandle<unknown>());
   const [search, setSearch] = useState(q ?? "");
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -140,6 +140,7 @@ export function BlogSearchDialog({ lang, posts, category, sort, q }: BlogSearchD
             role="search"
             method="get"
             action={blogIndexPath(lang)}
+            // Isolate footer Enter from popup result selection; input Enter keeps upstream behavior.
             onKeyDownCapture={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();

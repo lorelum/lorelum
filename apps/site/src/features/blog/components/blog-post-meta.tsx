@@ -7,24 +7,7 @@ interface BlogPostMetaProps {
   readonly data: BlogFrontmatter;
 }
 
-/**
- * The article's metadata line.
- *
- * Inline rather than a right-hand icon rail: the rail already holds the table
- * of contents, and a second column of metadata would squeeze the measure at
- * exactly the breakpoint where space is tightest. These are facts about the
- * post, not navigation.
- *
- * Order: published, `updated` only when the author recorded one, author,
- * category. An absent `updated` is omitted entirely —
- * a synthesised one would claim a provenance signal this design exists to make
- * trustworthy. The language switch is the navbar's, not an entry in this line.
- *
- * The line used to end with a back-to-index link pushed to the far end. It was
- * removed on request: the shell's left column lists every post and the navbar
- * carries the blog destination, so a third way back — trailing the metadata,
- * where it read as an afterthought — was navigation the page did not need.
- */
+/** Authored publication facts; omit the update date when none was recorded. */
 export function BlogPostMeta({ locale, data }: BlogPostMetaProps) {
   const t = getStrings(locale);
 

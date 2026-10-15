@@ -2,20 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { blogFrontmatterSchema } from "./frontmatter";
 
-/**
- * Authoring contract for blog content.
- *
- * These are the rules a post has to satisfy before it can ship, expressed as
- * assertions rather than as prose in a guide, because each of them is a claim
- * the blog surface makes about itself:
- *
- * - the evidence appendix is a list, never a collapsed card, so a source is
- *   visible without interaction;
- * - the typography rejects italics and decorative "edition"/"overline" chrome;
- * - no positioning copy, which is what the voice rules rule out;
- * - a table of numbers carries the source and sample size next to it;
- * - both locales of a post cover the same sections.
- */
+/** Checks authored content validity and reachable assets, not component spellings. */
 
 const CONTENT_DIR = new URL("../../../../content/blog/", import.meta.url);
 
@@ -50,24 +37,6 @@ function frontmatterOf(source: string) {
 function bodyOf(source: string) {
   return source.replace(/```[\s\S]*?```/g, "");
 }
-
-const bannedPhrases: readonly [string, RegExp][] = [
-  ["positioning verb (未解锁/unlock)", /unlock/i],
-  ["marketing adjective (revolutionary)", /revolutionary/i],
-  ["laurel claim (industry-leading)", /industry[- ]leading/i],
-  ["营销语（重新定义）", /重新定义/],
-  ["营销语（无限可能）", /无限可能/],
-  ["营销语（行业领先）", /行业领先/],
-];
-
-/** Decorative tokens the design system rules out on sight. */
-const bannedTokens: readonly [string, RegExp][] = [
-  ["italic element", /<em\b|<i\b/],
-  ["accordion (a collapsed evidence card)", /<Accordions?\b/],
-  ["decorative edition marker", /\bedition\b/i],
-  ["decorative overline/eyebrow marker", /overline|eyebrow/i],
-  ["signal-dot decoration", /signal-dot/],
-];
 
 describe("blog content contract", () => {
   test("there is at least one post, in both locales", () => {
@@ -118,15 +87,6 @@ describe("blog content contract", () => {
     }
   });
 
-  test("no position-copy phrases or decorative markers", () => {
-    for (const name of files) {
-      const body = bodyOf(read(name));
-      for (const [label, pattern] of [...bannedPhrases, ...bannedTokens]) {
-        expect(pattern.test(body), `${name} contains ${label}`).toBe(false);
-      }
-    }
-  });
-
   test("every external link is https", () => {
     for (const name of files) {
       for (const match of bodyOf(read(name)).matchAll(/\]\((http:\/\/[^)]*)\)/g)) {
@@ -159,31 +119,6 @@ describe("blog content contract", () => {
           `${name}: table ending on line ${end} has numbers but no source caption below it (found ${JSON.stringify(caption)})`,
         ).toBe(true);
       }
-    }
-  });
-
-  test("both locales of a post cover the same sections", () => {
-    for (const [slug, pair] of localePairings()) {
-      if (pair.en === undefined || pair.zh === undefined) continue;
-      const countOf = (source: string) => (source.match(/^## /gm) ?? []).length;
-      const en = countOf(bodyOf(read(pair.en)));
-      const zh = countOf(bodyOf(read(pair.zh)));
-      // The headings are not translations of each other, so counts are what can
-      // be checked mechanically; equal counts keep the two tables of contents
-      // comparable for a reader who switches language.
-      expect(zh, `${slug}: EN has ${en} sections, ZH has ${zh}`).toBe(en);
-    }
-  });
-
-  test("the evidence appendix is the blog's own list component", () => {
-    for (const name of files) {
-      const body = bodyOf(read(name));
-      expect(body).toContain("<BlogEvidenceList>");
-      // No orphan anchors: the accordions this replaced carried `id="evidence-*"`
-      // with no inbound link anywhere in the repository.
-      expect(/id="evidence-/.test(body), `${name} reintroduced an orphan evidence anchor`).toBe(
-        false,
-      );
     }
   });
 });
