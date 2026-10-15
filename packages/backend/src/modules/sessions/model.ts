@@ -1,7 +1,7 @@
 import { isAbsolute } from "node:path";
 import { z } from "zod";
 
-export const hostKeySchema = z.enum(["claude", "codex", "cursor", "workbuddy", "zcode"]);
+export const hostKeySchema = z.enum(["claude", "codex", "cursor", "workbuddy", "zcode", "omp"]);
 export type HostKey = z.infer<typeof hostKeySchema>;
 
 const sessionIdSchema = z

@@ -1,0 +1,73 @@
+---
+title: omp
+description: Install Lorelum in omp and use it in your next coding task.
+icon: Plug
+---
+
+The Lorelum Plugin makes engineering guidance available in omp when it can help with the task at hand.
+
+## Before you start
+
+Complete [Quickstart](./quickstart). The `lore` command must be on the `PATH` inherited by omp, support `lore hook omp`, and have at least one installed Pack. The Plugin does not install or update the CLI.
+
+The omp integration supports local macOS arm64 installations. See [Installation](./installation) for the CLI's platform requirements.
+
+## Install
+
+```sh
+omp plugin marketplace add https://github.com/lorelum/lorelum.git
+omp plugin install lorelum@lorelum-plugins
+```
+
+The default is a personal installation. Add `--scope project` to the install command for a project-scoped installation, following omp's own configuration rules. Start a new session after installing or updating.
+
+## Use Lorelum
+
+Ask omp:
+
+```text
+Use Lorelum to find guidance for this task before you finalize the design.
+```
+
+The Plugin provides Main with a Pack Catalog before the model request. omp uses the Lorelum Skill to query relevant guidance and read a Practice in full before applying it.
+
+Startup, reload, session switch, branch/tree navigation, and completed compaction invalidate the Catalog. The next model request reads it once; each subsequent request reuses the temporary snapshot without another directory query or a permanent transcript message. If you change Packs outside the conversation, reload or start a new session.
+
+When Backend is already running, successful `lore get` reads can be associated with the current omp session. By default, task/eval subagents receive only bounded metadata from the originating Main's successful reads, not a Pack Catalog. All nested subagents keep that Main origin, rather than using their direct parent's reads. Their own gets stay in their own sessions and are not automatically added to Main. Candidates are not complete bodies or proof of adoption; read a Practice in full before using it.
+
+Set boolean `agent.subagentPackCatalog: true` in `~/.lorelum/config.yaml` to additionally give subagents Pack routing metadata; it defaults to `false` and never adds full Pack or Practice bodies. Main's Catalog and read candidates are unchanged. See [configuration](./configuration#omp-subagent-pack-catalog) and the [host capability comparison](./agent-setup#host-capabilities). A child does not automatically list Packs merely because its Catalog is absent; independent discovery for a material task decision remains available.
+
+The Plugin changes only the current Bash command, preserving omp's normal approval flow. By default, only commands containing `lore` receive session identity; use the shared [shell setting](./configuration#agent-shell-session-identity) to include indirect script calls. It does not change omp's global environment.
+
+## Update
+
+```sh
+omp plugin marketplace update lorelum-plugins
+omp plugin upgrade lorelum@lorelum-plugins
+```
+
+Start a new session afterward. The CLI and Plugin update independently; updating the Plugin does not replace the `lore` executable.
+
+## Remove
+
+```sh
+omp plugin uninstall lorelum@lorelum-plugins
+```
+
+New sessions no longer load the Skill or Catalog extension. Your CLI, installed Packs, and Backend data stay intact. To also remove the marketplace source:
+
+```sh
+omp plugin marketplace remove lorelum-plugins
+```
+
+## Troubleshoot
+
+If the Catalog or Skill is missing:
+
+1. Check `omp plugin list` and confirm Lorelum is installed and enabled.
+2. Check that `lore --version` works in the environment omp inherits. If the Plugin reports that the Catalog could not be loaded, confirm the CLI supports `lore hook omp` and update it if needed.
+3. Start a new session after correcting the CLI or Plugin. A failed Catalog refresh does not block the task. A child's absent Catalog is normal with the default setting, not a failure to repair by automatically listing Packs.
+
+If reads or subagent hints are missing, confirm Backend is already running and that the installed CLI and Plugin both support session hints. A failed or unassociated read is not recorded; unavailable hints never block a child task or change the result of `get`. Start a new session after upgrading both components.
+
+For retrieval or model problems, see [Troubleshooting](./troubleshooting).

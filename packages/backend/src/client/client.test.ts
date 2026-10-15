@@ -670,6 +670,15 @@ describe("createBackendClient", () => {
       expect(await client.readRecentHints("codex", explicitSession.sessionId)).toEqual([hint]);
       expect(await client.readRecentHints("codex", event.sessionId)).toEqual([]);
 
+      // Explicit session reporting and authenticated hint reads accept omp without shell windows.
+      await Promise.all(
+        (["omp", "claude", "cursor", "workbuddy", "zcode"] as const).map(async (hostKey) => {
+          const session = { hostKey, sessionId: "explicit-host-session" };
+          await client.recordSuccessfulGet(cwd, hint, session);
+          expect(await client.readRecentHints(hostKey, session.sessionId)).toEqual([hint]);
+        }),
+      );
+
       await client.routeToolEvent(event);
       await client.recordSuccessfulGet(cwd, hint);
       expect(await client.readRecentHints("codex", event.sessionId)).toEqual([hint]);

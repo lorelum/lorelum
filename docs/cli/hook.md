@@ -1,6 +1,6 @@
-# Host Hooks (Codex / Cursor / WorkBuddy / ZCode)
+# Host Hooks
 
-`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是 Lorelum CLI 与各宿主 Plugin 之间的版本化集成 ABI。它们从 stdin 读取宿主 Hook payload，并在 stdout 输出一行宿主 Hook envelope；它们不输出普通 Lorelum CLI JSON envelope。四个命令共享同一 Pack Catalog 检索与渲染实现（`packages/cli/src/hook/host-hook.ts` 与 `pack-catalog.ts`），仅命令名、宿主 envelope 形状、stderr 诊断前缀和宿主边界不同。
+`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是 Lorelum CLI 与各宿主 Plugin 之间的版本化集成 ABI。它们从 stdin 读取宿主 Hook payload，并在 stdout 输出一行宿主 Hook envelope；它们不输出普通 Lorelum CLI JSON envelope。四个命令共享同一 Pack Catalog 读取与渲染实现（`packages/cli/src/hook/catalog-store.ts` 与 `pack-catalog.ts`），仅命令名、宿主 envelope 形状、stderr 诊断前缀和宿主边界不同。
 
 ```sh
 printf '%s\n' '{"hook_event_name":"SessionStart"}' | lore hook codex
@@ -28,11 +28,36 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | lore hook zcode --store-root /absolute/path/to/isolated-store
 ```
 
+## omp extension bridge
+
+`lore hook omp` 供 omp 的 TypeScript extension 调用，接收 Lorelum bridge 请求而非宿主原生 Hook envelope：
+
+```sh
+printf '%s\n' '{"event":"catalog"}' | lore hook omp
+```
+
+成功 stdout 为单行 `{"additionalContext":"<Catalog>"}`。Catalog 复用共享检索与渲染，最多 4000 字符，字段和数据边界与上述 SessionStart Catalog 相同；不会自动 query/get 或启动模型/Backend。
+
+Catalog 请求可带 `agentKind: "main" | "sub"`，省略保持 main 语义。主 Agent 始终有 Catalog；子请求显式传 `sub`，由 CLI 独立读取 `~/.lorelum/config.yaml` 的布尔项 `agent.subagentPackCatalog`（默认 false）。缺省/false 正常返回 `{}` 且不读取 Store，不是故障；true 复用既有 renderer，只额外提供 Pack 目录 metadata，不含完整 Pack 或 Practice 正文。extension 不直接读配置文件。下一次子 Agent Catalog bridge 调用读取设置；新子 Agent 或下一次会话/compact 刷新采用新值，同一生命周期普通请求仍复用快照，无需重启 Backend。开关不影响 read-hints。
+
+坏 JSON、不支持 event 或 Store 读取失败时输出单行 `{}`，以退出码 0 结束，诊断写 stderr，前缀为 `lore hook omp degraded: `。有效空 Store 返回明确的空 Catalog，不把错误当作没有 Pack。非法 argv 保持普通 CLI 用法错误；`--store-root` 和 `--debug` 沿用既有参数规则。
+
+extension 在启动、重新加载、会话切换、branch/tree 导航和 compact 完成后只使快照失效，下一次 `context` callback 读取一次；每次普通模型请求临时复用快照，不重复查询。Catalog 只加入当前请求的 user 消息，不写入 transcript。子进程有十秒期限，失效与 shutdown 取消旧请求。子 Agent 无 Catalog 不触发 Skill 自动 pack list；独立材料发现需求仍可按需处理。
+
+另有两类请求，共用上述非阻塞失败与单行 JSON 规则：
+
+- `{"event":"shell","sessionId":"<实际 omp session ID>","command":"lore get <id>"}`：按 `agent.shellSessionInjection` 返回 `{"command":"<带会话身份前缀的命令>"}`；不匹配或不适用时为 `{}`。默认只匹配外层文本中的独立 `lore`，`all-shell` 覆盖全部 Bash。保留工具其余输入与宿主审批；身份前缀仅属于该命令，不修改全局环境。
+- `{"event":"read-hints","sessionId":"<源头 Main omp session ID>"}`：协议不变，读取已有 Backend 候选，返回 `{"additionalContext":"<有界候选 metadata>"}`；没有可用候选为 `{}`。复用既有 `renderReadHints` 的 1800 字符预算与未验证采用状态警告，不启动 Backend，不自动读取 Practice 正文。
+
+task/eval 的实际派发通过原生 child registry ID 交接源头 Main session；所有嵌套子 Agent 继承该 Main 身份，直接父 Agent 身份仅用于核对，不把 `parentId` 当 session ID，也不依赖共享事件总线。默认子 Agent 只有 Main 成功 get 的摘要；自身 get 仍归自身 session，不自动并入 Main。候选与 Catalog 开关独立。无可靠 Main 身份不得猜候选，但显式 true 时仍能取得 Catalog。并行、嵌套、会话切换、冲突与过期读取不得混入其他会话候选。
+
+安装与用户操作见[omp 用户指南](https://lorelum.com/zh/docs/omp)，源码验收见[Plugin 开发指南](../development/plugins.md#omp-checkout-install)。
+
 ## 共用的会话关联
 
 `lore get` 成功后的候选报告由 CLI 发往已经运行的 Backend，Backend 负责把可关联的读取保存在通用会话目录；宿主 Hook 只映射事件、传递会话身份或读取有界候选提示。无法关联或 Backend 不可达时可漏记，`get` 的结果与退出码不变。Backend 的[公共会话模块](../../packages/backend/src/modules/sessions/README.md)拥有显式身份与活动窗口后备，不在某个宿主 Plugin 里另存清单。
 
-`agent.shellSessionInjection` 是 Agent 共用的会话身份注入策略，不属于 Codex 协议。支持 shell 命令改写的宿主在调用对应 Hook 时读取它：默认 `lore-only` 只匹配外层命令文本中的独立 `lore` 字样，`all-shell` 涵盖该宿主每次有效的 shell tool 调用。它不解析脚本，也不控制非 shell tool、SessionStart Catalog 或子 Agent 提示；无效配置在消费它的 Hook 中以非阻塞 no-op 降级。没有对应 Hook 的宿主不会仅凭配置字段而改变行为。
+`agent.shellSessionInjection` 是 Agent 共用的会话身份注入策略，不属于 Codex 协议。支持 shell 命令改写的宿主在对应 Hook 或 extension bridge 调用时读取它：默认 `lore-only` 只匹配外层命令文本中的独立 `lore` 字样，`all-shell` 涵盖该宿主每次有效的 shell tool 调用。它不解析脚本，也不控制非 shell tool、Pack Catalog 或子 Agent 提示；无效配置在消费它的集成边界以非阻塞 no-op 降级。没有对应 adapter 的宿主不会仅凭配置字段而改变行为。
 
 ## 宿主差异
 
@@ -41,3 +66,4 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
 - Cursor Plugin 以事件名 `sessionStart`（camelCase）与顶层 `additional_context` envelope 调用 `lore hook cursor`；宿主对该事件是 fire-and-forget，`{ "continue": true }` 降级输出为无害 no-op。Cursor 的 `preToolUse` 只处理 `Shell` tool（终端工具的宿主名），返回扁平 `updated_input` 字段（snake_case，非嵌套 `hookSpecificOutput`），不带 `permission` 决定；会话 ID 读取 `session_id` 并在缺失时回退 `conversation_id`。Windows 上 Hook 命令经 PowerShell 执行且 `lore.cmd` 可按名解析，命令保持裸 `lore hook cursor`，宿主默认 fail-open，无需输出过滤包装。Cursor 的 `subagentStart` 响应不支持注入 context，该事件不注册 Hook 并返回空 no-op。
 - WorkBuddy Plugin 使用宿主原生 `command` 形式；其 hooks schema 没有 `commandWindows` 与 `additionalContextLimit` 字段（未知键被宿主剥离，不得携带）。其 `hooks.json` 由宿主自动发现，manifest 中的 `hooks` 字段反而是 inline 对象或精确文件路径语义，不得使用。WorkBuddy 对 SessionStart matcher 按 `RegExp(matcher).test(source)` 求值，声明非锚定列表 `startup|resume|clear|compact`。Windows 上 Hook 命令经 Git Bash 执行，命令携带 `|| lore.cmd` 回退。WorkBuddy 的 `PreToolUse` 只处理 `Bash` tool，全平台返回 Unix `export` 前缀的 `updatedInput`（其 Bash 工具在 Windows 上也走 Git Bash），且不带 `permissionDecision`——宿主的 `allow` 会绕过权限系统。WorkBuddy 派发 `SubagentStart` 但丢弃 Hook stdout，该事件不注册 Hook 并返回空 no-op。
 - ZCode 不支持 `commandWindows` 与 `additionalContextLimit`；其 Plugin 使用宿主原生的 `process` Hook，以 argv 形式直接运行 `lore hook zcode`，不经过 shell、Git Bash 或平台包装脚本。上下文预算由 CLI 渲染器的 4000 字符上限保证，与 Codex 共享同一实现。ZCode 的 `PreToolUse` 只处理 `Bash` tool：全平台返回前置 Unix `export` 的 `updatedInput`（Bash tool 的执行 shell 由宿主自行解析并在会话上下文告知——Windows 上默认自动检测 Git Bash），并且不返回 `permissionDecision`——ZCode 会把 Hook 的 `allow` 决定应用为对原本需要用户确认的调用的放行，而 `updatedInput` 的应用不需要该字段。ZCode 的输出 schema 在所有事件上接受顶层 `continue`，旧 CLI 的降级 envelope 是无害 no-op，因此 Plugin 无需输出过滤包装。ZCode 没有子 Agent 启动事件：不注册 `SubagentStart` Hook，也不把 SessionStart Catalog 当作已读候选提示。
+- omp extension bridge 的 shell 请求按宿主 shell 语法加会话身份前缀：macOS/Linux 使用 Unix `export`，原生 Windows 使用 PowerShell 的 `$env:`（与 Codex 的单 Bash tool 规则一致）；Bash tool 在 Windows 经 Git Bash 执行的宿主（WorkBuddy、ZCode）则保持 Unix `export`。

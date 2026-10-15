@@ -21,6 +21,21 @@ agent:
 
 这是 Agent 共用配置，不属于 Codex。只有宿主 Plugin 支持 shell 会话绑定时才生效；单靠设置该字段不会新增 Hook。会话已读候选的共用行为见[接入 Agent](./agent-setup#会话中的已读候选)，具体支持的 Hook 以各宿主指南为准。
 
+## omp 子 Agent Pack 目录
+
+`agent.subagentPackCatalog` 仅由 omp 集成读取；Codex、Claude Code、Cursor、WorkBuddy 和 ZCode 不读取此配置，设置它不会改变这些宿主的行为。
+
+在 [omp](./omp) 中，Main 始终获得 Pack Catalog。task/eval 子 Agent（包括嵌套层级）默认只收到 Main 成功读取 Practice 的有界摘要。希望子 Agent 也看到 Pack 目录时，将下面的配置合并到 `~/.lorelum/config.yaml` 已有的 `agent` 段：
+
+```yaml
+agent:
+  subagentPackCatalog: true
+```
+
+这是布尔配置，默认 `false`；删除该字段或设为 `false` 即恢复默认。开启后只额外提供 Pack 名称、描述和适用范围等目录元数据，不注入完整 Pack 或 Practice 正文。不改变 Main 的 Catalog、候选查询或子 Agent 自己 get 的归属。所有嵌套子 Agent 都沿用源头 Main 的候选；它们自己的读取不会自动并入 Main。
+
+CLI 在下一次子 Agent Catalog bridge 调用读取设置；新子 Agent 或下一次会话/compact 刷新采用新值，同一生命周期的普通请求仍复用临时快照，不反复读取目录。可以重新加载 omp 触发刷新，无需重启 Backend。子 Agent 不会仅因没有 Catalog 自动列出 Pack 补齐目录；任务确实需要独立发现材料时仍可按需查询或浏览。
+
 ## 选择 Store
 
 用 `--store-root` 将项目的 Pack 和 index 单独保存：

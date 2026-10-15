@@ -26,3 +26,16 @@ export async function loadAgentHookSettings(
   if (value !== "lore-only" && value !== "all-shell") throw new ConfigError();
   return Object.freeze({ shellSessionInjection: value });
 }
+
+/** Reads only the opt-in subagent Pack metadata setting, independently of shell policy. */
+export async function loadSubagentPackCatalogSetting(
+  options: LoadConfigOptions = {},
+): Promise<boolean> {
+  const document = await loadConfig(options);
+  if (document.agent === undefined) return false;
+  if (!isRecord(document.agent)) throw new ConfigError();
+  const value = document.agent.subagentPackCatalog;
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") throw new ConfigError();
+  return value;
+}

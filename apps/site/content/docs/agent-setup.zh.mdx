@@ -15,21 +15,25 @@ Lorelum 帮助编码 Agent 在工作过程中找到相关的工程指导。请�
 | ZCode                  | 安装 [Lorelum Plugin](./zcode)。      |
 | Claude Code            | 安装 [Lorelum Plugin](./claude)。     |
 | Cursor                 | 安装 [Lorelum Plugin](./cursor)。     |
+| omp                    | 安装 [Lorelum Plugin](./omp)。       |
 | 其他能执行命令的 Agent | 使用宿主支持的 Skill 机制或项目指令。 |
 
 ## 宿主功能对比
 
-五个官方 Plugin 都提供 Lorelum Skill 和 SessionStart Pack Catalog，并通过同一套 `lore query`、`lore get` CLI 工作。差异主要在于宿主原生 Hook 能否关联会话读取，以及能否把已读候选传给新子 Agent。
+官方 Plugin 都提供 Lorelum Skill 和 Pack Catalog，并使用同一套 `lore query`、`lore get` CLI。下表区分 Catalog 的提供时机、会话读取关联与子 Agent 已读候选提示。
 
-| 宿主 | SessionStart Pack Catalog | 将成功的 `lore get` 关联到会话 | 向新子 Agent 展示已读候选 |
+| 宿主 | Pack Catalog | 将成功的 `lore get` 关联到会话 | 向新子 Agent 展示已读候选 |
 | --- | --- | --- | --- |
 | [Codex](./codex) | 支持 | 通过 Bash `PreToolUse` | 支持，通过 `SubagentStart` |
 | [Claude Code](./claude) | 支持 | 通过 Bash/PowerShell `PreToolUse` | 支持，通过 `SubagentStart` |
 | [Cursor](./cursor) | 支持，但首轮可能尚未出现 | 通过 Shell `preToolUse` | 不支持；子 Agent 启动响应无法注入上下文 |
 | [WorkBuddy](./workbuddy) | 支持 | 通过 Bash `PreToolUse` | 不支持；宿主不会把 `SubagentStart` Hook 输出送到子 Agent |
 | [ZCode](./zcode) | 支持 | 通过 Bash `PreToolUse` | 不支持；宿主没有子 Agent 启动事件 |
+| [omp](./omp) | Main 始终提供；子 Agent 可选开启 | 通过 Bash `tool_call` | 支持，所有 task/eval 后代使用源头 Main 的成功读取摘要 |
 
-Cursor 启动 Catalog Hook 时不会等待；如果首轮看不到 Catalog，Skill 可以查一次已安装 Pack。会话关联要求 `get` 成功、Backend 已在运行且能取得有效的会话身份；漏记不影响 `get` 的结果。共用的[shell 注入范围配置](./configuration#agent-shell-会话身份)决定哪些命令传递身份。已读记录只是可能相关的候选，不代表主 Agent 采纳了该 Practice。即使在 Codex 和 Claude Code，子 Agent 收到的也只是有界元数据，不是完整正文。SessionStart Catalog 是 Pack 元数据，不能代替已读候选提示。
+Cursor 启动 Catalog Hook 时不会等待；如果首轮看不到 Catalog，Skill 可以查一次已安装 Pack。会话关联要求 `get` 成功、Backend 已在运行且能取得有效的会话身份；漏记不影响 `get` 的结果。共用的[shell 注入范围配置](./configuration#agent-shell-会话身份)决定哪些命令传递身份。已读记录只是可能相关的候选，不代表主 Agent 采纳了该 Practice。Codex、Claude Code 和 omp 传递的都是有界元数据，不是完整正文。Pack Catalog 是 Pack 元数据，不能代替已读候选提示。
+
+omp 子 Agent 默认没有 Pack Catalog（`agent.subagentPackCatalog: false`）；设为 `true` 只额外提供 Pack 目录元数据，不含完整正文，也不改变已读摘要。所有嵌套子 Agent 沿用源头 Main 的候选；自己的 get 仍归自己的记录，不自动并入 Main。不因子 Agent 缺少 Catalog 自动列出 Pack，见[omp 配置](./configuration#omp-子-agent-pack-目录)。
 
 ## 其他 Agent
 
@@ -51,7 +55,7 @@ Cursor 启动 Catalog Hook 时不会等待；如果首轮看不到 Catalog，Ski
 
 Lorelum 可以为 Agent 对话保留一份简短的已读 Practice 候选列表。`lore get` 成功、本机 Backend 已在运行，且宿主集成能将读取关联到会话时，CLI 才报告这次读取。宿主可以向命令传递会话身份，也可以使用受支持的活动窗口后备。列表由 Backend 存在 `~/.lorelum/sessions/<宿主>/<会话 ID>/practice-reads.jsonl`；重启 Backend 或删除原 worktree 不会清除记录。读取失败或无法关联会话就不记，不改变 `get` 的结果。
 
-接入了子 Agent 启动 Hook 的宿主可以把候选 ID、标题和适用条件传给新子 Agent，由它决定是否自行 `lore get`，不会自动注入正文。列表可能不完整，只说明某个 Practice 被读过，不代表主 Agent 已采纳；它不是任务日志或权限依据。这项能力属于 Agent 集成的共用层；各宿主 Plugin 分别说明支持哪些 Hook。
+支持子 Agent 上下文入口的宿主可以把候选 ID、标题和适用条件传给新子 Agent。omp 在 task/eval 的模型请求中提供，Codex 与 Claude Code 使用子 Agent 启动 Hook。子 Agent 自行决定是否 `lore get`，不会自动注入正文。列表可能不完整，只说明某个 Practice 被读过，不代表主 Agent 已采纳；它不是任务日志或权限依据。各宿主 Plugin 分别说明支持的接入方式。
 
 支持在 shell 命令中传递会话身份的宿主共用[注入范围配置](./configuration#agent-shell-会话身份)；各宿主指南说明对应的 Hook 行为。
 
@@ -64,4 +68,4 @@ Lorelum 可以为 Agent 对话保留一份简短的已读 Practice 候选列表�
 
 ## 更新
 
-文件安装的 Skill 直接用最新版 `SKILL.md` 替换即可。Codex、WorkBuddy、ZCode、Claude Code 和 Cursor 用户在宿主应用中更新 Plugin；具体步骤见各自的安装页。
+文件安装的 Skill 直接用最新版 `SKILL.md` 替换即可。Plugin 通过宿主的插件机制更新，具体步骤见各自的安装页。

@@ -1,20 +1,19 @@
-import {
-  createListService,
-  defaultStorageRoot,
-  type ListPackDetailsResult,
-  type ListService,
-  type StorageRoot,
-} from "@lorelum/engine";
+import type { ListPackDetailsResult } from "@lorelum/engine";
 
 import type { OutputWriter } from "../output/protocol.js";
-import { resolveInvocationStorageRoot } from "../store/storage-root.js";
-import { renderPackCatalog } from "./pack-catalog.js";
+import { renderInstalledPackCatalog } from "./pack-catalog.js";
+import {
+  defaultCatalogServices,
+  readInstalledPackDetails,
+  type CatalogServices,
+} from "./catalog-store.js";
 import type { Logger } from "@lorelum/log";
 import type { ReadHint } from "@lorelum/backend/client";
 import { sessionRefSchema } from "@lorelum/backend/client";
 import { defaultPracticeHints } from "../practice-hints/backend.js";
 import { loadAgentHookSettings, type AgentHookSettings } from "./agent-settings.js";
 import { renderReadHints } from "../practice-hints/render.js";
+import { associateShellCommand } from "./shell-association.js";
 
 /** Hosts with a versioned raw session Hook ABI (`lore hook <host>`). */
 export type HostHookName = "claude" | "codex" | "cursor" | "workbuddy" | "zcode";
@@ -59,9 +58,7 @@ export interface TextInput {
   text(): Promise<string>;
 }
 
-export interface HostHookServices {
-  readonly list: Pick<ListService, "listPackDetails">;
-  readonly storageRoot: StorageRoot;
+export interface HostHookServices extends CatalogServices {
   readonly practiceHints?: {
     readRecentHints(hostKey: string, sessionId: string): Promise<readonly ReadHint[]>;
   };
@@ -85,19 +82,18 @@ export interface HostHookInvocation {
 }
 
 const defaultServices: HostHookServices = Object.freeze({
-  list: createListService(),
-  storageRoot: defaultStorageRoot(),
+  ...defaultCatalogServices,
   practiceHints: defaultPracticeHints,
   agentHookSettings: loadAgentHookSettings,
 });
 
 /**
- * Detect a raw host Hook ABI (`hook <host>`) and consume its only supported
- * global option.
+ * Detect a raw Hook invocation (`hook <host>`) and consume its supported
+ * global options.
  */
 export function parseHostHookInvocation(
   arguments_: readonly string[],
-  host: HostHookName,
+  host: HostHookName | "omp",
 ): HostHookInvocation | undefined {
   const positionals: string[] = [];
   let storeRoot: string | undefined;
@@ -228,14 +224,11 @@ function respondToHostHook(
   if (input.hook_event_name !== supportedSessionEvent(host)) {
     throw new Error(`Lorelum ${hostLabel(host)} Hook received an unsupported event.`);
   }
-  const storageRoot = resolveInvocationStorageRoot(storeRoot, services.storageRoot);
-  return services.list
-    .listPackDetails({ storageRoot })
-    .then((details) =>
-      host === "cursor"
-        ? buildCursorHookResponse(details)
-        : buildHostHookResponse("SessionStart", details),
-    );
+  return readInstalledPackDetails(services, storeRoot).then((details) =>
+    host === "cursor"
+      ? buildCursorHookResponse(details)
+      : buildHostHookResponse("SessionStart", details),
+  );
 }
 
 async function respondToPracticeHint(
@@ -273,15 +266,11 @@ async function respondToPracticeHint(
     const command = input.tool_input.command;
     if (typeof command !== "string") return {};
     const settings = await loadSettings();
-    if (settings.shellSessionInjection === "lore-only" && !containsLoreToken(command)) return {};
+    const associatedCommand = associateShellCommand(session.data, command, settings, syntax);
+    if (associatedCommand === undefined) return {};
     const updatedInput: Record<string, unknown> = {
       ...input.tool_input,
-      command:
-        (syntax === "powershell"
-          ? `$env:LORELUM_HOST_KEY = '${host}'\n` +
-            `$env:LORELUM_HOST_SESSION_ID = ${powerShellQuote(session.data.sessionId)}\n`
-          : `export LORELUM_HOST_KEY='${host}'\n` +
-            `export LORELUM_HOST_SESSION_ID=${shellQuote(session.data.sessionId)}\n`) + command,
+      command: associatedCommand,
     };
     if (host === "cursor") {
       // Cursor's preToolUse response is flat and carries no permission
@@ -342,18 +331,6 @@ function firstString(...values: readonly unknown[]): unknown {
   return undefined;
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
-
-function powerShellQuote(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`;
-}
-
-function containsLoreToken(command: string): boolean {
-  return /(^|[^A-Za-z0-9_-])lore(?=$|[^A-Za-z0-9_-])/.test(command);
-}
-
 export async function createHostHookResponse(
   input: HostHookInput,
   host: "cursor",
@@ -382,21 +359,13 @@ export function buildHostHookResponse(
   return {
     hookSpecificOutput: {
       hookEventName: eventName,
-      additionalContext: renderPackCatalog(catalogEntries(details)),
+      additionalContext: renderInstalledPackCatalog(details),
     },
   };
 }
 
 export function buildCursorHookResponse(details: ListPackDetailsResult): CursorHookResponse {
-  return { additional_context: renderPackCatalog(catalogEntries(details)) };
-}
-
-function catalogEntries(details: ListPackDetailsResult) {
-  return details.packs.map((pack) => ({
-    name: pack.name,
-    ...(pack.description === undefined ? {} : { description: pack.description }),
-    appliesTo: pack.applies_to ?? [],
-  }));
+  return { additional_context: renderInstalledPackCatalog(details) };
 }
 
 /** The native event literal each host sends on its raw session Hook. */

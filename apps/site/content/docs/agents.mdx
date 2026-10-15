@@ -37,7 +37,7 @@ Install the requested Pack if it is missing. To start with the official engineer
 lore pack install agentic-coding
 ```
 
-Follow [Agent integration](./agent-setup) for the current host. Codex, WorkBuddy, ZCode, and Cursor use their respective [official Plugins](./agent-setup); verify setup with a query about the current repository and a full Practice read.
+Follow [Agent integration](./agent-setup) to configure the Plugin or Skill for the current host. Verify setup with a query about the current repository and a full Practice read.
 
 If using a custom `--store-root`, use it consistently for install, query, get, and index operations. It chooses Pack and index data, not a different model or Backend.
 
@@ -69,7 +69,7 @@ Retrieve again if new facts change the decision. Describe how the relevant guida
 
 A Practice can link Pack-native material with a `resource:` target, such as `resource:references/api-compatibility.md`. Resolve it from the matching source's `packRoot` in the `get` result. Read a reference when it provides the extra detail needed for the decision; copy an asset into the task workspace before editing it; and run a script only when the current task authorizes it and the Practice explains its inputs and purpose.
 
-The link is the default task route, not a file-access allowlist. A visible SessionStart Catalog gives Pack names and routing hints, not roots. For a retrieved Practice, use the corresponding Store source root from `get` and keep multiple sources separate; if the Pack context does not identify the source, preserve that ambiguity. Use `lore pack list <name>` when explicitly browsing a Pack. A ProjectContext `project-layer-N` is logical provenance, not a readable path. A Store root is a mutable current view: after a Pack mutation, retrieve `get` or explicitly browse with `pack list` again before treating it as the current source; never derive roots from Store internals. Never assume a Pack script runs during install, validation, query, listing, get, indexing, or recovery.
+The link is the default task route, not a file-access allowlist. A Pack Catalog visible in the current task gives Pack names and routing hints, not roots, whether delivered by a lifecycle Hook or a request-scoped extension. For a retrieved Practice, use the corresponding Store source root from `get` and keep multiple sources separate; if the Pack context does not identify the source, preserve that ambiguity. Use `lore pack list <name>` when explicitly browsing a Pack. A ProjectContext `project-layer-N` is logical provenance, not a readable path. A Store root is a mutable current view: after a Pack mutation, retrieve `get` or explicitly browse with `pack list` again before treating it as the current source; never derive roots from Store internals. Never assume a Pack script runs during install, validation, query, listing, get, indexing, or recovery.
 
 ## Read default output and diagnose issues
 

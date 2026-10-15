@@ -1,0 +1,71 @@
+---
+title: omp
+description: 在 omp 中安装 Lorelum，并在下一个编码任务中使用。
+icon: Plug
+---
+
+Lorelum Plugin 让 omp 在工程指导有助于当前任务时检索并使用它。
+
+## 开始前
+
+先完成[快速开始](./quickstart)。`lore` 必须位于 omp 继承的 `PATH`，支持 `lore hook omp`，并至少安装一个 Pack。Plugin 不安装或更新 CLI。
+
+omp 接入支持 macOS arm64 本机环境。CLI 的平台要求见[安装](./installation)。
+
+## 安装
+
+```sh
+omp plugin marketplace add https://github.com/lorelum/lorelum.git
+omp plugin install lorelum@lorelum-plugins
+```
+
+默认是个人安装。只在项目中使用时，在 install 命令后加 `--scope project`，遵循 omp 自身的配置规则。安装或更新后启动新会话。
+
+## 使用 Lorelum
+
+告诉 omp：
+
+```text
+请在确定这个任务的设计前，用 Lorelum 查找相关的工程指导。
+```
+
+Plugin 在模型请求前为 Main 提供 Pack Catalog。omp 通过 Lorelum Skill 查询相关指导，并在应用 Practice 前读取完整内容。
+
+启动、重新加载、切换会话、branch/tree 导航和 compact 完成会使 Catalog 失效；下一次模型请求读取一次，之后每次请求临时复用快照，不反复查询目录，也不写入永久会话消息。在对话外修改 Pack 后，重新加载或开启新会话。
+
+Backend 已在运行时，成功的 `lore get` 可关联到当前 omp 会话。task/eval 子 Agent 默认只收到源头 Main 成功读取的有界摘要，不收到 Pack Catalog。所有嵌套子 Agent 都保留这个 Main 来源，不改用直接父 Agent 的读取记录。子 Agent 自己 get 仍归自己的会话，不自动并入 Main。候选不是完整正文或已采用证明，使用前仍须完整 get。
+
+在 `~/.lorelum/config.yaml` 设置布尔项 `agent.subagentPackCatalog: true`，才会额外给子 Agent 提供 Pack 目录元数据；默认 `false`，不会注入完整 Pack 或 Practice 正文，也不改变 Main 的 Catalog 和已读候选。见[配置](./configuration#omp-子-agent-pack-目录)与[宿主功能对比](./agent-setup#宿主功能对比)。子 Agent 不会仅因没有 Catalog 自动列出 Pack 补目录；工程决策确实需要独立发现材料时仍可按需发现。
+
+Plugin 只改写本次 Bash 命令，保留 omp 原有审批。默认只为含 `lore` 的命令传递会话身份；需要覆盖脚本内的间接调用时使用共用的[shell 配置](./configuration#agent-shell-会话身份)。它不改变 omp 的全局环境。
+
+## 更新
+
+```sh
+omp plugin marketplace update lorelum-plugins
+omp plugin upgrade lorelum@lorelum-plugins
+```
+
+随后启动新会话。CLI 与 Plugin 独立更新，更新 Plugin 不替换 `lore` 可执行文件。
+
+## 移除
+
+```sh
+omp plugin uninstall lorelum@lorelum-plugins
+```
+
+新会话不再加载 Skill 或 Catalog extension；CLI、已安装 Pack 和 Backend 数据保持不变。若还要移除 marketplace 来源：
+
+```sh
+omp plugin marketplace remove lorelum-plugins
+```
+
+## 没有生效怎么办
+
+1. 查看 `omp plugin list`，确认 Lorelum 已安装且启用。
+2. 在 omp 继承的环境中确认 `lore --version` 可用。如果 Plugin 报告 Catalog 加载失败，确认 CLI 支持 `lore hook omp`，需要时更新 CLI。
+3. 修正 CLI 或 Plugin 后开启新会话。Catalog 刷新失败不阻塞任务。默认设置下子 Agent 没有 Catalog 是正常行为，不会因此自动列出 Pack 补目录。
+
+若读取关联或子 Agent 提示缺失，确认 Backend 已在运行，且 CLI 与 Plugin 都支持会话提示。失败或无法关联的读取不会记入候选；提示不可用不阻塞子任务，也不改变 `get` 的结果。升级两者后开启新会话。
+
+检索与模型问题见[故障排查](./troubleshooting)。

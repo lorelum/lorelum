@@ -45,7 +45,7 @@ The same task may need different guidance during planning, implementation, recov
 | Knowledge Pack | A versioned collection of Practices scoped to a domain, stack, or team standard. |
 | Store | The local installation of your Packs and the indexes derived from them. |
 | Skill | Instructions that help an agent decide when to retrieve and how to apply Practices. |
-| Plugin | A host integration that packages a Skill and any supported lifecycle Hooks. |
+| Plugin | A host integration that packages a Skill and supported host-native behavior, such as Hooks or extensions. |
 
 Natural-language retrieval runs locally with an embedding model. Keyword retrieval is available explicitly for offline term matching. Both search the Packs in the selected Store; neither searches the web.
 
@@ -53,6 +53,6 @@ Natural-language retrieval runs locally with an embedding model. Keyword retriev
 
 Lorelum retrieves and ranks Practices. The caller describes the task and moment, reads the guidance, and decides how it applies alongside the repository and the user's request.
 
-Lorelum Core does not manage the task, inspect the full conversation, or infer host lifecycle events. The [Codex and ZCode Plugins](./agent-setup) supply a Pack catalog at their supported session events; it does not prove that every relevant Practice has been followed. See [Why Lorelum](./why-lorelum) for the knowledge-and-judgment gap this addresses.
+Lorelum Core does not manage the task, inspect the full conversation, or infer host lifecycle events. [Host Plugins](./agent-setup) provide Pack routing metadata at supported lifecycle events or model requests; the host capability comparison explains which agents receive it and which hosts can pass read candidates to subagents. Neither a Catalog nor a read hint proves that a Practice has been followed. See [Why Lorelum](./why-lorelum) for the knowledge-and-judgment gap this addresses.
 
 > Lorelum is in public alpha. Read [Alpha compatibility](./alpha) before updating a shared setup.

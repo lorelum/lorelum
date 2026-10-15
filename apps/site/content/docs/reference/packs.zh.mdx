@@ -54,7 +54,7 @@ lore pack list agentic-coding
 
 `lore pack list` 的默认 text 显示 Pack 名称和版本。`--details` 继续用于查看富元数据，会显示已声明的描述和非空适用范围；它不是通用展开选项。使用 `--verbose` 可将完整结果 data 输出为 text，使用 `--json` 可获得完整 envelope 和 data；即使同时传入 `--verbose`，JSON 也不变。指定 Pack 名则列出其中的 Practice，并在 `pack` object 上返回 `packRoot`。把结果中的 ID 传给 [get](./get)。Practice 摘要刻意不重复每条 Practice 或资源路径。
 
-明确浏览某个 Pack 时，`lore pack list <name>` 会在默认 text 中显示当前 `packRoot` 和其中的 Practice 摘要。普通 query 后读取 Practice 时，使用 [get](./get) 返回的对应 Store source `packRoot`；每个 source 都有自己的 locator。SessionStart Pack Catalog 提供名称、描述和适用范围，但不包含 Pack root，也不会自动加载或枚举资源。
+明确浏览某个 Pack 时，`lore pack list <name>` 会在默认 text 中显示当前 `packRoot` 和其中的 Practice 摘要。普通 query 后读取 Practice 时，使用 [get](./get) 返回的对应 Store source `packRoot`；每个 source 都有自己的 locator。宿主提供的 Pack Catalog 只含名称、描述和适用范围等元数据，不包含 Pack root，也不会自动加载或枚举资源；生命周期 Hook 与 omp 请求级 Catalog 都遵守这一边界。
 
 Store 的 `packRoot` 是可变的 `current` view，不是 artifact digest 路径：发生 mutation 后，相同路径可能解析到新 bytes，或在 Pack 移除后消失。重新运行 `lore get`，或用 `lore pack list <name>` 明确浏览后，再将它视为当前 root；不能从 Pack 名或 Store 布局推导路径。详见 [Pack 格式](./pack-format)。
 

@@ -25,6 +25,7 @@ async function optionalRequest<T>(
   connect: () => Promise<HintClient>,
   request: (client: HintClient, options: BackendRequestOptions) => Promise<T>,
   fallback: T,
+  onError?: (error: unknown) => void,
 ): Promise<T> {
   const controller = new AbortController();
   const deadline = Date.now() + reportDeadlineMs;
@@ -41,7 +42,8 @@ async function optionalRequest<T>(
       return request(client, { deadline, signal: controller.signal });
     };
     return await Promise.race([operation(), aborted]);
-  } catch {
+  } catch (error) {
+    onError?.(error);
     return fallback;
   } finally {
     clearTimeout(timeout);
@@ -51,6 +53,7 @@ async function optionalRequest<T>(
 /** Optional hints never start the Backend or change the host command's result. */
 export function createOptionalPracticeHints(
   connect: () => Promise<HintClient> = createProcessBackendClient,
+  diagnostics: { readonly onReadHintsError?: (error: unknown) => void } = {},
 ) {
   return {
     async routeToolEvent(event: ShellToolEvent): Promise<void> {
@@ -74,6 +77,7 @@ export function createOptionalPracticeHints(
         connect,
         (client, options) => client.readRecentHints(hostKey, sessionId, options),
         [],
+        diagnostics.onReadHintsError,
       );
     },
   };

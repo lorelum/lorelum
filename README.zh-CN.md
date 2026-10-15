@@ -84,7 +84,7 @@ Agent 判断何时查询、哪些 Practice 适用。Lorelum 提供检索到的�
 - **本地 semantic retrieval。** 用 `lore query` 围绕任务和时刻检索已安装 Practice，本地 Backend 在请求之间复用 embedding 模型。
 - **Practice 全文读取。** 用 `lore get` 阅读完整指导和适用条件，再决定如何应用。
 - **版本化 Knowledge Pack。** 安装、查看、更新和移除 Pack，通过 `--store-root` 管理独立知识集合。
-- **Agent 集成。** 在能执行命令的 Agent 中使用 Lorelum Skill；Codex、Claude Code、WorkBuddy、ZCode 和 Cursor 都有包含 Pack Catalog 的官方 Plugin。
+- **Agent 集成。** 在能执行命令的 Agent 中使用 Lorelum Skill；Codex、Claude Code、WorkBuddy、ZCode、Cursor 和 omp 都有包含 Pack Catalog 的官方 Plugin。
 - **明确的离线路径。** 用 `lore query --mode keyword` 按关键词匹配，无需模型或 Backend。
 - **Pack 编写工具。** 通过 CLI 验证源文件、格式化 Practice，并维护本地化状态。
 
@@ -148,11 +148,12 @@ lore get <practice-id>
 | ZCode                  | 官方 Plugin，包含 Skill、`/lore` 命令和 Pack 目录 Hook |
 | Claude Code            | 官方 Plugin，包含 Skill 和 Pack 目录 Hook              |
 | Cursor                 | 官方 Plugin，包含 Skill、`/lore` 命令和 Pack 目录 Hook |
+| omp                    | 官方 Plugin，包含 Skill、Pack Catalog、会话读取关联与 task/eval 子 Agent 已读候选提示 |
 | 其他能执行命令的 Agent | 宿主支持的 Skill 或项目指令                            |
 
 安装选定的 Skill 或 Plugin 后，启动一个新任务，要求 Agent 在确定重要计划或实现决定前使用 Lorelum。每个宿主页都提供各自的更新步骤和最短排查路径。
 
-安装与功能差异见[接入 Agent 与宿主功能对比](https://lorelum.com/zh/docs/agent-setup#宿主功能对比)；[Codex](https://lorelum.com/zh/docs/codex)、[Claude Code](https://lorelum.com/zh/docs/claude)、[WorkBuddy](https://lorelum.com/zh/docs/workbuddy)、[ZCode](https://lorelum.com/zh/docs/zcode)和 [Cursor](https://lorelum.com/zh/docs/cursor)指南分别说明宿主的安装与验证。
+安装与功能差异见[接入 Agent 与宿主功能对比](https://lorelum.com/zh/docs/agent-setup#宿主功能对比)；[Codex](https://lorelum.com/zh/docs/codex)、[Claude Code](https://lorelum.com/zh/docs/claude)、[WorkBuddy](https://lorelum.com/zh/docs/workbuddy)、[ZCode](https://lorelum.com/zh/docs/zcode)、[Cursor](https://lorelum.com/zh/docs/cursor) 和 [omp](https://lorelum.com/zh/docs/omp) 指南分别说明宿主的安装与验证。
 
 ## 选择或创建 Knowledge Pack
 
@@ -202,7 +203,7 @@ severity: warn
 
 Lorelum Core 不管理任务、不读取完整 transcript，也不判断实现是否通过验收。检索到的 Practice 是指导，不能代替验证证据。
 
-五个官方 Plugin 都会在受支持的会话事件中提供 Pack Catalog。部分宿主还能向新子 Agent 提供有界的已读 Practice 候选提示；其他宿主可以记录读取，但无法展示子 Agent 提示。具体见[宿主功能对比](https://lorelum.com/zh/docs/agent-setup#宿主功能对比)。Lorelum 不会从候选推断完整任务历史，也不会自动向子 Agent 注入 Practice 正文。
+官方 Plugin 会在受支持的宿主事件或模型请求中提供 Pack Catalog。omp 向主 Agent 提供 Catalog，子 Agent 的 Catalog 需显式开启；子 Agent 默认只收到主会话已读 Practice 的有界摘要。部分其他宿主也能向新子 Agent 提供已读候选提示，或只能记录读取而无法展示提示。具体见[宿主功能对比](https://lorelum.com/zh/docs/agent-setup#宿主功能对比)。Lorelum 不会从候选推断完整任务历史，也不会自动向子 Agent 注入 Practice 正文。
 
 ## 文档与贡献
 

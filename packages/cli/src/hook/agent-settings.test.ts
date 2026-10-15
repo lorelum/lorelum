@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ConfigError } from "@lorelum/config";
 
-import { DEFAULT_AGENT_HOOK_SETTINGS, loadAgentHookSettings } from "./agent-settings.js";
+import {
+  DEFAULT_AGENT_HOOK_SETTINGS,
+  loadAgentHookSettings,
+  loadSubagentPackCatalogSetting,
+} from "./agent-settings.js";
 
 test("defaults to lore-only without changing other configuration sections", async () => {
   const home = await mkdtemp(join(tmpdir(), "lorelum-agent-settings-"));
@@ -65,3 +69,61 @@ test.each([
     }
   },
 );
+
+test.each([
+  { source: undefined, expected: false },
+  { source: "query:\n  maxWaitMs: 2500\n", expected: false },
+  { source: "agent:\n  shellSessionInjection: all-shell\n", expected: false },
+  { source: "agent:\n  subagentPackCatalog: false\n", expected: false },
+  { source: "agent:\n  subagentPackCatalog: true\n", expected: true },
+  {
+    source: "agent:\n  shellSessionInjection: invalid\n  subagentPackCatalog: true\n",
+    expected: true,
+  },
+])("reads independent subagent Catalog setting from $source", async ({ source, expected }) => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-agent-settings-"));
+  try {
+    if (source !== undefined) {
+      await mkdir(join(home, ".lorelum"));
+      await writeFile(join(home, ".lorelum", "config.yaml"), source);
+    }
+    expect(await loadSubagentPackCatalogSetting({ homeDirectory: home })).toBe(expected);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test.each([
+  "agent: []\n",
+  "agent:\n  subagentPackCatalog: 'true'\n",
+  "agent:\n  subagentPackCatalog: 1\n",
+  "agent:\n  subagentPackCatalog: null\n",
+  "agent: [\n",
+])("rejects malformed subagent Catalog setting %s", async (source) => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-agent-settings-"));
+  try {
+    await mkdir(join(home, ".lorelum"));
+    await writeFile(join(home, ".lorelum", "config.yaml"), source);
+    await expect(loadSubagentPackCatalogSetting({ homeDirectory: home })).rejects.toEqual(
+      new ConfigError(),
+    );
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("invalid subagent Catalog setting does not perturb a shell-only settings consumer", async () => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-agent-settings-"));
+  try {
+    await mkdir(join(home, ".lorelum"));
+    await writeFile(
+      join(home, ".lorelum", "config.yaml"),
+      "agent:\n  shellSessionInjection: all-shell\n  subagentPackCatalog: invalid\n",
+    );
+    expect(await loadAgentHookSettings({ homeDirectory: home })).toEqual({
+      shellSessionInjection: "all-shell",
+    });
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});

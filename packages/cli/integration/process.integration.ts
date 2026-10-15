@@ -7,11 +7,16 @@ import { createInstalledPacksFixture } from "./fixtures/installed-packs.js";
 import { verifyGetAndQueryScenario } from "./scenarios/get-query.js";
 import { verifyClaudeHookScenario } from "./scenarios/hook-claude.js";
 import { verifyCodexHookScenario } from "./scenarios/hook-codex.js";
+import { verifyOmpHookScenario } from "./scenarios/hook-omp.js";
 import { verifyWorkbuddyHookScenario } from "./scenarios/hook-workbuddy.js";
 import { verifyZcodeHookScenario } from "./scenarios/hook-zcode.js";
 import { verifyListPacksScenario } from "./scenarios/list-packs.js";
 import { runProcess } from "./support/process.js";
-import { selectProtocolFields } from "./support/protocol.js";
+import {
+  parseSingleResponse,
+  requireSuccessData,
+  selectProtocolFields,
+} from "./support/protocol.js";
 
 const entrypoint = join(import.meta.dir, "../src/main.ts");
 
@@ -33,6 +38,7 @@ async function main(): Promise<void> {
     await verifyCodexHookScenario(executable, fixture, directory);
     await verifyWorkbuddyHookScenario(executable, fixture, directory);
     await verifyZcodeHookScenario(executable, fixture, directory);
+    await verifyOmpHookScenario(executable, fixture, directory);
     await verifyGetAndQueryScenario(executable, fixture, directory);
   } finally {
     await rm(directory, { force: true, recursive: true });
@@ -40,15 +46,20 @@ async function main(): Promise<void> {
 }
 
 async function verifySourceEntrypoint(bunExecutable: string, directory: string): Promise<void> {
-  const defaultVersion = await runProcess([bunExecutable, entrypoint, "--version"]);
-  assert.equal(defaultVersion.exitCode, 0);
-  assert.match(defaultVersion.stdout, /^Lorelum .+ \(protocol 1\)\n$/u);
-  assert.equal(defaultVersion.stderr, "");
-
   const source = await runProcess([bunExecutable, entrypoint, "--version", "--json"]);
   assert.equal(source.exitCode, 0);
   assert.deepEqual(selectProtocolFields(source.stdout), { command: "version", ok: true });
   assert.equal(source.stderr, "");
+
+  const versionData = requireSuccessData(parseSingleResponse(source.stdout), "version");
+  assert.equal(typeof versionData.toolVersion, "string");
+  assert.equal(typeof versionData.protocolVersion, "number");
+  const defaultVersion = await runProcess([bunExecutable, entrypoint, "--version"]);
+  assert.equal(defaultVersion.exitCode, 0);
+  assert.match(defaultVersion.stdout, /^Lorelum /u);
+  assert(defaultVersion.stdout.includes(String(versionData.toolVersion)));
+  assert(defaultVersion.stdout.includes(`protocol ${versionData.protocolVersion}`));
+  assert.equal(defaultVersion.stderr, "");
 
   const hook = await runProcess(
     [
