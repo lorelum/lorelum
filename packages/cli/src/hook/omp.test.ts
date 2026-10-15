@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { ListPackDetailsResult } from "@lorelum/engine";
 import { run } from "../main.js";
 import type { OmpHookServices } from "./omp.js";
@@ -119,7 +119,7 @@ describe("lore hook omp source entry", () => {
       [...argv],
     );
     expect(result.exitCode).toBe(0);
-    expect(root).toBe("/override-store");
+    expect(root).toBe(resolve("/override-store"));
   });
 
   test.each(["{", "null", "[]", "{}", '{"event":"query"}', '{"hook_event_name":"SessionStart"}'])(
@@ -186,6 +186,7 @@ describe("omp shell and child hint consumers", () => {
       },
     },
     storageRoot: { rootPath: "/unused" },
+    platform: "linux",
     agentHookSettings: async () => DEFAULT_AGENT_HOOK_SETTINGS,
   };
 
@@ -218,20 +219,74 @@ describe("omp shell and child hint consumers", () => {
     },
   );
 
-  test("all-shell associates arbitrary commands and safely quotes the actual identity", async () => {
-    const sessionId = "parent'$(printf injected); child";
-    const command = 'printf "%s\\n%s" "$LORELUM_HOST_KEY" "$LORELUM_HOST_SESSION_ID"';
-    const result = await invoke(JSON.stringify({ event: "shell", sessionId, command }), {
-      ...services,
-      agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
-    });
-    const response = JSON.parse(result.stdout);
-    expect(response.command.endsWith(command)).toBe(true);
-    const execution = spawnSync("/bin/sh", ["-c", response.command], { encoding: "utf8" });
-    expect(execution.status).toBe(0);
-    expect(execution.stderr).toBe("");
-    expect(execution.stdout).toBe(`omp\n${sessionId}`);
-  });
+  test.skipIf(process.platform === "win32")(
+    "all-shell associates arbitrary commands and safely quotes the actual identity",
+    async () => {
+      const sessionId = "parent'$(printf injected); child";
+      const command = 'printf "%s\\n%s" "$LORELUM_HOST_KEY" "$LORELUM_HOST_SESSION_ID"';
+      const result = await invoke(JSON.stringify({ event: "shell", sessionId, command }), {
+        ...services,
+        agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+      });
+      const response = JSON.parse(result.stdout);
+      expect(response.command.endsWith(command)).toBe(true);
+      const execution = spawnSync("/bin/sh", ["-c", response.command], { encoding: "utf8" });
+      expect(execution.status).toBe(0);
+      expect(execution.stderr).toBe("");
+      expect(execution.stdout).toBe(`omp\n${sessionId}`);
+    },
+  );
+  test.each([
+    [
+      "darwin",
+      "export LORELUM_HOST_KEY=\u0027omp\u0027\nexport LORELUM_HOST_SESSION_ID=\u0027actual-session\u0027\n",
+    ],
+    [
+      "linux",
+      "export LORELUM_HOST_KEY=\u0027omp\u0027\nexport LORELUM_HOST_SESSION_ID=\u0027actual-session\u0027\n",
+    ],
+    [
+      "win32",
+      "$env:LORELUM_HOST_KEY = \u0027omp\u0027\n$env:LORELUM_HOST_SESSION_ID = \u0027actual-session\u0027\n",
+    ],
+  ] as const)(
+    "%s prefixes the shell command with the host shell syntax",
+    async (platform, prefix) => {
+      const command = "lore get sample.read";
+      const result = await invoke(
+        JSON.stringify({ event: "shell", sessionId: "actual-session", command }),
+        {
+          ...services,
+          platform,
+          agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+        },
+      );
+      expect(result.stderr).toBe("");
+      expect(JSON.parse(result.stdout).command).toBe(prefix + command);
+    },
+  );
+
+  test.skipIf(process.platform !== "win32")(
+    "Windows PowerShell rewrite passes session identity without changing exit status",
+    async () => {
+      const sessionId = "parent\u0027one";
+      const command = 'echo "$env:LORELUM_HOST_KEY/$env:LORELUM_HOST_SESSION_ID"; exit 23';
+      const result = await invoke(JSON.stringify({ event: "shell", sessionId, command }), {
+        ...services,
+        platform: "win32",
+        agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+      });
+      const response = JSON.parse(result.stdout);
+      expect(response.command.endsWith(command)).toBe(true);
+      const execution = spawnSync(
+        "powershell.exe",
+        ["-NoProfile", "-NonInteractive", "-Command", response.command],
+        { encoding: "utf8" },
+      );
+      expect(execution.status).toBe(23);
+      expect(execution.stdout.trim()).toBe("omp/" + sessionId);
+    },
+  );
 
   test.each([
     { event: "shell", sessionId: "../outside", command: "lore get sample.read" },

@@ -72,6 +72,16 @@ export function parseOmpHookInvocation(
   return parseHostHookInvocation(arguments_, "omp");
 }
 
+/**
+ * Resolve the assignment syntax for the omp Bash tool. Native Windows uses
+ * PowerShell while macOS and Linux use a POSIX-style shell, matching the
+ * Codex single-Bash-tool precedent. WorkBuddy and ZCode keep Unix exports on
+ * Windows because their Bash tools run through Git Bash.
+ */
+function ompShellSyntax(platform: NodeJS.Platform): "export" | "powershell" {
+  return platform === "win32" ? "powershell" : "export";
+}
+
 /** Private extension bridge, not a native session Hook envelope. */
 export async function runOmpHook(options: RunOmpHookOptions): Promise<0> {
   try {
@@ -106,7 +116,13 @@ export async function runOmpHook(options: RunOmpHookOptions): Promise<0> {
       const session = sessionRefSchema.parse({ hostKey: "omp", sessionId: request.sessionId });
       if (request.event === "shell") {
         const settings = await (options.services?.agentHookSettings ?? loadAgentHookSettings)();
-        const command = associateShellCommand(session, request.command, settings, "export");
+        const platform = options.services?.platform ?? process.platform;
+        const command = associateShellCommand(
+          session,
+          request.command,
+          settings,
+          ompShellSyntax(platform),
+        );
         if (command !== undefined) response = { command };
       } else {
         const hints = await (
