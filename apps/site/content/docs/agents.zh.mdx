@@ -69,7 +69,7 @@ lore get <practice-id>
 
 Practice 可以通过 `resource:` target 链接 Pack 内材料，例如 `resource:references/api-compatibility.md`。从 `get` 结果中相同 source 的 `packRoot` 解析它。只有当前判断需要额外细节时才读取 reference；asset 先复制到任务工作区再编辑；script 仅在当前任务授权、且 Practice 已说明用途和输入时运行。
 
-link 是默认任务路由，不是文件访问 allowlist。SessionStart 注入且当前任务中可见的 Catalog 提供 Pack 名称和路由提示，不提供 root。对于已经取回的 Practice，使用 `get` 对应 Store source 的 root，多个 source 必须保持分开；若 Pack 上下文不足以确定来源，就保留歧义。明确浏览 Pack 时运行 `lore pack list <name>`。ProjectContext 的 `project-layer-N` 只是逻辑来源，不是可读路径。Store root 是可变的 current view：发生 Pack mutation 后，重新执行 `get` 或显式浏览时的 `pack list` 后再使用；不要通过 Store 内部实现推导 root。不要假定 Pack script 会在 install、validate、query、list、get、index 或 recovery 期间运行。
+link 是默认任务路由，不是文件访问 allowlist。当前任务中可见的 Pack Catalog 提供 Pack 名称和路由提示，不提供 root，无论它由生命周期 Hook 还是请求级 extension 提供。对于已经取回的 Practice，使用 `get` 对应 Store source 的 root，多个 source 必须保持分开；若 Pack 上下文不足以确定来源，就保留歧义。明确浏览 Pack 时运行 `lore pack list <name>`。ProjectContext 的 `project-layer-N` 只是逻辑来源，不是可读路径。Store root 是可变的 current view：发生 Pack mutation 后，重新执行 `get` 或显式浏览时的 `pack list` 后再使用；不要通过 Store 内部实现推导 root。不要假定 Pack script 会在 install、validate、query、list、get、index 或 recovery 期间运行。
 
 ## 阅读默认输出与排查问题
 

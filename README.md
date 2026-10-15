@@ -207,7 +207,7 @@ Keep each Practice independently understandable: an agent may retrieve it withou
 
 Lorelum Core does not manage your task, inspect the full transcript, or decide that an implementation is accepted. A retrieved Practice is guidance, not verification evidence.
 
-Official Plugins supply a Pack catalog at supported host events. Some hosts can also pass bounded, possibly relevant read-Practice hints to new subagents; others can record reads but cannot show those hints. See the [host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities). Lorelum does not infer a complete task history or automatically inject full Practices into subagents.
+Official Plugins supply a Pack catalog at supported host events or model requests. In omp, Main receives the Catalog and subagent Catalogs are opt-in; subagents receive only bounded metadata from Main's successful Practice reads by default. Other hosts may also show read candidates to new subagents, or only record reads without showing those hints. See the [host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities). Lorelum does not infer a complete task history or automatically inject full Practices into subagents.
 
 ## Documentation and contributing
 

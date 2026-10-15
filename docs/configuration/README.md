@@ -4,7 +4,7 @@
 
 Lorelum 使用共享的 `~/.lorelum/config.yaml`。每个模块只读取自己负责的顶层 section；backend 在启动控制端只读取一次并把结果作为不可变快照传入 daemon。修改配置后重启 backend 才生效。
 
-Agent 共用的 `agent` section 由 CLI 在支持会话身份注入的宿主 Hook 调用时读取，不需要重启 Backend；没有对应 Hook 的宿主不受影响。CLI 不修改现有用户文件，行为边界见 [Host Hook ABI](../cli/hook.md)。
+Agent 共用的 `agent` section 由 CLI 在宿主 Hook 或 extension bridge 调用时读取，不需要重启 Backend。各消费方独立校验自己负责的字段：`shellSessionInjection` 用于支持 shell 会话身份关联的 adapter，`subagentPackCatalog` 仅由 omp 的 Catalog bridge 读取，其他宿主不受后者影响。CLI 不修改现有用户文件，集成边界见 [Host Hooks 与 omp extension bridge](../cli/hook.md)，配置用法见[用户配置指南](https://lorelum.com/zh/docs/configuration)。
 
 Registry source catalog 是 CLI 的另一条用户级状态边界：`~/.lorelum/registries.yaml` 由
 `@lorelum/config` 的 Registry catalog store 所有，供 `lore registry` 与 Pack install/update

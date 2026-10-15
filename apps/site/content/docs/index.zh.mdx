@@ -45,7 +45,7 @@ lore get <practice-id>
 | Knowledge Pack | 围绕某个领域、技术栈或团队标准组织的版本化 Practice 集合。        |
 | Store          | 本地已安装 Pack 及其派生索引的存储位置。                          |
 | Skill          | 指导 Agent 判断何时检索、如何应用 Practice 的说明。               |
-| Plugin         | 面向具体 Agent 宿主的集成，可包含 Skill 和受支持的生命周期 Hook。 |
+| Plugin         | 面向具体 Agent 宿主的集成，包含 Skill 和受支持的宿主原生行为，例如 Hook 或 extension。 |
 
 默认自然语言检索使用本地 embedding 模型；也可以明确选择离线关键词检索。两者都检索所选 Store 中的 Pack，不搜索互联网。
 
@@ -53,6 +53,6 @@ lore get <practice-id>
 
 Lorelum 负责检索和排序 Practice。调用方负责描述任务与时刻、读取指导，并结合仓库事实和用户要求判断如何应用。
 
-Lorelum Core 不管理任务、不读取完整会话，也不自行推断宿主生命周期事件。[Codex 和 ZCode Plugin](./agent-setup) 会在各自受支持的会话事件中提供 Pack 目录，但目录出现不代表 Agent 已遵循所有相关 Practice。[为什么需要 Lorelum](./why-lorelum)说明它要解决的知识与判断缺位。
+Lorelum Core 不管理任务、不读取完整会话，也不自行推断宿主生命周期事件。[宿主 Plugin](./agent-setup) 在受支持的生命周期事件或模型请求中提供 Pack 路由元数据；宿主功能对比说明哪些 Agent 能收到目录，以及哪些宿主能向子 Agent 传递已读候选。目录或候选提示都不代表 Agent 已遵循某条 Practice。[为什么需要 Lorelum](./why-lorelum)说明它要解决的知识与判断缺位。
 
 > Lorelum 处于 public alpha。更新共享环境前，请阅读 [Alpha 兼容性](./alpha)。
