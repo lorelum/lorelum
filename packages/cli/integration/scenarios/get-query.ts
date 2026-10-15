@@ -91,15 +91,11 @@ export async function verifyGetAndQueryScenario(
     "before",
   );
   assert.equal(before.exitCode, 0);
-  assert.equal(before.stdout, first.stdout);
-  const after = await runGet(
-    compiledBinary,
-    fixture.primaryPracticeId,
-    fixture.storageRoot,
-    "after",
-  );
-  assert.equal(after.exitCode, 0);
-  assert.equal(after.stdout, first.stdout);
+  assert.equal(before.stderr, "");
+  const beforeData = requireSuccessData(parseSingleResponse(before.stdout), "get");
+  assert.deepEqual(beforeData.practice, firstData.practice);
+  assert.equal(beforeData.contentDigest, firstData.contentDigest);
+  assert.deepEqual(beforeData.sources, firstData.sources);
 
   const absent = await runGet(compiledBinary, "integration.retrieval.absent", fixture.storageRoot);
   assert.equal(absent.exitCode, 2);

@@ -1,0 +1,12 @@
+{
+  "name": "lorelum-plugins",
+  "owner": { "name": "Lorelum" },
+  "plugins": [
+    {
+      "name": "lorelum",
+      "source": "./plugins/omp/lorelum",
+      "version": "0.1.0-alpha.5",
+      "description": "Lorelum Pack Catalog and retrieval Skill for omp"
+    }
+  ]
+}

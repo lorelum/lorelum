@@ -1,3 +1,16 @@
+import type { ListPackDetailsResult } from "@lorelum/engine";
+
+/** The shared metadata projection for native Hook envelopes and extension bridges. */
+export function renderInstalledPackCatalog(details: ListPackDetailsResult): string {
+  return renderPackCatalog(
+    details.packs.map((pack) => ({
+      name: pack.name,
+      ...(pack.description === undefined ? {} : { description: pack.description }),
+      appliesTo: pack.applies_to ?? [],
+    })),
+  );
+}
+
 export interface InstalledPackCatalogEntry {
   readonly name: string;
   readonly description?: string;
@@ -63,7 +76,7 @@ function renderContext(body: string, truncationNote?: string): string {
     .join("\n\n");
 }
 
-/** Render the bounded Catalog context consumed by the Codex Hook ABI. */
+/** Render the bounded Catalog context consumed by native Hooks and extension bridges. */
 export function renderPackCatalog(
   packs: readonly InstalledPackCatalogEntry[],
   options: RenderPackCatalogOptions = {},

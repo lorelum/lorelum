@@ -111,3 +111,58 @@ test("passes only a complete SessionRef validated by the shared schema", async (
     undefined,
   ]);
 });
+
+test("omp successful-get reporting uses its validated session identity", async () => {
+  const restoreSessionEnvironment = clearSessionEnvironment();
+  const sessions: unknown[] = [];
+  const hints = createOptionalPracticeHints(async () => ({
+    async routeToolEvent() {},
+    async recordSuccessfulGet(_cwd, _hint, session) {
+      sessions.push(session);
+    },
+    async readRecentHints() {
+      return [];
+    },
+  }));
+  try {
+    process.env.LORELUM_HOST_KEY = "omp";
+    process.env.LORELUM_HOST_SESSION_ID = "actual-omp-session";
+    await hints.recordSuccessfulGet("/work", hint);
+  } finally {
+    restoreSessionEnvironment();
+  }
+  expect(sessions).toEqual([{ hostKey: "omp", sessionId: "actual-omp-session" }]);
+});
+
+test("bridge diagnostics distinguish optional Backend failure from empty candidates", async () => {
+  const unavailable = createOptionalPracticeHints(
+    async () => {
+      throw new Error("authenticated Backend unavailable");
+    },
+    {
+      onReadHintsError(error) {
+        throw error;
+      },
+    },
+  );
+  await expect(unavailable.readRecentHints("omp", "parent")).rejects.toThrow(
+    "authenticated Backend unavailable",
+  );
+  // Successful-get reports retain their optional behavior even with diagnostic hint reads.
+  await expect(unavailable.recordSuccessfulGet("/work", hint)).resolves.toBeUndefined();
+  const empty = createOptionalPracticeHints(
+    async () => ({
+      async routeToolEvent() {},
+      async recordSuccessfulGet() {},
+      async readRecentHints() {
+        return [];
+      },
+    }),
+    {
+      onReadHintsError() {
+        throw new Error("empty hints are not a failure");
+      },
+    },
+  );
+  await expect(empty.readRecentHints("omp", "parent")).resolves.toEqual([]);
+});

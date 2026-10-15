@@ -9,6 +9,7 @@ Each supported host artifact lives at `plugins/<hostKey>/lorelum/`. The director
 | ZCode | [`zcode/lorelum`](./zcode/lorelum) | [`marketplace.json`](../marketplace.json) |
 | Cursor | [`cursor/lorelum`](./cursor/lorelum) | [`.cursor-plugin/marketplace.json`](../.cursor-plugin/marketplace.json) |
 | Claude Code | [`claude/lorelum`](./claude/lorelum) | [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) |
+| omp | [`omp/lorelum`](./omp/lorelum) | [`.omp-plugin/marketplace.json`](../.omp-plugin/marketplace.json) |
 
 Read [Host Plugin conventions](../docs/development/plugin-conventions.md) before changing an artifact, registration, public ID, or version. All artifacts call the released `lore` CLI for Pack metadata. They must not import Engine packages, read LocalStore files directly, or reproduce retrieval and ranking behavior.
 

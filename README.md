@@ -85,7 +85,7 @@ The agent decides when to query and which Practices apply. Lorelum retrieves the
 - **Local semantic retrieval.** Search installed Practices by task and moment with `lore query`. The local Backend reuses the embedding model across requests.
 - **Full Practice reads.** Use `lore get` to read complete guidance and its applicability conditions before acting on a summary.
 - **Versioned Knowledge Packs.** Install, inspect, update, and remove Packs. Keep separate collections with `--store-root`.
-- **Agent integration.** Use the Lorelum Skill in command-capable agents, or the official Codex, Claude Code, WorkBuddy, ZCode, and Cursor Plugins with their host-native Pack catalogs.
+- **Agent integration.** Use the Lorelum Skill in command-capable agents, or the official Codex, Claude Code, WorkBuddy, ZCode, Cursor, and omp Plugins with their host-native Pack catalogs.
 - **An explicit offline path.** Use `lore query --mode keyword` for term matching without a model or Backend.
 - **Pack authoring tools.** Validate source files, format Practices, and maintain localization with the CLI.
 
@@ -150,13 +150,14 @@ you use:
 | ZCode | Official Plugin, including the Skill, a `/lore` command, and a Pack-catalog Hook |
 | Claude Code | Official Plugin, including the Skill and a Pack-catalog Hook |
 | Cursor | Official Plugin, including the Skill, a `/lore` command, and a Pack-catalog Hook |
+| omp | Official Plugin, including the Skill, Pack Catalog, session read association, and task/eval read-candidate hints |
 | Other command-capable agents | Host-supported Skill or project instructions |
 
 Install the selected Skill or Plugin, then start a new task and tell the agent to
 use Lorelum before it finalizes an important plan or implementation decision.
 Each host guide includes its own update steps and the shortest recovery path.
 
-See [Agent integration and the host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities) for installation and feature differences. The [Codex](https://lorelum.com/en/docs/codex), [Claude Code](https://lorelum.com/en/docs/claude), [WorkBuddy](https://lorelum.com/en/docs/workbuddy), [ZCode](https://lorelum.com/en/docs/zcode), and [Cursor](https://lorelum.com/en/docs/cursor) guides cover host-specific setup and verification.
+See [Agent integration and the host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities) for installation and feature differences. The [Codex](https://lorelum.com/en/docs/codex), [Claude Code](https://lorelum.com/en/docs/claude), [WorkBuddy](https://lorelum.com/en/docs/workbuddy), [ZCode](https://lorelum.com/en/docs/zcode), [Cursor](https://lorelum.com/en/docs/cursor), and [omp](https://lorelum.com/en/docs/omp) guides cover host-specific setup and verification.
 
 ## Choose or create a Knowledge Pack
 
@@ -206,7 +207,7 @@ Keep each Practice independently understandable: an agent may retrieve it withou
 
 Lorelum Core does not manage your task, inspect the full transcript, or decide that an implementation is accepted. A retrieved Practice is guidance, not verification evidence.
 
-The five official Plugins supply a Pack catalog at supported session events. Some hosts can also pass bounded, possibly relevant read-Practice hints to new subagents; others can record reads but cannot show those hints. See the [host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities). Lorelum does not infer a complete task history or automatically inject full Practices into subagents.
+Official Plugins supply a Pack catalog at supported host events. Some hosts can also pass bounded, possibly relevant read-Practice hints to new subagents; others can record reads but cannot show those hints. See the [host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities). Lorelum does not infer a complete task history or automatically inject full Practices into subagents.
 
 ## Documentation and contributing
 

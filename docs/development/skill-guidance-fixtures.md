@@ -28,6 +28,12 @@ Use these scenarios to review the observable behavior of Lorelum's portable and 
 
 **Expected:** reuse the Catalog without another list, issue a targeted natural-language semantic query, then read any Practice it will use in full. For a resource link, use the corresponding Store source's `packRoot` from `lore get`; keep multiple sources distinct rather than choosing one without Pack context.
 
+## omp Skill: Request-scoped metadata
+
+**Given:** Main receives a request-scoped Catalog. A task/eval child receives only bounded successful-read candidates from its originating Main by default; every nested child retains that origin. Boolean `agent.subagentPackCatalog: true` additionally supplies Pack routing metadata, never full bodies.
+
+**Expected:** reuse any visible Catalog without another list. Do not automatically bootstrap a Catalog or run `pack list` merely because a child lacks it; independent discovery required by a material task decision remains allowed. Treat read hints as possibly relevant metadata, not adopted guidance, and get a candidate in full before use. Each child's gets belong to its own session and do not automatically join Main's candidates. Candidate lookup is independent of the Catalog setting. Shell identity and lookup are host automation, not extra commands the Agent must manage.
+
 ## Semantic preparation
 
 **Given:** the initial semantic query returns `data.state: "preparing"`.

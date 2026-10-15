@@ -21,6 +21,21 @@ agent:
 
 This is a shared setting for agent integrations, not a Codex-specific one. It only affects a host whose Plugin supports shell session binding; setting the field alone does not add a Hook. See [Agent integration](./agent-setup#session-read-hints) for the shared read-hint behavior and each host's guide for its supported Hooks.
 
+## omp subagent Pack Catalog
+
+Only the omp integration reads `agent.subagentPackCatalog`. Codex, Claude Code, Cursor, WorkBuddy, and ZCode do not read this setting; changing it does not affect their behavior.
+
+In [omp](./omp), Main always receives the Pack Catalog. Task/eval subagents, including nested subagents, receive only bounded metadata from Main's successful Practice reads by default. To additionally provide the Pack directory to subagents, merge this into the existing `agent` section of `~/.lorelum/config.yaml`:
+
+```yaml
+agent:
+  subagentPackCatalog: true
+```
+
+This boolean defaults to `false`; remove it or set it to `false` to restore the default. It adds only Pack names, descriptions, and applicability metadata, never full Pack or Practice bodies. It does not change Main's Catalog, candidate lookup, or where a subagent's own gets are recorded. All nested subagents keep the originating Main's candidates; their own reads are not automatically added to Main.
+
+The CLI reads the setting on the next subagent Catalog bridge call. A new subagent, or the next session/compaction refresh, uses the new value; ordinary requests in the same lifecycle reuse the temporary snapshot rather than rereading it. You can reload omp to trigger a refresh; no Backend restart is needed. A child without a Catalog does not automatically list Packs to fill it in; independent task-required material discovery remains available.
+
 ## Store scope
 
 Use one `--store-root` consistently for Pack installation, index operations, query, and get:

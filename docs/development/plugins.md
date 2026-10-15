@@ -1,6 +1,6 @@
 # Host Plugin checkout development
 
-Read [Host Plugin conventions](./plugin-conventions.md) first. This guide is for working on the current host Plugin artifacts (Claude Code, Codex, Cursor, WorkBuddy, and ZCode) from a checkout; it does not define their public identities or marketplace schemas.
+Read [Host Plugin conventions](./plugin-conventions.md) first. This guide is for working on the current host Plugin artifacts (Claude Code, Codex, Cursor, WorkBuddy, ZCode, and omp) from a checkout; it does not define their public identities or marketplace schemas.
 
 | Host | Source root | Plugin validation |
 | --- | --- | --- |
@@ -9,6 +9,7 @@ Read [Host Plugin conventions](./plugin-conventions.md) first. This guide is for
 | WorkBuddy | [`plugins/workbuddy/lorelum`](../../plugins/workbuddy/lorelum) | Configuration tests and a real-host install |
 | ZCode | [`plugins/zcode/lorelum`](../../plugins/zcode/lorelum) | Configuration tests and a real-host install |
 | Claude Code | [`plugins/claude/lorelum`](../../plugins/claude/lorelum) | `claude plugin validate --strict`, configuration tests, and a real-host install |
+| omp | [`plugins/omp/lorelum`](../../plugins/omp/lorelum) | Extension behavior tests and a real-host install |
 
 All artifacts use the released `lore` executable. The CLI owns the Hook ABI and Catalog rendering; the Plugin owns host lifecycle matching and Skill guidance. Do not import Engine packages, read LocalStore files, duplicate retrieval/ranking logic, or add a local MCP wrapper.
 
@@ -19,6 +20,7 @@ From the repository root:
 ```sh
 bun test plugins/scripts plugins/claude/lorelum/scripts plugins/codex/lorelum/scripts plugins/cursor/lorelum/scripts plugins/workbuddy/lorelum/scripts plugins/zcode/lorelum/scripts
 bun test packages/cli/src/hook
+bun test plugins/omp/lorelum
 python3 "$HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py" \
   plugins/codex/lorelum
 claude plugin validate plugins/claude/lorelum --strict
@@ -43,6 +45,9 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
 
 printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | bun packages/cli/src/main.ts hook claude --store-root /absolute/path/to/isolated-store
+
+printf '%s\n' '{"event":"catalog"}' \
+  | bun packages/cli/src/main.ts hook omp --store-root /absolute/path/to/isolated-store
 ```
 
 The WorkBuddy and Cursor identity rewrites can be smoke-checked the same way —
@@ -118,3 +123,24 @@ claude plugin install lorelum@lorelum-plugins
 Both steps are also available in a session through `/plugin` and in the desktop app's plugin manager (`+ → Plugins`); the default install scope is the user account, with `--scope project` or `--scope local` as alternatives. The marketplace entry version and `plugins/claude/lorelum/.claude-plugin/plugin.json` version must change together, and Claude Code pins an installed Plugin until the manifest version changes — bump both for each iteration and run `claude plugin update lorelum@lorelum-plugins` (or Update now in `/plugin`).
 
 Plugin Hooks are enabled automatically when the Plugin is installed. Plugins are unavailable in cloud and WSL sessions; verify in a local session that a SessionStart boundary provides the Pack Catalog and that `/lorelum:lorelum` appears in the skill list. The read-Practice hint chain adds two more verifications: a successful `lore get` in a shell tool call records a candidate under `~/.lorelum/sessions/claude/<session-id>/practice-reads.jsonl` (requires a running Backend), and a subagent started afterwards receives the bounded candidate hint. On macOS and Linux the Hook resolves the plain `lore` executable directly; on Windows, Hook commands run through Git Bash and the `|| lore.cmd` fallback in `hooks/hooks.json` is what makes the CLI shim resolvable; see [Host Plugin conventions](./plugin-conventions.md#claude-code-hook-declaration). When no `claude` CLI is available, iterate by uninstalling and reinstalling from the plugin manager.
+
+## omp checkout install
+
+Add the checkout as an omp marketplace. Build the complete local CLI bundle for semantic retrieval, as described in [the development guide](./README.md#normal-development-workflow).
+
+```sh
+bun run build:cli
+omp plugin marketplace add "$PWD"
+omp plugin install lorelum@lorelum-plugins
+PATH="$PWD/dist/release/darwin-arm64:$PATH" omp
+```
+
+The final command selects this worktree's complete compiled CLI for this omp invocation only. Do not repoint the global `lore` or modify shell configuration. Use the complete directory for your target, keeping its native runtime adjacent. Do not enable both checkout and remote sources with the same marketplace name.
+
+After changing extension or Skill files, reinstall the checkout Plugin with `--force` and start a new session. For release-style update detection, bump marketplace entry and package version together; the Plugin does not update the CLI.
+
+Verify Skill and extension discovery, Main Catalog delivery, and invalidation at startup/reload/switch/branch/tree/compact: the next context reads once and subsequent requests reuse temporary snapshots without permanent messages or repeated queries. Query a concrete decision and get a real Practice in full. With Backend running, verify successful Bash gets record under `~/.lorelum/sessions/omp/<actual-session-id>/practice-reads.jsonl` and failed gets add nothing.
+
+Using the final installed Plugin, an official Pack, and normal user provider configuration, capture actual task/eval provider payloads for both default `agent.subagentPackCatalog: false` and explicit `true`. Default children must contain only originating Main's successful-read metadata; enabled children additionally contain bounded Pack Catalog, never full Pack or Practice bodies. Include nested children retaining Main origin and child gets staying in their own records, not automatically joining Main. Missing origin must never guess candidates, but must not prevent explicitly enabled Catalog. Disabled `{}` is normal and must not read Store or warn. Candidate lookup is independent of the switch.
+
+The CLI reads the setting on the next sub Catalog bridge call: a new child or the next session/compact refresh sees the change; ordinary requests reuse their lifecycle snapshot and Backend needs no restart. Do not change user configuration merely for verification; isolate the setting for the acceptance process. Check that absent child Catalog does not cause automatic Skill Pack listing, that missing CLI does not block tasks, and uninstall preserves Packs. Record versions, provider evidence, and platform coverage separately.

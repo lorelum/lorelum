@@ -1,6 +1,6 @@
-# Host Hooks (Codex / Cursor / WorkBuddy / ZCode)
+# Host Hooks
 
-`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是 Lorelum CLI 与各宿主 Plugin 之间的版本化集成 ABI。它们从 stdin 读取宿主 Hook payload，并在 stdout 输出一行宿主 Hook envelope；它们不输出普通 Lorelum CLI JSON envelope。四个命令共享同一 Pack Catalog 检索与渲染实现（`packages/cli/src/hook/host-hook.ts` 与 `pack-catalog.ts`），仅命令名、宿主 envelope 形状、stderr 诊断前缀和宿主边界不同。
+`lore hook codex`、`lore hook cursor`、`lore hook workbuddy` 与 `lore hook zcode` 是 Lorelum CLI 与各宿主 Plugin 之间的版本化集成 ABI。它们从 stdin 读取宿主 Hook payload，并在 stdout 输出一行宿主 Hook envelope；它们不输出普通 Lorelum CLI JSON envelope。四个命令共享同一 Pack Catalog 读取与渲染实现（`packages/cli/src/hook/catalog-store.ts` 与 `pack-catalog.ts`），仅命令名、宿主 envelope 形状、stderr 诊断前缀和宿主边界不同。
 
 ```sh
 printf '%s\n' '{"hook_event_name":"SessionStart"}' | lore hook codex
@@ -27,6 +27,31 @@ Hook payload 无效、事件不支持或 Store 读取失败时，命令会向 st
 printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | lore hook zcode --store-root /absolute/path/to/isolated-store
 ```
+
+## omp extension bridge
+
+`lore hook omp` 供 omp 的 TypeScript extension 调用，接收 Lorelum bridge 请求而非宿主原生 Hook envelope：
+
+```sh
+printf '%s\n' '{"event":"catalog"}' | lore hook omp
+```
+
+成功 stdout 为单行 `{"additionalContext":"<Catalog>"}`。Catalog 复用共享检索与渲染，最多 4000 字符，字段和数据边界与上述 SessionStart Catalog 相同；不会自动 query/get 或启动模型/Backend。
+
+Catalog 请求可带 `agentKind: "main" | "sub"`，省略保持 main 语义。主 Agent 始终有 Catalog；子请求显式传 `sub`，由 CLI 独立读取 `~/.lorelum/config.yaml` 的布尔项 `agent.subagentPackCatalog`（默认 false）。缺省/false 正常返回 `{}` 且不读取 Store，不是故障；true 复用既有 renderer，只额外提供 Pack 目录 metadata，不含完整 Pack 或 Practice 正文。extension 不直接读配置文件。下一次子 Agent Catalog bridge 调用读取设置；新子 Agent 或下一次会话/compact 刷新采用新值，同一生命周期普通请求仍复用快照，无需重启 Backend。开关不影响 read-hints。
+
+坏 JSON、不支持 event 或 Store 读取失败时输出单行 `{}`，以退出码 0 结束，诊断写 stderr，前缀为 `lore hook omp degraded: `。有效空 Store 返回明确的空 Catalog，不把错误当作没有 Pack。非法 argv 保持普通 CLI 用法错误；`--store-root` 和 `--debug` 沿用既有参数规则。
+
+extension 在启动、重新加载、会话切换、branch/tree 导航和 compact 完成后只使快照失效，下一次 `context` callback 读取一次；每次普通模型请求临时复用快照，不重复查询。Catalog 只加入当前请求的 user 消息，不写入 transcript。子进程有十秒期限，失效与 shutdown 取消旧请求。子 Agent 无 Catalog 不触发 Skill 自动 pack list；独立材料发现需求仍可按需处理。
+
+另有两类请求，共用上述非阻塞失败与单行 JSON 规则：
+
+- `{"event":"shell","sessionId":"<实际 omp session ID>","command":"lore get <id>"}`：按 `agent.shellSessionInjection` 返回 `{"command":"<带会话身份前缀的命令>"}`；不匹配或不适用时为 `{}`。默认只匹配外层文本中的独立 `lore`，`all-shell` 覆盖全部 Bash。保留工具其余输入与宿主审批；身份前缀仅属于该命令，不修改全局环境。
+- `{"event":"read-hints","sessionId":"<源头 Main omp session ID>"}`：协议不变，读取已有 Backend 候选，返回 `{"additionalContext":"<有界候选 metadata>"}`；没有可用候选为 `{}`。复用既有 `renderReadHints` 的 1800 字符预算与未验证采用状态警告，不启动 Backend，不自动读取 Practice 正文。
+
+task/eval 的实际派发通过原生 child registry ID 交接源头 Main session；所有嵌套子 Agent 继承该 Main 身份，直接父 Agent 身份仅用于核对，不把 `parentId` 当 session ID，也不依赖共享事件总线。默认子 Agent 只有 Main 成功 get 的摘要；自身 get 仍归自身 session，不自动并入 Main。候选与 Catalog 开关独立。无可靠 Main 身份不得猜候选，但显式 true 时仍能取得 Catalog。并行、嵌套、会话切换、冲突与过期读取不得混入其他会话候选。
+
+安装与用户操作见[omp 用户指南](https://lorelum.com/zh/docs/omp)，源码验收见[Plugin 开发指南](../development/plugins.md#omp-checkout-install)。
 
 ## 共用的会话关联
 

@@ -2,12 +2,7 @@
 
 import { hasDaemonLaunchEnvironment } from "@lorelum/backend/config";
 import { createProgram, type CliRuntime } from "./create-program.js";
-import {
-  parseCodexHookInvocation,
-  runCodexHook,
-  type CodexHookServices,
-  type TextInput,
-} from "./hook/codex.js";
+import { parseCodexHookInvocation, runCodexHook, type CodexHookServices } from "./hook/codex.js";
 import {
   parseClaudeHookInvocation,
   runClaudeHook,
@@ -24,6 +19,8 @@ import {
   type WorkbuddyHookServices,
 } from "./hook/workbuddy.js";
 import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
+import { parseOmpHookInvocation, runOmpHook, type OmpHookServices } from "./hook/omp.js";
+import type { TextInput } from "./hook/host-hook.js";
 import { resolveOutputFormat } from "./output/format-selection.js";
 import { renderHelpText } from "./output/presentation.js";
 import { renderResult, type OutputFormat } from "./output/render.js";
@@ -45,7 +42,7 @@ export interface RunOptions {
   registry?: readonly CommandDefinition[];
   /** Prebuilt runtime override; omit to use the process stderr-backed runtime. */
   runtime?: CliRuntime;
-  /** Override the raw Codex Hook input stream in source-level tests. */
+  /** Override the raw Hook input stream in source-level tests. */
   stdin?: TextInput;
   /** Override the raw Codex Hook Store adapter in source-level tests. */
   codexHookServices?: CodexHookServices;
@@ -57,6 +54,8 @@ export interface RunOptions {
   claudeHookServices?: ClaudeHookServices;
   /** Override the raw WorkBuddy Hook Store adapter in source-level tests. */
   workbuddyHookServices?: WorkbuddyHookServices;
+  /** Override omp bridge services in source-level tests. */
+  ompHookServices?: OmpHookServices;
   stderr?: OutputWriter;
   stdout?: OutputWriter;
   /** Source-test override; production calls always create a fresh invocation trace. */
@@ -70,6 +69,29 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
   const traceId = options.traceId ?? createTraceId();
+  const ompHook = parseOmpHookInvocation(arguments_);
+  if (ompHook !== undefined) {
+    const runtime = await createProcessLogRuntime(stderr, traceId, {
+      debug: ompHook.debug ?? false,
+      source: "hook",
+      host: "omp",
+      ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
+      persist:
+        (options.stdout === undefined && options.stderr === undefined) ||
+        options.logDirectory !== undefined,
+    });
+    runtime.log.info("hook.started", { event: "catalog" });
+    const exitCode = await runOmpHook({
+      stdin: options.stdin ?? standardInput,
+      stdout,
+      stderr,
+      ...(options.ompHookServices === undefined ? {} : { services: options.ompHookServices }),
+      ...(ompHook.storeRoot === undefined ? {} : { storeRoot: ompHook.storeRoot }),
+      log: runtime.log,
+    });
+    await runtime.flush();
+    return exitCode;
+  }
   const codexHook = parseCodexHookInvocation(arguments_);
   if (codexHook !== undefined) {
     const runtime = await createProcessLogRuntime(stderr, traceId, {
