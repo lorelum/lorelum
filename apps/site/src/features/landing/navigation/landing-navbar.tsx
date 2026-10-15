@@ -1,9 +1,10 @@
 import { useRef } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { i18n } from "@/shared/i18n/config";
 import { BrandLockup } from "@/shared/ui/brand-lockup";
 import { GitHubLink } from "./github-link";
 import { LandingPrimaryNavigation } from "./landing-primary-navigation";
+import { isCurrentDestination } from "./navigation-destination";
 import { LanguageToggle } from "@/shared/ui/language-toggle";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import { useLandingNavbarMorph } from "./use-landing-navbar-morph";
@@ -11,14 +12,47 @@ import "./landing-navbar.css";
 
 const heroId = "landing-hero";
 
+interface LandingNavbarProps {
+  readonly lang: string;
+  /**
+   * Render the site-wide language control (default `true`). A surface that has
+   * no sensible target (the blog 404, where the post is missing in both
+   * languages) turns it off.
+   */
+  readonly withLanguageToggle?: boolean;
+  /**
+   * Explicit target for the language control. Without it the control swaps the
+   * locale prefix of the current path, which cannot know whether the target
+   * page exists. A blog article does know, so it passes the translation or the
+   * other language's index instead of offering a URL that may answer 404.
+   */
+  readonly languageHref?: string;
+  /**
+   * Element whose bottom crossing collapses the panel into its compact state.
+   * Surfaces without a hero pass the first element the reader scrolls past — the
+   * blog screens pass the article's masthead. Absent means the landing page's
+   * hero-driven behaviour, or no collapse at all when there is no hero either.
+   */
+  readonly collapseTrigger?: HTMLElement | null;
+}
+
 /**
  * Three-zone product navigation: brand, primary destinations, and utilities.
  * The feature-local morph hook owns its Hero-driven scroll behavior.
  */
-export function LandingNavbar({ lang }: { lang: string }) {
+export function LandingNavbar({
+  lang,
+  withLanguageToggle = true,
+  languageHref,
+  collapseTrigger,
+}: LandingNavbarProps) {
   const homePath = lang === i18n.defaultLanguage ? "/" : `/${lang}`;
+  const { pathname } = useLocation();
+  // The brand leads home, so it states the home destination — from the pathname,
+  // like the primary navigation, so `/en` and `/` answer the same way.
+  const onHome = isCurrentDestination(pathname, "home", i18n.languages);
   const navRef = useRef<HTMLElement>(null);
-  useLandingNavbarMorph(navRef, heroId);
+  useLandingNavbarMorph(navRef, heroId, collapseTrigger);
 
   return (
     <nav
@@ -32,6 +66,8 @@ export function LandingNavbar({ lang }: { lang: string }) {
           <div className="justify-self-start">
             <Link
               to={homePath}
+              activeOptions={{ exact: true }}
+              aria-current={onHome ? "page" : undefined}
               className="inline-flex h-9 items-center rounded-lg text-fd-foreground transition-opacity hover:opacity-75"
             >
               <BrandLockup />
@@ -41,7 +77,7 @@ export function LandingNavbar({ lang }: { lang: string }) {
           <LandingPrimaryNavigation lang={lang} />
 
           <div className="flex items-center justify-self-end gap-1">
-            <LanguageToggle lang={lang} />
+            {withLanguageToggle ? <LanguageToggle lang={lang} href={languageHref} /> : null}
             <ThemeToggle lang={lang} />
             <GitHubLink />
           </div>

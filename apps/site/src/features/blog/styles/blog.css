@@ -1,0 +1,502 @@
+@import "@lorelum/ui/tokens.css";
+
+/* Blog aliases and reading styles; shared Fumadocs tokens are bound in app.css. */
+
+.blog-scope {
+  /* Surface-owned compositions of production tokens and column dimensions. */
+  --blog-link: var(--accent-foreground);
+  --blog-hairline: color-mix(in srgb, var(--border) 76%, transparent);
+  --blog-quiet-surface: color-mix(in srgb, var(--secondary) 28%, transparent);
+
+  /* Shared by the TOC rail and heading anchors. */
+  --blog-sticky-offset: 7rem;
+
+  /* Width of the article's table-of-contents rail. */
+  --blog-toc-rail: 15rem;
+
+  /* Left navigation column, independent of the contents rail. */
+  --blog-shell-sidebar: 15rem;
+
+  /* Room for the reading measure, both side columns and their gutters. */
+  --blog-shell-max: 88rem;
+
+  /* Inset wide figures and tables from the body container's edges. */
+  --blog-figure-gutter: 2rem;
+
+  /* Blog-local reading measure; docs retain the production reading-width token. */
+  --blog-measure: 76ch;
+
+  /* Set the property here: rebinding a font variable cannot change the root's computed font. */
+  font-family: var(--lore-font-sans);
+
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+}
+
+/*
+ * Dark mode is Fumadocs' `.dark` class on `<html>`, so this mirrors the
+ * `--docs-*` override shape. `--accent-foreground` is theme-asymmetric (brand
+ * green in light, neutral in dark), and a link token that went neutral in dark
+ * would lose the "links are green" signal, so dark flips to `--primary`.
+ */
+.dark .blog-scope {
+  --blog-link: var(--primary);
+  --blog-hairline: color-mix(in srgb, var(--border) 64%, transparent);
+  --blog-quiet-surface: color-mix(in srgb, var(--secondary) 54%, transparent);
+}
+
+/* Generated cover tiers are optically calibrated per theme, not mechanically inverted. */
+.blog-scope .blog-cover-art [data-tier="1"] {
+  opacity: 0.14;
+}
+
+.blog-scope .blog-cover-art [data-tier="2"] {
+  opacity: 0.22;
+}
+
+.blog-scope .blog-cover-art [data-tier="3"] {
+  opacity: 0.36;
+}
+
+.blog-scope .blog-cover-art [data-tier="4"] {
+  opacity: 0.62;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="1"] {
+  opacity: 0.28;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="2"] {
+  opacity: 0.42;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="3"] {
+  opacity: 0.58;
+}
+
+.dark .blog-scope .blog-cover-art [data-tier="4"] {
+  opacity: 0.78;
+}
+
+/*
+ * Headings take the site's display face, as they do on every other surface.
+ * That face has no CJK coverage, so a Chinese heading would otherwise mix
+ * Bricolage latin glyphs with system Chinese ones — which reads as a failed
+ * font load. The `:lang(zh)` rule below hands those headings back to the
+ * reading face, whose CJK fallback matches the body's.
+ *
+ * The scroll offset lives in this rule too. Fumadocs' generated heading
+ * component emits its own offset utility classes (`scroll-m-28` for prose
+ * headings, `scroll-m-24` for accordion titles), and this selector's
+ * specificity (0,1,1 against the utility's 0,1,0) wins at any input order.
+ */
+.blog-scope :is(h1, h2, h3, h4) {
+  font-family: var(--lore-font-display);
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  scroll-margin-top: var(--blog-sticky-offset);
+}
+
+.blog-scope :is(h5, h6) {
+  scroll-margin-top: var(--blog-sticky-offset);
+}
+
+/*
+ * Language-scoped metrics. Chinese sets tighter per glyph than latin text at
+ * the same size, so the latin line-height crowds it; the multiplier is the only
+ * knob (the measure stays as designed). `line-break: strict` keeps CJK
+ * punctuation off the start of a line, and where it is unsupported it is simply
+ * inert rather than a layout dependency.
+ *
+ * These stay inside `.blog-scope`: the navbar and footer are shared chrome and
+ * keep the site's metrics.
+ */
+.blog-scope :where(h1, h2, h3, h4, h5):lang(zh) {
+  font-family: var(--lore-font-sans);
+  letter-spacing: 0;
+}
+
+.blog-scope :where(p, li, dd, blockquote):lang(zh) {
+  line-height: calc(var(--lore-leading-body) * 1.08);
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+
+.blog-scope :where(p, li, dd):lang(zh) code {
+  overflow-wrap: anywhere;
+}
+
+.blog-scope :where(p, li) {
+  text-wrap: pretty;
+}
+
+/*
+ * Selection takes the token whose pairing was contrast-checked, rather than the
+ * landing surface's unchecked `--primary` mix.
+ */
+.blog-scope ::selection {
+  background: var(--selection);
+  color: var(--selection-foreground);
+}
+
+/*
+ * Link contract: the colour is the signal, the underline is the affordance.
+ *
+ * Body links carry the link colour plus a permanent underline, so they stay
+ * identifiable without relying on colour at all. Fumadocs' own rule dims the
+ * whole link to 80% opacity on hover; that is a fade, not feedback, and it
+ * fights the underline signal — so the transition is rebound to the colour and
+ * the underline instead, on the feedback duration the design system defines.
+ *
+ * The `:not([data-card])` guard mirrors Fumadocs' own `not-prose` guard. The
+ * elements it excludes are the eight heading self-anchors Fumadocs emits —
+ * `<h2 id=…><a data-card href="#…">Heading</a><button aria-label="Copy Anchor
+ * Link">` — which would otherwise take the body-link colour and underline.
+ * It is not what wins the cascade; specificity does, and either counting
+ * convention for the `:not()` attribute selector puts this rule well above
+ * Fumadocs' own (0,1,0) (its `:where()` and `:not(:where(…))` both count
+ * zero), so the outcome is the same at any chunk order.
+ */
+.blog-scope .blog-post__reading .prose a:not([data-card]) {
+  color: var(--blog-link);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, var(--blog-link) 45%, transparent);
+  text-underline-offset: 0.2em;
+  transition-property: color, text-decoration-color;
+  transition-duration: var(--lore-motion-feedback);
+  transition-timing-function: var(--lore-ease-feedback);
+}
+
+.blog-scope .blog-post__reading .prose a:not([data-card]):hover {
+  text-decoration-color: var(--blog-link);
+  opacity: 1;
+}
+
+/*
+ * Navigation and heading links (entry titles, the category entry, the filter's
+ * clear action) carry no colour signal at rest — the surrounding structure
+ * already says they are links — and reveal colour and underline together on
+ * hover.
+ */
+.blog-scope :is(.blog-title-link, .blog-nav-link) {
+  color: var(--foreground);
+  text-decoration-line: none;
+  text-underline-offset: 0.2em;
+}
+
+.blog-scope :is(.blog-title-link, .blog-nav-link):hover {
+  color: var(--blog-link);
+  text-decoration-line: underline;
+}
+
+/*
+ * Bind body metrics and prose roles only inside the reading wrapper:
+ * Fumadocs TOC entries also carry `prose`. Keep the table radius on the
+ * production token rather than Tailwind's default.
+ */
+.blog-scope .blog-post__reading .prose {
+  --tw-prose-links: var(--blog-link);
+  --tw-prose-bullets: var(--border-strong);
+  --tw-prose-hr: var(--blog-hairline);
+  --tw-prose-quote-borders: var(--border-strong);
+  --tw-prose-code: var(--code-foreground);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-th-borders: var(--blog-hairline);
+  --tw-prose-td-borders: var(--blog-hairline);
+
+  --radius-lg: var(--radius);
+
+  font-family: var(--lore-font-sans);
+  font-size: var(--lore-text-body);
+  line-height: var(--lore-leading-body);
+}
+
+.blog-scope .blog-post__reading .prose img {
+  margin-block: var(--lore-space-panel);
+  border-radius: var(--lore-radius-panel);
+}
+
+/* Captioned images keep spacing on the figure, not between image and caption. */
+.blog-scope .blog-post__reading .prose figure:has(img) {
+  margin-block: var(--lore-space-panel);
+}
+
+.blog-scope .blog-post__reading .prose figure img {
+  margin-block: 0;
+}
+
+/* Fumadocs italicises quotes. The design system rejects the italic editorial
+   voice, and for Chinese the italic would be synthesised. */
+.blog-scope .blog-post__reading .prose blockquote:not([class~="not-prose"]) {
+  font-style: normal;
+}
+
+/*
+ * Evidence appendix: the documents a post's numbers rest on, all visible
+ * without interaction. Bullets are dropped and rows separated by the inline
+ * hairline — the formula the index rows already use — so this reads as a source
+ * list rather than as one more body bullet list.
+ */
+.blog-scope .blog-evidence ul {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.blog-scope .blog-evidence li + li {
+  margin-top: var(--lore-space-related);
+  padding-top: var(--lore-space-related);
+  border-top: 1px solid var(--blog-hairline);
+}
+
+/*
+ * Focus is a functional state, so it takes the focus token on every interactive
+ * element in the reading scope.
+ */
+.blog-scope :is(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Article page
+ * ---------------------------------------------------------------------------
+ */
+
+/* Responsive editorial tracks; the article keeps its own measure inside the body track. */
+.blog-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 1.5rem;
+  max-width: var(--blog-shell-max);
+  margin-inline: auto;
+}
+
+@media (min-width: 1024px) {
+  .blog-shell {
+    grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .blog-shell {
+    grid-template-columns: var(--blog-shell-sidebar) minmax(0, 1fr) var(--blog-toc-rail);
+    column-gap: 2.5rem;
+  }
+}
+
+.blog-shell--index {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The lead and ordinary entries share one stretched-link interaction. */
+.blog-index-entry {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+  transition: background-color var(--lore-motion-feedback) var(--lore-ease-feedback);
+}
+
+.blog-index-entry:is(:hover, :focus-within) {
+  background: var(--blog-quiet-surface);
+}
+
+.blog-index-entry .blog-title-link:focus-visible,
+.blog-card .blog-title-link:focus-visible {
+  outline: none;
+}
+
+.blog-index-entry:has(.blog-title-link:focus-visible),
+.blog-card:has(.blog-title-link:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.blog-index-list {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+  margin-top: 2rem;
+  padding-inline: 1.5rem;
+  list-style: none;
+}
+
+.blog-featured-entry {
+  display: grid;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 2rem;
+  padding-block: 1.5rem 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .blog-index-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .blog-featured-entry:has(.blog-featured-cover) {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .blog-index-list {
+    padding-inline: 3rem;
+  }
+}
+
+/* Article neighbour cards retain their existing cover feedback. */
+.blog-card-cover {
+  overflow: hidden;
+}
+
+.blog-card-cover > :is(img, svg) {
+  transition: transform 220ms ease;
+}
+
+.blog-card:focus-within .blog-card-cover > :is(img, svg) {
+  transform: scale(1.015);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .blog-card:hover .blog-card-cover > :is(img, svg) {
+    transform: scale(1.015);
+  }
+}
+
+.blog-search-dialog [data-blog-search-results] > div {
+  max-height: min(460px, calc(100dvh - 11rem));
+}
+
+/*
+ * The middle column is a query container so its children can measure themselves
+ * against the column instead of the viewport.
+ */
+.blog-shell__body {
+  container-type: inline-size;
+}
+
+/*
+ * Wide figures and tables use the body container minus its gutters. Percentage
+ * offsets centre them relative to the reading column without font-dependent
+ * `ch` arithmetic. Apply only when the container has room for both gutters.
+ */
+@container (min-width: 46rem) {
+  .blog-scope .blog-post__reading .prose > :has(> table),
+  .blog-scope .blog-post__reading .prose > figure {
+    width: calc(100cqw - 2 * var(--blog-figure-gutter));
+    margin-inline: calc((100% - 100cqw) / 2 + var(--blog-figure-gutter));
+  }
+}
+
+/* A column that is not rendered at a breakpoint must not hold a track. */
+.blog-shell__side {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .blog-shell__side {
+    display: block;
+  }
+}
+
+@media (min-width: 1280px) {
+  .blog-shell__rail {
+    display: block;
+  }
+}
+
+/*
+ * Block rhythm comes from the production spacing scale rather than from
+ * Fumadocs' em-based prose defaults, so a heading's distance from the text
+ * around it is the design system's decision and not the library's. Fumadocs
+ * sets `margin-top: 2em` on h2, which happens to equal `--lore-space-block` at
+ * the current heading size — the point is that it stays true if either changes.
+ */
+.blog-scope .blog-post__reading .prose :is(h2) {
+  margin-top: var(--lore-space-block);
+  margin-bottom: var(--lore-space-group);
+}
+
+.blog-scope .blog-post__reading .prose :is(h3) {
+  margin-top: var(--lore-space-panel);
+  margin-bottom: var(--lore-space-related);
+}
+
+/*
+ * A long unbroken identifier in a paragraph must not widen the column. This is
+ * not only a CJK rule: the `:lang(zh)` block above adds `overflow-wrap` and
+ * `line-break` for Chinese text, while this covers the Latin case (URLs, hashes,
+ * slugs) in every locale.
+ */
+.blog-scope .blog-post__reading .prose p {
+  overflow-wrap: break-word;
+}
+
+/* Inherited wrapping also protects headings, metadata and card summaries. */
+.blog-scope {
+  overflow-wrap: break-word;
+}
+
+/*
+ * The flex rows are where inheritance is not enough: a flex item refuses to
+ * shrink below the width of an unbreakable run unless its minimum size is lifted,
+ * so the items below need `min-width: 0` before their inherited wrap can apply.
+ * The two rows are the article's heading anchors and the metadata line.
+ */
+.blog-scope :is(h1, h2, h3, h4, h5, h6) > *,
+.blog-scope .blog-post__meta > * {
+  min-width: 0;
+}
+
+/*
+ * Heading anchors stay visible rather than appearing on hover: a hover-only
+ * affordance cannot be reached on a touch device. They sit at the muted
+ * foreground and take the full foreground on hover and on keyboard focus, so
+ * they read as available without competing with the heading itself.
+ */
+.blog-scope .blog-post__reading .prose :is(h1, h2, h3, h4, h5, h6) button[aria-label] {
+  opacity: 1;
+  color: var(--muted-foreground);
+}
+
+.blog-scope .blog-post__reading .prose :is(h1, h2, h3, h4, h5, h6) button[aria-label]:hover,
+.blog-scope
+  .blog-post__reading
+  .prose
+  :is(h1, h2, h3, h4, h5, h6)
+  button[aria-label]:focus-visible {
+  color: var(--foreground);
+}
+
+/*
+ * Contents navigation. The active entry takes the brand channel and medium
+ * weight; the rest sit between the muted and full foreground, the same formula
+ * the docs sidebar already uses, so the two surfaces agree.
+ */
+/*
+ * A marked link has one formula wherever it appears: the brand text colour, a
+ * weight step, and a tinted surface. The navbar's rows and the shell's rows are
+ * both rows of similar destinations, so a reader who learned the state in one
+ * reads it in the other. `aria-current` is the same attribute the navbar marks
+ * with, so assistive technology and the eye agree.
+ */
+.blog-scope .blog-nav-link[aria-current="page"] {
+  color: var(--site-link);
+  font-weight: 600;
+  background: color-mix(in oklab, var(--color-fd-primary) 8%, transparent);
+}
+
+.dark .blog-scope .blog-nav-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--color-fd-primary) 14%, transparent);
+}
+
+.blog-scope :is(.blog-toc, .blog-toc-disclosure) a[data-active="true"] {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.blog-scope :is(.blog-toc, .blog-toc-disclosure) a[data-active="false"] {
+  color: color-mix(in srgb, var(--muted-foreground), var(--foreground));
+}

@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+@source "../../../../packages/ui/src";
+/* Load production tokens for every route, including landing chrome. */
+@import "@lorelum/ui/tokens.css";
 @import "./vendor.css";
 @import "./landing.css";
 
@@ -17,6 +20,39 @@
   /* "run/success/live" accent — breaks the indigo-only palette with the
    * "code dark, run green" cue the product's terminal demo leans on. */
   --color-run: #34d399;
+}
+
+/* Bind Fumadocs roles once on the body scope; `.dark` lives on <html>. */
+.lorelum-ui {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-ring: var(--ring);
+  --color-fd-overlay: var(--overlay);
+  --color-fd-info: var(--info);
+  --color-fd-warning: var(--warning);
+  --color-fd-error: var(--destructive);
+  --color-fd-success: var(--success);
+  --color-fd-idea: var(--primary);
+
+  /* Use the text-level brand colour; the primary surface colour is too light. */
+  --site-link: var(--accent-foreground);
+}
+
+.dark .lorelum-ui {
+  --site-link: var(--primary);
 }
 
 html {

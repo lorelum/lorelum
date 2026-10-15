@@ -5,4 +5,8 @@
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
   "pages_build_output_dir": "./dist",
+  "assets": {
+    // Index query states must reach the router rather than the prerendered HTML.
+    "run_worker_first": ["/blog", "/blog/", "/en/blog", "/en/blog/", "/zh/blog", "/zh/blog/"],
+  },
 }

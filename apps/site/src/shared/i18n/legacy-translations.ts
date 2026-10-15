@@ -15,6 +15,46 @@ export interface LandingStrings {
   readDocs: string;
   navHome: string;
   navDocs: string;
+  navBlog: string;
+  // Blog
+  blogIndexDescription: string;
+  /** The index masthead's title and the one small line under it. */
+  blogIndexTitle: string;
+  blogIndexTagline: string;
+  blogPagination: string;
+  blogPreviousPage: string;
+  blogNextPage: string;
+  blogPageLabel: string;
+  blogEmpty: string;
+  blogOnThisPage: string;
+  /** Prefix rendered before the active category's label in the filter row. */
+  blogFilteredByPrefix: string;
+  blogShowAll: string;
+  blogNoPostsInCategory: string;
+  /** Sidebar section headings. */
+  blogAllPosts: string;
+  /** Index discovery toolbar: category navigation, search and reset. */
+  blogFilterCategory: string;
+  blogCategoryAll: string;
+  blogReset: string;
+  blogSearch: string;
+  blogSearchPlaceholder: string;
+  blogSearchApply: string;
+  blogSearchStart: string;
+  blogSearchResults: string;
+  blogNoSearchResults: string;
+  blogCategories: string;
+  blogUpdatedOn: string;
+  blogEarlierPost: string;
+  blogNewerPost: string;
+  blogNotFoundTitle: string;
+  blogNotFoundBody: string;
+  blogCategoryBenchmark: string;
+  blogCategoryPacks: string;
+  blogCategoryLorelum: string;
+  /** Reader-facing hint: this entry exists only in English / only in Chinese. */
+  blogOnlyInEnglish: string;
+  blogOnlyInChinese: string;
   toggleTheme: string;
   // Hero
   heroBadge: string;
@@ -102,6 +142,41 @@ const en: LandingStrings = {
   readDocs: "Read the docs",
   navHome: "Home",
   navDocs: "Docs",
+  navBlog: "Blog",
+  blogIndexDescription:
+    "Benchmarks, evaluation methods, and Pack engineering. Each post states what was measured, the size of the sample, and where the evidence comes from.",
+  blogIndexTitle: "Lorelum Developer Blog",
+  blogIndexTagline: "Benchmarks, evaluation methods, and Pack engineering.",
+  blogPagination: "Blog pages",
+  blogPreviousPage: "Previous",
+  blogNextPage: "Next",
+  blogPageLabel: "Page {page}",
+  blogEmpty: "No posts yet.",
+  blogOnThisPage: "On this page",
+  blogFilteredByPrefix: "Filtered by: ",
+  blogShowAll: "Show all",
+  blogNoPostsInCategory: "No posts in this category yet.",
+  blogAllPosts: "All posts",
+  blogCategories: "Categories",
+  blogFilterCategory: "Category",
+  blogCategoryAll: "ALL",
+  blogReset: "Reset",
+  blogSearch: "Search",
+  blogSearchPlaceholder: "Search titles or summaries",
+  blogSearchApply: "View matching posts",
+  blogSearchStart: "Enter keywords to start searching.",
+  blogSearchResults: "Results: {count}",
+  blogNoSearchResults: "No posts match. Try another search or reset the filters.",
+  blogUpdatedOn: "Updated",
+  blogEarlierPost: "Earlier post",
+  blogNewerPost: "Newer post",
+  blogNotFoundTitle: "That post does not exist",
+  blogNotFoundBody: "It may have been renamed, or published in the other language only.",
+  blogCategoryBenchmark: "Benchmark",
+  blogCategoryPacks: "Packs",
+  blogCategoryLorelum: "Lorelum",
+  blogOnlyInEnglish: "English version only",
+  blogOnlyInChinese: "Chinese version only",
   toggleTheme: "Toggle theme",
   heroBadge: "Engineering knowledge for Agent decisions",
   heroTitleBefore: "The right ",
@@ -203,6 +278,40 @@ const zh: LandingStrings = {
   readDocs: "阅读文档",
   navHome: "首页",
   navDocs: "文档",
+  navBlog: "博客",
+  blogIndexDescription: "benchmark、评测方法与 Pack 工程。每篇说明测量口径、样本规模与证据来源。",
+  blogIndexTitle: "Lorelum 开发者博客",
+  blogIndexTagline: "benchmark、评测方法与 Pack 工程。",
+  blogPagination: "博客分页",
+  blogPreviousPage: "上一页",
+  blogNextPage: "下一页",
+  blogPageLabel: "第 {page} 页",
+  blogEmpty: "暂无文章。",
+  blogOnThisPage: "本页目录",
+  blogFilteredByPrefix: "分类：",
+  blogShowAll: "显示全部",
+  blogNoPostsInCategory: "该分类下暂无文章。",
+  blogAllPosts: "全部文章",
+  blogCategories: "分类",
+  blogFilterCategory: "分类",
+  blogCategoryAll: "ALL",
+  blogReset: "重置",
+  blogSearch: "搜索",
+  blogSearchPlaceholder: "搜索标题或摘要",
+  blogSearchApply: "在列表中查看结果",
+  blogSearchStart: "输入关键词开始搜索。",
+  blogSearchResults: "匹配文章：{count}",
+  blogNoSearchResults: "未找到匹配文章。试试其他关键词，或重置筛选。",
+  blogUpdatedOn: "更新于",
+  blogEarlierPost: "更早的一篇",
+  blogNewerPost: "更新的一篇",
+  blogNotFoundTitle: "文章不存在",
+  blogNotFoundBody: "它可能已被重命名，或仅以另一种语言发布。",
+  blogCategoryBenchmark: "Benchmark",
+  blogCategoryPacks: "Pack",
+  blogCategoryLorelum: "Lorelum",
+  blogOnlyInEnglish: "仅有英文版本",
+  blogOnlyInChinese: "仅有中文版本",
   toggleTheme: "切换主题",
   heroBadge: "为 Agent 提供工程判断依据",
   heroTitleBefore: "正确的 ",

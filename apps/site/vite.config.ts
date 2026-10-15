@@ -16,6 +16,8 @@ export default defineConfig({
     tanstackStart({
       prerender: {
         enabled: true,
+        // Query states share the canonical page's output path and must not overwrite it.
+        filter: ({ path }) => !path.includes("?"),
       },
     }),
     react(),

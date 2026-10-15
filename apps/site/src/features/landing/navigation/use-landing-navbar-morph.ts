@@ -17,15 +17,23 @@ function getCompactWidth() {
 }
 
 /**
- * Keep background attachment and hero shape transitions independent.
+ * Background and elevation follow scrolling; the compact shape follows the hero
+ * or supplied masthead. Accept an element so the effect reruns when Suspense
+ * mounts the article's masthead.
  */
-export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, heroId: string) {
+export function useLandingNavbarMorph(
+  navRef: RefObject<HTMLElement | null>,
+  heroId: string,
+  collapseTrigger?: HTMLElement | null,
+) {
   useEffect(() => {
     const nav = navRef.current;
-    const hero = document.getElementById(heroId);
     const panel = nav?.querySelector<HTMLElement>(".landing-navbar__panel");
     const surface = nav?.querySelector<HTMLElement>(".landing-navbar__surface");
-    if (!nav || !hero || !panel || !surface) return;
+    if (!nav || !panel || !surface) return;
+
+    // Hero-less pages still reveal the background and elevation when scrolled.
+    const hero = document.getElementById(heroId);
 
     registerGsapPlugins();
 
@@ -69,25 +77,41 @@ export function useLandingNavbarMorph(navRef: RefObject<HTMLElement | null>, her
       const detachTrigger = ScrollTrigger.create({
         start: 1,
         end: 1,
-        onEnter: () => background.play(),
-        onLeaveBack: () => background.reverse(),
+        onEnter: () => {
+          panel.classList.add("landing-navbar__panel--detached");
+          background.play();
+        },
+        onLeaveBack: () => {
+          panel.classList.remove("landing-navbar__panel--detached");
+          background.reverse();
+        },
       });
+      // Suspense can rerun the effect after the page has already crossed the trigger.
+      panel.classList.toggle("landing-navbar__panel--detached", detachTrigger.progress > 0);
 
-      const scrollTrigger = ScrollTrigger.create({
-        trigger: hero,
-        start: "bottom top+=56",
-        onEnter: () => runMorph(true),
-        onLeaveBack: () => runMorph(false),
-      });
+      // The morph needs something to measure: the hero on the landing page, or
+      // whatever a hero-less surface hands over. Without either, the surface
+      // keeps the full-width navbar, which is what the docs surface wants.
+      const measured = hero ?? collapseTrigger ?? null;
+      const scrollTrigger =
+        measured === null
+          ? undefined
+          : ScrollTrigger.create({
+              trigger: measured,
+              start: "bottom top+=56",
+              onEnter: () => runMorph(true),
+              onLeaveBack: () => runMorph(false),
+            });
 
       return () => {
         detachTrigger.kill();
-        scrollTrigger.kill();
+        scrollTrigger?.kill();
         background.kill();
         morph?.kill();
+        panel.classList.remove("landing-navbar__panel--detached");
       };
     }, nav);
 
     return () => ctx.revert();
-  }, [heroId, navRef]);
+  }, [heroId, navRef, collapseTrigger]);
 }

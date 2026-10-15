@@ -5,16 +5,9 @@ export function getRootHead() {
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      {
-        name: "theme-color",
-        content: "#121212",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        name: "theme-color",
-        content: "#F5F5F5",
-        media: "(prefers-color-scheme: light)",
-      },
+      // `theme-color` is deliberately not here: this pipeline de-duplicates meta
+      // tags by `name`, so only one of a light/dark pair would survive. Both live
+      // in the document shell instead — see `root-document.tsx`.
     ],
     links: [
       { rel: "stylesheet", href: appCss },

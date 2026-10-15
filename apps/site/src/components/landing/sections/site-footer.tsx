@@ -1,10 +1,20 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { BrandLockup } from "@/shared/ui/brand-lockup";
 import { gitConfig } from "@/shared/config/git";
+import { i18n } from "@/shared/i18n/config";
 import { getStrings } from "@/shared/i18n/legacy-translations";
+import {
+  destinationPath,
+  isCurrentDestination,
+} from "@/features/landing/navigation/navigation-destination";
 
 export function SiteFooter({ lang }: { lang: string }) {
   const t = getStrings(lang);
+  const { pathname } = useLocation();
+  // One destination, one answer: the footer is a navigation landmark, so the
+  // blog entry states where the reader is the same way the header does, rather
+  // than depending on which spelling of the URL they arrived by.
+  const onBlog = isCurrentDestination(pathname, "blog", i18n.languages);
   const githubUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 
   return (
@@ -22,6 +32,16 @@ export function SiteFooter({ lang }: { lang: string }) {
             className="transition-colors hover:text-fd-foreground"
           >
             {t.footerDocs}
+          </Link>
+          {/* The footer is on every page, so it is where a reader who landed
+              deep inside the docs or the blog looks for the other surfaces. */}
+          <Link
+            to={destinationPath("blog", lang, i18n.defaultLanguage)}
+            activeOptions={{ exact: true }}
+            aria-current={onBlog ? "page" : undefined}
+            className="transition-colors hover:text-fd-foreground"
+          >
+            {t.navBlog}
           </Link>
           <a
             href={githubUrl}

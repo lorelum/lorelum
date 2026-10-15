@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" fill="none" role="img" aria-labelledby="cover-title cover-description">
+  <title id="cover-title">Three conditions. One evaluation.</title>
+  <desc id="cover-description">A controlled comparison of Baseline, Placebo and Oracle, using the same tasks and a shared evaluation. The three conditions have equal visual weight; no scores or experimental results are represented.</desc>
+  <rect width="1200" height="750" fill="#F0F2EB"/>
+  <g fill="#17634F" font-family="system-ui, sans-serif">
+    <text x="72" y="82" font-size="22" font-weight="600" letter-spacing="3">PRACTICE / EVALUATION</text>
+    <text x="68" y="180" font-size="76" font-weight="600" letter-spacing="-3">Three conditions.</text>
+    <text x="68" y="268" font-size="76" font-weight="600" letter-spacing="-3">One evaluation.</text>
+  </g>
+  <g fill="#E1E9DF">
+    <rect x="72" y="326" width="320" height="258" rx="24"/>
+    <rect x="440" y="326" width="320" height="258" rx="24"/>
+    <rect x="808" y="326" width="320" height="258" rx="24"/>
+  </g>
+  <g stroke="#27785E" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="232" cy="422" r="43"/>
+    <rect x="557" y="374" width="68" height="68" rx="14"/>
+    <rect x="578" y="395" width="68" height="68" rx="14" fill="#E1E9DF"/>
+    <circle cx="968" cy="422" r="43"/>
+    <circle cx="968" cy="422" r="20"/>
+  </g>
+  <g fill="#174A3C" font-family="system-ui, sans-serif" font-size="38" font-weight="600" text-anchor="middle">
+    <text x="232" y="535">Baseline</text>
+    <text x="600" y="535">Placebo</text>
+    <text x="968" y="535">Oracle</text>
+  </g>
+  <path d="M72 630H1128" stroke="#B6C9BA" stroke-width="2"/>
+  <g fill="#466B59" font-family="system-ui, sans-serif" font-size="22" font-weight="500" letter-spacing="2">
+    <text x="72" y="686">SAME TASKS</text>
+    <text x="1128" y="686" text-anchor="end">SHARED EVALUATION</text>
+  </g>
+</svg>
