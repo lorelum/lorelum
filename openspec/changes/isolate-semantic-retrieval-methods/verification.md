@@ -128,3 +128,14 @@ bun run build:cli
 - 新迁移下的 `bun run test:native-smoke -- <model.gguf>` 通过 ProjectContext 和检索方法两个场景：初始实际编码 48 条、增量仅 1 条，独立 5 条方法语料编码 20 个输入，单向量/多视角/切回、临时 mode、配置不写回及 operation 身份通过。
 - 全仓 typecheck、5 个相关 TypeScript 文件的 oxlint、11 个 TypeScript/JSON 文件的格式检查以及 OpenSpec strict validation 通过。维护规则与设计已同步，不保留生成器的历史修补例外。
 - 未操作用户 Store/config、模型文件或已安装 CLI；本轮没有重新构建编译发布包、commit 或 push。上述原生证据属于源码 command registry、实际 HTTP Backend 与 native 模型路径，不代表发布包或 CI 验证。
+
+## 单次方法对称性与 spec 归档一致性（2026-10-17）
+
+基于 `f697201` 加本轮改动，本机 macOS arm64、Bun 1.4.2。
+
+- 行为：`--mode` 取值为 `semantic`、`keyword`、`single-vector`、`multi-view-vector`，后两者由 Engine catalog 派生。CLI semantic 结果 data 带 `retrievalMethod`；默认文本仅在非 `single-vector` 时显示。Backend 请求/响应形状不变。
+- 先前把 `single-vector` 当作非法 mode 的回归改为验证新行为：两个方法 mode 都覆盖非法方法配置、请求携带对应方法、结果回报该方法，下一次普通调用仍报告配置错误；pending `indexing` 结果带方法并通过结果 schema；文本只显示非默认方法。`bun test packages/cli` **498 pass / 3 skip / 0 fail**；`bun test packages/engine packages/backend` **570 pass / 4 skip / 0 fail**（整包一次执行）。
+- 原生 smoke（`bun run build:native` 命中开发缓存后，`retrieval-methods` 场景，真实 GGUF）通过：默认结果 `retrievalMethod: single-vector`，`--mode multi-view-vector` 回报多视角；配置为 multi-view-vector 时 `--mode single-vector` 使用原 single-vector Profile，配置文件逐字不变。未重跑 ProjectContext 场景。
+- 源码 CLI 隔离 HOME 下 `describe query` 列出四个 mode 值及三个 semantic 结果分支的必填 `retrievalMethod`；`--mode simple` 返回 `usage.invalid`、exit 2。
+- 全仓 typecheck、相关 CLI 文件 oxlint/oxfmt check、站点 production build/prerender，以及 `isolate-semantic-retrieval-methods`、`advance-task-aware-semantic-retrieval`、`add-project-context-packs` 三个 OpenSpec strict validation 通过。
+- 未重建编译发布包，未操作用户 Store/config 或已安装 CLI，没有质量或性能结论。

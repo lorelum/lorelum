@@ -6,21 +6,24 @@ description: 为 AI coding task 和 moment 找到合适的已安装 Practice。
 `query` 搜索当前 query context，返回按相关性排序的 Practice 摘要。默认使用 semantic relevance；`keyword` 是明确指定的离线路径。当前目录或父目录中的有效项目 `.lorelum/` 会按父到子继承并合并；选中的 Store root 永远不是项目 layer。没有有效项目 layer（包括整条路径没有 `.lorelum/` 的普通目录）时，query 只使用 selected Store；`--no-project` 可强制该 Store-only 行为。
 
 ```sh
-lore query <text> [--mode semantic|keyword|multi-view-vector] [--top-k <n>] [--store-root <path>] [--project-root <path>] [--no-project] [--cache-root <path>] [--verbose] [--json]
+lore query <text> [--mode semantic|keyword|single-vector|multi-view-vector] [--top-k <n>] [--store-root <path>] [--project-root <path>] [--no-project] [--cache-root <path>] [--verbose] [--json]
 ```
 
-`text` 必填，去除首尾空白后不能为空，最多 4,096 个 Unicode 码点。`--top-k` 接受 1–50 的整数，默认 5。`--mode` 可选 `semantic`（默认）、`keyword` 或 `multi-view-vector`（仅本次使用实验算法）。`--store-root` 选择 Store 基础语料，`--project-root` 选择直接包含项目 `.lorelum/` 的目录，不能指向 selected Store root；`--cache-root` 选择用户级派生 cache（默认 `~/.lorelum/cache`），不会写入项目目录；`--max-wait-ms` 与 `--min-coverage-percent` 覆盖用户级等待/partial 策略，`--require-complete` 只接受完整结果。
+`text` 必填，去除首尾空白后不能为空，最多 4,096 个 Unicode 码点。`--top-k` 接受 1–50 的整数，默认 5。`--mode` 可选 `semantic`（默认）、`keyword`、`single-vector` 或 `multi-view-vector`；后两者仅为本次查询选择向量方法。未知 mode 在连接 Backend 前返回 `usage.invalid`。`--store-root` 选择 Store 基础语料，`--project-root` 选择直接包含项目 `.lorelum/` 的目录，不能指向 selected Store root；`--cache-root` 选择用户级派生 cache（默认 `~/.lorelum/cache`），不会写入项目目录；`--max-wait-ms` 与 `--min-coverage-percent` 覆盖用户级等待/partial 策略，`--require-complete` 只接受完整结果。
 
 ```sh
 lore query "我将为一个小型 UI 改动定义范围和验证方式"
 lore query "授权边界" --top-k 10
+lore query "授权边界" --mode single-vector
 lore query "授权边界" --mode multi-view-vector
 lore query "token session cookie" --mode keyword
 ```
 
-Semantic mode 使用 [`query.retrievalMethod` 配置](../configuration#semantic-检索方法)：默认 `single-vector`，或 `multi-view-vector`（实验）。只想临时体验时，使用 `--mode multi-view-vector`；它仅为本次查询覆盖方法选择，即使配置中的方法值非法也不受影响。不写配置，不改变后续 query 或 index 命令，结果仍标为 `mode: semantic`。下一次普通 semantic query 会重新读取配置默认，无需重启 Backend。旧的 `simple` 和 `multi-view` ID 不是别名。`--mode keyword` 忽略方法配置，不需要 Backend 或 embedding 模型。
+Semantic mode 使用 [`query.retrievalMethod` 配置](../configuration#semantic-检索方法)：默认 `single-vector`，或 `multi-view-vector`（实验）。`--mode single-vector` 与 `--mode multi-view-vector` 仅为本次查询选择对应方法，无需编辑文件：例如临时体验实验方法，或在配置选择 `multi-view-vector` 时与默认方法对比。两者都会覆盖配置的方法，即使该方法值非法也不受影响，但其他配置错误仍会报告。不写配置，不改变后续 query、index 命令或安装后的同步。结果标为 `mode: semantic`，并由 `retrievalMethod` 指明实际使用的方法。下一次普通 semantic query 会重新读取配置默认，无需重启 Backend。旧的 `simple` 和 `multi-view` ID 不是别名。`--mode keyword` 忽略方法配置，不需要 Backend 或 embedding 模型。
 
-首次 semantic query 会自动提交或加入当前语料的后台 index operation，而不是要求先运行 `lore index build`。完整结果 data 包含 `mode` 和 `results`。每项包含 `practiceId`、`title`、`stage`、`techStack`、`appliesWhen`、`severity`、`contentDigest`；将该 `practiceId` 传给 [`get`](./get)。Semantic 结果还包含 `profileId` 与 `coverage`：`complete` 表示完整 artifact 与当前 Practice 完全一致；`partial` 只检索已验证的 current progress rows，并报告 `indexedPracticeCount`、`totalPracticeCount` 和 `operationId`。变更、删除、shadowed 或 ignored 的 Practice 不会从旧 artifact 泄漏。
+每种方法有独立的 index。某方法首次用于当前语料时，会为该方法单独启动后台 index 构建，因此该次查询可能返回 `preparing` 或 `indexing`；重新运行同一命令，或通过 `lore index operation <operationId>` 跟踪。`lore index status` 只报告配置的方法；`lore cache status` 包含各方法的缓存 artifact。详见 [Index 命令](./indexing)。
+
+首次 semantic query 会自动提交或加入当前语料的后台 index operation，而不是要求先运行 `lore index build`。完整结果 data 包含 `mode` 和 `results`。每项包含 `practiceId`、`title`、`stage`、`techStack`、`appliesWhen`、`severity`、`contentDigest`；将该 `practiceId` 传给 [`get`](./get)。Semantic 结果还包含 `retrievalMethod`、`profileId` 与 `coverage`：`complete` 表示完整 artifact 与当前 Practice 完全一致；`partial` 只检索已验证的 current progress rows，并报告 `indexedPracticeCount`、`totalPracticeCount` 和 `operationId`。待完成的 `preparing` 与 `indexing` 结果同样包含 `retrievalMethod`；keyword 结果不包含。默认文本仅在其不是 `single-vector` 时显示 `retrievalMethod`；`--verbose` 与 `--json` 始终包含。变更、删除、shadowed 或 ignored 的 Practice 不会从旧 artifact 泄漏。
 
 默认 text 是决策视图：ready 结果显示每个命中的 ID、标题、stage、非空 tech stack 和适用时机，只有非默认 severity 才显示。Keyword 结果标明 mode；partial coverage 保留状态和进度计数，ProjectContext warning 仍可见。默认视图省略 digest、Profile ID 和 ready 结果的 operation ID。使用 `--verbose` 可将完整结果 data 输出为 text。`--json` 无论是否同时传入 `--verbose`，都返回完整 envelope 和 data；机器调用方应使用 JSON，不解析 text。
 

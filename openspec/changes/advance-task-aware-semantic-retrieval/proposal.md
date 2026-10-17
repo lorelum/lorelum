@@ -12,7 +12,7 @@ Issue #236 的已知实例中，帮助完成提交前 review 的 Practice 已经
 ## What Changes
 
 - 让 semantic retrieval 的默认候选来源与排序都来自向量相似度：完整 query 对同一 Practice 的清洗后 `full`、`task-card` 与带上下文 `body` views 做矩阵匹配，`full` 与 `body` 按估算 token 预算切分。
-- 默认 query 按跨语言标点边界拆成 clause views，不把整句作为主导。每个 clause 在同一 Practice 内分两段计算 task-card 适用性和 body 片段证据；body 用最佳片段与全片段均值的固定混合，避免片段被平均抹掉，也避免块数线性加分。系统把这几个 clause 分数在一次检索里聚合为一个 Practice 分数：按 query view 的基准权重求加权平均。单个背景/领域 clause 不能独自带过整条 Practice，因为动作 clause 的近零余弦会被一起平均进去而不是被丢掉；不再额外叠加最弱-clause 项，因为实测它同时惩罚了"动作 clause 命中、背景 clause 很弱"的正确 Practice。排序覆盖全部 eligible Practice，只做这一次全量打分，不引入跨轮 rank fusion、单视图槽位轮或细化轮。`full` 不参与常规打分，只在没有可打分 view 时兜底；不得把所有 body chunk 分数直接相加，也不得使用负权重。
+- 默认 query 按跨语言标点边界拆成 clause views，不把整句作为主导。每个 clause 在同一 Practice 内分两段计算 task-card 适用性和 body 片段证据；body 用最佳片段与全片段均值的固定混合，避免片段被平均抹掉，也避免块数线性加分。系统把这几个 clause 分数在一次检索里聚合为一个 Practice 分数：按 query view 的基准权重求加权平均。单个背景/领域 clause 不能独自带过整条 Practice，因为动作 clause 的近零余弦会被一起平均进去而不是被丢掉；不再额外叠加最弱-clause 项，因为实测它同时惩罚了"动作 clause 命中、背景 clause 很弱"的正确 Practice。排序覆盖全部 eligible Practice，只做这一次全量打分，不引入跨轮 rank fusion、单视图槽位轮或细化轮。`full` 被编码并持久化，但不参与打分；不得把所有 body chunk 分数直接相加，也不得使用负权重。
 - 排序覆盖全部 eligible Practice，`K` 只在完整排序产生后应用；benchmark harness 的候选宽度 `N` 只限制其报告的 candidate ID 数量，不改变参与打分的集合或最终排序，也不能先按 `K` 截断。
 - 移除 request-private FTS5 task signal 与 `similarity + 0.05 × taskStrength` 路径；keyword 只保留为显式独立模式，不得成为 semantic 的隐式 fallback。
 - task-card 只由现有公开 schema 字段组成且不含 `tech_stack`；自由 Markdown body 按通用段落/列表语义单元分块并附标题路径，不引入新的 Practice 正文格式或角色 schema。

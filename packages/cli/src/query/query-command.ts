@@ -14,12 +14,15 @@ import {
   parseQueryRequest,
   StoreBusyError,
   StoreRecoveryRequiredError,
+  VECTOR_RETRIEVAL_METHOD_IDS,
+  isVectorRetrievalMethodId,
   type QueryHit,
   type QueryResult,
   type QueryService,
   type SemanticQueryResult,
   type ProjectContextSnapshot,
   type StorageRoot,
+  type VectorRetrievalMethodId,
   queryContentAddressedKeyword,
 } from "@lorelum/engine";
 
@@ -83,7 +86,8 @@ export interface QueryCommandServices {
   readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
 }
 
-const queryModes = ["semantic", "keyword", "multi-view-vector"] as const;
+/** Vector method IDs double as one-query overrides of `query.retrievalMethod`. */
+const queryModes = Object.freeze(["semantic", "keyword", ...VECTOR_RETRIEVAL_METHOD_IDS] as const);
 type QueryMode = (typeof queryModes)[number];
 const queryErrorCodes = Object.freeze([
   ...new Set([
@@ -98,7 +102,9 @@ const queryErrorCodes = Object.freeze([
 function parseMode(value: unknown): QueryMode {
   if (value === undefined) return "semantic";
   if (typeof value !== "string" || !queryModes.includes(value as QueryMode)) {
-    throw invalidInvocationError(`--mode must be ${queryModes.join(" or ")}.`);
+    throw invalidInvocationError(
+      `--mode must be ${queryModes.slice(0, -1).join(", ")}, or ${queryModes.at(-1)}.`,
+    );
   }
   return value as QueryMode;
 }
@@ -133,7 +139,8 @@ function integerOptionError(option: string, min: number, max: number): CliError 
 
 function toQueryResult(
   result: QueryResult | SemanticQueryResult | SemanticRuntimeResult | QueryIndexingResult,
-  project?: ProjectContextSnapshot,
+  project: ProjectContextSnapshot | undefined,
+  retrievalMethod: VectorRetrievalMethodId | undefined,
 ): JsonValue {
   const context =
     project !== undefined
@@ -141,9 +148,12 @@ function toQueryResult(
       : "context" in result && result.context !== undefined
         ? { context: result.context }
         : {};
+  // The Backend serves exactly the method the CLI sent; keyword has none.
+  const method = retrievalMethod === undefined ? {} : { retrievalMethod };
   if ("state" in result && result.state === "preparing") {
     return {
       state: result.state,
+      ...method,
       preparationId: result.preparationId,
       message:
         ("message" in result ? result.message : undefined) ??
@@ -154,6 +164,7 @@ function toQueryResult(
   if ("state" in result && result.state === "indexing") {
     return {
       state: result.state,
+      ...method,
       operationId: result.operationId,
       indexedPracticeCount: result.indexedPracticeCount,
       totalPracticeCount: result.totalPracticeCount,
@@ -166,6 +177,7 @@ function toQueryResult(
     mode: queryResult.mode,
     ...(queryResult.mode === "semantic"
       ? {
+          ...method,
           profileId: queryResult.profileId,
           coverage: queryResult.coverage,
           ...("indexedPracticeCount" in queryResult &&
@@ -274,7 +286,7 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
       {
         longFlag: "--mode",
         description:
-          "Choose semantic relevance (default), offline keyword, or experimental multi-view-vector for this query.",
+          "Choose semantic relevance with the configured method (default), offline keyword, or single-vector / multi-view-vector for this query only.",
         value: { name: "mode", required: true },
         optionRequired: false,
         defaultValue: "semantic",
@@ -355,18 +367,20 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
             ? 100
             : (minCoverageOverride ?? settings.minCoveragePercent);
         const request = limit === undefined ? { text } : { text, limit };
-        const semanticSettings =
-          mode === "multi-view-vector"
-            ? { retrievalMethod: mode }
-            : mode === "semantic"
-              ? await (services.loadSemanticSettings ?? loadSemanticRetrievalSettings)()
-              : undefined;
+        const retrievalMethod =
+          mode === "keyword"
+            ? undefined
+            : isVectorRetrievalMethodId(mode)
+              ? mode
+              : (await (services.loadSemanticSettings ?? loadSemanticRetrievalSettings)())
+                  .retrievalMethod;
         const project =
           mode !== "keyword" || services.resolveProjectContext === undefined
             ? undefined
             : await services.resolveProjectContext(root, projectOptions);
+        // Keyword is the only mode without a vector method.
         const result =
-          mode === "keyword"
+          retrievalMethod === undefined
             ? await queryKeyword(
                 services,
                 root,
@@ -380,12 +394,12 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
               ).query(root, {
                 ...request,
                 mode: "semantic",
-                ...semanticSettings,
+                retrievalMethod,
                 maxWaitMs,
                 minCoveragePercent,
                 ...backendProjectTargetOptions(projectOptions),
               });
-        const data = toQueryResult(result, project);
+        const data = toQueryResult(result, project, retrievalMethod);
         return {
           data,
           ...(dataIsPending(data) ? { exitCode: 1 as const } : {}),

@@ -199,7 +199,7 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
       },
     },
   });
-  expect(result.response.data).toEqual(semantic);
+  expect(result.response.data).toEqual({ ...semantic, retrievalMethod: "single-vector" });
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
@@ -307,12 +307,14 @@ test("requires complete coverage without cancelling the accepted semantic operat
   expect(result.exitCode).toBe(1);
   expect(result.response.data).toMatchObject({
     state: "indexing",
+    retrievalMethod: "single-vector",
     indexedPracticeCount: 50,
     totalPracticeCount: 100,
   });
+  expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
-test.each(["hybrid", "multi-view", "single-vector", ""])(
+test.each(["hybrid", "multi-view", "simple", ""])(
   "rejects invalid mode %s before creating the Backend client",
   async (mode) => {
     let created = false;
@@ -466,7 +468,7 @@ test("publishes query arguments, schema, error allowlist, and exit codes through
     expect.objectContaining({
       name: "--mode <mode>",
       defaultValue: "semantic",
-      values: ["semantic", "keyword", "multi-view-vector"],
+      values: ["semantic", "keyword", "single-vector", "multi-view-vector"],
     }),
   );
 });
@@ -542,33 +544,40 @@ test("query input validation retains priority over semantic configuration", asyn
   expect(result.response.error.code).toBe("usage.invalid");
 });
 
-test("experimental mode overrides invalid method settings only for this invocation", async () => {
-  const loadSemanticSettings = async (): Promise<never> => {
-    throw new CliError("query.config-invalid", "Fix query.retrievalMethod.");
-  };
-  const createClient: QueryCommandServices["createClient"] = async () => ({
-    query: async () => {
-      throw new EmbeddingError("embedding.not-loaded");
-    },
-  });
-  const temporary = await invoke(
-    ["query", "valid text", "--mode", "multi-view-vector"],
-    { query: async () => queryResult },
-    createClient,
-    loadSemanticSettings,
-  );
-  expect(temporary.exitCode).toBe(2);
-  expect(temporary.response.error.code).toBe("embedding.not-loaded");
+test.each(["single-vector", "multi-view-vector"] as const)(
+  "--mode %s overrides invalid method settings only for this invocation",
+  async (mode) => {
+    const loadSemanticSettings = async (): Promise<never> => {
+      throw new CliError("query.config-invalid", "Fix query.retrievalMethod.");
+    };
+    const requests: unknown[] = [];
+    const createClient: QueryCommandServices["createClient"] = async () => ({
+      query: async (_root, request) => {
+        requests.push(request);
+        return { mode: "semantic", profileId: "p".repeat(64), coverage: "complete", results: [] };
+      },
+    });
+    const temporary = await invoke(
+      ["query", "valid text", "--mode", mode],
+      { query: async () => queryResult },
+      createClient,
+      loadSemanticSettings,
+    );
+    expect(temporary.exitCode).toBe(0);
+    expect(requests).toMatchObject([{ mode: "semantic", retrievalMethod: mode }]);
+    expect(temporary.response.data).toMatchObject({ mode: "semantic", retrievalMethod: mode });
 
-  const ordinary = await invoke(
-    ["query", "valid text"],
-    { query: async () => queryResult },
-    createClient,
-    loadSemanticSettings,
-  );
-  expect(ordinary.exitCode).toBe(2);
-  expect(ordinary.response.error.code).toBe("query.config-invalid");
-});
+    const ordinary = await invoke(
+      ["query", "valid text"],
+      { query: async () => queryResult },
+      createClient,
+      loadSemanticSettings,
+    );
+    expect(ordinary.exitCode).toBe(2);
+    expect(ordinary.response.error.code).toBe("query.config-invalid");
+    expect(requests).toHaveLength(1);
+  },
+);
 
 test("experimental mode retains query input validation before settings and Backend failures", async () => {
   const result = await invoke(

@@ -1061,7 +1061,7 @@ bun packages/backend/src/benchmark/role-aligned/role-cli.ts replay --out <仓库
 bun packages/backend/src/benchmark/role-aligned/role-cli.ts score  --out <同一运行目录> --queries <suite>/cases/queries.json --dev-labels <suite>/private/labels.json
 ```
 
-`replay` 没有 labels 参数；`score` 验证 manifest 与 9 份排名的 digest 和完整有序性后才读取 labels（测试用读取计数证明，失败/被篡改的运行读取次数为 0）。所有运行产物与角色 spec 在仓库之外（`~/.codex/lorelum-g1/`），不提交。
+`replay` 没有 labels 参数；`score` 验证 manifest 与 9 份排名的 digest 和完整有序性后才读取 labels（测试用读取计数证明，失败/被篡改的运行读取次数为 0）。所有运行产物与角色 spec 存放在仓库外的本地评测目录，不提交。
 
 ### 26.4 结果（50 例 × 97 Practice，每个条件对全部 Practice 评分后保存完整排名）
 
@@ -1164,7 +1164,7 @@ scope（Q 1、Q+I 2）与 forbidden-before-core（均 0）满足不高于 2 / 1�
 - 门槛：第 2 项 Q 与 Q+I 均为失败（成功数不严格增加，禁项 query 由 0 增到 1）；标注覆盖可比（未标注槽位均为 0）。第 3 项在本次运行中没有旧集 labels，沿用 §26.4 的失败。样本总数 40 满足登记的 24 条下限，但有目标的只有 5 条，这个判定只能说明没有收益迹象，不能说明收益不存在；标注非独立（单评审者 agent）也使任何“通过”都不可能。
 - 一个与角色无关的观察：在 control 下，40 条 query 的前 5 名共 200 个槽位中，189 个被评审者判为 irrelevant，8 个是 prerequisite-or-supplement，3 个是 required-core，0 个禁项。也就是说语料覆盖（35/40 条任务没有可接受目标），而不是排序，是这批真实任务的主要限制。检索总会返回 5 项，本计划没有新增拒答阈值。
 
-**限制**：目标只有 5 条且分散；评审者是 agent，单评审者，按 Pack 隔离；来源是单一项目的 issue 标题（无正文）；任务同一团队同一时期；标题是任务描述而不是 agent 在编码过程中真实发出的 query。本次运行代码 digest `4c68c992…`（29 个文件），原始数据与标签在 `~/.codex/lorelum-g1/`（`run-pilot-1`、`labels-pilot`、`roles-pilot*`），不提交。
+**限制**：目标只有 5 条且分散；评审者是 agent，单评审者，按 Pack 隔离；来源是单一项目的 issue 标题（无正文）；任务同一团队同一时期；标题是任务描述而不是 agent 在编码过程中真实发出的 query。本次运行代码 digest `4c68c992…`（29 个文件），原始数据、标签与角色文件存放在仓库外的本地评测目录，不提交。
 
 **建议更新**：停止 query 侧人工角色加权的建议不变，且现在有两份一致的证据（开发集失败、pilot 无收益）。若要继续提升“真实任务适用性”，最大的杠杆是语料覆盖（这批真实任务 87.5% 没有可接受目标）与适用边界，而不是 query 侧角色。
 
@@ -1221,7 +1221,7 @@ scope（Q 1、Q+I 2）与 forbidden-before-core（均 0）满足不高于 2 / 1�
 
 ### 27.2 判断输入与身份
 
-- 候选池：`run-standalone-control/ranking.json` 中向量前 24，共 1656 对。每条请求内候选顺序随机打乱并匿名为 `k00`–`k23`，映射仅存于仓库外。
+- 候选池：仓库外独立对照运行的 `ranking.json` 中向量前 24，共 1656 对。每条请求内候选顺序随机打乱并匿名为 `k00`–`k23`，映射仅存于仓库外。
 - 判断包字段：`request`（原文）、候选的 `title`、`applies_when`、`exceptions`（"Exceptions and boundaries" 段前 600 字符）。不含正文、向量分数、名次、来源或任何标签。
 - 判断类别：`fit` / `same-topic` / `not-applicable`。判断标准与提示词原文登记于 `docs/research/advanced-retrieval-handoff.md`。
 - 判断计数：fit 157，same-topic 290，not-applicable 1209；平均每条请求 2.28 个 fit。
@@ -1321,7 +1321,7 @@ scope（Q 1、Q+I 2）与 forbidden-before-core（均 0）满足不高于 2 / 1�
 | 验收项 | 状态 | 依据 |
 | --- | --- | --- |
 | 8 类、经审核的评测案例 | 部分 | 40 条 8 类覆盖；作者与标注均为 agent，未人工审核；1 条设计缺陷；2 条标注分歧 |
-| 每例记录候选名单与最终排序 | 满足 | `run-v1/ranking.json` 每条 97 项全量排名，比对 `maxAbsDelta = 0` |
+| 每例记录候选名单与最终排序 | 满足 | 仓库外 v1 运行的 `ranking.json` 每条 97 项全量排名，比对 `maxAbsDelta = 0` |
 | Registry/Pack CR 案例排序 | 未满足 | 28.5 |
 | 召回与排序分开报告，未召回记为召回失败 | 满足 | 28.3、28.4 |
 | 内部候选宽度与公开 top-k 分离，不泄露诊断 | 未在本次新增检查 | 既有 N/K 边界记录见 §2；本次 engine 测试全部通过 |

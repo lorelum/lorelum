@@ -116,7 +116,7 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 查询与聚合（对齐 2026-09-26 的多对多参考）：
 
 - 默认产品 query 不再把整句作为一个主导向量。`query-views.ts` 按跨语言标点边界把原句拆成独立 clause views；当 query 只有一个 clause 时该 clause 才等同原句。内部接口仍允许给定 `intent`/`moment`/`artifact`/`constraints`/`domain` 等更丰富 query views，但不新增 CLI/API 参数。
-- 同一 Practice 内，每个 query clause 做两段式片段证据汇总：`task-card` 取最佳匹配作为适用性分数，`body` 同时保留最佳片段与全部片段的均值，再用 `0.5 × max + 0.5 × mean` 得到 m 侧片段证据分数。单片段能贡献局部证据，但更多无关片段会拉低均值，因此块数不能线性抬高分数。`full` 是重建/上下文锚点，不进入常规打分，避免全文重复每一个局部信号；只有 Practice 完全没有可打分 view 时才把它作为兜底。
+- 同一 Practice 内，每个 query clause 做两段式片段证据汇总：`task-card` 取最佳匹配作为适用性分数，`body` 同时保留最佳片段与全部片段的均值，再用 `0.5 × max + 0.5 × mean` 得到 m 侧片段证据分数。单片段能贡献局部证据，但更多无关片段会拉低均值，因此块数不能线性抬高分数。`full` 是编码并持久化的重建/上下文锚点，不参与打分，避免全文重复每一个局部信号；缺少 task-card/body 输入时打分返回 typed error，不改用 `full`。
 - 两段都覆盖全部 eligible Practice，不建立候选漏斗：第一段 task-card 适用性、第二段 body 片段证据都在完整集合上计算，最后才按 Practice 去重、排序并应用 `K`。
 - 跨 clause 的聚合发生在**同一次检索**里，不引入多轮：每个 clause 先得到该 Practice 的 clause 分数（上述 `task-card` 最佳适用性与 body 片段证据的等权平均），再按 query view 的基准权重求加权平均。排序对全部 eligible Practice 只发生一次。单个背景/领域 clause 的高分不能独自带过整条 Practice，因为动作 clause 的近零余弦会被一起平均进去；决定顺序的仍是向量余弦本身，不是被名次融合替换掉的相对排序。曾叠加的"与最弱 clause 混合"项已被实测否决（见 `verification.md` §20）：它同样惩罚"动作 clause 命中、背景 clause 很弱"的正确 Practice。
 - 不建立跨轮 reciprocal rank fusion、单视图槽位轮或细化轮。历史上本 change 曾按 50 例冻结集把 A/B/C/D 四个轮次族做二层 RRF 组合，见 `verification.md` §16–§18。维护者指出该方向错误：它把向量相似度换成了名次融合，并需要靠族组合取舍来选默认。因此 §16–§18 只保留为实验记录，不是当前实现或产品默认；回退记录见 §19。
@@ -158,6 +158,8 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 5. 运行 migration、focused Engine/ProjectContext tests、package tests、typecheck、lint 与 OpenSpec strict validation。
 6. 在新的冻结 build 上运行相同模型、query/Pack、N/K、scorer 与环境的 benchmark；Profile 本就随表示改变，因此 baseline 用旧 Profile 的 artifact、新 build 用新 Profile 的 artifact，两侧分别记录 Profile ID 与 corpus digest，报告 candidate recall、final ranking、scope error、chunk/view 成本和失败反例；不得把本轮与旧 BM25 build 的收益合并陈述，也不得宣称“同一 Profile”下对比。
 7. 自动 query clause 拆解与按名次的轮次合并已进入默认路径；下一步可把 `intent`/`moment`/`artifact`/`constraints`/`domain` 做成独立 query views，让每轮带语义角色并支持按轮加权，但不得把该实验写成当前产品默认或宣称某个手工权重最优。
+
+归档顺序：本 change MUST 在 `add-project-context-packs` 之后归档，因为两者都 MODIFY `Build and rebuild preserve consistency`，且本 change 的版本已包含该 change 的完整文本。
 
 ## Open Questions
 

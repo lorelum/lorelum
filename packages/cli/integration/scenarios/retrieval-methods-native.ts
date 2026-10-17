@@ -23,6 +23,7 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
     await invoke([...queryArgs, "--max-wait-ms", "120000"]),
   );
   assert.equal(singleQuery.coverage, "complete");
+  assert.equal(singleQuery.retrievalMethod, "single-vector");
   assert.equal(typeof singleQuery.profileId, "string");
   const singleStatus = expectOk("default single-vector index", await invoke(["index", "status"]));
   assert.equal(singleStatus.state, "ready");
@@ -34,6 +35,7 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
     await invoke([...queryArgs, "--mode", "multi-view-vector", "--max-wait-ms", "120000"]),
   );
   assert.equal(temporaryQuery.mode, "semantic");
+  assert.equal(temporaryQuery.retrievalMethod, "multi-view-vector");
   assert.equal(temporaryQuery.coverage, "complete");
   assert.notEqual(temporaryQuery.profileId, singleStatus.profileId);
   assert(
@@ -68,7 +70,17 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
     ]),
   );
   assert.equal(multiQuery.coverage, "complete");
+  assert.equal(multiQuery.retrievalMethod, "multi-view-vector");
   assert.equal(multiQuery.profileId, multiStatus.profileId);
+  const multiConfig = await readFile(session.configFile, "utf8");
+  const temporarySingle = expectOk(
+    "temporary single-vector mode overrides a multi-view-vector config",
+    await invoke([...readyQueryArgs, "--mode", "single-vector"]),
+  );
+  assert.equal(temporarySingle.mode, "semantic");
+  assert.equal(temporarySingle.retrievalMethod, "single-vector");
+  assert.equal(temporarySingle.profileId, singleStatus.profileId);
+  assert.equal(await readFile(session.configFile, "utf8"), multiConfig);
   const multiRebuild = expectOk("multi-view-vector rebuild", await invoke(["index", "rebuild"]));
   await environment.waitForIdle();
 
@@ -109,7 +121,7 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
     fixture: { totalPractices },
     observations: {
       retrievalMethods: ["single-vector", "multi-view-vector", "single-vector"],
-      temporaryModeOverride: true,
+      temporaryModeOverrides: ["multi-view-vector", "single-vector"],
       configurationUnchanged: true,
       methodDocumentBatches: after.batches - before.batches,
       methodDocumentInputs: after.documentCount - before.documentCount,

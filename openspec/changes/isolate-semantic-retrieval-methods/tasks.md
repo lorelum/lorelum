@@ -45,3 +45,10 @@
 - [x] 7.1 以 main 的单向量 schema 为基线，保留已有迁移身份，三类 semantic index 直接生成到最终结构；删除 #272 中间格式及其向量搬运迁移，不改 canonical 数据。
 - [x] 7.2 删除生成器中的历史 SQL 扫描、字段改名映射和事后 CHECK 修补；在 schema 中表达重建时也有效的相同约束，保留共享向量缓存相对 main 的必要迁移。
 - [x] 7.3 将真实迁移与旧 reader 夹具改为 main 的旧格式，验证失效/重建、新库、两方法真实查询及生成幂等性，同步维护规则和验收记录。
+
+## 8. 评审后的单次方法对称性与 spec 归档一致性
+
+- [x] 8.1 query 的 `--mode` 取值由 Engine catalog 派生，增加 `--mode single-vector`，与 `--mode multi-view-vector` 同为单次方法选择；配置了实验默认的用户可以单次回到默认方法对照。
+- [x] 8.2 CLI semantic 结果（complete/partial/preparing/indexing）以 `retrievalMethod` 回报本次发送的方法，keyword 不含；默认文本只在非 `single-vector` 时显示。Backend HTTP 结果形状不变。
+- [x] 8.3 retrieval-query delta 以 `add-project-context-packs` 版本为基础 MODIFIED `Query mode and input validation`，归档须排在其后；修正 `full` channel 只编码不评分的描述；`advance-task-aware-semantic-retrieval` 的多视角限定写入各 requirement 正文，其 `Build and rebuild preserve consistency` 以 `add-project-context-packs` 版本为基础。
+- [x] 8.4 同步中英 query/config 指南、维护文档、产品文档与原生 smoke 场景，补充首次使用某方法会单独后台构建的说明；清除继承验收记录中的本机评测目录名。

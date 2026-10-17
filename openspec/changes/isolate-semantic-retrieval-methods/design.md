@@ -13,7 +13,7 @@
 | `backend/.../content-addressed-semantic-runtime.ts:130–173,612–745` | 一个 runtime 持有固定 Profile，并拥有队列、operation 和 target 当前性检查。 |
 | `cli/src/query/settings.ts:41–58`、`query-command.ts:309–379` | 配置由消费者加载校验，CLI 每次构造请求；方法可以随请求选择，不必重启 daemon。 |
 
-主 specs 的旧 Store-only 手工构建规则与已实现的 `add-project-context-packs` delta 不一致。本变更保留后者的自动构建、持久 operation、current-target progress、partial coverage 与单模型调度，不恢复旧生命周期。`advance-task-aware-semantic-retrieval` 的多视角规则限定到显式 `multi-view-vector`，历史研究结论不当成单向量方法的证据。
+主 specs 的旧 Store-only 手工构建规则与已实现的 `add-project-context-packs` delta 不一致。本变更保留后者的自动构建、持久 operation、current-target progress、partial coverage 与单模型调度，不恢复旧生命周期。两者都修改 `Query mode and input validation`：本变更的版本以 `add-project-context-packs` 的 wait/coverage 条款为基础，只扩展 mode 取值，因此归档时须排在其后。`advance-task-aware-semantic-retrieval` 的多视角规则限定到显式 `multi-view-vector`，历史研究结论不当成单向量方法的证据。
 
 ## Goals / Non-Goals
 
@@ -34,7 +34,7 @@
 
 ### 1. 模式与向量方法分开，使用组合
 
-Backend 的 `mode: semantic | keyword` 离线/模型边界保持。CLI 的 `--mode` 接受 `semantic | keyword | multi-view-vector`；最后一项是本次实验方法选择，在请求组装时映射为 `mode: semantic` 与 `retrievalMethod: multi-view-vector`，不增加第三个 Backend 或结果 mode。`query.retrievalMethod` 的两个合法值为 `single-vector | multi-view-vector`。旧规划值不作为别名。`VectorRetrievalMethod` 只表达当前向量家族，不声称代表一切 semantic retrieval。
+Backend 的 `mode: semantic | keyword` 离线/模型边界保持。CLI 的 `--mode` 接受 `semantic | keyword | single-vector | multi-view-vector`；`semantic` 按配置选择方法，两个方法 ID 是本次调用的方法选择，在请求组装时映射为 `mode: semantic` 与对应 `retrievalMethod`，不增加 Backend 或结果 mode。CLI 的方法 mode 列表直接取自 Engine catalog，新增内置方法自动获得同样的单次选择。CLI 结果 data 以 `retrievalMethod` 回报本次发送的方法，Backend 响应形状不变。`query.retrievalMethod` 的两个合法值为 `single-vector | multi-view-vector`。旧规划值不作为别名。`VectorRetrievalMethod` 只表达当前向量家族，不声称代表一切 semantic retrieval。
 
 ```text
 packages/engine/src/query/
@@ -160,7 +160,7 @@ function createVectorExecution(
 
 `single-vector`：恢复原完整文档文本配方，一条 Practice 生成 channel `full`、inputKey `full:0000` 的一个编码输入；完整 query 生成一个权重 1 的 QueryEmbeddingInput，以归一化向量点积打分。保留原字段标签、ID、顺序、anti-pattern 和正文，不借重构分块或改变输入长度限制。
 
-`multi-view-vector`：算法目录保留 multi-view，表示类别为 full/task-card/body；各类别可含多个编码单元。迁入 384 估算 token 预算与标题处理，query 分句不变。task-card 取最佳相似度，body 使用 `0.5 × max + 0.5 × mean`，对存在的两部分平均，再跨 query 输入加权平均；full 不参与存在 task-card/body 时的常规评分。不加关键词、RRF、最弱 clause 惩罚或调参。
+`multi-view-vector`：算法目录保留 multi-view，表示类别为 full/task-card/body；各类别可含多个编码单元。迁入 384 估算 token 预算与标题处理，query 分句不变。task-card 取最佳相似度，body 使用 `0.5 × max + 0.5 × mean`，对存在的两部分平均，再跨 query 输入加权平均；full 被编码保存但不参与评分，有效 Practice 总有 task-card，没有可评分输入时为 typed failure。不加关键词、RRF、最弱 clause 惩罚或调参。
 
 两方法都在全部 eligible Practice 上打分，公共 reader 按分数/Practice ID 稳定排序，query service 完成 canonical 校验后应用 K。N 只限制内部 benchmark 报告，不截断评分集合。
 
@@ -171,7 +171,7 @@ query:
   retrievalMethod: single-vector
 ```
 
-CLI 的 `loadSemanticRetrievalSettings` 只消费方法项，普通 semantic query、index 和安装同步复用。query 指定 `--mode multi-view-vector` 时直接选择实验方法，不调用方法配置 loader；不影响 wait/coverage 的既有读取及输入错误优先级。原 `loadQuerySettings` 继续拥有 wait/coverage，不复制方法校验。默认值和允许值来源为 Engine catalog。
+CLI 的 `loadSemanticRetrievalSettings` 只消费方法项，普通 semantic query、index 和安装同步复用。query 指定 `--mode single-vector` 或 `--mode multi-view-vector` 时直接选择该方法，不调用方法配置 loader；不影响 wait/coverage 的既有读取及输入错误优先级。原 `loadQuerySettings` 继续拥有 wait/coverage，不复制方法校验。默认值和允许值来源为 Engine catalog。
 
 协议校验只从 `@lorelum/engine/vector-methods` 取得纯 catalog 的方法允许值和默认值；package export 直接指向该模块，不经 Engine root barrel，也不引入转发层，避免客户端 DTO 加载 Store/SQLite 依赖。HTTP adapter 在完成 wire shape 校验后统一解析请求方法，以既有 `usage.invalid` 返回非法方法；keyword 不经过该解析。
 
@@ -179,7 +179,7 @@ CLI 的 `loadSemanticRetrievalSettings` 只消费方法项，普通 semantic que
 - 仅准确的两个新 ID 有效，null/其他类型/旧规划值/拼写错误不容错。CLI 文件错误为 `query.config-invalid`，API 请求错误沿用 `usage.invalid`。
 - CLI 每次读取并显式发送，Backend 协议入口对省略字段解析为 `single-vector`；直接 API 不读取 CLI YAML。Engine 深层没有隐藏默认方法。
 - Backend 不在启动时冻结方法，不设置全局 currentMethod。已接受 operation 固定原 execution；不需要重启 daemon。
-- keyword 不读取或校验向量方法项，仍离线；临时实验复用 `--mode multi-view-vector`，不增加独立方法 flag、环境变量或配置写回，也不影响后续 query/index/安装同步。Pack canonical 安装后的配置/索引失败只报告 indexSync failure，不回滚安装。
+- keyword 不读取或校验向量方法项，仍离线；单次方法选择复用 `--mode single-vector | multi-view-vector`，不增加独立方法 flag、环境变量或配置写回，也不影响后续 query/index/安装同步。Pack canonical 安装后的配置/索引失败只报告 indexSync failure，不回滚安装。
 
 通用 `indexCorpusDigest` 改为按稳定 Practice ID 顺序汇总 canonical ID/contentDigest，并版本化，解除 resolver/keyword 对向量投影的依赖。第一次摘要迁移会导致旧 content-addressed keyword/semantic cache miss，不改变内容与 keyword 排序。
 

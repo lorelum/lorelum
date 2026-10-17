@@ -6,8 +6,8 @@ PR #272 把多视角文档投影、query 分句与聚合评分直接放进原有
 
 本变更新增产品行为，不是单纯目录搬迁。
 
-- semantic 下提供 `single-vector` 与 `multi-view-vector` 两种向量检索方法；未配置时使用 `single-vector`，多视角方法必须显式启用。保留 `--mode semantic`、`--mode keyword`，新增 `--mode multi-view-vector` 仅为本次 query 选择实验语义方法；Backend 与结果仍使用 `mode: semantic`。旧规划名称 `simple` / `multi-view` 不作为别名接受。
-- 用户级 `query.retrievalMethod` 选择持久默认；默认 query、index status/build/rebuild 与 Pack 安装后的索引同步读取该选择。显式 `--mode multi-view-vector` 优先于方法配置且不校验被覆盖的方法项，不写回配置，也不改变后续命令。方法随请求传给 Backend，不依赖重启 daemon 才生效。
+- semantic 下提供 `single-vector` 与 `multi-view-vector` 两种向量检索方法；未配置时使用 `single-vector`，多视角方法必须显式启用。保留 `--mode semantic`、`--mode keyword`，新增 `--mode single-vector` 与 `--mode multi-view-vector` 仅为本次 query 选择对应语义方法，配置了实验默认的用户也能单次回到默认方法对照；Backend 与结果仍使用 `mode: semantic`，CLI 结果以 `retrievalMethod` 标明实际方法。旧规划名称 `simple` / `multi-view` 不作为别名接受。
+- 用户级 `query.retrievalMethod` 选择持久默认；默认 query、index status/build/rebuild 与 Pack 安装后的索引同步读取该选择。显式方法 mode 优先于方法配置且不校验被覆盖的方法项，不写回配置，也不改变后续命令。方法随请求传给 Backend，不依赖重启 daemon 才生效。
 - 隔离两种方法的文档投影、query 投影、评分和配方版本；canonical Practice 不包含向量属性，向量派生数据明确区分 `PracticeVectorProjection`、`EmbeddingInput` 与 `DocumentVector`。保留一套模型接入、向量持久化、增量构建、进度、canonical 校验、snapshot fence 与原子发布。
 - 方法身份参与 Profile、完整 artifact、progress 与向量缓存身份；切换方法不得串用索引或取消另一方法已经接受的构建。
 - **BREAKING（相对 PR #272 分支）**：未配置的 semantic 查询恢复简易单向量算法；方法身份切换后不兼容的派生索引需要重建，不能把已有多视角索引冒充默认索引。canonical Pack 内容不变。

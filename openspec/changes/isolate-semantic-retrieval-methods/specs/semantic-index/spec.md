@@ -26,7 +26,7 @@ semantic index 的兼容身份 MUST 包含所选向量检索方法及其文档�
 
 ### Requirement: Semantic query and index commands select the same method
 
-普通 CLI semantic query、index status/build/rebuild 及 Pack 安装后的语义索引同步 SHALL 使用同一用户级 `query.retrievalMethod` 选择规则，缺省为 `single-vector`。query 显式指定 `--mode multi-view-vector` 时 MUST 为本次请求及其自动构建选择实验方法的 Profile 和索引，不改变后续 index 命令或安装同步的配置选择。直接 Backend index target 请求的可选 `retrievalMethod` SHALL 采用同样的两个合法方法 ID，省略时 MUST 为 `single-vector`，旧规划名称不作为别名。status MUST 观察所选方法，build/rebuild MUST 构建所选方法，operation ID 查询 MUST 继续指向创建时的目标，不受之后配置影响。
+普通 CLI semantic query、index status/build/rebuild 及 Pack 安装后的语义索引同步 SHALL 使用同一用户级 `query.retrievalMethod` 选择规则，缺省为 `single-vector`。query 显式指定 `--mode single-vector` 或 `--mode multi-view-vector` 时 MUST 为本次请求及其自动构建选择该方法的 Profile 和索引，不改变后续 index 命令或安装同步的配置选择。直接 Backend index target 请求的可选 `retrievalMethod` SHALL 采用同样的两个合法方法 ID，省略时 MUST 为 `single-vector`，旧规划名称不作为别名。status MUST 观察所选方法，build/rebuild MUST 构建所选方法，operation ID 查询 MUST 继续指向创建时的目标，不受之后配置影响。
 
 #### Scenario: Status and build follow an experimental selection
 - **WHEN** 用户配置 multi-view-vector，随后执行 index status 和 index build

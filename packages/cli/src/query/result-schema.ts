@@ -1,9 +1,11 @@
+import { VECTOR_RETRIEVAL_METHOD_IDS } from "@lorelum/engine";
 import { SeverityEnum } from "@lorelum/format";
 
 import type { JsonSchema } from "../output/protocol.js";
 
 const stringSchema: JsonSchema = { type: "string" };
 const severitySchema: JsonSchema = { enum: SeverityEnum.options };
+const retrievalMethodSchema: JsonSchema = { enum: [...VECTOR_RETRIEVAL_METHOD_IDS] };
 
 const queryHitSchema: JsonSchema = {
   type: "object",
@@ -57,9 +59,10 @@ export const queryResultSchema: JsonSchema = {
     {
       type: "object",
       additionalProperties: false,
-      required: ["state", "preparationId", "message"],
+      required: ["state", "retrievalMethod", "preparationId", "message"],
       properties: {
         state: { const: "preparing" },
+        retrievalMethod: retrievalMethodSchema,
         preparationId: stringSchema,
         message: stringSchema,
         context: contextSchema,
@@ -68,9 +71,17 @@ export const queryResultSchema: JsonSchema = {
     {
       type: "object",
       additionalProperties: false,
-      required: ["state", "operationId", "indexedPracticeCount", "totalPracticeCount", "message"],
+      required: [
+        "state",
+        "retrievalMethod",
+        "operationId",
+        "indexedPracticeCount",
+        "totalPracticeCount",
+        "message",
+      ],
       properties: {
         state: { const: "indexing" },
+        retrievalMethod: retrievalMethodSchema,
         operationId: stringSchema,
         indexedPracticeCount: { type: "integer" },
         totalPracticeCount: { type: "integer" },
@@ -91,9 +102,10 @@ export const queryResultSchema: JsonSchema = {
     {
       type: "object",
       additionalProperties: false,
-      required: ["mode", "profileId", "coverage", "results"],
+      required: ["mode", "retrievalMethod", "profileId", "coverage", "results"],
       properties: {
         mode: { const: "semantic" },
+        retrievalMethod: retrievalMethodSchema,
         profileId: stringSchema,
         coverage: { enum: ["complete", "partial"] },
         indexedPracticeCount: { type: "integer" },
