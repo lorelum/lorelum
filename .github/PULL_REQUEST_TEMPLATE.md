@@ -47,4 +47,6 @@
 - [ ] This PR used AI assistance (describe the scope or tool below)
 - [ ] If AI-assisted: an AI code review covered the changed behavior and edge cases; material findings are resolved or documented below
 
-<!-- Leave the first two items unchecked for a human-only PR. If AI-assisted, link the AI CR or summarize its material findings below. "Reviewed every line" is not an acceptance criterion. -->
+Harness and model (optional; used only for aggregate statistics, not for review or merge decisions):
+
+<!-- Leave the first two items unchecked for a human-only PR. If AI-assisted, link the AI CR or summarize its material findings below. "Reviewed every line" is not an acceptance criterion. Name the Harness and model(s) you used, e.g. "Claude Code / <model>"; list each if you mixed several. -->
