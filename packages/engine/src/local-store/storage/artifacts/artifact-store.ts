@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cp, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 import { ArtifactIntegrityError } from "../errors";
@@ -190,9 +190,4 @@ export async function promoteArtifact(
   await mkdir(join(rootPath, "packs", storageKey), { recursive: true });
   await rename(stagedSnapshotPath, target);
   return Object.freeze({ targetPath: target, stagedSnapshotConsumed: true });
-}
-
-/** Convenience for tests and future lifecycle staging; it never follows symlinks. */
-export async function copySnapshot(sourcePath: string, stagingPath: string): Promise<void> {
-  await cp(sourcePath, stagingPath, { recursive: true, dereference: false, errorOnExist: true });
 }

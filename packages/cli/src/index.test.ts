@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 
 import {
-  PACKAGE_NAME,
   protocolResponseSchema,
   protocolVersion,
   toolVersion,
@@ -9,7 +8,6 @@ import {
 } from "@lorelum/cli";
 
 test("exports the CLI package contract", () => {
-  expect(PACKAGE_NAME).toBe("@lorelum/cli");
   expect(protocolResponseSchema).toHaveProperty("oneOf");
   expect(protocolVersion).toBe(2);
   expect(toolVersion).toBe("0.1.0-alpha.5");

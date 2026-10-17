@@ -176,7 +176,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 
 ### Scope (optional but encouraged)
 
-A short noun identifying the area of the change — e.g. `cli`, `engine`, `format`, `mcp`, `docs`, `readme`. Omit the parentheses if it doesn't fit.
+A short noun identifying the area of the change — e.g. `cli`, `engine`, `format`, `backend`, `docs`, `readme`. Omit the parentheses if it doesn't fit.
 
 ### Subject (required)
 

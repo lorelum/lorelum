@@ -23,4 +23,3 @@ export { default as ScrollFloat } from "./scroll-float";
 export { default as SpecularButton, type SpecularButtonProps } from "./specular-button";
 export { default as SpotlightCard } from "./spotlight-card";
 export { default as TextType } from "./text-type";
-export { default as VariableProximity } from "./variable-proximity";
