@@ -7,7 +7,8 @@ import {
   DEFAULT_AGENT_HOOK_SETTINGS,
   loadSubagentPackCatalogSetting,
 } from "../../../../packages/cli/src/hook/agent-settings";
-import { runOmpHook, type OmpHookServices } from "../../../../packages/cli/src/hook/omp";
+import type { HookServiceOverrides } from "../../../../packages/cli/src/hook/command";
+import { invokeHook } from "../../../../packages/cli/src/hook/endpoint.test-helper";
 import type {
   ContextEvent,
   ContextEventResult,
@@ -940,7 +941,7 @@ describe("omp configured metadata consumers", () => {
             );
           }
           let packReads = 0;
-          const services: OmpHookServices = {
+          const services: HookServiceOverrides = {
             storageRoot: { rootPath: join(home, "store") },
             list: {
               listPackDetails: async () => {
@@ -967,7 +968,7 @@ describe("omp configured metadata consumers", () => {
           const execute: BridgeExecutor = async ({ request }) => {
             let stdout = "";
             let stderr = "";
-            const code = await runOmpHook({
+            const code = await invokeHook("omp", {
               stdin: { text: async () => JSON.stringify(request) },
               stdout: {
                 write: (message) => {

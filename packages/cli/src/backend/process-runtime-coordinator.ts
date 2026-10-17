@@ -5,7 +5,7 @@ import {
 import type { TraceId } from "@lorelum/log";
 
 import { createProcessBackendSupervisor } from "./control-commands";
-import { createProcessBackendClient } from "../model/commands";
+import { createProcessBackendClient } from "./process-client.js";
 
 /** Shares per-invocation Backend connection/start wiring across semantic CLI routes. */
 export function createProcessBackendRuntimeCoordinator(

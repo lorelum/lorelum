@@ -7,7 +7,7 @@ import type {
 } from "@lorelum/backend/client";
 import { sessionRefSchema } from "@lorelum/backend/client";
 
-import { createProcessBackendClient } from "../model/commands.js";
+import { createProcessBackendClient } from "../backend/process-client.js";
 
 const reportDeadlineMs = 350;
 

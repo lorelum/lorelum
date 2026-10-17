@@ -3,18 +3,12 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ListPackDetailsResult } from "@lorelum/engine";
-import type { ReadHint } from "@lorelum/backend/client";
 import { ConfigError } from "@lorelum/config";
 
-import { DEFAULT_AGENT_HOOK_SETTINGS, loadAgentHookSettings } from "./agent-settings.js";
-import { parseCodexHookInvocation } from "./codex.js";
-import {
-  parseWorkbuddyHookInvocation,
-  runWorkbuddyHook,
-  type TextInput,
-  type WorkbuddyHookServices,
-} from "./workbuddy.js";
-import { parseZcodeHookInvocation } from "./zcode.js";
+import { DEFAULT_AGENT_HOOK_SETTINGS, loadAgentHookSettings } from "../agent-settings.js";
+import type { HookServiceOverrides } from "../command.js";
+import { invokeHook } from "../endpoint.test-helper.js";
+import type { TextInput } from "../types.js";
 
 class MemoryWriter {
   value = "";
@@ -46,7 +40,7 @@ function input(value: string): TextInput {
   };
 }
 
-function services(overrides: Partial<WorkbuddyHookServices> = {}): WorkbuddyHookServices {
+function services(overrides: Partial<HookServiceOverrides> = {}): HookServiceOverrides {
   return {
     list: {
       async listPackDetails() {
@@ -59,13 +53,13 @@ function services(overrides: Partial<WorkbuddyHookServices> = {}): WorkbuddyHook
   };
 }
 
-describe("lore hook workbuddy", () => {
-  test("renders the current Catalog through the raw WorkBuddy Hook envelope", async () => {
+describe("lore hook zcode", () => {
+  test("renders the current Catalog through the raw ZCode Hook envelope", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
 
     await expect(
-      runWorkbuddyHook({
+      invokeHook("zcode", {
         stdin: input('{"hook_event_name":"SessionStart"}'),
         stdout,
         stderr,
@@ -96,11 +90,11 @@ describe("lore hook workbuddy", () => {
     const stderr = new MemoryWriter();
 
     await expect(
-      runWorkbuddyHook({ stdin: input(payload), stdout, stderr, services: services() }),
+      invokeHook("zcode", { stdin: input(payload), stdout, stderr, services: services() }),
     ).resolves.toBe(0);
 
     expect(stdout.value).toBe('{"continue":true}\n');
-    expect(stderr.value).toMatch(/^lore hook workbuddy degraded: /);
+    expect(stderr.value).toMatch(/^lore hook zcode degraded: /);
   });
 
   test("degrades when the selected Store cannot provide Pack details", async () => {
@@ -115,7 +109,7 @@ describe("lore hook workbuddy", () => {
     });
 
     await expect(
-      runWorkbuddyHook({
+      invokeHook("zcode", {
         stdin: input('{"hook_event_name":"SessionStart"}'),
         stdout,
         stderr,
@@ -127,82 +121,70 @@ describe("lore hook workbuddy", () => {
     expect(stderr.value).toContain("Store is unavailable.");
   });
 
-  test("accepts the global Store override before or after the raw Hook command", () => {
-    expect(
-      parseWorkbuddyHookInvocation(["hook", "workbuddy", "--store-root", "isolated-store"]),
-    ).toEqual({
-      storeRoot: "isolated-store",
-    });
-    expect(
-      parseWorkbuddyHookInvocation(["--store-root=isolated-store", "hook", "workbuddy"]),
-    ).toEqual({
-      storeRoot: "isolated-store",
-    });
-    expect(parseWorkbuddyHookInvocation(["hook", "workbuddy", "extra"])).toBeUndefined();
-  });
-
   test.each(["darwin", "linux", "win32"] as const)(
-    "%s passes the session to Bash as POSIX exports on every platform",
+    "%s rewrites only Bash commands with a POSIX export prefix and no permission decision",
     async (platform) => {
-      const hintServices = services({
-        platform,
-        agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
-      });
+      const stdout = new MemoryWriter();
       const original = {
-        command: "pwd | cat; exit 23",
-        workdir: "/work/tree",
-        timeout_ms: 8000,
+        command: "lore get practice.id",
+        timeout_ms: 12_000,
+        run_in_background: false,
         extra: { unchanged: true },
       };
-      const stdout = new MemoryWriter();
-      await runWorkbuddyHook({
+      await invokeHook("zcode", {
         stdin: input(
           JSON.stringify({
             hook_event_name: "PreToolUse",
             tool_name: "Bash",
-            session_id: "parent'one",
+            session_id: "zcode'parent",
             tool_input: original,
           }),
         ),
         stdout,
         stderr: new MemoryWriter(),
-        services: hintServices,
+        services: services({
+          platform,
+          agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+        }),
       });
-      const response = JSON.parse(stdout.value);
-      expect(response.hookSpecificOutput).toEqual({
-        hookEventName: "PreToolUse",
-        updatedInput: {
-          ...original,
-          command:
-            "export LORELUM_HOST_KEY='workbuddy'\n" +
-            "export LORELUM_HOST_SESSION_ID='parent'\"'\"'one'\n" +
-            original.command,
+      // ZCode runs the Bash tool through a POSIX shell (Git Bash) on every
+      // platform, and applying updatedInput must not decide permissions: a
+      // permissionDecision there could bypass the host's ask prompts.
+      expect(JSON.parse(stdout.value)).toEqual({
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          updatedInput: {
+            ...original,
+            command:
+              "export LORELUM_HOST_KEY='zcode'\n" +
+              "export LORELUM_HOST_SESSION_ID='zcode'\"'\"'parent'\n" +
+              original.command,
+          },
         },
       });
-      expect(response.hookSpecificOutput.permissionDecision).toBeUndefined();
       for (const payload of [
         {
-          hook_event_name: "PostToolUse",
-          tool_name: "Bash",
-          session_id: "parent",
-          tool_input: original,
-        },
-        {
           hook_event_name: "PreToolUse",
-          tool_name: "Terminal",
-          session_id: "parent",
+          tool_name: "Edit",
+          session_id: "zcode-parent",
           tool_input: original,
         },
         { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: original },
-        { hook_event_name: "PreToolUse", tool_name: "Bash", session_id: "parent", tool_input: {} },
+        { hook_event_name: "PreToolUse", tool_name: "Bash", session_id: "zcode-parent" },
+        {
+          hook_event_name: "PreToolUse",
+          tool_name: "Bash",
+          session_id: "zcode-parent",
+          tool_input: { command: 7 },
+        },
       ]) {
         const empty = new MemoryWriter();
         // eslint-disable-next-line no-await-in-loop -- Check each independent no-op payload and its output.
-        await runWorkbuddyHook({
+        await invokeHook("zcode", {
           stdin: input(JSON.stringify(payload)),
           stdout: empty,
           stderr: new MemoryWriter(),
-          services: hintServices,
+          services: services({ platform }),
         });
         expect(empty.value).toBe("{}\n");
       }
@@ -211,17 +193,20 @@ describe("lore hook workbuddy", () => {
 
   test.each([
     ["lore get practice.id", true],
+    ["echo before | lore get practice.id", true],
     ["printf '%s' \"$(lore get practice.id)\"", true],
-    ["git status", false],
+    ["/usr/local/bin/lore get practice.id", true],
     ["sh scripts/read-practice.sh", false],
+    ["git status", false],
+    ["echo lorelum", false],
   ] as const)("lore-only text detection for %s", async (command, matches) => {
     const stdout = new MemoryWriter();
-    await runWorkbuddyHook({
+    await invokeHook("zcode", {
       stdin: input(
         JSON.stringify({
           hook_event_name: "PreToolUse",
           tool_name: "Bash",
-          session_id: "parent",
+          session_id: "zcode-parent",
           tool_input: { command },
         }),
       ),
@@ -236,39 +221,15 @@ describe("lore hook workbuddy", () => {
     }
   });
 
-  test("SubagentStart stays a no-op because WorkBuddy discards Hook stdout there", async () => {
-    const hint: ReadHint = {
-      id: "sample.read",
-      digest: "private-digest",
-      title: "Review task boundary",
-      appliesWhen: "when delegating",
-    };
-    const hintServices = services({
-      practiceHints: {
-        async readRecentHints() {
-          return [hint];
-        },
-      },
-    });
-    const stdout = new MemoryWriter();
-    await runWorkbuddyHook({
-      stdin: input('{"hook_event_name":"SubagentStart","session_id":"parent"}'),
-      stdout,
-      stderr: new MemoryWriter(),
-      services: hintServices,
-    });
-    expect(stdout.value).toBe("{}\n");
-  });
-
   test("an invalid Agent setting leaves shell input unchanged and does not block the tool", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
-    await runWorkbuddyHook({
+    await invokeHook("zcode", {
       stdin: input(
         JSON.stringify({
           hook_event_name: "PreToolUse",
           tool_name: "Bash",
-          session_id: "parent",
+          session_id: "zcode-parent",
           tool_input: { command: "lore get practice.id" },
         }),
       ),
@@ -280,13 +241,16 @@ describe("lore hook workbuddy", () => {
         },
       }),
     });
-    expect(stdout.value).toBe("{}\n");
+    // ZCode accepts `continue` on every event, so the shared degrade envelope
+    // is the host-safe no-op for this Hook.
+    expect(stdout.value).toBe('{"continue":true}\n');
+    expect(stderr.value).toMatch(/^lore hook zcode degraded: /);
     expect(stderr.value).toContain("configuration file is invalid or unreadable");
     expect(stderr.value).not.toContain("practice.id");
   });
 
   test("the user-level all-shell setting covers indirect script calls", async () => {
-    const home = await mkdtemp(join(tmpdir(), "lorelum-workbuddy-hook-mode-"));
+    const home = await mkdtemp(join(tmpdir(), "lorelum-zcode-hook-mode-"));
     try {
       await mkdir(join(home, ".lorelum"));
       await writeFile(
@@ -294,18 +258,19 @@ describe("lore hook workbuddy", () => {
         "agent:\n  shellSessionInjection: all-shell\n",
       );
       const stdout = new MemoryWriter();
-      await runWorkbuddyHook({
+      await invokeHook("zcode", {
         stdin: input(
           JSON.stringify({
             hook_event_name: "PreToolUse",
             tool_name: "Bash",
-            session_id: "parent",
+            session_id: "zcode-parent",
             tool_input: { command: "sh scripts/read-practice.sh" },
           }),
         ),
         stdout,
         stderr: new MemoryWriter(),
         services: services({
+          platform: "linux",
           agentHookSettings: () => loadAgentHookSettings({ homeDirectory: home }),
         }),
       });
@@ -317,16 +282,45 @@ describe("lore hook workbuddy", () => {
     }
   });
 
-  test.skipIf(Bun.which("sh") === null)(
-    "the export rewrite passes session identity to a child process without changing exit status",
+  test("case aliases and optional tool/subagent events stay unsupported", async () => {
+    for (const hook_event_name of [
+      "PostToolUse",
+      "postToolUse",
+      "SubagentStart",
+      "subagentStart",
+      "preToolUse",
+    ]) {
+      const stdout = new MemoryWriter();
+      const stderr = new MemoryWriter();
+      // eslint-disable-next-line no-await-in-loop -- Check each unsupported event independently.
+      await invokeHook("zcode", {
+        stdin: input(
+          JSON.stringify({
+            hook_event_name,
+            tool_name: "Bash",
+            session_id: "zcode-parent",
+            tool_input: { command: "lore get practice.id" },
+          }),
+        ),
+        stdout,
+        stderr,
+        services: services({ platform: "linux" }),
+      });
+      expect(stdout.value).toBe('{"continue":true}\n');
+      expect(stderr.value).toMatch(/^lore hook zcode degraded: /);
+    }
+  });
+
+  test.skipIf(process.platform === "win32")(
+    "the rewrite passes session identity to a child process without changing exit status",
     async () => {
       const stdout = new MemoryWriter();
-      await runWorkbuddyHook({
+      await invokeHook("zcode", {
         stdin: input(
           JSON.stringify({
             hook_event_name: "PreToolUse",
             tool_name: "Bash",
-            session_id: "parent'one",
+            session_id: "zcode'parent",
             tool_input: {
               command: `sh -c 'printf "%s/%s" "$LORELUM_HOST_KEY" "$LORELUM_HOST_SESSION_ID"'; exit 23`,
             },
@@ -345,15 +339,8 @@ describe("lore hook workbuddy", () => {
         new Response(child.stdout).text(),
         child.exited,
       ]);
-      expect(output).toBe("workbuddy/parent'one");
+      expect(output).toBe("zcode/zcode'parent");
       expect(exitCode).toBe(23);
     },
   );
-
-  test("keeps the codex, workbuddy, and zcode raw Hook invocations disjoint", () => {
-    expect(parseWorkbuddyHookInvocation(["hook", "codex"])).toBeUndefined();
-    expect(parseWorkbuddyHookInvocation(["hook", "zcode"])).toBeUndefined();
-    expect(parseCodexHookInvocation(["hook", "workbuddy"])).toBeUndefined();
-    expect(parseZcodeHookInvocation(["hook", "workbuddy"])).toBeUndefined();
-  });
 });

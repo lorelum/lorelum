@@ -1,12 +1,23 @@
 import type { SessionRef } from "@lorelum/backend/client";
-import type { AgentHookSettings } from "./agent-settings.js";
+import type { AgentHookSettings } from "../agent-settings.js";
+import type { ShellAssociator } from "../types.js";
+
+export function createShellAssociator(
+  loadSettings: () => Promise<AgentHookSettings>,
+): ShellAssociator {
+  return {
+    async associateShell({ session, command, syntax }) {
+      return associateShellCommand(session, command, await loadSettings(), syntax);
+    },
+  };
+}
 
 /** Associate only this shell invocation; never change the host process environment. */
 export function associateShellCommand(
   session: SessionRef,
   command: string,
   settings: AgentHookSettings,
-  syntax: "export" | "powershell",
+  syntax: "posix" | "powershell",
 ): string | undefined {
   if (settings.shellSessionInjection === "lore-only" && !containsLoreToken(command)) {
     return undefined;
