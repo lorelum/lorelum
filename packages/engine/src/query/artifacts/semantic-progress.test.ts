@@ -289,9 +289,9 @@ test("shared vectors never cross an embedding Profile or changed semantic projec
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
     }).build();
-    // Appending body text changes the full view and adds a second body chunk;
-    // the existing first body chunk and the task card are unchanged and reused.
-    expect(changedProjectionEmbeds).toBe(2);
+    // Appending body text adds a second body chunk; the existing first body
+    // chunk and the task card are unchanged and reused.
+    expect(changedProjectionEmbeds).toBe(1);
   } finally {
     await Promise.all([
       rm(root, { recursive: true, force: true }),

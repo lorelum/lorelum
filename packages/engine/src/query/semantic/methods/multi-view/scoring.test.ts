@@ -15,10 +15,9 @@ function query(values: readonly number[], weight = 1, inputKey = "clause:0000"):
   return { inputKey, embedding: Float32Array.from(values), weight };
 }
 
-test("full is ignored and task-card maximum balances body maximum/mean evidence", () => {
+test("task-card maximum balances body maximum/mean evidence", () => {
   const queries = [query([1, 0])];
   const vectors = [
-    document("full:0000", "full", [1, 0]),
     document("task-card:0000", "task-card", [0.2, 0.9797959]),
     document("body:0000", "body", [0.8, 0.6]),
     document("body:0001", "body", [0, 1]),
@@ -66,7 +65,7 @@ test("scorers have no mutable cross-call or cross-query accumulators", () => {
   expect(first.score(vectors)).toBeCloseTo(baseline, 12);
 });
 
-test("unsupported channels, full-only inputs and malformed query vectors fail explicitly", () => {
+test("unsupported channels, a whole-document full input and malformed query vectors fail explicitly", () => {
   const scorer = prepareMultiViewScorer([query([1, 0])], 2);
   for (const vectors of [
     [document("full:0000", "full", [1, 0])],

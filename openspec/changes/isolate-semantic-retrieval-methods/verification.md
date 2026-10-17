@@ -139,3 +139,13 @@ bun run build:cli
 - 源码 CLI 隔离 HOME 下 `describe query` 列出四个 mode 值及三个 semantic 结果分支的必填 `retrievalMethod`；`--mode simple` 返回 `usage.invalid`、exit 2。
 - 全仓 typecheck、相关 CLI 文件 oxlint/oxfmt check、站点 production build/prerender，以及 `isolate-semantic-retrieval-methods`、`advance-task-aware-semantic-retrieval`、`add-project-context-packs` 三个 OpenSpec strict validation 通过。
 - 未重建编译发布包，未操作用户 Store/config 或已安装 CLI，没有质量或性能结论。
+
+## multi-view 删除整篇 full 表示（2026-10-17）
+
+基于 `5b71dee` 加本轮改动，本机 macOS arm64、Bun 1.4.2。
+
+- 依据：旧 scorer 跳过 `full`，有效 Practice 必有 task-card，回退分支从不触发。用当前已安装的 4 个 Pack、97 条 Practice 按旧配方投影：`full` 占 1232 个编码输入中的 289 个（23.5%）、估算 token 的 49.3%，97 条全部切成多块，task-card 为空的 Practice 为 0。统计脚本为临时文件，已删除。
+- 行为：投影只产出 `task-card:*` 与 `body:*`，文档配方版本 5 → 6，旧 multi-view index 按 Profile 判为不兼容并重建。scorer 遇到 `full` 或其他 channel 返回 `SemanticIndexQueryError`。打分公式未改，排序不受影响。
+- 编码次数断言按真实减少的输入更新，不改断言意图：增量只重编改变的 view、未变 task-card/body 复用、两种方法各一次文档批次加一次 query。`bun test packages/engine packages/backend` **570 pass / 4 skip / 0 fail**（整包一次执行）。
+- 原生 smoke `retrieval-methods` 场景（真实 GGUF）通过，5 条方法语料的文档编码输入由 20 降到 15（单向量 5 + 多视角 10），方法切换、临时 mode 与配置不写回结果不变。未重跑 ProjectContext 场景。
+- 全仓 typecheck、相关目录 oxlint、改动文件 oxfmt check，以及两个 change 的 OpenSpec strict validation 通过。未重建编译发布包，未操作用户 Store/config 或已安装 CLI。

@@ -67,7 +67,7 @@ CLI 实际消费的方法配置 MUST 只接受准确的 `single-vector` 或 `mul
 
 ### Requirement: Multi-view retrieval remains an explicit experimental method
 
-`multi-view-vector` SHALL 保留多类文档表示、query clause 投影与现有向量聚合语义。评分 SHALL 对每个 query clause 取 task-card channel 的最佳相似度，并将 body channel 中编码单元的最佳相似度与全部相似度均值按 `0.5 / 0.5` 混合，再对存在的 task-card 与 body 两部分等权平均；跨 query clause SHALL 按其权重求平均。`full` channel 会被编码保存，但 MUST 不参与评分；没有可评分的 task-card/body 输入时 MUST 返回 typed failure，不得改用 `full`。所有 eligible Practice MUST 参与打分与排序，K MUST 只在最终排序后应用；内部候选报告宽度 MUST 不改变评分集合。此算法 MUST 不自动应用到 `single-vector` 或 keyword。
+`multi-view-vector` SHALL 保留多类文档表示、query clause 投影与现有向量聚合语义。文档表示只有 task-card 与 body 两个 channel；系统 MUST 不编码整篇 Practice 的 `full` 表示，因为有效 Practice 总有 task-card，整篇表示不会被评分，只增加首次构建的编码与存储成本。评分 SHALL 对每个 query clause 取 task-card channel 的最佳相似度，并将 body channel 中编码单元的最佳相似度与全部相似度均值按 `0.5 / 0.5` 混合，再对存在的 task-card 与 body 两部分等权平均；跨 query clause SHALL 按其权重求平均。索引中出现 task-card/body 以外的 channel 或没有可评分输入时 MUST 返回 typed failure。所有 eligible Practice MUST 参与打分与排序，K MUST 只在最终排序后应用；内部候选报告宽度 MUST 不改变评分集合。此算法 MUST 不自动应用到 `single-vector` 或 keyword。
 
 #### Scenario: The experimental formula is isolated
 - **WHEN** 同一语料上分别执行 single-vector 与 multi-view-vector 查询

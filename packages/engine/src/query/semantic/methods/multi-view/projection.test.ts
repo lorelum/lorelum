@@ -22,20 +22,13 @@ function practice(body: string): EffectivePractice {
   return { practiceId: "platform.projection", ...canonical, sources: [] };
 }
 
-test("projects full, task-card, and heading-aware body views deterministically", () => {
+test("projects task-card and heading-aware body views deterministically, without a full view", () => {
   const document = projectMultiViewDocument(
     practice("## Review\n\nKeep the exception and its condition.\n\nReview the result."),
     multiViewRecipe,
   );
 
-  expect(document.inputs.map((view) => view.channel)).toEqual([
-    "full",
-    "task-card",
-    "body",
-    "body",
-  ]);
   expect(document.inputs.map((view) => view.inputKey)).toEqual([
-    "full:0000",
     "task-card:0000",
     "body:0000",
     "body:0001",
@@ -51,21 +44,17 @@ test("projects full, task-card, and heading-aware body views deterministically",
   ).toEqual(document);
 });
 
-test("keeps ids and field labels out of every view, and the tech stack out of the task card", () => {
+test("keeps ids, field labels and the tech stack out of every view", () => {
   const document = projectMultiViewDocument(
     practice("## Review\n\nKeep the condition."),
     multiViewRecipe,
   );
-  const full = document.inputs.find((view) => view.channel === "full");
   const taskCard = document.inputs.find((view) => view.channel === "task-card");
 
   expect(taskCard?.text).toBe("Projection fixture\n\nChecking semantic views.\n\nimplementation");
-  expect(taskCard?.text).not.toContain("typescript");
-  // The full context anchor keeps the technology world so domain terms still have a home.
-  expect(full?.text).toContain("typescript");
-  expect(full?.text).toContain("Keep the condition.");
   for (const view of document.inputs) {
     expect(view.text).not.toContain("platform.projection");
+    expect(view.text).not.toContain("typescript");
   }
 });
 
@@ -82,25 +71,21 @@ test("a local body edit reuses the task card and untouched body chunks", () => {
   expect(changed.inputs.find((view) => view.channel === "task-card")?.inputDigest).toBe(
     original.inputs.find((view) => view.channel === "task-card")?.inputDigest,
   );
-  expect(changed.inputs[2]?.inputDigest).toBe(original.inputs[2]?.inputDigest);
-  expect(changed.inputs[3]?.inputDigest).not.toBe(original.inputs[3]?.inputDigest);
-  // The full view contains the body, so editing any body text changes it.
-  expect(changed.inputs[0]?.inputDigest).not.toBe(original.inputs[0]?.inputDigest);
+  expect(changed.inputs[1]?.inputDigest).toBe(original.inputs[1]?.inputDigest);
+  expect(changed.inputs[2]?.inputDigest).not.toBe(original.inputs[2]?.inputDigest);
   expect(changed.projectionDigest).not.toBe(original.projectionDigest);
 });
 
-test("splits an over-long full view and unpunctuated CJK body by the estimated token budget", () => {
+test("splits an unpunctuated CJK body by the estimated token budget", () => {
   const body = Array.from(
     { length: 400 },
     () => "当同一个服务端渲染中多个组件重复执行相同的请求级查询时应当去重",
   ).join("");
   const document = projectMultiViewDocument(practice(body), multiViewRecipe);
-  const full = document.inputs.filter((view) => view.channel === "full");
   const chunked = document.inputs.filter((view) => view.channel === "body");
 
-  expect(full.length).toBeGreaterThan(1);
   expect(chunked.length).toBeGreaterThan(1);
-  for (const view of [...full, ...chunked]) {
+  for (const view of document.inputs) {
     expect(estimatedTokens(view.text)).toBeLessThanOrEqual(SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS);
   }
   expect(chunked.map((view) => view.text).join("")).toContain("服务端渲染");

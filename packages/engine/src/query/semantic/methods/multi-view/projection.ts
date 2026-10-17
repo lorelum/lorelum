@@ -57,22 +57,6 @@ function taskCardText(practice: ProjectionPractice): string {
   ]);
 }
 
-/**
- * The whole Practice as one context anchor, including the tech stack and the
- * full body. It carries no ids or labels; long text is split by token budget so
- * a single over-long input cannot exceed the model context.
- */
-function fullText(practice: ProjectionPractice): string {
-  return joinNonEmpty([
-    practice.title,
-    practice.applies_when,
-    practice.stage,
-    practice.tech_stack.map((entry) => entry.trim()).join(", "),
-    antiPatternTriggers(practice),
-    practice.body ?? "",
-  ]);
-}
-
 function markdownUnits(body: string): readonly MarkdownUnit[] {
   const lines = body.replace(/\r\n?/g, "\n").split("\n");
   const headingPath: string[] = [];
@@ -194,7 +178,7 @@ export function projectMultiViewDocument(
       inputs.push(createEmbeddingInput(recipe, channel, ordinal, text));
     }
   };
-  add("full", splitByTokenBudget(fullText(effective.practice), SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS));
+  // No whole-document channel: task-card always exists, so a full view would never be scored.
   add(
     "task-card",
     splitByTokenBudget(taskCardText(effective.practice), SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS),

@@ -258,7 +258,8 @@ for (const methodId of ["single-vector", "multi-view-vector"] as const) {
         "platform.alpha2",
         "platform.beta",
       ]);
-      expect(embedding.calls).toHaveLength(methodId === "single-vector" ? 2 : 3);
+      // One document batch plus one query call for either method.
+      expect(embedding.calls).toHaveLength(2);
     });
   });
 }

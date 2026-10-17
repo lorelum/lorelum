@@ -314,9 +314,9 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
     releaseFirst();
     await runtime.waitForIdle();
     // The original target yields after its first batch. The severity edit is
-    // outside the projection, so the first Practice is reusable and only the
-    // three views of the second Practice are embedded after coalescing.
-    expect(documentCalls).toBe(6);
+    // outside the projection, so nothing already embedded is redone: each
+    // Practice's task-card and body inputs are embedded exactly once.
+    expect(documentCalls).toBe(4);
   } finally {
     await Promise.all([
       rm(root, { recursive: true, force: true }),
@@ -601,7 +601,7 @@ test("uses retained Store revision deltas and safely falls back when later histo
       mode: "semantic",
       coverage: "complete",
     });
-    expect(documentEmbeddings).toBe(6);
+    expect(documentEmbeddings).toBe(4);
 
     revision = 2;
     practices = second;
@@ -610,8 +610,8 @@ test("uses retained Store revision deltas and safely falls back when later histo
     if (!("results" in updated)) throw new Error("Expected a semantic query result");
     expect(updated.results.map((result) => result.practiceId)).toContain("platform.changed");
     expect(deltaReads).toEqual([1]);
-    // applies_when and body both change, so full, task-card, and body are new.
-    expect(documentEmbeddings).toBe(9);
+    // applies_when and body both change, so the task-card and body views are new.
+    expect(documentEmbeddings).toBe(6);
 
     // Revision 3 intentionally has no retained history. The runtime must not
     // return the copied revision-2 row as the current winner; it falls back to
@@ -630,9 +630,9 @@ test("uses retained Store revision deltas and safely falls back when later histo
     // A bounded predecessor lookup may try the immediately preceding revision
     // and one older catalog entry before it gives up on unavailable history.
     expect(deltaReads).toEqual([1, 2, 1]);
-    // The full, task-card, and body views of the changed Practice are missing;
+    // The task-card and body views of the changed Practice are missing;
     // the unchanged Practice still hits the vector cache.
-    expect(documentEmbeddings).toBe(12);
+    expect(documentEmbeddings).toBe(8);
   } finally {
     await rm(cache, { recursive: true, force: true });
   }

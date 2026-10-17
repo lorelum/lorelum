@@ -180,7 +180,7 @@ test("binds the active index to the full Store identity and reports stale", asyn
     });
     current = identity(rootPath, 2);
     await expect(service.status({ rootPath })).resolves.toMatchObject({ state: "stale" });
-    expect(vectorPort.calls.flat()).toHaveLength(3);
+    expect(vectorPort.calls.flat()).toHaveLength(2);
   });
 });
 
@@ -418,9 +418,11 @@ test("uses LocalStore retained history and publication fence for an actual Pack 
       built: true,
       status: { state: "ready", vectorCount: 2 },
     });
-    expect(vectorPort.calls.flat()).toHaveLength(8);
-    expect(vectorPort.calls.slice(0, 2).flat()).toHaveLength(3);
-    expect(vectorPort.calls.slice(2).flat()).toHaveLength(5);
+    // Batches of two: the first build embeds the task card and body in one call;
+    // the upgrade re-embeds only the changed body plus the added Practice.
+    expect(vectorPort.calls.flat()).toHaveLength(5);
+    expect(vectorPort.calls.slice(0, 1).flat()).toHaveLength(2);
+    expect(vectorPort.calls.slice(1).flat()).toHaveLength(3);
     await expect(service.status({ rootPath })).resolves.toMatchObject({
       state: "ready",
       vectorCount: 2,
@@ -631,7 +633,7 @@ test("falls back to a full build when retained Store history is unavailable", as
       status: { state: "ready", vectorCount: 2 },
     });
     expect(snapshots).toBe(2);
-    expect(vectorPort.calls.flat()).toHaveLength(9);
-    expect(vectorPort.calls.slice(2).flat()).toHaveLength(6);
+    expect(vectorPort.calls.flat()).toHaveLength(6);
+    expect(vectorPort.calls.slice(1).flat()).toHaveLength(4);
   });
 });

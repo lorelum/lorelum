@@ -5,7 +5,7 @@ import { prepareMultiViewScorer } from "./scoring";
 
 export const multiViewRecipe: VectorMethodRecipe = Object.freeze({
   methodId: "multi-view-vector",
-  documentVersion: 5,
+  documentVersion: 6,
   queryVersion: 2,
   scoringVersion: 1,
 });

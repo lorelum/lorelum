@@ -52,3 +52,4 @@
 - [x] 8.2 CLI semantic 结果（complete/partial/preparing/indexing）以 `retrievalMethod` 回报本次发送的方法，keyword 不含；默认文本只在非 `single-vector` 时显示。Backend HTTP 结果形状不变。
 - [x] 8.3 retrieval-query delta 以 `add-project-context-packs` 版本为基础 MODIFIED `Query mode and input validation`，归档须排在其后；修正 `full` channel 只编码不评分的描述；`advance-task-aware-semantic-retrieval` 的多视角限定写入各 requirement 正文，其 `Build and rebuild preserve consistency` 以 `add-project-context-packs` 版本为基础。
 - [x] 8.4 同步中英 query/config 指南、维护文档、产品文档与原生 smoke 场景，补充首次使用某方法会单独后台构建的说明；清除继承验收记录中的本机评测目录名。
+- [x] 8.5 multi-view 不再编码从不评分的整篇 `full` 表示：文档配方版本升到 6，scorer 把 task-card/body 以外的 channel 视为 typed failure；同步两份 change 的 spec/design/proposal 与编码次数断言。`single-vector` 的 `full:0000` 不变。

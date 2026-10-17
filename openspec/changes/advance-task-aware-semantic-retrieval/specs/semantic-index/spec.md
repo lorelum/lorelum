@@ -11,7 +11,7 @@
 
 在完整 publish 前，build MUST 建立或恢复与当前 target digest 精确匹配的持久 progress index。它 MUST 按批次事务写入已验证 vector rows 及 ready count；这些 rows 可以被 semantic query 作为 partial coverage 使用，但只有其 Practice ID、content digest、projection digest、Profile 和编码仍与 current snapshot 匹配时才可见。每批完成的 vector SHALL 同时进入用户级可复用 vector cache；一个新 target 可以复用其中兼容 rows，但不得把不同 Profile 或不同 projection 视为可复用。
 
-上述重新编码与复用规则同时适用于 `single-vector` 与 `multi-view-vector`。当所用方法为 `multi-view-vector` 时，增量单位是 view：未变化的 `full`、`task-card` 或 `body` views MAY 复用已验证 digest 的向量；多视角表示、表示组划分、分块配方、view 身份或兼容规则发生变化时，该方法与 encoding 绑定的 embedding Profile MUST 使其旧 index 不再被视为兼容，并按上述完整构建与校验规则建立完整且内部一致的新表示。这些多视角规则 MUST NOT 施加于默认 `single-vector`，其兼容性 MUST NOT 以缺少多视角 views 为由被否定，且该失效 MUST NOT 使 `single-vector` 的 index 失效或触发方法切换；两种方法的 Profile、artifact、progress 与 cache MUST 相互隔离。
+上述重新编码与复用规则同时适用于 `single-vector` 与 `multi-view-vector`。当所用方法为 `multi-view-vector` 时，增量单位是 view：未变化的 `task-card` 或 `body` views MAY 复用已验证 digest 的向量；多视角表示、表示组划分、分块配方、view 身份或兼容规则发生变化时，该方法与 encoding 绑定的 embedding Profile MUST 使其旧 index 不再被视为兼容，并按上述完整构建与校验规则建立完整且内部一致的新表示。这些多视角规则 MUST NOT 施加于默认 `single-vector`，其兼容性 MUST NOT 以缺少多视角 views 为由被否定，且该失效 MUST NOT 使 `single-vector` 的 index 失效或触发方法切换；两种方法的 Profile、artifact、progress 与 cache MUST 相互隔离。
 
 #### Scenario: Ready index is a no-op
 

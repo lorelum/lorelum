@@ -105,9 +105,9 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 
 冻结 baseline（50 例：core candidate recall 49/50、core final top-5 42/50、2 例 scope error）说明既存在最终排序失败，也存在候选外漏项。第一轮 FTS5 task signal 只在候选池内调整字面重合，不能表达“同一句子匹配正文中的局部适用条件”，也没有修复召回。因此第二轮把变化放在语义表示与向量聚合，不再扩大关键词权重。
 
-文档表示（三种表示组）：
+文档表示（两种表示组）：
 
-- `full` view：不含 id 与字段标签的整条 Practice 文本（title、`applies_when`、stage、`tech_stack`、anti-pattern name/description、完整 body），作为上下文锚点，并按估算 token 预算切分，使长文本不会一次性超过模型上下文。
+- 早期配方还编码一个不含 id 与字段标签的整篇 `full` view，作为上下文锚点但不参与打分；因为有效 Practice 总有 `task-card`，它只增加编码与存储成本，已从配方中删除（见 `isolate-semantic-retrieval-methods` 的 design）。
 - `task-card` view：只由 schema 字段组成 —— title、`applies_when`、stage，以及 anti-pattern 的 name 与 description。不得包含 tech stack，使领域名词不能单独决定适用性问题。
 - `body` views：按通用 Markdown 段落、列表项与长度边界切分；每个块附当前标题路径，否定词、例外和条件句不脱离原块。
 - 任何进入 embedding 的文本都不得携带裸 id/slug 或英文字段标签：`Practice: react.server.request-dedup-cache` 与 FTS5 的 `id: 8` 权重是同一个字面信号，只是换了载体。分块配方版本必须进入 view digest。
@@ -116,7 +116,7 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 查询与聚合（对齐 2026-09-26 的多对多参考）：
 
 - 默认产品 query 不再把整句作为一个主导向量。`query-views.ts` 按跨语言标点边界把原句拆成独立 clause views；当 query 只有一个 clause 时该 clause 才等同原句。内部接口仍允许给定 `intent`/`moment`/`artifact`/`constraints`/`domain` 等更丰富 query views，但不新增 CLI/API 参数。
-- 同一 Practice 内，每个 query clause 做两段式片段证据汇总：`task-card` 取最佳匹配作为适用性分数，`body` 同时保留最佳片段与全部片段的均值，再用 `0.5 × max + 0.5 × mean` 得到 m 侧片段证据分数。单片段能贡献局部证据，但更多无关片段会拉低均值，因此块数不能线性抬高分数。`full` 是编码并持久化的重建/上下文锚点，不参与打分，避免全文重复每一个局部信号；缺少 task-card/body 输入时打分返回 typed error，不改用 `full`。
+- 同一 Practice 内，每个 query clause 做两段式片段证据汇总：`task-card` 取最佳匹配作为适用性分数，`body` 同时保留最佳片段与全部片段的均值，再用 `0.5 × max + 0.5 × mean` 得到 m 侧片段证据分数。单片段能贡献局部证据，但更多无关片段会拉低均值，因此块数不能线性抬高分数。缺少 task-card/body 输入或出现其他 channel 时打分返回 typed error。
 - 两段都覆盖全部 eligible Practice，不建立候选漏斗：第一段 task-card 适用性、第二段 body 片段证据都在完整集合上计算，最后才按 Practice 去重、排序并应用 `K`。
 - 跨 clause 的聚合发生在**同一次检索**里，不引入多轮：每个 clause 先得到该 Practice 的 clause 分数（上述 `task-card` 最佳适用性与 body 片段证据的等权平均），再按 query view 的基准权重求加权平均。排序对全部 eligible Practice 只发生一次。单个背景/领域 clause 的高分不能独自带过整条 Practice，因为动作 clause 的近零余弦会被一起平均进去；决定顺序的仍是向量余弦本身，不是被名次融合替换掉的相对排序。曾叠加的"与最弱 clause 混合"项已被实测否决（见 `verification.md` §20）：它同样惩罚"动作 clause 命中、背景 clause 很弱"的正确 Practice。
 - 不建立跨轮 reciprocal rank fusion、单视图槽位轮或细化轮。历史上本 change 曾按 50 例冻结集把 A/B/C/D 四个轮次族做二层 RRF 组合，见 `verification.md` §16–§18。维护者指出该方向错误：它把向量相似度换成了名次融合，并需要靠族组合取舍来选默认。因此 §16–§18 只保留为实验记录，不是当前实现或产品默认；回退记录见 §19。
@@ -151,10 +151,10 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 
 ## Migration Plan
 
-1. 将 semantic projection 拆为 `full`、`task-card` 与带标题路径的 `body` views；去掉进入 embedding 的裸 id/slug 与字段标签，按估算 token 预算切块，并让 view recipe 与 digest 进入 Profile。
+1. 将 semantic projection 拆为 `task-card` 与带标题路径的 `body` views；去掉进入 embedding 的裸 id/slug 与字段标签，按估算 token 预算切块，并让 view recipe 与 digest 进入 Profile。
 2. 将 persisted vector schema 改为 `(practice_id, view_id)`，同步 Store-local index、ProjectContext complete/progress artifact 与 shared vector cache。
 3. 增量 build 按 view digest 复用；Profile/index version 升级后，旧单向量 index 必须重建。
-4. reader 先按 clause 拆 query、忽略 `full` 的常规打分、在同一 Practice 内平衡 task-card/body，再按 query view 权重把这几个 clause 分数加权平均成一个 Practice 分数；全量 eligible Practice 排序后才应用 `K`，canonical assembly 与 snapshot retry 保持不变。整个打分只发生一次，没有轮次、RRF、槽位或额外的跨-clause 惩罚项。
+4. reader 先按 clause 拆 query、在同一 Practice 内平衡 task-card/body，再按 query view 权重把这几个 clause 分数加权平均成一个 Practice 分数；全量 eligible Practice 排序后才应用 `K`，canonical assembly 与 snapshot retry 保持不变。整个打分只发生一次，没有轮次、RRF、槽位或额外的跨-clause 惩罚项。
 5. 运行 migration、focused Engine/ProjectContext tests、package tests、typecheck、lint 与 OpenSpec strict validation。
 6. 在新的冻结 build 上运行相同模型、query/Pack、N/K、scorer 与环境的 benchmark；Profile 本就随表示改变，因此 baseline 用旧 Profile 的 artifact、新 build 用新 Profile 的 artifact，两侧分别记录 Profile ID 与 corpus digest，报告 candidate recall、final ranking、scope error、chunk/view 成本和失败反例；不得把本轮与旧 BM25 build 的收益合并陈述，也不得宣称“同一 Profile”下对比。
 7. 自动 query clause 拆解与按名次的轮次合并已进入默认路径；下一步可把 `intent`/`moment`/`artifact`/`constraints`/`domain` 做成独立 query views，让每轮带语义角色并支持按轮加权，但不得把该实验写成当前产品默认或宣称某个手工权重最优。

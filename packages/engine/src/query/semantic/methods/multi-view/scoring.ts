@@ -9,7 +9,7 @@ function validateDocument(vectors: readonly DocumentVector[], dimensions: number
   if (vectors.length === 0) throw new SemanticIndexQueryError("Multi-view Practice has no inputs");
   for (const vector of vectors) {
     if (
-      (vector.channel !== "full" && vector.channel !== "task-card" && vector.channel !== "body") ||
+      (vector.channel !== "task-card" && vector.channel !== "body") ||
       !Number.isSafeInteger(vector.ordinal) ||
       vector.ordinal < 0 ||
       vector.embedding.length !== dimensions
@@ -35,7 +35,6 @@ export function prepareMultiViewScorer(
         let bodySum = 0;
         let bodyCount = 0;
         for (const vector of vectors) {
-          if (vector.channel === "full") continue;
           const similarity = dotProduct(query.embedding, vector.embedding);
           if (vector.channel === "task-card") taskMaximum = Math.max(taskMaximum, similarity);
           else {
@@ -56,8 +55,6 @@ export function prepareMultiViewScorer(
             ((1 - MULTI_VIEW_BODY_EVIDENCE_MIX) * bodySum) / bodyCount;
           count += 1;
         }
-        if (count === 0)
-          throw new SemanticIndexQueryError("Multi-view query has no scorable document inputs");
         weightedTotal += (query.weight * sum) / count;
       }
       return weightedTotal / totalWeight;
@@ -76,7 +73,6 @@ export function bestMultiViewInput(
   let best: DocumentVector | undefined;
   let maximum = Number.NEGATIVE_INFINITY;
   for (const vector of vectors) {
-    if (vector.channel === "full") continue;
     for (const query of queries) {
       const similarity = dotProduct(query.embedding, vector.embedding);
       const precedes =

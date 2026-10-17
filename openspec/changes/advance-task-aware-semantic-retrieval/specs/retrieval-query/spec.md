@@ -6,15 +6,15 @@
 ## ADDED Requirements
 
 ### Requirement: Vector relevance uses multiple query clauses and Practice content views
-当本次检索选择 `multi-view-vector`（通过 `query.retrievalMethod: multi-view-vector` 或 `lore query --mode multi-view-vector`）时，semantic retrieval SHALL 以自然语言 query 的 clause views 与同一 Practice 的多个持久化内容视角之间的相似度决定该方法的排序；本 requirement 的视角、clause、预算与聚合规则 MUST NOT 施加于默认 `single-vector`（每条完整文档与完整 query 各编码一次并以 cosine 排序）。在 `multi-view-vector` 下，一个 Practice SHALL 提供三种表示组：`full`（不含 id 与字段标签的整条 Practice 文本，作为上下文锚点，并按估算 token 预算切分）、`task-card`（title、`applies_when`、stage、anti-pattern 等 schema 字段）、以及 `body`（自由 Markdown body 的带标题路径语义块）。`multi-view-vector` 的 query 按跨语言标点边界拆成 clause views；当 query 没有可拆分 clause 时，该 clause 等同完整原句。三种表示组都 SHALL 被编码并持久化，但 `full` MUST NOT 参与打分；打分只使用 `task-card` 与 `body`，缺少可打分输入时 MUST 返回 typed failure 而不是改用 `full`。系统 MUST 先对每个 clause 分两段计算 Practice：`task-card` 取最佳适用性匹配，`body` 同时取最佳片段和全片段均值并按固定非负比例混合，保留局部片段证据而不让块数线性加分。每个 clause MUST 对全部 eligible Practice 产生一个 clause 分数，系统 MUST 在**同一次检索**里把这些 clause 分数聚合为一个 Practice 分数：按 query view 的基准权重求加权平均。单个背景/领域 clause 的高分 MUST NOT 独自带过整条 Practice，因为动作 clause 的余弦会被计入同一个平均值；系统 MUST NOT 额外叠加"最弱 clause"一类跨-clause 惩罚项，因为实测它同样压低"动作 clause 命中、背景 clause 很弱"的正确 Practice。排序 MUST 只发生一次，MUST NOT 引入跨轮 reciprocal rank fusion、单视图槽位轮、细化轮，或任何以名次替代向量余弦的多轮机制。两段计算 MUST 覆盖全部 eligible Practice，MUST NOT 用第一段截断候选池后再做第二段。系统 MUST NOT 把全部正文块分数直接相加，MUST NOT 使用负权重，也 MUST NOT 依赖 FTS5/BM25、词表切分或其它词面任务信号作为 semantic 排序主干。进入 embedding 的文本 MUST NOT 包含 Practice id、anti-pattern id 或字段标签，因为这些是伪装成向量的字面信号。`task-card` MUST NOT 包含 `tech_stack`，使领域名词不能单独决定适用性问题；`full` MAY 保留技术领域，作为上下文锚点。调用方 MUST 不必提交 `intent`、`stage`、`domain` 或任何其他结构化 query 字段。Practice 的 Markdown body MUST 继续按自由文本处理。
+当本次检索选择 `multi-view-vector`（通过 `query.retrievalMethod: multi-view-vector` 或 `lore query --mode multi-view-vector`）时，semantic retrieval SHALL 以自然语言 query 的 clause views 与同一 Practice 的多个持久化内容视角之间的相似度决定该方法的排序；本 requirement 的视角、clause、预算与聚合规则 MUST NOT 施加于默认 `single-vector`（每条完整文档与完整 query 各编码一次并以 cosine 排序）。在 `multi-view-vector` 下，一个 Practice SHALL 提供两种表示组：`task-card`（title、`applies_when`、stage、anti-pattern 等 schema 字段）与 `body`（自由 Markdown body 的带标题路径语义块）。系统 MUST NOT 另外编码整篇 Practice 的表示：有效 Practice 总有 `task-card`，整篇表示不会参与打分，只会增加编码与存储成本。`multi-view-vector` 的 query 按跨语言标点边界拆成 clause views；当 query 没有可拆分 clause 时，该 clause 等同完整原句。两种表示组都 SHALL 被编码、持久化并参与打分。系统 MUST 先对每个 clause 分两段计算 Practice：`task-card` 取最佳适用性匹配，`body` 同时取最佳片段和全片段均值并按固定非负比例混合，保留局部片段证据而不让块数线性加分。每个 clause MUST 对全部 eligible Practice 产生一个 clause 分数，系统 MUST 在**同一次检索**里把这些 clause 分数聚合为一个 Practice 分数：按 query view 的基准权重求加权平均。单个背景/领域 clause 的高分 MUST NOT 独自带过整条 Practice，因为动作 clause 的余弦会被计入同一个平均值；系统 MUST NOT 额外叠加"最弱 clause"一类跨-clause 惩罚项，因为实测它同样压低"动作 clause 命中、背景 clause 很弱"的正确 Practice。排序 MUST 只发生一次，MUST NOT 引入跨轮 reciprocal rank fusion、单视图槽位轮、细化轮，或任何以名次替代向量余弦的多轮机制。两段计算 MUST 覆盖全部 eligible Practice，MUST NOT 用第一段截断候选池后再做第二段。系统 MUST NOT 把全部正文块分数直接相加，MUST NOT 使用负权重，也 MUST NOT 依赖 FTS5/BM25、词表切分或其它词面任务信号作为 semantic 排序主干。进入 embedding 的文本 MUST NOT 包含 Practice id、anti-pattern id 或字段标签，因为这些是伪装成向量的字面信号。`tech_stack` 字段 MUST NOT 进入多视角表示，使领域名词不能单独决定适用性问题。调用方 MUST 不必提交 `intent`、`stage`、`domain` 或任何其他结构化 query 字段。Practice 的 Markdown body MUST 继续按自由文本处理。
 
 #### Scenario: A content view supplies the decisive match
 - **WHEN** 本次检索选择 `multi-view-vector`，一个 query 的语义与某 Practice 的 `body` 或 `task-card` 视角匹配，而另一个同领域 Practice 在文本上更通用
 - **THEN** semantic retrieval SHALL 让匹配 Practice 的该 view 分数进入 Practice 级聚合，并且 MUST NOT 丢掉该命中
 
-#### Scenario: The full view is stored but never scored
-- **WHEN** 本次检索选择 `multi-view-vector`，某 Practice 的 `full` 视角与 query 高度相似，而其 `task-card` 与 `body` 视角相似度较低
-- **THEN** `full` 的相似度 MUST NOT 进入 Practice 分数，Practice 分数只由 `task-card` 与 `body` 计算
+#### Scenario: No whole-document view is encoded
+- **WHEN** 本次检索选择 `multi-view-vector`，系统为某 Practice 建立表示
+- **THEN** 编码输入 MUST 只包含 `task-card` 与 `body`，MUST NOT 包含整篇 Practice 文本的表示
 
 #### Scenario: Within-Practice combination never sums chunk scores
 - **WHEN** 本次检索选择 `multi-view-vector`，两个 Practice 的最佳局部 view 与同一 query 具有相同余弦分数，而其中一个 Practice 被切成更多 `body` views
@@ -42,7 +42,7 @@
 
 #### Scenario: A view never exceeds the model input budget
 - **WHEN** 本次检索选择 `multi-view-vector`，Practice 正文由没有标点边界或没有空格的语言书写，或整条 Practice 文本很长
-- **THEN** projection SHALL 按估算 token 预算而不是字符数切分 `full` 与 `body`，使每个 view 保持在模型输入预算内
+- **THEN** projection SHALL 按估算 token 预算而不是字符数切分 `task-card` 与 `body`，使每个 view 保持在模型输入预算内
 
 #### Scenario: Semantic query never silently falls back to keyword
 - **WHEN** 无论选择哪种 semantic 检索方法，embedding 或 semantic index 不可安全使用

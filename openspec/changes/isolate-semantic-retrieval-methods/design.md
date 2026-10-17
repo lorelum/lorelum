@@ -105,7 +105,7 @@ interface QueryVector {
 
 这些类型归 `representation.ts`，不依赖 reader 或数据库。持久化 adapter 的记录包含 DocumentVector 加 practiceId/contentDigest/inputDigest；scorer 只接收计算所需的 DocumentVector，不获得连接、路径或文本。query 有权重而文档编码单元有 channel/ordinal，两者不为复用名字强行统一。
 
-- **channel** 是表示类别：multi-view 的 `full`、`task-card`、`body`，不是每个正文块一种视角。公共层把它当不透明字符串，合法类别及组合由方法校验。
+- **channel** 是表示类别：multi-view 的 `task-card`、`body`，不是每个正文块一种视角。公共层把它当不透明字符串，合法类别及组合由方法校验。
 - **inputKey** 是一条 Practice 的当前投影内唯一地址，例如 `body:0002`，不是全局 ID，不承诺跨重分块永久稳定。持久化主键为 Practice ID + inputKey。
 - **inputDigest** 由方法 ID、文档配方版本、inputKey/channel/ordinal 和实际文本确定，判断该编码单元能否安全复用。相同 key 的文本修改必须改变 digest；digest 不替代地址。
 - **projectionDigest** 汇总完整投影配方及有序输入身份，证明某条 Practice 的预期编码集合；它与单个 inputDigest 不混用。
@@ -160,7 +160,9 @@ function createVectorExecution(
 
 `single-vector`：恢复原完整文档文本配方，一条 Practice 生成 channel `full`、inputKey `full:0000` 的一个编码输入；完整 query 生成一个权重 1 的 QueryEmbeddingInput，以归一化向量点积打分。保留原字段标签、ID、顺序、anti-pattern 和正文，不借重构分块或改变输入长度限制。
 
-`multi-view-vector`：算法目录保留 multi-view，表示类别为 full/task-card/body；各类别可含多个编码单元。迁入 384 估算 token 预算与标题处理，query 分句不变。task-card 取最佳相似度，body 使用 `0.5 × max + 0.5 × mean`，对存在的两部分平均，再跨 query 输入加权平均；full 被编码保存但不参与评分，有效 Practice 总有 task-card，没有可评分输入时为 typed failure。不加关键词、RRF、最弱 clause 惩罚或调参。
+`multi-view-vector`：算法目录保留 multi-view，表示类别为 task-card/body；各类别可含多个编码单元。迁入 384 估算 token 预算与标题处理，query 分句不变。task-card 取最佳相似度，body 使用 `0.5 × max + 0.5 × mean`，对存在的两部分平均，再跨 query 输入加权平均；其他 channel 或没有可评分输入时为 typed failure。不加关键词、RRF、最弱 clause 惩罚或调参。
+
+multi-view 不编码整篇 Practice 的 `full` 表示。它原本只被编码保存、从不评分，而有效 Practice 总有 task-card，所以不存在需要它兜底的情况；实测它约占首次构建一半的估算 token（见 verification）。删除后文档配方版本由 5 升到 6，旧 multi-view index 按 Profile 不兼容重建；排序不变，因为打分从未读取它。`single-vector` 唯一的 `full:0000` 输入不受影响。
 
 两方法都在全部 eligible Practice 上打分，公共 reader 按分数/Practice ID 稳定排序，query service 完成 canonical 校验后应用 K。N 只限制内部 benchmark 报告，不截断评分集合。
 
