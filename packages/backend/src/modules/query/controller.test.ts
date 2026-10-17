@@ -51,8 +51,8 @@ test("defaults query mode to semantic and preserves semantic result metadata", a
       },
     },
     createContentAddressedSemanticRuntimeStub({
-      async query(root, _target, query) {
-        calls.push(`${root.rootPath}:${query.text}`);
+      async query(root, target, query) {
+        calls.push(`${root.rootPath}:${query.text}:${target.retrievalMethod}`);
         return {
           mode: "semantic",
           profileId: "a".repeat(64),
@@ -73,7 +73,7 @@ test("defaults query mode to semantic and preserves semantic result metadata", a
     coverage: "partial",
     results: [],
   });
-  expect(calls).toEqual(["/tmp/query-controller:deployment"]);
+  expect(calls).toEqual(["/tmp/query-controller:deployment:single-vector"]);
 });
 
 test("records one trace's declared query evidence without serializing request credentials", async () => {
@@ -317,7 +317,12 @@ test("uses the project runtime for partial and indexing query results", async ()
   expect(calls).toEqual([
     {
       root: { rootPath: "/tmp/query-controller" },
-      context: { kind: "project", projectRoot: "/tmp/project", cacheRoot: "/tmp/cache" },
+      context: {
+        kind: "project",
+        projectRoot: "/tmp/project",
+        cacheRoot: "/tmp/cache",
+        retrievalMethod: "single-vector",
+      },
       query: { text: "deployment" },
     },
   ]);
@@ -377,9 +382,61 @@ test("uses the Store target runtime whenever semantic query supplies a cache roo
   expect(calls).toEqual([
     {
       root: { rootPath: "/tmp/query-controller" },
-      target: { kind: "store", cacheRoot: "/tmp/query-cache" },
+      target: { kind: "store", cacheRoot: "/tmp/query-cache", retrievalMethod: "single-vector" },
       query: { text: "deployment" },
       policy: { maxWaitMs: 5000, minCoveragePercent: 80 },
     },
   ]);
+});
+
+test("accepts only exact semantic retrieval methods and ignores them for keyword requests", async () => {
+  const methods: unknown[] = [];
+  let keywordCalls = 0;
+  const instance = app(
+    {
+      async query() {
+        keywordCalls += 1;
+        return { mode: "keyword", results: [] };
+      },
+    },
+    createContentAddressedSemanticRuntimeStub({
+      async query(_root, target) {
+        methods.push(target.retrievalMethod);
+        return { mode: "semantic", profileId: "a".repeat(64), coverage: "complete", results: [] };
+      },
+    }),
+  );
+  for (const retrievalMethod of [undefined, "single-vector", "multi-view-vector"]) {
+    const response = await instance.handle(
+      request({
+        storageRoot: "/tmp/method-query",
+        query: {
+          text: "Method selection",
+          ...(retrievalMethod === undefined ? {} : { retrievalMethod }),
+        },
+      }),
+    );
+    expect(response.status).toBe(200);
+  }
+  expect(methods).toEqual(["single-vector", "single-vector", "multi-view-vector"]);
+  for (const retrievalMethod of ["simple", "multi-view", "multiview", null, 1, false, {}]) {
+    const response = await instance.handle(
+      request({
+        storageRoot: "/tmp/method-query",
+        query: { text: "Method selection", retrievalMethod },
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: "usage.invalid" } });
+  }
+  expect(methods).toHaveLength(3);
+  const keyword = await instance.handle(
+    request({
+      storageRoot: "/tmp/method-query",
+      query: { text: "Method selection", mode: "keyword", retrievalMethod: null },
+    }),
+  );
+  expect(keyword.status).toBe(200);
+  expect(keywordCalls).toBe(1);
+  expect(methods).toHaveLength(3);
 });

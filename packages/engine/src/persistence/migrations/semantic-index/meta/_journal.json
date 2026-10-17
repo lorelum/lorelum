@@ -8,6 +8,13 @@
       "when": 1789385557301,
       "tag": "0000_next_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792257201228,
+      "tag": "0001_classy_warbird",
+      "breakpoints": true
     }
   ]
 }

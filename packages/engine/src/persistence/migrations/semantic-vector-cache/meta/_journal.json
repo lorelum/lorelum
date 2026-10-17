@@ -8,6 +8,13 @@
       "when": 1789506666541,
       "tag": "0000_many_roughhouse",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792227139038,
+      "tag": "0001_overjoyed_firebrand",
+      "breakpoints": true
     }
   ]
 }

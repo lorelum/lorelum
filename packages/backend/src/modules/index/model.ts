@@ -10,6 +10,7 @@ const storageRootSchema = z
   .min(1)
   .refine(isAbsolute, "storageRoot must be an absolute path");
 const profileIdSchema = z.string().regex(/^[a-f0-9]{64}$/);
+const retrievalMethodSchema = z.unknown().optional();
 const projectContextSchema = z
   .strictObject({
     projectRoot: z
@@ -58,6 +59,7 @@ export type IndexStatus = z.infer<typeof indexStatusSchema>;
 export const indexStatusQuerySchema = z
   .strictObject({
     storageRoot: storageRootSchema,
+    retrievalMethod: retrievalMethodSchema,
     projectRoot: projectContextSchema.shape.projectRoot.optional(),
     projectStartDirectory: projectContextSchema.shape.startDirectory.optional(),
     cacheRoot: projectContextSchema.shape.cacheRoot.optional(),
@@ -71,6 +73,7 @@ export const indexStatusQuerySchema = z
 export const indexMutationSchema = z
   .strictObject({
     storageRoot: storageRootSchema,
+    retrievalMethod: retrievalMethodSchema,
     projectContext: projectContextSchema.optional(),
     cacheRoot: projectContextSchema.shape.cacheRoot.optional(),
   })

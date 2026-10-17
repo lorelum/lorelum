@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { blob, check, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { blob, check, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const semanticIndexMetadata = sqliteTable(
   "semantic_index_metadata",
@@ -20,9 +20,23 @@ export const semanticIndexMetadata = sqliteTable(
   (table) => [check("semantic_index_metadata_singleton", sql`${table.singleton} = 1`)],
 );
 
-export const semanticVectors = sqliteTable("semantic_vectors", {
-  practiceId: text("practice_id").primaryKey(),
-  contentDigest: text("content_digest").notNull(),
-  projectionDigest: text("projection_digest").notNull(),
-  vector: blob("vector", { mode: "buffer" }).notNull(),
-});
+export const semanticVectors = sqliteTable(
+  "semantic_vectors",
+  {
+    practiceId: text("practice_id").notNull(),
+    inputKey: text("input_key").notNull(),
+    channel: text("channel").notNull(),
+    ordinal: integer("ordinal").notNull(),
+    contentDigest: text("content_digest").notNull(),
+    inputDigest: text("input_digest").notNull(),
+    vector: blob("vector", { mode: "buffer" }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "semantic_vectors_practice_input_pk",
+      columns: [table.practiceId, table.inputKey],
+    }),
+    check("semantic_vectors_channel", sql`length(${sql.identifier("channel")}) > 0`),
+    check("semantic_vectors_ordinal", sql`${sql.identifier("ordinal")} >= 0`),
+  ],
+);

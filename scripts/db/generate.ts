@@ -14,13 +14,14 @@ const configs = [
 ] as const;
 
 for (const config of configs) {
-  const process = Bun.spawn(["bunx", "drizzle-kit", "generate", "--config", config], {
+  const child = Bun.spawn(["bunx", "drizzle-kit", "generate", "--config", config], {
     cwd: repositoryRoot,
+    stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
   });
   // eslint-disable-next-line no-await-in-loop -- generation is serialized so shared package output stays deterministic.
-  const exitCode = await process.exited;
+  const exitCode = await child.exited;
   if (exitCode !== 0) process.exit(exitCode);
 }
 

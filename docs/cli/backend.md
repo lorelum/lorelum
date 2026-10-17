@@ -55,7 +55,7 @@ lore backend stop --if-idle
 
 ## 配置与错误
 
-用户可编辑的配置、默认值、环境变量和生效时机见[配置指南](https://lorelum.com/zh/docs/configuration)。backend lifecycle 命令会读取并验证配置；修改配置不会热更新运行实例，重复 start 也不会刷新快照。
+用户可编辑的配置、默认值、环境变量和生效时机见[配置指南](https://lorelum.com/zh/docs/configuration)。backend lifecycle 命令会读取并验证 backend/embedding 配置；这两部分修改不会热更新运行实例，重复 start 也不会刷新快照。CLI 的 `query.retrievalMethod` 不属于该 daemon 快照；semantic query、index status/build/rebuild 和安装后的同步每次重新读取并按请求选择 Profile，无需重启，详见 [配置维护边界](../configuration/README.md#query-方法与前台预算)。
 
 失败退出 `2`，输出 `ok:false` 的 [CLI envelope](README.md)。常见错误：
 

@@ -3,6 +3,9 @@ import { noopEmitter, type LogEmitter } from "@lorelum/log";
 
 import {
   createContentAddressedSemanticServices,
+  createVectorExecution,
+  DEFAULT_VECTOR_RETRIEVAL_METHOD_ID,
+  resolveVectorRetrievalMethod,
   indexCorpusDigest,
   InvalidProjectRootError,
   ContentAddressedSemanticProgressService,
@@ -15,7 +18,9 @@ import {
   type ContentAddressedCorpus,
   type ContentAddressedSemanticProgressSeed,
   type EmbeddingPort,
-  type EmbeddingProfile,
+  type EncodingContract,
+  type VectorExecution,
+  type VectorRetrievalMethodId,
   type LocalStore,
   type QueryRequest,
   type SemanticQueryResult,
@@ -37,10 +42,12 @@ import {
 export interface StoreTargetRequest {
   readonly kind: "store";
   readonly cacheRoot: string;
+  readonly retrievalMethod?: VectorRetrievalMethodId;
 }
 export interface ProjectContextTargetRequest {
   readonly kind: "project";
   readonly cacheRoot: string;
+  readonly retrievalMethod?: VectorRetrievalMethodId;
   /** CLI working directory used for Backend-side automatic layer discovery. */
   readonly startDirectory?: string;
   /** Explicit leaf supplied by --project-root, when present. */
@@ -113,6 +120,7 @@ interface SemanticTarget {
   readonly artifactId: string;
   readonly corpus: ContentAddressedCorpus;
   readonly cacheRoot: string;
+  readonly execution: VectorExecution;
   /** Store revision is only an opaque cache checkpoint, never an artifact key. */
   readonly sourceRevision?: number;
   readonly seed?: ContentAddressedSemanticProgressSeed;
@@ -137,7 +145,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
   constructor(
     private readonly store: Pick<LocalStore, "readEffectivePracticeSnapshot"> &
       Partial<Pick<LocalStore, "readEffectivePracticeChanges">>,
-    private readonly profile: EmbeddingProfile,
+    private readonly encoding: EncodingContract,
     private readonly documentEmbedding: EmbeddingPort,
     private readonly queryEmbedding: EmbeddingPort,
     private readonly modelPreparation: ContentAddressedSemanticModelPreparation,
@@ -163,12 +171,13 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     kind: SemanticTarget["kind"],
     sourceId: string,
     cacheScopeId: string,
+    execution: VectorExecution,
   ): string {
     return ContentAddressedSemanticRuntime.hash([
       "semantic-target-slot/v1",
       kind,
       sourceId,
-      this.profile.profileId,
+      execution.profile.profileId,
       cacheScopeId,
     ]);
   }
@@ -275,7 +284,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       cacheScopeId: target.cacheScopeId,
       artifactId: target.artifactId,
       corpusDigest: target.corpus.indexCorpusDigest,
-      profileId: this.profile.profileId,
+      profileId: target.execution.profile.profileId,
       state,
       ...(input.preparationId === undefined ? {} : { preparationId: input.preparationId }),
       ...(state !== "failed" ? {} : { error: input.error ?? "backend.failed" }),
@@ -301,12 +310,24 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     });
     if (snapshot === undefined) {
       if (request.projectRoot !== undefined) throw new InvalidProjectRootError();
-      return this.storeTarget(root, { kind: "store", cacheRoot: request.cacheRoot });
+      return this.storeTarget(root, {
+        kind: "store",
+        cacheRoot: request.cacheRoot,
+        ...(request.retrievalMethod === undefined
+          ? {}
+          : { retrievalMethod: request.retrievalMethod }),
+      });
     }
     const corpus: ContentAddressedCorpus = snapshot;
     const cacheScopeId = this.cacheScopeId(request.cacheRoot);
-    const targetSlotId = this.targetSlotId("project", snapshot.projectRootId, cacheScopeId);
-    const artifactId = contentSemanticArtifactId(corpus, this.profile.profileId);
+    const execution = this.executionFor(request);
+    const targetSlotId = this.targetSlotId(
+      "project",
+      snapshot.projectRootId,
+      cacheScopeId,
+      execution,
+    );
+    const artifactId = contentSemanticArtifactId(corpus, execution.profile.profileId);
     const seed = await this.predecessorSeed(request.cacheRoot, targetSlotId, artifactId);
     return Object.freeze({
       kind: "project",
@@ -316,6 +337,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       artifactId,
       corpus,
       cacheRoot: request.cacheRoot,
+      execution,
       ...(seed === undefined ? {} : { seed }),
       context: Object.freeze({
         state: snapshot.state,
@@ -360,8 +382,9 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       "semantic-store-source/v1",
       root.rootPath,
     ]);
-    const targetSlotId = this.targetSlotId("store", sourceId, cacheScopeId);
-    const artifactId = contentSemanticArtifactId(corpus, this.profile.profileId);
+    const execution = this.executionFor(request);
+    const targetSlotId = this.targetSlotId("store", sourceId, cacheScopeId, execution);
+    const artifactId = contentSemanticArtifactId(corpus, execution.profile.profileId);
     const deltaSeed = await this.storeDeltaSeed({
       root,
       cacheRoot: request.cacheRoot,
@@ -380,12 +403,20 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       artifactId,
       corpus,
       cacheRoot: request.cacheRoot,
+      execution,
       sourceRevision: snapshot.identity.effectiveRevision,
       ...(seed === undefined ? {} : { seed }),
       isCurrent: async () =>
         indexCorpusDigest((await this.store.readEffectivePracticeSnapshot(root)).practices) ===
         corpus.indexCorpusDigest,
     });
+  }
+
+  private executionFor(request: ContentAddressedTargetRequest): VectorExecution {
+    return createVectorExecution(
+      this.encoding,
+      resolveVectorRetrievalMethod(request.retrievalMethod ?? DEFAULT_VECTOR_RETRIEVAL_METHOD_ID),
+    );
   }
 
   private async resolveTarget(
@@ -401,7 +432,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     return new ContentAddressedSemanticProgressService(
       target.corpus,
       target.cacheRoot,
-      this.profile,
+      target.execution,
       this.documentEmbedding,
       undefined,
       undefined,
@@ -419,7 +450,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     if ((status.state === "indexing" || status.state === "missing") && operationId !== undefined) {
       return Object.freeze({
         state: "indexing",
-        profileId: this.profile.profileId,
+        profileId: target.execution.profile.profileId,
         operationId,
         indexedPracticeCount:
           status.state === "indexing"
@@ -432,12 +463,12 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       });
     }
     if (status.state === "missing")
-      return Object.freeze({ state: "missing", profileId: this.profile.profileId });
+      return Object.freeze({ state: "missing", profileId: target.execution.profile.profileId });
     if (status.state === "indexing")
-      return Object.freeze({ state: "stale", profileId: this.profile.profileId });
+      return Object.freeze({ state: "stale", profileId: target.execution.profile.profileId });
     return Object.freeze({
       state: status.state,
-      profileId: this.profile.profileId,
+      profileId: target.execution.profile.profileId,
       ...(status.state === "ready" ? { vectorCount: status.indexedPracticeCount } : {}),
     });
   }
@@ -503,7 +534,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       const tracked = new ContentAddressedSemanticProgressService(
         target.corpus,
         target.cacheRoot,
-        this.profile,
+        target.execution,
         this.documentEmbedding,
         desired,
         async (status) => {
@@ -619,13 +650,13 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       const paths = contentSemanticIndexPaths(
         target.cacheRoot,
         target.corpus,
-        this.profile.profileId,
+        target.execution.profile.profileId,
       );
       return withContentArtifactLease(paths.directory, async () => {
         const services = createContentAddressedSemanticServices(
           target.corpus,
           target.cacheRoot,
-          this.profile,
+          target.execution,
           this.queryEmbedding,
         );
         return services.query.query(services.root, query);
@@ -813,7 +844,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       cacheScopeId: operation.target.cacheScopeId,
       artifactId: operation.target.artifactId,
       corpusDigest: operation.target.corpus.indexCorpusDigest,
-      profileId: this.profile.profileId,
+      profileId: operation.target.execution.profile.profileId,
       state,
       indexedPracticeCount,
       totalPracticeCount,

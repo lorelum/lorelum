@@ -12,11 +12,12 @@ import {
   SemanticIndexNotReadyError,
   SemanticIndexQueryError,
 } from "../errors";
+import type { VectorPracticeScorer } from "../methods/types";
 import type { EmbeddingProfile } from "../profile";
 import { isCompatibleMetadata, type SemanticIndexMetadata } from "./metadata";
 import {
   readSemanticIndexMetadata,
-  readSemanticIndexVector,
+  readSemanticIndexVectors,
   type SemanticIndexConnection,
   verifySemanticIndexIntegrity,
 } from "./database";
@@ -31,12 +32,11 @@ export interface SemanticCandidate {
 
 export interface SemanticIndexReader {
   readonly metadata: SemanticIndexMetadata;
-  /** Whether at least one vector remains eligible after the supplied exclusions. */
+  /** Whether at least one Practice remains eligible after the supplied exclusions. */
   hasEligibleVectors(excludedPracticeIds: ReadonlySet<string>): boolean;
   search(
-    queryVector: Float32Array,
+    scorer: VectorPracticeScorer,
     excludedPracticeIds: ReadonlySet<string>,
-    limit: number,
   ): readonly SemanticCandidate[];
   close(): void;
 }
@@ -45,32 +45,20 @@ function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function cosine(left: Float32Array, right: Float32Array): number {
-  if (left.length !== right.length) {
-    throw new SemanticIndexQueryError("Semantic query vector dimensions are invalid");
-  }
-  let score = 0;
-  for (let index = 0; index < left.length; index += 1) score += left[index]! * right[index]!;
-  if (!Number.isFinite(score)) {
-    throw new SemanticIndexQueryError("Semantic similarity is not finite");
-  }
-  return score;
-}
-
 function readPracticeIds(connection: SemanticIndexConnection): readonly string[] {
   try {
     const rows = connection.orm
       .select({ practiceId: semanticVectors.practiceId })
       .from(semanticVectors)
       .all();
-    return Object.freeze(
-      rows.map((row) => {
-        if (typeof row.practiceId !== "string") {
-          throw new SemanticIndexQueryError("Semantic index Practice ID is invalid");
-        }
-        return row.practiceId;
-      }),
-    );
+    const ids = new Set<string>();
+    for (const row of rows) {
+      if (typeof row.practiceId !== "string" || row.practiceId.length === 0) {
+        throw new SemanticIndexQueryError("Semantic index Practice ID is invalid");
+      }
+      ids.add(row.practiceId);
+    }
+    return Object.freeze([...ids].sort(compareCodeUnits));
   } catch (error) {
     if (error instanceof SemanticIndexQueryError) throw error;
     throw new SemanticIndexQueryError("Cannot read semantic index Practice IDs", { cause: error });
@@ -80,21 +68,25 @@ function readPracticeIds(connection: SemanticIndexConnection): readonly string[]
 function readCandidateRows(
   connection: SemanticIndexConnection,
   metadata: SemanticIndexMetadata,
-  queryVector: Float32Array,
+  scorer: VectorPracticeScorer,
   excludedPracticeIds: ReadonlySet<string>,
 ): SemanticCandidate[] {
   const candidates: SemanticCandidate[] = [];
   for (const practiceId of readPracticeIds(connection)) {
     if (excludedPracticeIds.has(practiceId)) continue;
-    const row = readSemanticIndexVector(connection, practiceId, metadata.dimensions);
-    if (row === undefined) {
-      throw new SemanticIndexQueryError("Semantic index vector row disappeared during query");
+    const storedViews = readSemanticIndexVectors(connection, practiceId, metadata.dimensions);
+    if (storedViews === undefined || storedViews.length === 0) {
+      throw new SemanticIndexQueryError("Semantic index Practice has no vector views");
     }
-    candidates.push({
-      practiceId,
-      contentDigest: row.contentDigest,
-      similarity: cosine(queryVector, row.vector),
-    });
+    const contentDigest = storedViews[0]!.contentDigest;
+    if (storedViews.some((view) => view.contentDigest !== contentDigest)) {
+      throw new SemanticIndexQueryError("Semantic index views disagree on canonical content");
+    }
+    const similarity = scorer.score(storedViews);
+    if (!Number.isFinite(similarity)) {
+      throw new SemanticIndexQueryError("Semantic Practice similarity is not finite");
+    }
+    candidates.push({ practiceId, contentDigest, similarity });
   }
   candidates.sort((left, right) => {
     const scoreOrder = right.similarity - left.similarity;
@@ -147,17 +139,10 @@ export async function openSemanticIndexReaderAt(
           (practiceId) => !excludedPracticeIds.has(practiceId),
         );
       },
-      search(queryVector, excludedPracticeIds, limit) {
-        if (queryVector.length !== metadata.dimensions) {
-          throw new SemanticIndexQueryError("Semantic query vector dimensions are invalid");
-        }
-        const candidates = readCandidateRows(
-          activeConnection,
-          metadata,
-          queryVector,
-          excludedPracticeIds,
+      search(scorer, excludedPracticeIds) {
+        return Object.freeze(
+          readCandidateRows(activeConnection, metadata, scorer, excludedPracticeIds),
         );
-        return Object.freeze(candidates.slice(0, limit));
       },
       close() {
         activeConnection.close();

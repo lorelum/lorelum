@@ -32,8 +32,9 @@ export async function runProcess(
     stdout: "pipe",
   });
   if (input !== undefined) {
-    child.stdin.write(input);
-    child.stdin.end();
+    // The spawn options pipe stdin exactly when input is supplied.
+    child.stdin!.write(input);
+    child.stdin!.end();
   }
   const completed = Promise.all([
     new Response(child.stdout).text(),

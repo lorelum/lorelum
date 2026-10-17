@@ -3,7 +3,7 @@ import { verifyNativeEmbeddingResources } from "./embedding-resources";
 import { createEmbeddingService } from "../modules/embedding/service";
 import { createEmbeddingProcess } from "./embedding-process";
 import { consumeDaemonLaunch, resolveBackendSettings, resolveEmbeddingConfig } from "../config";
-import { createEmbeddingProfile, createLocalStore, createQueryService } from "@lorelum/engine";
+import { createLocalStore, createQueryService } from "@lorelum/engine";
 import { defaultLogDirectory, loadLoggingSettings } from "@lorelum/config";
 import { SinkLogEmitter, TraceDetailLogEmitter } from "@lorelum/log";
 import { join } from "node:path";
@@ -102,13 +102,9 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
   });
   const store = createLocalStore();
   const model = embedding.status();
-  const profile = createEmbeddingProfile({
-    encodingId: model.encodingId,
-    dimensions: model.dimensions,
-  });
   const semanticRuntime = new ContentAddressedSemanticRuntime(
     store,
-    profile,
+    { encodingId: model.encodingId, dimensions: model.dimensions },
     createEmbeddingAdapter(embedding),
     createQueryEmbeddingAdapter(embedding),
     embedding,

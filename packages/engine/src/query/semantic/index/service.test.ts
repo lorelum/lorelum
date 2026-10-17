@@ -20,11 +20,13 @@ import {
 } from "../../../local-store/model";
 import type { EmbeddingPort } from "../encoding";
 import { SemanticEmbeddingError, SemanticIndexSnapshotChangedError } from "../errors";
-import { createEmbeddingProfile } from "../profile";
+import { createVectorExecution } from "../profile";
+import { resolveVectorRetrievalMethod, VECTOR_RETRIEVAL_METHOD_IDS } from "../methods/catalog";
 import { SEMANTIC_INDEX_VERSION } from "./metadata";
 import { createSemanticIndexService, type SemanticIndexDependencies } from "./service";
 
 const encodingId = "a".repeat(64);
+const methodIds = [...VECTOR_RETRIEVAL_METHOD_IDS];
 
 function practice(
   id = "example.practice",
@@ -117,7 +119,10 @@ test("builds an empty index without calling the embedding port", async () => {
     const vectorPort = port();
     const current = identity(rootPath);
     const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
+      execution: createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod("multi-view-vector"),
+      ),
       embedding: vectorPort,
       store: {
         async readSnapshotIdentity() {
@@ -149,7 +154,10 @@ test("binds the active index to the full Store identity and reports stale", asyn
     let current = identity(rootPath);
     const vectorPort = port();
     const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
+      execution: createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod("multi-view-vector"),
+      ),
       embedding: vectorPort,
       store: {
         async readSnapshotIdentity() {
@@ -172,14 +180,17 @@ test("binds the active index to the full Store identity and reports stale", asyn
     });
     current = identity(rootPath, 2);
     await expect(service.status({ rootPath })).resolves.toMatchObject({ state: "stale" });
-    expect(vectorPort.calls).toHaveLength(1);
+    expect(vectorPort.calls.flat()).toHaveLength(2);
   });
 });
 
-test("failed rebuild preserves the prior active index", async () => {
+test.each(methodIds)("failed rebuild preserves the prior active index (%s)", async (methodId) => {
   await withRoot(async (rootPath) => {
     const current = identity(rootPath);
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod(methodId),
+    );
     const store: SemanticIndexDependencies["store"] = {
       async readSnapshotIdentity() {
         return current;
@@ -194,11 +205,11 @@ test("failed rebuild preserves the prior active index", async () => {
         return publish();
       },
     };
-    const initial = createSemanticIndexService({ store, profile, embedding: port() });
+    const initial = createSemanticIndexService({ store, execution, embedding: port() });
     await initial.build({ rootPath });
     const failing = createSemanticIndexService({
       store,
-      profile,
+      execution,
       embedding: port(() => [[0, 0]]),
     });
 
@@ -213,7 +224,10 @@ test("rejects a build when the Store changes before publication", async () => {
     const changed = identity(rootPath, 2);
     let identityReads = 0;
     const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
+      execution: createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod("multi-view-vector"),
+      ),
       embedding: port(),
       store: {
         async readSnapshotIdentity() {
@@ -245,13 +259,16 @@ test.skipIf(process.platform === "win32")(
   "does not mistake an unreadable semantic index path for a missing index",
   async () => {
     await withRoot(async (rootPath) => {
-      const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod("multi-view-vector"),
+      );
       const directory = join(rootPath, "indexes", "semantic", `v${SEMANTIC_INDEX_VERSION}`);
       await mkdir(directory, { recursive: true });
-      await writeFile(join(directory, profile.profileId), "not a directory");
+      await writeFile(join(directory, execution.profile.profileId), "not a directory");
       const current = identity(rootPath);
       const service = createSemanticIndexService({
-        profile,
+        execution,
         embedding: port(),
         store: {
           async readSnapshotIdentity() {
@@ -278,7 +295,10 @@ test("preserves Store availability failures instead of hiding them as index erro
   await withRoot(async (rootPath) => {
     const expected = new StoreBusyError("Store mutation is in progress");
     const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
+      execution: createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod("multi-view-vector"),
+      ),
       embedding: port(),
       store: {
         async readSnapshotIdentity() {
@@ -300,70 +320,84 @@ test("preserves Store availability failures instead of hiding them as index erro
   });
 });
 
-test("incrementally encodes only final added and projection-changed Practices", async () => {
-  await withRoot(async (rootPath) => {
-    const first = identity(rootPath, 1);
-    const second = identity(rootPath, 2);
-    let current = first;
-    const original = practice("platform.original");
-    const changed = practice("platform.original", { body: "Use the current canonical content." });
-    const added = practice("platform.added");
-    const vectorPort = port();
-    const fenceIdentities: StoreSnapshotIdentity[] = [];
-    const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
-      embedding: vectorPort,
-      store: {
-        async readSnapshotIdentity() {
-          return current;
-        },
-        async readEffectivePracticeSnapshot() {
-          return { identity: first, practices: [original] };
-        },
-        async readEffectivePracticeChanges(_root, afterRevision) {
-          expect(afterRevision).toBe(1);
-          return {
-            identity: second,
-            deltas: [
-              {
-                revision: 2,
-                delta: {
-                  added: ["platform.added"],
-                  changed: ["platform.original"],
-                  invalidated: [],
+test.each(methodIds)(
+  "incrementally encodes only final added and projection-changed Practices (%s)",
+  async (methodId) => {
+    await withRoot(async (rootPath) => {
+      const first = identity(rootPath, 1);
+      const second = identity(rootPath, 2);
+      let current = first;
+      const original = practice("platform.original");
+      const changed = practice("platform.original", { body: "Use the current canonical content." });
+      const added = practice("platform.added");
+      const vectorPort = port();
+      const method = resolveVectorRetrievalMethod(methodId);
+      const originalInputs = method.projectDocument(original).inputs;
+      const reusableDigests = new Set(originalInputs.map((input) => input.inputDigest));
+      const expectedNewInputs = [
+        ...method
+          .projectDocument(changed)
+          .inputs.filter((input) => !reusableDigests.has(input.inputDigest)),
+        ...method.projectDocument(added).inputs,
+      ];
+      const fenceIdentities: StoreSnapshotIdentity[] = [];
+      const service = createSemanticIndexService({
+        execution: createVectorExecution({ encodingId, dimensions: 2 }, method),
+        embedding: vectorPort,
+        store: {
+          async readSnapshotIdentity() {
+            return current;
+          },
+          async readEffectivePracticeSnapshot() {
+            return { identity: first, practices: [original] };
+          },
+          async readEffectivePracticeChanges(_root, afterRevision) {
+            expect(afterRevision).toBe(1);
+            return {
+              identity: second,
+              deltas: [
+                {
+                  revision: 2,
+                  delta: {
+                    added: ["platform.added"],
+                    changed: ["platform.original"],
+                    invalidated: [],
+                  },
                 },
-              },
-            ],
-            currentPractices: [changed, added],
-          };
+              ],
+              currentPractices: [changed, added],
+            };
+          },
+          async withSnapshotFence(_root, expected, publish) {
+            fenceIdentities.push(expected);
+            return publish();
+          },
         },
-        async withSnapshotFence(_root, expected, publish) {
-          fenceIdentities.push(expected);
-          return publish();
-        },
-      },
-    });
+      });
 
-    await service.build({ rootPath });
-    current = second;
-    await expect(service.build({ rootPath })).resolves.toMatchObject({
-      built: true,
-      status: { state: "ready", vectorCount: 2 },
+      await service.build({ rootPath });
+      current = second;
+      await expect(service.build({ rootPath })).resolves.toMatchObject({
+        built: true,
+        status: { state: "ready", vectorCount: 2 },
+      });
+      expect(vectorPort.calls.flat()).toEqual(
+        [...originalInputs, ...expectedNewInputs].map((input) => input.text),
+      );
+      expect(fenceIdentities).toEqual([first, second]);
     });
-    expect(vectorPort.calls).toHaveLength(2);
-    expect(vectorPort.calls[1]).toHaveLength(2);
-    expect(vectorPort.calls[1]?.join("\n")).toContain("Practice: platform.original");
-    expect(vectorPort.calls[1]?.join("\n")).toContain("Practice: platform.added");
-    expect(fenceIdentities).toEqual([first, second]);
-  });
-});
+  },
+);
 
 test("uses LocalStore retained history and publication fence for an actual Pack upgrade", async () => {
   await withRoot(async (rootPath) => {
     const store = createLocalStore();
     const vectorPort = port();
     const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
+      execution: createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod("multi-view-vector"),
+      ),
       embedding: vectorPort,
       store,
     });
@@ -384,9 +418,11 @@ test("uses LocalStore retained history and publication fence for an actual Pack 
       built: true,
       status: { state: "ready", vectorCount: 2 },
     });
-    expect(vectorPort.calls).toHaveLength(2);
-    expect(vectorPort.calls[0]).toHaveLength(1);
-    expect(vectorPort.calls[1]).toHaveLength(2);
+    // Batches of two: the first build embeds the task card and body in one call;
+    // the upgrade re-embeds only the changed body plus the added Practice.
+    expect(vectorPort.calls.flat()).toHaveLength(5);
+    expect(vectorPort.calls.slice(0, 1).flat()).toHaveLength(2);
+    expect(vectorPort.calls.slice(1).flat()).toHaveLength(3);
     await expect(service.status({ rootPath })).resolves.toMatchObject({
       state: "ready",
       vectorCount: 2,
@@ -394,144 +430,167 @@ test("uses LocalStore retained history and publication fence for an actual Pack 
   });
 });
 
-test("reuses a vector when only non-projected canonical content changes", async () => {
-  await withRoot(async (rootPath) => {
-    const first = identity(rootPath, 1);
-    const second = identity(rootPath, 2);
-    let current = first;
-    const original = practice("platform.original", { severity: "warn" });
-    const changed = practice("platform.original", { severity: "critical" });
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    const vectorPort = port();
-    const service = createSemanticIndexService({
-      profile,
-      embedding: vectorPort,
-      store: {
-        async readSnapshotIdentity() {
-          return current;
+test.each(methodIds)(
+  "reuses a vector when only non-projected canonical content changes (%s)",
+  async (methodId) => {
+    await withRoot(async (rootPath) => {
+      const first = identity(rootPath, 1);
+      const second = identity(rootPath, 2);
+      let current = first;
+      const original = practice("platform.original", { severity: "warn" });
+      const changed = practice("platform.original", { severity: "critical" });
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      const vectorPort = port();
+      const service = createSemanticIndexService({
+        execution,
+        embedding: vectorPort,
+        store: {
+          async readSnapshotIdentity() {
+            return current;
+          },
+          async readEffectivePracticeSnapshot() {
+            return { identity: first, practices: [original] };
+          },
+          async readEffectivePracticeChanges() {
+            return {
+              identity: second,
+              deltas: [
+                {
+                  revision: 2,
+                  delta: { added: [], changed: ["platform.original"], invalidated: [] },
+                },
+              ],
+              currentPractices: [changed],
+            };
+          },
+          async withSnapshotFence(_root, _expected, publish) {
+            return publish();
+          },
         },
-        async readEffectivePracticeSnapshot() {
-          return { identity: first, practices: [original] };
-        },
-        async readEffectivePracticeChanges() {
-          return {
-            identity: second,
-            deltas: [
-              {
-                revision: 2,
-                delta: { added: [], changed: ["platform.original"], invalidated: [] },
-              },
-            ],
-            currentPractices: [changed],
-          };
-        },
-        async withSnapshotFence(_root, _expected, publish) {
-          return publish();
-        },
-      },
-    });
-
-    await service.build({ rootPath });
-    current = second;
-    await service.build({ rootPath });
-    expect(vectorPort.calls).toHaveLength(1);
-    const database = new Database(activeIndexPath(rootPath, profile.profileId), { readonly: true });
-    try {
-      expect(database.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get()).toEqual({
-        count: 1,
       });
-      const row = database
-        .query("SELECT content_digest FROM semantic_vectors WHERE practice_id = ?")
-        .get("platform.original") as { readonly content_digest: string };
-      expect(row.content_digest).toBe(changed.contentDigest);
-    } finally {
-      database.close();
-    }
-  });
-});
 
-test("uses a metadata-only incremental publication for source-only Store changes", async () => {
-  await withRoot(async (rootPath) => {
-    const first = identity(rootPath, 1);
-    const sourceOnly = Object.freeze({
-      ...first,
-      generation: 2,
-      manifestDigest: "2".padStart(64, "0"),
+      await service.build({ rootPath });
+      current = second;
+      const callsBeforeSecondBuild = vectorPort.calls.length;
+      await service.build({ rootPath });
+      expect(vectorPort.calls).toHaveLength(callsBeforeSecondBuild);
+      const database = new Database(activeIndexPath(rootPath, execution.profile.profileId), {
+        readonly: true,
+      });
+      try {
+        const row = database
+          .query("SELECT content_digest FROM semantic_vectors WHERE practice_id = ?")
+          .get("platform.original") as { readonly content_digest: string };
+        expect(row.content_digest).toBe(changed.contentDigest);
+      } finally {
+        database.close();
+      }
     });
-    let current: StoreSnapshotIdentity = first;
-    const vectorPort = port();
-    const fenceIdentities: StoreSnapshotIdentity[] = [];
-    const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
-      embedding: vectorPort,
-      store: {
-        async readSnapshotIdentity() {
-          return current;
-        },
-        async readEffectivePracticeSnapshot() {
-          return { identity: first, practices: [practice()] };
-        },
-        async readEffectivePracticeChanges() {
-          return { identity: sourceOnly, deltas: [], currentPractices: [] };
-        },
-        async withSnapshotFence(_root, expected, publish) {
-          fenceIdentities.push(expected);
-          return publish();
-        },
-      },
-    });
+  },
+);
 
-    await service.build({ rootPath });
-    current = sourceOnly;
-    await expect(service.build({ rootPath })).resolves.toMatchObject({
-      built: true,
-      status: { state: "ready", vectorCount: 1 },
-    });
-    expect(vectorPort.calls).toHaveLength(1);
-    expect(fenceIdentities).toEqual([first, sourceOnly]);
-  });
-});
+test.each(methodIds)(
+  "uses a metadata-only incremental publication for source-only Store changes (%s)",
+  async (methodId) => {
+    await withRoot(async (rootPath) => {
+      const first = identity(rootPath, 1);
+      const sourceOnly = Object.freeze({
+        ...first,
+        generation: 2,
+        manifestDigest: "2".padStart(64, "0"),
+      });
+      let current: StoreSnapshotIdentity = first;
+      const vectorPort = port();
+      const fenceIdentities: StoreSnapshotIdentity[] = [];
+      const service = createSemanticIndexService({
+        execution: createVectorExecution(
+          { encodingId, dimensions: 2 },
+          resolveVectorRetrievalMethod(methodId),
+        ),
+        embedding: vectorPort,
+        store: {
+          async readSnapshotIdentity() {
+            return current;
+          },
+          async readEffectivePracticeSnapshot() {
+            return { identity: first, practices: [practice()] };
+          },
+          async readEffectivePracticeChanges() {
+            return { identity: sourceOnly, deltas: [], currentPractices: [] };
+          },
+          async withSnapshotFence(_root, expected, publish) {
+            fenceIdentities.push(expected);
+            return publish();
+          },
+        },
+      });
 
-test("removes invalidated vectors without loading the embedding port", async () => {
-  await withRoot(async (rootPath) => {
-    const first = identity(rootPath, 1);
-    const second = identity(rootPath, 2);
-    let current = first;
-    const vectorPort = port();
-    const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
-      embedding: vectorPort,
-      store: {
-        async readSnapshotIdentity() {
-          return current;
-        },
-        async readEffectivePracticeSnapshot() {
-          return { identity: first, practices: [practice()] };
-        },
-        async readEffectivePracticeChanges() {
-          return {
-            identity: second,
-            deltas: [
-              { revision: 2, delta: { added: [], changed: [], invalidated: ["example.practice"] } },
-            ],
-            currentPractices: [],
-          };
-        },
-        async withSnapshotFence(_root, _expected, publish) {
-          return publish();
-        },
-      },
+      await service.build({ rootPath });
+      const embeddedBefore = vectorPort.calls.flat().length;
+      current = sourceOnly;
+      await expect(service.build({ rootPath })).resolves.toMatchObject({
+        built: true,
+        status: { state: "ready", vectorCount: 1 },
+      });
+      expect(vectorPort.calls.flat()).toHaveLength(embeddedBefore);
+      expect(fenceIdentities).toEqual([first, sourceOnly]);
     });
+  },
+);
 
-    await service.build({ rootPath });
-    current = second;
-    await expect(service.build({ rootPath })).resolves.toMatchObject({
-      built: true,
-      status: { state: "ready", vectorCount: 0 },
+test.each(methodIds)(
+  "removes invalidated vectors without loading the embedding port (%s)",
+  async (methodId) => {
+    await withRoot(async (rootPath) => {
+      const first = identity(rootPath, 1);
+      const second = identity(rootPath, 2);
+      let current = first;
+      const vectorPort = port();
+      const service = createSemanticIndexService({
+        execution: createVectorExecution(
+          { encodingId, dimensions: 2 },
+          resolveVectorRetrievalMethod(methodId),
+        ),
+        embedding: vectorPort,
+        store: {
+          async readSnapshotIdentity() {
+            return current;
+          },
+          async readEffectivePracticeSnapshot() {
+            return { identity: first, practices: [practice()] };
+          },
+          async readEffectivePracticeChanges() {
+            return {
+              identity: second,
+              deltas: [
+                {
+                  revision: 2,
+                  delta: { added: [], changed: [], invalidated: ["example.practice"] },
+                },
+              ],
+              currentPractices: [],
+            };
+          },
+          async withSnapshotFence(_root, _expected, publish) {
+            return publish();
+          },
+        },
+      });
+
+      await service.build({ rootPath });
+      const embeddedBefore = vectorPort.calls.flat().length;
+      current = second;
+      await expect(service.build({ rootPath })).resolves.toMatchObject({
+        built: true,
+        status: { state: "ready", vectorCount: 0 },
+      });
+      expect(vectorPort.calls.flat()).toHaveLength(embeddedBefore);
     });
-    expect(vectorPort.calls).toHaveLength(1);
-  });
-});
+  },
+);
 
 test("falls back to a full build when retained Store history is unavailable", async () => {
   await withRoot(async (rootPath) => {
@@ -543,7 +602,10 @@ test("falls back to a full build when retained Store history is unavailable", as
     const vectorPort = port();
     let snapshots = 0;
     const service = createSemanticIndexService({
-      profile: createEmbeddingProfile({ encodingId, dimensions: 2 }),
+      execution: createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod("multi-view-vector"),
+      ),
       embedding: vectorPort,
       store: {
         async readSnapshotIdentity() {
@@ -571,7 +633,7 @@ test("falls back to a full build when retained Store history is unavailable", as
       status: { state: "ready", vectorCount: 2 },
     });
     expect(snapshots).toBe(2);
-    expect(vectorPort.calls).toHaveLength(2);
-    expect(vectorPort.calls[1]).toHaveLength(2);
+    expect(vectorPort.calls.flat()).toHaveLength(6);
+    expect(vectorPort.calls.slice(1).flat()).toHaveLength(4);
   });
 });

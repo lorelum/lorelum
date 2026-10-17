@@ -1,29 +1,40 @@
 import type { EffectivePractice } from "../../local-store";
 import { parseQueryRequest } from "../request";
 import { assembleQueryHits } from "../result";
-import type { QueryRequest } from "../types";
-import { validateEmbeddingBatch, type EmbeddingPort } from "./encoding";
+import { embedInBatches, type EmbeddingPort } from "./encoding";
 import { SemanticIndexQueryError } from "./errors";
 import type { SemanticCandidate, SemanticIndexReader } from "./index/reader";
-import type { EmbeddingProfile } from "./profile";
+import type { EmbeddingProfile, VectorExecution } from "./profile";
+import type { QueryVector } from "./representation";
 import type { SemanticQueryResult } from "./query-service";
 
 /** Execute the source-neutral reader/embedding half of a semantic query. */
 export async function searchSemanticArtifact(input: {
   readonly reader: SemanticIndexReader;
-  readonly profile: EmbeddingProfile;
+  readonly execution: VectorExecution;
   readonly embedding: EmbeddingPort;
-  readonly request: QueryRequest;
+  readonly text: string;
   readonly excludedPracticeIds: ReadonlySet<string>;
 }): Promise<readonly SemanticCandidate[]> {
-  const request = parseQueryRequest(input.request);
   if (!input.reader.hasEligibleVectors(input.excludedPracticeIds)) return Object.freeze([]);
-  const batch = await input.embedding.embed([request.text]);
-  const [queryVector] = validateEmbeddingBatch(input.profile, [request.text], batch);
-  if (queryVector === undefined) {
-    throw new SemanticIndexQueryError("Embedding result did not contain a query vector");
-  }
-  return input.reader.search(queryVector, input.excludedPracticeIds, request.limit);
+  // Validate and normalize text through the shared request boundary.
+  const text = parseQueryRequest({ text: input.text, limit: 1 }).text;
+  const { execution } = input;
+  const inputs = execution.method.projectQuery(text);
+  const embeddings = await embedInBatches(
+    execution.profile,
+    input.embedding,
+    inputs.map((item) => item.text),
+  );
+  const queries: readonly QueryVector[] = inputs.map((item, index) => {
+    const embedding = embeddings[index];
+    if (embedding === undefined) {
+      throw new SemanticIndexQueryError("Embedding result did not contain a query input vector");
+    }
+    return { inputKey: item.inputKey, embedding, weight: item.weight };
+  });
+  const scorer = execution.method.prepareScorer(queries, execution.profile.dimensions);
+  return input.reader.search(scorer, input.excludedPracticeIds);
 }
 
 /** Assemble a public semantic result from rows already proven current by the caller. */

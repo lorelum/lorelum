@@ -13,6 +13,7 @@
     "text": "responsibility boundary",
     "limit": 5,
     "mode": "semantic",
+    "retrievalMethod": "single-vector",
     "cacheRoot": "/absolute/path/to/user-cache",
     "maxWaitMs": 3000,
     "minCoveragePercent": 0
@@ -21,6 +22,12 @@
 ```
 
 `storageRoot` must be an absolute path. `text` must not be blank and is limited to 4,096 Unicode code points; `limit` defaults to 5 and ranges from 1 through 50. `mode` is `semantic` or `keyword`; it is optional and defaults to `semantic`. `maxWaitMs` is an integer 0–120000 and `minCoveragePercent` is an integer 0–100. `projectContext` is `{ cacheRoot, startDirectory?, projectRoot? }` with absolute paths and must include at least one of `startDirectory` or `projectRoot`; it and direct `cacheRoot` are mutually exclusive. The request body is a strict JSON object and rejects extra fields.
+
+`query.retrievalMethod` selects `single-vector` (default when omitted) or experimental `multi-view-vector`. `simple` and `multi-view` are not aliases. This is a per-request selection, not daemon configuration: HTTP callers do not inherit the CLI's YAML setting, and the same daemon can serve both methods without restart. Keyword requests ignore this semantic-only value. An invalid semantic method is checked by the controller and returns HTTP `400` / `usage.invalid`; malformed JSON, unknown fields, or other invalid wire shapes still return `backend.invalid-request`.
+
+The CLI-only `--mode single-vector` and `--mode multi-view-vector` are composed as `query.mode: "semantic"` plus the matching `query.retrievalMethod`. Do not send them as HTTP `mode` values; the API and result modes remain `semantic | keyword`. The Backend HTTP response shape is unchanged; the CLI adds `retrievalMethod` to its own semantic result data from the method it sent.
+
+The returned `profileId` belongs to this request's encoding plus method recipe (document, query, and scoring versions), not one fixed daemon Profile. Artifacts, progress, and shared-vector cache remain Profile-isolated; accepted operations keep their original execution when later requests choose another method. Internal composition binds these together as `VectorExecution`. Both methods score the full eligible canonical corpus before applying `limit`; their formulas and persistence boundary are described in the [CLI maintainer contract](../cli/query.md#semantic-mode) and [persistence guide](../development/persistence.md#semantic-encoding-input-schema).
 
 成功 `200`：
 
@@ -63,12 +70,12 @@ Responses expose only public Practice summary fields, never a body, vector, SQLi
 | HTTP | code | Meaning |
 | --- | --- | --- |
 | 400 | `backend.invalid-request` | JSON, fields, or request body violates the wire contract. |
-| 400 | `usage.invalid` | Query text or limit violates the Engine query contract. |
+| 400 | `usage.invalid` | Query text, limit, or semantic `retrievalMethod` violates the Engine/controller business contract. |
 | 503 | `embedding.*` | The local model is not loaded, busy, timed out, or failed. |
 | 503 | `semantic.index-not-ready` | Compatibility-only callers omitted the cache-backed automatic target route. |
-| 503 | `semantic.index-incompatible` | The index does not match the Store or fixed Profile. |
+| 503 | `semantic.index-incompatible` | The index does not match the Store or request-selected Profile. |
 | 500 | `semantic.index-failed` | SQLite/index data or candidate verification failed. |
-| 503 | `semantic.embedding-failed` | The query embedding violated the fixed Profile contract. |
+| 503 | `semantic.embedding-failed` | The query embedding violated the request-selected Profile contract. |
 | 503 | `query.unavailable` | The explicit keyword index is unavailable. |
 | 500 | `query.failed` | The explicit keyword index failed. |
 | 503 | `store.busy` | A stable Store snapshot could not be obtained. |

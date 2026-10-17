@@ -35,6 +35,8 @@ specifier 或 `--registry` 混用。
 
 安装也会启动 Pack 所需的 semantic index 工作。结果还会返回可直接读取的公开 `packRoot`，路径为 `packs/p-<pack-name>/current`；`indexSync` 为 `ready`、`pending` 或 `failed`，index 失败不会撤销 Pack 安装。Registry、source、Pack 校验、Store 与 `pack.update-required` 错误退出 `2`，恢复步骤见[故障排查](../troubleshooting)。
 
+安装成功后，`indexSync` 会读取当前 [`query.retrievalMethod`](../configuration#semantic-检索方法) 选择，无需重启 Backend。即使这项派生工作失败（包括方法配置非法），Pack 仍保持已安装；修正配置后运行 `lore index build`。
+
 Registry source 的结果包含 `registry` 和 `source: { type: "git" | "local-git", ref, commit }`；
 目录 source 的结果包含 `source: { type: "directory" }`，不包含 Registry、Git ref/commit 或输入
 路径。`pack install --path` 与其他 install 一样有 `indexSync`；`pack update --path` 保持现有

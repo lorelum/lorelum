@@ -47,9 +47,24 @@ lore --store-root /path/to/store query "how should I verify an authentication ch
 
 This option selects Pack data in the Store. It does not select the query cache, model, model cache, Backend address, or runtime directory.
 
+## Semantic retrieval method
+
+Semantic query uses `single-vector` by default. For one query, run `lore query "<text>" --mode multi-view-vector` (or `--mode single-vector`); it overrides the method setting without validating it or writing the file. The next ordinary query returns to the configured method. To make the experiment the default for subsequent queries and index commands, set:
+
+```yaml
+query:
+  retrievalMethod: multi-view-vector
+```
+
+`single-vector` compares one whole-document vector with one query vector. `multi-view-vector` uses multiple views of each Practice; it is experimental, not a promise of better rankings. Set `retrievalMethod: single-vector` or remove the field to return to the default. Only these two IDs are accepted; `simple` and `multi-view` are not aliases.
+
+The next semantic query, `index status`, `index build`, `index rebuild`, or post-install index synchronization reads the current selection. No Backend restart is needed. Each method has separate index and progress state; switching back can reuse compatible cached work. See [Index commands](./reference/indexing).
+
+An invalid value reports `query.config-invalid` for commands that read this setting; correct or remove the field. `--mode single-vector` and `--mode multi-view-vector` override this method value for one query, but do not bypass unrelated configuration errors; with `multi-view-vector` configured, `--mode single-vector` compares against the default for one query. `lore query "<text>" --mode keyword` remains offline and does not read or validate the semantic method. No separate method flag or environment variable is needed.
+
 ## Query cache and wait policy
 
-Derived query data is user-level and rebuildable. Its default root is `~/.lorelum/cache`; it never writes project `.lorelum/`, Git metadata, or LocalStore. Use `--cache-root <path>` to isolate one query, index, or cache command. Equivalent final Practice corpora reuse artifacts and embedding vectors regardless of directory, Git/worktree, branch, commit, or mtime.
+Derived query data is user-level and rebuildable. Its default root is `~/.lorelum/cache`; it never writes project `.lorelum/`, Git metadata, or LocalStore. Use `--cache-root <path>` to isolate one query, index, or cache command. Within a compatible retrieval method and model configuration, equivalent final Practice corpora reuse artifacts and embedding vectors regardless of directory, Git/worktree, branch, commit, or mtime.
 
 ```yaml
 query:

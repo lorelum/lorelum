@@ -81,3 +81,26 @@ test("preparing and indexing text cannot be mistaken for empty results", () => {
   expect(indexing).toContain("indexedPracticeCount: 2");
   expect(indexing).not.toContain("results:");
 });
+
+test("query text names the retrieval method only when it is not the default", () => {
+  const ready = { mode: "semantic", profileId: "p".repeat(64), coverage: "complete", results: [] };
+  expect(renderQueryDecisionText({ ...ready, retrievalMethod: "single-vector" })).not.toContain(
+    "retrievalMethod:",
+  );
+  expect(renderQueryDecisionText({ ...ready, retrievalMethod: "multi-view-vector" })).toContain(
+    "retrievalMethod: multi-view-vector",
+  );
+  const indexing = {
+    state: "indexing",
+    operationId: "opaque-id",
+    indexedPracticeCount: 0,
+    totalPracticeCount: 3,
+    message: "Retry shortly.",
+  };
+  expect(renderQueryDecisionText({ ...indexing, retrievalMethod: "single-vector" })).not.toContain(
+    "retrievalMethod:",
+  );
+  expect(renderQueryDecisionText({ ...indexing, retrievalMethod: "multi-view-vector" })).toContain(
+    "retrievalMethod: multi-view-vector",
+  );
+});

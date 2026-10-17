@@ -56,3 +56,25 @@ export function validateEmbeddingBatch(
     }),
   );
 }
+
+/**
+ * Embed inputs in order without exceeding the port's per-call limit. Every chunk is
+ * validated against the expected encoding before its vectors are returned, so the
+ * result has exactly one vector per input, in input order.
+ */
+export async function embedInBatches(
+  expected: EncodingContract,
+  port: EmbeddingPort,
+  inputs: readonly string[],
+): Promise<readonly Float32Array[]> {
+  if (!Number.isSafeInteger(port.maxBatchSize) || port.maxBatchSize < 1) {
+    throw new SemanticEmbeddingError("Embedding batch limit is invalid");
+  }
+  const vectors: Float32Array[] = [];
+  for (let start = 0; start < inputs.length; start += port.maxBatchSize) {
+    const batch = inputs.slice(start, start + port.maxBatchSize);
+    // eslint-disable-next-line no-await-in-loop -- the Backend runtime admits one batch at a time.
+    vectors.push(...validateEmbeddingBatch(expected, batch, await port.embed(batch)));
+  }
+  return Object.freeze(vectors);
+}

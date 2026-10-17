@@ -28,7 +28,7 @@ async function bundledInputs(entrypoints: string[]): Promise<string[]> {
 const engine = (path: string) => path.includes("packages/engine/src/");
 const elysia = (path: string) => path.includes("node_modules/elysia/");
 
-test("client/control/coordination exports exclude server dependencies; server build is the positive control", async () => {
+test("client/control/coordination import the pure method catalog without server or storage dependencies", async () => {
   // No external exclusions: follow the actual complete resolved dependency graph.
   const client = await bundledInputs([
     join(import.meta.dir, "index.ts"),
@@ -36,9 +36,18 @@ test("client/control/coordination exports exclude server dependencies; server bu
     join(import.meta.dir, "../coordination/index.ts"),
   ]);
   expect(client.some((path) => path.endsWith("client/client.ts"))).toBe(true);
-  expect(client.some(engine)).toBe(false);
+  expect(client.some((path) => path.endsWith("query/semantic/methods/catalog.ts"))).toBe(true);
+  for (const directory of [
+    "/local-store/",
+    "/query/artifacts/",
+    "/query/semantic/index/",
+    "/project-context/",
+  ]) {
+    expect(client.some((path) => engine(path) && path.includes(directory))).toBe(false);
+  }
   expect(client.some(elysia)).toBe(false);
   const server = await bundledInputs([join(import.meta.dir, "../app.ts")]);
   expect(server.some(engine)).toBe(true);
   expect(server.some(elysia)).toBe(true);
+  expect(server.some((path) => engine(path) && path.includes("/local-store/"))).toBe(true);
 });

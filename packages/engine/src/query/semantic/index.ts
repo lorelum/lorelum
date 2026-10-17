@@ -1,4 +1,23 @@
-export { createEmbeddingProfile } from "./profile";
+export { createVectorExecution } from "./profile";
+export {
+  resolveVectorRetrievalMethod,
+  VECTOR_RETRIEVAL_METHOD_IDS,
+  DEFAULT_VECTOR_RETRIEVAL_METHOD_ID,
+  isVectorRetrievalMethodId,
+} from "./methods/catalog";
+export type {
+  VectorRetrievalMethodId,
+  VectorMethodRecipe,
+  VectorRetrievalMethod,
+  VectorPracticeScorer,
+} from "./methods/types";
+export type {
+  EmbeddingInput,
+  PracticeVectorProjection,
+  DocumentVector,
+  QueryEmbeddingInput,
+  QueryVector,
+} from "./representation";
 export {
   SemanticEmbeddingError,
   SemanticIndexIncompatibleError,
@@ -12,7 +31,7 @@ export { createSemanticQueryService } from "./query-service";
 export { assembleSemanticArtifactResult, searchSemanticArtifact } from "./read";
 export { SEMANTIC_INDEX_VERSION } from "./index/metadata";
 export type { EmbeddingBatch, EmbeddingPort, EncodingContract } from "./encoding";
-export type { EmbeddingProfile } from "./profile";
+export type { EmbeddingProfile, VectorExecution } from "./profile";
 export type {
   SemanticQueryDependencies,
   SemanticQueryResult,

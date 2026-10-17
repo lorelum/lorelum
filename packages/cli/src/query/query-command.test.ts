@@ -21,6 +21,7 @@ import { protocolResponseSchema } from "../output/protocol.js";
 import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
 import { CliError } from "../runtime/errors.js";
 import { createQueryCommand, type QueryCommandServices } from "./query-command.js";
+import { DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS } from "./settings.js";
 
 const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
   runCli(["--json", ...arguments_], options);
@@ -52,6 +53,8 @@ async function invoke(
         results: [],
       }),
     }) as Pick<BackendClient, "query">,
+  loadSemanticSettings: QueryCommandServices["loadSemanticSettings"] = async () =>
+    DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS,
 ) {
   const stdout = {
     value: "",
@@ -69,6 +72,7 @@ async function invoke(
     queryService,
     createClient,
     storageRoot: { rootPath: "unused-default" },
+    loadSemanticSettings,
   });
   const exitCode = await run(["--json", ...args], {
     registry: snapshotCommandDefinitions([definition]),
@@ -186,6 +190,7 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
       text: "How do I verify a release?",
       limit: 7,
       mode: "semantic",
+      retrievalMethod: "single-vector",
       maxWaitMs: 3_000,
       minCoveragePercent: 0,
       projectContext: {
@@ -194,7 +199,7 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
       },
     },
   });
-  expect(result.response.data).toEqual(semantic);
+  expect(result.response.data).toEqual({ ...semantic, retrievalMethod: "single-vector" });
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
@@ -302,29 +307,34 @@ test("requires complete coverage without cancelling the accepted semantic operat
   expect(result.exitCode).toBe(1);
   expect(result.response.data).toMatchObject({
     state: "indexing",
+    retrievalMethod: "single-vector",
     indexedPracticeCount: 50,
     totalPracticeCount: 100,
   });
+  expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
-test("rejects an invalid mode before creating the Backend client", async () => {
-  let created = false;
-  const result = await invoke(
-    ["query", "text", "--mode", "hybrid"],
-    {
-      async query() {
-        return queryResult;
+test.each(["hybrid", "multi-view", "simple", ""])(
+  "rejects invalid mode %s before creating the Backend client",
+  async (mode) => {
+    let created = false;
+    const result = await invoke(
+      ["query", "text", "--mode", mode],
+      {
+        async query() {
+          return queryResult;
+        },
       },
-    },
-    async () => {
-      created = true;
-      throw new Error("must not connect");
-    },
-  );
-  expect(created).toBe(false);
-  expect(result.exitCode).toBe(2);
-  expect(result.response.error.code).toBe("usage.invalid");
-});
+      async () => {
+        created = true;
+        throw new Error("must not connect");
+      },
+    );
+    expect(created).toBe(false);
+    expect(result.exitCode).toBe(2);
+    expect(result.response.error.code).toBe("usage.invalid");
+  },
+);
 
 test("delegates query-domain validation to Engine before Store I/O", async () => {
   let reads = 0;
@@ -458,7 +468,128 @@ test("publishes query arguments, schema, error allowlist, and exit codes through
     expect.objectContaining({
       name: "--mode <mode>",
       defaultValue: "semantic",
-      values: ["semantic", "keyword"],
+      values: ["semantic", "keyword", "single-vector", "multi-view-vector"],
     }),
   );
+});
+
+test("semantic calls select the current method without recreating the client", async () => {
+  let retrievalMethod: "single-vector" | "multi-view-vector" = "multi-view-vector";
+  const requests: unknown[] = [];
+  const definition = createQueryCommand({
+    storageRoot: { rootPath: "/isolated" },
+    queryService: {
+      query: async () => {
+        throw new Error("semantic must not use keyword");
+      },
+    },
+    loadSemanticSettings: async () => ({ retrievalMethod }),
+    createClient: async () => ({
+      query: async (_root, request) => {
+        requests.push(request);
+        return { mode: "semantic", profileId: "p".repeat(64), coverage: "complete", results: [] };
+      },
+    }),
+  });
+  const registry = snapshotCommandDefinitions([definition]);
+  const stdout = { write: () => undefined };
+  expect(await run(["query", "first"], { registry, stdout })).toBe(0);
+  retrievalMethod = "single-vector";
+  expect(await run(["query", "second"], { registry, stdout })).toBe(0);
+  expect(requests).toMatchObject([
+    { retrievalMethod: "multi-view-vector", maxWaitMs: 3000, minCoveragePercent: 0 },
+    { retrievalMethod: "single-vector", maxWaitMs: 3000, minCoveragePercent: 0 },
+  ]);
+});
+
+test("invalid semantic methods fail before Backend connection but keyword ignores them", async () => {
+  let settingsCalls = 0;
+  const loadSemanticSettings = async (): Promise<never> => {
+    settingsCalls += 1;
+    throw new CliError("query.config-invalid", "Fix query.retrievalMethod.");
+  };
+  const createClient = async (): Promise<never> => {
+    throw new Error("must not connect");
+  };
+  const semantic = await invoke(
+    ["query", "valid text"],
+    { query: async () => queryResult },
+    createClient,
+    loadSemanticSettings,
+  );
+  expect(semantic.response.error.code).toBe("query.config-invalid");
+  expect(settingsCalls).toBe(1);
+  const keyword = await invoke(
+    ["query", "valid text", "--mode", "keyword"],
+    { query: async () => queryResult },
+    createClient,
+    loadSemanticSettings,
+  );
+  expect(keyword.exitCode).toBe(0);
+  expect(settingsCalls).toBe(1);
+});
+
+test("query input validation retains priority over semantic configuration", async () => {
+  const result = await invoke(
+    ["query", "valid text", "--top-k", "invalid"],
+    { query: async () => queryResult },
+    async () => {
+      throw new Error("invalid input must not connect");
+    },
+    async () => {
+      throw new Error("invalid input must not read method settings");
+    },
+  );
+  expect(result.exitCode).toBe(2);
+  expect(result.response.error.code).toBe("usage.invalid");
+});
+
+test.each(["single-vector", "multi-view-vector"] as const)(
+  "--mode %s overrides invalid method settings only for this invocation",
+  async (mode) => {
+    const loadSemanticSettings = async (): Promise<never> => {
+      throw new CliError("query.config-invalid", "Fix query.retrievalMethod.");
+    };
+    const requests: unknown[] = [];
+    const createClient: QueryCommandServices["createClient"] = async () => ({
+      query: async (_root, request) => {
+        requests.push(request);
+        return { mode: "semantic", profileId: "p".repeat(64), coverage: "complete", results: [] };
+      },
+    });
+    const temporary = await invoke(
+      ["query", "valid text", "--mode", mode],
+      { query: async () => queryResult },
+      createClient,
+      loadSemanticSettings,
+    );
+    expect(temporary.exitCode).toBe(0);
+    expect(requests).toMatchObject([{ mode: "semantic", retrievalMethod: mode }]);
+    expect(temporary.response.data).toMatchObject({ mode: "semantic", retrievalMethod: mode });
+
+    const ordinary = await invoke(
+      ["query", "valid text"],
+      { query: async () => queryResult },
+      createClient,
+      loadSemanticSettings,
+    );
+    expect(ordinary.exitCode).toBe(2);
+    expect(ordinary.response.error.code).toBe("query.config-invalid");
+    expect(requests).toHaveLength(1);
+  },
+);
+
+test("experimental mode retains query input validation before settings and Backend failures", async () => {
+  const result = await invoke(
+    ["query", "valid text", "--mode", "multi-view-vector", "--top-k", "invalid"],
+    { query: async () => queryResult },
+    async () => {
+      throw new Error("invalid input must not connect");
+    },
+    async () => {
+      throw new Error("invalid input must not read method settings");
+    },
+  );
+  expect(result.exitCode).toBe(2);
+  expect(result.response.error.code).toBe("usage.invalid");
 });

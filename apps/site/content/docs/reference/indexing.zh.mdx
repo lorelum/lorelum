@@ -14,9 +14,15 @@ lore index rebuild
 lore index operation <operation-id>
 ```
 
+## 检索方法
+
+Index status、build 和 rebuild 使用当前 [`query.retrievalMethod` 配置](../configuration#semantic-检索方法)：默认 `single-vector`，或显式选择 `multi-view-vector`（实验）。每次命令都会重新读取选择，即使 Backend 是同一个运行中的实例；修改后无需重启。非法值返回 `query.config-invalid`，修正或删除该字段即可。旧的 `simple` 和 `multi-view` ID 不是别名。
+
+Status 只报告当前方法的 artifact 与 progress，不显示另一种方法的工作。因此，即使之前的方法已 `ready`，切换后也可能显示 `missing` 或 `indexing`。各方法保留独立的缓存工作，切回时可复用兼容的 artifact。切换前已接受的 operation ID 仍指向原方法的工作。
+
 ## 构建与重建
 
-`build` 复用兼容 artifact 与 `(profileId, projectionDigest)` vector，必要时启动 Backend 并准备模型。如果 complete artifact 已覆盖 current context，可以直接返回。相同最终语料会 join 同一 operation；不同 target 排队而不是返回 `backend.busy`。
+`build` 复用当前方法的兼容 artifact 与缓存 vector，必要时启动 Backend 并准备模型。如果 complete artifact 已覆盖 current context，可以直接返回。同一方法下相同最终语料会 join 同一 operation；不同 target 排队而不是返回 `backend.busy`。
 
 `rebuild` 完整构建替换版本。Lorelum 报告 index 不兼容时使用它。
 

@@ -17,6 +17,11 @@ import { protocolResponseSchema, type OutputWriter } from "../output/protocol";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper";
 import { snapshotCommandDefinitions } from "../registry";
 import { createIndexCommands } from "./index-commands";
+import {
+  DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS,
+  type SemanticRetrievalSettings,
+} from "../query/settings";
+import { CliError } from "../runtime/errors";
 
 const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
   runCli(["--json", ...arguments_], options);
@@ -111,6 +116,7 @@ async function invoke(
   services: {
     readonly backend?: BackendClient;
     readonly runtime?: IndexRuntimeClient;
+    readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
   } = {},
 ) {
   const stdout = new MemoryWriter();
@@ -123,6 +129,8 @@ async function invoke(
           throw new Error("unexpected runtime client");
         }),
       storageRoot: { rootPath: "/default" },
+      loadSemanticSettings:
+        services.loadSemanticSettings ?? (async () => DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS),
     }),
   );
   const exitCode = await run(arguments_, { registry: definitions, stdout });
@@ -183,6 +191,7 @@ test("index commands defer automatic ProjectContext resolution to Backend and fo
       "build",
       { rootPath: resolve("/isolated") },
       {
+        retrievalMethod: "single-vector",
         projectContext: {
           cacheRoot: resolve("/cache"),
           startDirectory: process.cwd(),
@@ -308,4 +317,77 @@ test("index status preserves Store availability failures from the Backend bounda
     code: "store.busy",
     message: "The local Pack store is busy.",
   });
+});
+
+test("status, build and rebuild read the selected method for every invocation", async () => {
+  let retrievalMethod: SemanticRetrievalSettings["retrievalMethod"] = "multi-view-vector";
+  const calls: unknown[] = [];
+  const operation: IndexOperation = { operationId: crypto.randomUUID(), state: "queued" };
+  const definitions = snapshotCommandDefinitions(
+    createIndexCommands({
+      storageRoot: { rootPath: "/isolated" },
+      loadSemanticSettings: async () => ({ retrievalMethod }),
+      createClient: async () => ({
+        ...backend(),
+        indexStatus: async (_root, options) => {
+          calls.push(["status", options?.retrievalMethod]);
+          return { state: "missing", profileId };
+        },
+      }),
+      createRuntimeClient: async () => ({
+        build: async (_root, options) => {
+          calls.push(["build", options?.retrievalMethod]);
+          return operation;
+        },
+        rebuild: async (_root, options) => {
+          calls.push(["rebuild", options?.retrievalMethod]);
+          return operation;
+        },
+      }),
+    }),
+  );
+  const stdout = new MemoryWriter();
+  expect(await run(["index", "status"], { registry: definitions, stdout })).toBe(0);
+  expect(await run(["index", "build"], { registry: definitions, stdout })).toBe(0);
+  retrievalMethod = "single-vector";
+  expect(await run(["index", "rebuild"], { registry: definitions, stdout })).toBe(0);
+  expect(calls).toEqual([
+    ["status", "multi-view-vector"],
+    ["build", "multi-view-vector"],
+    ["rebuild", "single-vector"],
+  ]);
+});
+
+test.each(["status", "build", "rebuild"])(
+  "index %s rejects invalid methods before connecting",
+  async (command) => {
+    const result = await invoke(["index", command], {
+      loadSemanticSettings: async () => {
+        throw new CliError("query.config-invalid", "Fix query.retrievalMethod.");
+      },
+      backend: backend(async () => {
+        throw new Error("must not connect");
+      }),
+      runtime: runtime(async () => {
+        throw new Error("must not build");
+      }),
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.response.error.code).toBe("query.config-invalid");
+  },
+);
+
+test("operation lookup does not read a subsequently invalid method configuration", async () => {
+  const operationId = crypto.randomUUID();
+  const result = await invoke(["index", "operation", operationId], {
+    loadSemanticSettings: async () => {
+      throw new Error("operation identity is already fixed");
+    },
+    backend: {
+      ...backend(),
+      indexOperation: async () => ({ operationId, state: "building" }),
+    },
+  });
+  expect(result.exitCode).toBe(0);
+  expect(result.response.data).toEqual({ operationId, state: "building" });
 });

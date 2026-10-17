@@ -52,3 +52,33 @@
 - `403`：请求带 `Origin`。stop 可重复请求，返回 stopping；它不使用模型/查询接口的 busy 准入规则。
 
 所有控制接口的错误都使用 [统一错误 envelope](README.md)。模型专属状态和错误见 [Embedding API](embedding.md)。
+
+## Semantic index
+
+这些接口与 [Query API](query.md) 共用 canonical context、方法选择和 Profile 隔离规则，不读取 CLI YAML。`retrievalMethod` 只接受 `single-vector` 或实验性的 `multi-view-vector`，省略时默认 `single-vector`；非法方法由 controller 返回 `400` / `usage.invalid`，其他 JSON、未知字段或 wire shape 错误仍为 `backend.invalid-request`。
+
+| 接口 | 请求位置与字段 | 成功响应 |
+| --- | --- | --- |
+| `GET /internal/v1/index/status` | query string：必填绝对路径 `storageRoot`；可选 `retrievalMethod`、`cacheRoot`、`projectRoot`、`projectStartDirectory` | `200`，当前请求 Profile 的 index status |
+| `POST /internal/v1/index/build` | JSON：必填 `storageRoot`；可选顶层 `retrievalMethod`、`cacheRoot` 或 `projectContext` | `202`，已接受或加入的 operation |
+| `POST /internal/v1/index/rebuild` | 与 build 相同 | `202`，强制完整构建的 operation |
+| `GET /internal/v1/index/operations/:operationId` | 路径中的 UUID；不传当前方法或 context | `200`，该 operation；记录不存在时 `410` / `backend.operation-expired` |
+
+所有路径字段必须为绝对路径。mutation 的 `projectContext` 是 `{ cacheRoot, startDirectory?, projectRoot? }`，至少提供一个 source directory，并与顶层 `cacheRoot` 互斥。status 将同一 context 展平为 `projectRoot` / `projectStartDirectory` / `cacheRoot`；指定 project source 时必须提供 `cacheRoot`。Store-only 省略 cache route 时使用默认用户 cache，不回退 Store-local semantic index。
+
+例如 build 的请求体：
+
+```json
+{
+  "storageRoot": "/absolute/path/to/isolated-store",
+  "retrievalMethod": "multi-view-vector",
+  "projectContext": {
+    "startDirectory": "/absolute/path/to/project",
+    "cacheRoot": "/absolute/path/to/user-cache"
+  }
+}
+```
+
+Backend client 的 `BackendIndexRequestOptions` 在共享 `BackendRequestOptions`（`signal`、`deadline`、`traceId`、`diagnosticLevel`）上增加 `retrievalMethod`、`cacheRoot`、`projectContext`；共享字段是请求控制/诊断 context，不是 JSON body 字段。`BackendQueryRequest` 则把方法放在 query 对象中。调用者应使用同一请求 context 传递取消、deadline 和诊断关联，不应为方法新增 daemon 设置。
+
+operation lookup 只观察原 operation；后来的方法选择不会改绑其 encoding、method recipe、Profile 或 artifact。CLI 状态及 operation 生命周期的解释见 [index maintainer contract](../cli/index.md)，持久化字段见 [persistence guide](../development/persistence.md#semantic-encoding-input-schema)。

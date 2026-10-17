@@ -2,7 +2,7 @@
 
 此页面向维护者，说明全局配置包、初始化和 runtime 目录的实现边界。用户应在[配置指南](https://lorelum.com/zh/docs/configuration)查看可编辑字段、环境变量和恢复步骤；不要在本目录复制这些用户说明。
 
-Lorelum 使用共享的 `~/.lorelum/config.yaml`。每个模块只读取自己负责的顶层 section；backend 在启动控制端只读取一次并把结果作为不可变快照传入 daemon。修改配置后重启 backend 才生效。
+Lorelum 使用共享的 `~/.lorelum/config.yaml`。每个模块只读取自己负责的顶层 section；backend/embedding 在启动控制端只读取一次并把结果作为不可变快照传入 daemon，这两部分修改后需要重启 Backend。CLI 消费的 `query` 设置不是 daemon 快照，每次相关命令重新读取。
 
 Agent 共用的 `agent` section 由 CLI 在宿主 Hook 或 extension bridge 调用时读取，不需要重启 Backend。各消费方独立校验自己负责的字段：`shellSessionInjection` 用于支持 shell 会话身份关联的 adapter，`subagentPackCatalog` 仅由 omp 的 Catalog bridge 读取，其他宿主不受后者影响。CLI 不修改现有用户文件，集成边界见 [Host Hooks 与 omp extension bridge](../cli/hook.md)，配置用法见[用户配置指南](https://lorelum.com/zh/docs/configuration)。
 
@@ -17,17 +17,22 @@ Backend 配置优先级是：默认值 → YAML section → 允许的环境变�
 
 - [Embedding 配置实现](embedding.md)：模型路径、缓存、下载和 CPU 参数的运行时边界。
 
-## Query 前台预算
+## Query 方法与前台预算
 
-semantic query 的等待和 partial coverage 策略属于用户级 `query` section：
+semantic query 的方法选择、等待和 partial coverage 策略属于用户级 `query` section：
 
 ```yaml
 query:
+  retrievalMethod: single-vector
   maxWaitMs: 3000
   minCoveragePercent: 0
 ```
 
 `maxWaitMs` 是 `0` 到 `120000` 的整数毫秒；Backend 接受 query 后，它只限制当前命令观察 model preparation 和 index progress 的时间，operation 会在后台继续。它不是本地 Backend 启动、连接或 RPC 的 deadline，因此 `0` 表示不额外等待 progress，仍会安全提交或加入 operation，并返回 ready、`preparing` 或 `indexing`。`minCoveragePercent` 是 `0` 到 `100` 的整数百分比；只要已验证 current progress 达到该值，query 就可以返回带 `coverage: "partial"` 和完成/总数的成功结果。`--max-wait-ms`、`--min-coverage-percent` 覆盖一次命令，`--require-complete` 等价于 `100`，且不能与后者同时使用。
+
+`retrievalMethod` 只接受 `single-vector`（默认）和 `multi-view-vector`（实验）；`simple`、`multi-view` 等旧名称不是 alias。普通 semantic query、`index status/build/rebuild` 和 Pack 安装后的 `indexSync` 各自在调用时读取该值并随请求传递，因此同一 daemon 可处理不同方法，不必重启。query 的 `--mode single-vector` 与 `--mode multi-view-vector` 仅为本次覆盖方法选择，跳过被覆盖的方法校验，不写配置，不影响后续命令；CLI 将其组装为 Backend 的 `mode: semantic` 与对应的 `retrievalMethod`，并在 semantic 结果 data 中报告实际使用的 `retrievalMethod`。等待/coverage 仍由原 loader 校验；不增加独立方法 flag 或环境变量。`index operation <id>` 不读取当前方法配置，仍观察已接受 operation 的原目标。非法方法配置在消费边界映射为 `query.config-invalid`；Pack canonical commit 已成功时，同步失败只进入 `indexSync.failed`，不回滚安装。离线 keyword 路径不消费或校验 semantic 方法值。
+
+Backend HTTP 调用方必须自行选择请求方法；省略时使用 `single-vector`，不会读取 CLI YAML。具体 wire 位置见 [Query API](../api/query.md) 和 [index adapter](../api/backend.md#semantic-index)。方法名称与默认值的纯 catalog 由 `@lorelum/engine/vector-methods` 提供；配置 loader 不应为校验字符串加载 Engine persistence 或运行时实现。
 
 配置文件和模型缓存独立于 LocalStore；`--store-root` 不改变它们。
 
@@ -68,7 +73,7 @@ catalog 不等价于“没有 catalog”，因此 CLI 不会静默切回 `offici
         └── semantic/<artifact-id>/{progress.sqlite,active.sqlite}
 ```
 
-artifact ID 只来自 index 版本、Profile（semantic）和当前 active `(practiceId, contentDigest, projectionDigest)` 清单；不会包含 Git、worktree、项目路径、branch、commit、mtime、Store path 或 source provenance。`projectRootId` 仅用于把同一目录的连续编辑合并成最新 background target，不参与 artifact ID。
+canonical corpus v2 只由排序后的 active `(practiceId, contentDigest)` 清单决定，与检索方法无关；semantic artifact ID 由版本化的 artifact namespace、本次方法对应的 Profile 和 corpus digest 生成，index 格式另行校验。Profile 包含 encoding、method ID 及 document/query/scoring recipe 版本，所以两种方法的 artifact、progress 与 shared-vector cache 不互相冒充。身份不包含 Git、worktree、项目路径、branch、commit、mtime、Store path 或 source provenance。`projectRootId` 仅用于把同一目录、同一 Profile/cache scope 的连续编辑合并成最新 background target，不参与 artifact ID。
 
 运行 `lore cache status` 可以查看 artifact、progress、共享 vector 和字节数；运行 `lore cache prune` 会显式清理未被 query/build 使用的派生数据。清理不改 `.lorelum`、Git metadata 或 LocalStore；下次 ProjectContext query 会从当前 canonical source 重建需要的部分。若某个 artifact 正在构建或被 partial query 读取，清理会跳过它而不是中断用户操作。
 

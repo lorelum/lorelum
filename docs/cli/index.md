@@ -8,6 +8,8 @@
 
 模型与 Backend 是用户级资源，derived artifact 也位于用户级 cache。`--store-root` 只选择 Store 基础语料；`--cache-root` 只选择派生 cache；两者都不会切换模型、模型缓存或 Backend 地址。`--project-root` 选择包含 `.lorelum/` 的普通目录，`--no-project` 强制 Store-only。
 
+方法由 CLI 每次执行 `status/build/rebuild` 时读取的 `query.retrievalMethod` 选择：默认 `single-vector`，显式 `multi-view-vector` 为实验方法。它不是 daemon 固定 Profile，也没有新 flag/envvar；修改方法后下一次命令即可使用同一 Backend，不必重启。两种方法分别管理自己的 Profile/artifact/progress/cache，切换不替换另一方法的目标或把它报告为当前 ready。配置维护边界见 [Query 方法与前台预算](../configuration/README.md#query-方法与前台预算)。
+
 ## 使用顺序
 
 第一次使用不需要手动准备模型：
@@ -35,6 +37,8 @@ lore --store-root /path/to/store index operation <operation-id>
 
 `index operation` 只读取指定 operation，不会启动 Backend。daemon restart 后未完成 target 保留进度并进入 `waiting-for-source`；下一次同一 Store 或同一 `projectRootId` 的 query/build/rebuild 会 reattach 当前 source 并继续。已确认失败的 operation 保留稳定错误码并以 exit code `2` 返回；它不会再被表示为 `queued`、`preparing` 或 `building`。journal 不保存项目绝对路径、Practice 正文或私有异常信息。
 
+`index operation <operation-id>` 不读取当前 `query.retrievalMethod`，也不把 operation 改绑到新方法。已接受的 operation 继续使用其原 VectorExecution（encoding 与 method recipe）、Profile 和 artifact target；后续方法切换只影响新的 status/build/rebuild/query。
+
 ## 状态
 
 `lore index status` 不调用模型，只读取当前 query context 的 complete artifact 和 progress metadata：
@@ -42,7 +46,7 @@ lore --store-root /path/to/store index operation <operation-id>
 | `state` | 含义 |
 | --- | --- |
 | `missing` | 还没有这个 Profile 的 semantic index。 |
-| `ready` | complete artifact 与当前 query context 和固定 Profile 一致。 |
+| `ready` | complete artifact 与当前 query context 和本次请求方法的 Profile 一致。 |
 | `indexing` | current target 已有可验证 progress；data 包含 operation ID 与已完成/总 Practice counts。 |
 | `stale` | 未受 operation 管理的旧 progress 或 source 已变；执行 `index build` 同步，必要时才用 `index rebuild` 强制完整重建。 |
 | `incompatible` | index 格式、Profile 或完整性不再兼容；执行 `index rebuild`。 |
@@ -52,12 +56,12 @@ lore --store-root /path/to/store index operation <operation-id>
 ```json
 {
   "state": "ready",
-  "profileId": "<固定 Profile 的内部身份>",
+  "profileId": "<本次请求方法对应的 Profile 内部身份>",
   "vectorCount": 42
 }
 ```
 
-`profileId` 是 Engine 根据模型编码身份、向量维度和投影规则计算的 index 身份，不是 v1 的用户选择项。`vectorCount` 表示已写入 index 的 Practice 向量数；缺少或无法读取 index 时可以省略。
+`profileId` 由 Engine 根据 encoding 身份、向量维度、method ID、document/query/scoring recipe 版本及 normalization 计算，不是可由用户任意填写的配置项。`vectorCount` 在当前 cache-backed status 中表示已完成索引的 Practice 数，不应作为多视角方法实际 encoding-input 行数；缺少或无法读取 index 时可以省略。
 
 ## 数据与恢复
 
@@ -71,7 +75,7 @@ semantic artifact、progress 和 shared vector 都是可删除重建的用户级
     └── artifacts/semantic/<artifact-id>/{progress.sqlite,active.sqlite}
 ```
 
-canonical Practice 仍在 LocalStore 或项目 layer source；artifact 不是正文事实来源。每个 target 以有序 active `(practiceId, contentDigest, projectionDigest)` 清单和 Profile 识别，不包含 Git、worktree、路径、branch、commit 或 mtime。每个 batch 事务发布 queryable progress；complete artifact 通过 manifest、row count、vector contract 与 integrity 后原子替换 active。构建期间 source 变化、模型报错或进程退出时，不会把不完整结果标记为 ready，原来的 active artifact 也会保留。`lore cache status` 查看 cache，`lore cache prune` 显式删除未被 build/query lease 使用的派生状态；它们不修改项目 source 或 LocalStore。
+canonical Practice 仍在 LocalStore 或项目 layer source；artifact 不是正文事实来源。canonical corpus v2 以排序后的 active `(practiceId, contentDigest)` 清单识别，不掺入方法投影；semantic artifact ID 再绑定版本化的 artifact namespace 与本次请求 Profile，index 格式另行校验。身份不包含 Git、worktree、路径、branch、commit 或 mtime。每个 batch 事务发布 queryable progress；complete artifact 通过 manifest、row count、vector contract 与 integrity 后原子替换 active。构建期间 source 变化、模型报错或进程退出时，不会把不完整结果标记为 ready，原来的 active artifact 也会保留。`lore cache status` 查看 cache，`lore cache prune` 显式删除未被 build/query lease 使用的派生状态；它们不修改项目 source 或 LocalStore。encoding-input 行、schema version 与迁移规则见 [persistence guide](../development/persistence.md#semantic-encoding-input-schema)。
 
 ## 常见错误
 
@@ -79,6 +83,7 @@ canonical Practice 仍在 LocalStore 或项目 layer source；artifact 不是正
 
 | Code | 含义和处理 |
 | --- | --- |
+| `query.config-invalid` | 本次 status/build/rebuild 读取的方法配置非法；修正 `query.retrievalMethod`。operation lookup 不读取当前方法配置。 |
 | `backend.*` | 自动启动未能安全完成，或 Backend 在操作中断开；检查 `lore backend ...`。 |
 | `backend.operation-expired` | 找不到该 operation 的持久记录；查看 `index status` 后按当前 context 再次 build。未完成且保留记录的 operation 重启后会显示为 `waiting-for-source`，并在下次同一 source command 时 reattach。 |
 | `embedding.*` | 自动准备被禁用、失败或无法继续；已确认失败的 operation 会保留该码。查看 `lore model status`，修复后用 `lore model load` 重试。 |
@@ -88,6 +93,6 @@ canonical Practice 仍在 LocalStore 或项目 layer source；artifact 不是正
 
 ## Pack 安装后的同步
 
-`lore pack install` 在 canonical Pack commit 成功后，会对同一个 `--store-root` 提交普通 `index build`。在短观察期内 ready 时，`indexSync.state` 为 `ready`；下载或索引仍在继续时，它为 `pending`，并携带 operation ID 和 phase。它会复用 Engine 的 no-op 或增量规则，不会强制 rebuild。
+`lore pack install` 在 canonical Pack commit 成功后，会对同一个 `--store-root` 提交普通 `index build`，同步时重新读取当前 `query.retrievalMethod`。在短观察期内 ready 时，`indexSync.state` 为 `ready`；下载或索引仍在继续时，它为 `pending`，并携带 operation ID 和 phase。它会复用所选方法的 no-op 或增量规则，不会强制 rebuild。
 
 若 Backend 启动失败、自动下载失败或 index 发布失败，Pack 仍已安装，`pack install` 仍返回 `ok: true`，但 `data.indexSync.state` 是 `failed` 并给出稳定错误码和恢复提示。调用方依赖 semantic query 时必须检查 `ready`/`pending`/`failed`；显式 `index build` 可以在资源恢复后重试。持久的非终态 operation 在 daemon restart 后保留已验证 progress；ProjectContext 下会等待下一次同 source query/build/rebuild 安全 reattach，不会扫描或记录项目绝对路径。

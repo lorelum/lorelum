@@ -3,46 +3,52 @@ import {
   type EffectivePractice,
   type RevisionDelta,
 } from "../../../local-store/model";
-import { projectSemanticPractice, type SemanticDocument } from "../projection";
+import type { VectorRetrievalMethod } from "../methods/types";
+import type { EmbeddingInput, PracticeVectorProjection } from "../representation";
 
 export interface ReusableSemanticVector {
-  readonly projectionDigest: string;
-  readonly vector: Float32Array;
+  readonly inputKey: string;
+  readonly inputDigest: string;
+  readonly embedding: Float32Array;
 }
 
 export interface IncrementalSemanticIndexPlan {
-  /** Delete all rows touched by the revision interval before inserting final rows. */
+  /** Replace each touched Practice's entire input set atomically. */
   readonly removedPracticeIds: readonly string[];
-  /** Final canonical documents that need a row in the updated index. */
-  readonly documents: readonly SemanticDocument[];
-  /** Only these documents require a new embedding request. */
-  readonly documentsToEmbed: readonly SemanticDocument[];
-  /** Valid unchanged vectors keyed by final Practice ID. */
+  readonly documents: readonly PracticeVectorProjection[];
+  readonly inputsToEmbed: readonly EmbeddingInput[];
+  /** Embeddings keyed by input digest, never by an address shared across Practices. */
   readonly reusableVectors: ReadonlyMap<string, Float32Array>;
 }
 
-/** Collapse one or more Store revisions to their final document-level index work. */
+/** Collapse retained Store revisions to their final method-bound projection work. */
 export function planIncrementalSemanticIndex(
   deltas: readonly RevisionDelta[],
   practices: readonly EffectivePractice[],
-  reusable: (practiceId: string) => ReusableSemanticVector | undefined,
+  reusable: (practiceId: string) => readonly ReusableSemanticVector[] | undefined,
+  method: VectorRetrievalMethod,
 ): IncrementalSemanticIndexPlan {
   const removedPracticeIds = Object.freeze([...revisionDeltaPracticeIds(deltas, true)].sort());
-  const documents = Object.freeze(practices.map(projectSemanticPractice));
+  const documents = Object.freeze(practices.map((practice) => method.projectDocument(practice)));
   const reusableVectors = new Map<string, Float32Array>();
-  const documentsToEmbed: SemanticDocument[] = [];
+  const inputsToEmbed: EmbeddingInput[] = [];
   for (const document of documents) {
-    const prior = reusable(document.practiceId);
-    if (prior?.projectionDigest === document.projectionDigest) {
-      reusableVectors.set(document.practiceId, prior.vector);
-    } else {
-      documentsToEmbed.push(document);
+    const priorByKey = new Map(
+      (reusable(document.practiceId) ?? []).map((item) => [item.inputKey, item] as const),
+    );
+    for (const input of document.inputs) {
+      const prior = priorByKey.get(input.inputKey);
+      if (prior?.inputDigest === input.inputDigest) {
+        reusableVectors.set(input.inputDigest, prior.embedding);
+      } else {
+        inputsToEmbed.push(input);
+      }
     }
   }
   return Object.freeze({
     removedPracticeIds,
     documents,
-    documentsToEmbed: Object.freeze(documentsToEmbed),
+    inputsToEmbed: Object.freeze(inputsToEmbed),
     reusableVectors,
   });
 }
