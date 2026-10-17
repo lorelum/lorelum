@@ -8,15 +8,12 @@ import type { BackendRuntimeCoordinator, RuntimeWaitOptions } from "./coordinato
 
 const OBSERVATION_MS = 1_000;
 
+type IndexRuntimeRequestOptions = RuntimeWaitOptions &
+  Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot" | "retrievalMethod">;
+
 export interface IndexRuntimeClient {
-  build(
-    root: StorageRoot,
-    options?: RuntimeWaitOptions & Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot">,
-  ): Promise<IndexOperation>;
-  rebuild(
-    root: StorageRoot,
-    options?: RuntimeWaitOptions & Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot">,
-  ): Promise<IndexOperation>;
+  build(root: StorageRoot, options?: IndexRuntimeRequestOptions): Promise<IndexOperation>;
+  rebuild(root: StorageRoot, options?: IndexRuntimeRequestOptions): Promise<IndexOperation>;
 }
 
 type IndexOperationKind = "build" | "rebuild";
@@ -99,42 +96,32 @@ export function createIndexRuntimeClient(
   async function run(
     kind: IndexOperationKind,
     root: StorageRoot,
-    options: RuntimeWaitOptions & Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot">,
+    options: IndexRuntimeRequestOptions,
   ): Promise<IndexOperation> {
     const client = await coordinator.connect(options);
+    const requestOptions: BackendIndexRequestOptions = {
+      signal: options.signal,
+      deadline: options.deadline,
+      ...(options.retrievalMethod === undefined
+        ? {}
+        : { retrievalMethod: options.retrievalMethod }),
+      ...(options.projectContext === undefined
+        ? options.cacheRoot === undefined
+          ? {}
+          : { cacheRoot: options.cacheRoot }
+        : { projectContext: options.projectContext }),
+    };
     const initial =
       kind === "build"
-        ? await client.buildIndex(root, {
-            signal: options.signal,
-            deadline: options.deadline,
-            ...(options.projectContext === undefined
-              ? options.cacheRoot === undefined
-                ? {}
-                : { cacheRoot: options.cacheRoot }
-              : { projectContext: options.projectContext }),
-          })
-        : await client.rebuildIndex(root, {
-            signal: options.signal,
-            deadline: options.deadline,
-            ...(options.projectContext === undefined
-              ? options.cacheRoot === undefined
-                ? {}
-                : { cacheRoot: options.cacheRoot }
-              : { projectContext: options.projectContext }),
-          });
+        ? await client.buildIndex(root, requestOptions)
+        : await client.rebuildIndex(root, requestOptions);
     return observe(client, initial, options);
   }
 
   return Object.freeze({
-    build: (
-      root: StorageRoot,
-      options: RuntimeWaitOptions &
-        Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot"> = defaults,
-    ) => run("build", root, options),
-    rebuild: (
-      root: StorageRoot,
-      options: RuntimeWaitOptions &
-        Pick<BackendIndexRequestOptions, "projectContext" | "cacheRoot"> = defaults,
-    ) => run("rebuild", root, options),
+    build: (root: StorageRoot, options: IndexRuntimeRequestOptions = defaults) =>
+      run("build", root, options),
+    rebuild: (root: StorageRoot, options: IndexRuntimeRequestOptions = defaults) =>
+      run("rebuild", root, options),
   });
 }

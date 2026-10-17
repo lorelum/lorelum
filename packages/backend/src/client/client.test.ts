@@ -771,3 +771,54 @@ test("preserves semantic index errors through the client boundary", async () => 
     client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "meaning" }),
   ).rejects.toMatchObject({ code: "semantic.index-not-ready" });
 });
+
+test("round-trips per-request retrieval methods for queries and every index target route", async () => {
+  const calls: unknown[] = [];
+  const { url } = runningApp(
+    undefined,
+    identity,
+    undefined,
+    createContentAddressedSemanticRuntimeStub({
+      async query(_root, target) {
+        calls.push(["query", target.retrievalMethod]);
+        return { mode: "semantic", coverage: "complete", profileId: "b".repeat(64), results: [] };
+      },
+      async indexStatus(_root, target) {
+        calls.push(["status", target.retrievalMethod]);
+        return { state: "missing", profileId: "b".repeat(64) };
+      },
+      async build(_root, target) {
+        calls.push(["build", target.retrievalMethod]);
+        return { state: "queued", operationId: crypto.randomUUID() };
+      },
+      async rebuild(_root, target) {
+        calls.push(["rebuild", target.retrievalMethod]);
+        return { state: "queued", operationId: crypto.randomUUID() };
+      },
+    }),
+  );
+  const client = createBackendClient({
+    identity,
+    secret,
+    buildIdentity: identity.buildIdentity,
+    baseUrl: url,
+  });
+  const root = { rootPath: "/tmp/lorelum-client-methods" };
+  for (const retrievalMethod of ["single-vector", "multi-view-vector"] as const) {
+    await client.query(root, { text: "Method selection", retrievalMethod });
+    await client.indexStatus(root, { retrievalMethod });
+    await client.buildIndex(root, { retrievalMethod });
+    await client.rebuildIndex(root, {
+      retrievalMethod,
+      projectContext: {
+        projectRoot: "/tmp/lorelum-client-project",
+        cacheRoot: "/tmp/lorelum-client-cache",
+      },
+    });
+  }
+  expect(calls).toEqual(
+    ["single-vector", "multi-view-vector"].flatMap((method) =>
+      ["query", "status", "build", "rebuild"].map((route) => [route, method]),
+    ),
+  );
+});

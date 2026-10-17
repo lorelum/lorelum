@@ -1,5 +1,8 @@
 # Proposal
 
+> **适用域与历史状态：** 本 change 记录多视角算法及其评测演进；下文涉及 `full` / `task-card` / `body`、clause、384 token 预算和聚合公式的规则，现仅适用于显式选择的实验方法 `multi-view-vector`。历史文字中的“默认产品输入/排序”均指该方法内部 recipe，不能覆盖当前 `single-vector` 默认。当前配置与协议以 [配置维护说明](../../../docs/configuration/README.md#query-方法与前台预算)、[Query API](../../../docs/api/query.md) 和 [harness 六字段输入](../../../docs/development/semantic-retrieval-benchmark-harness.md#启动和输入) 为准。旧 Profile/schema 版本与五字段输入只用于固定旧 checkout 的复现；历史证据不改写，也不代表方法隔离后重跑了 frozen benchmark。
+
+
 ## Why
 
 Issue #236 的已知实例中，帮助完成提交前 review 的 Practice 已经出现在语义检索结果中，却排在 Registry/Pack 发布、安装验证等背景相关 Practice 后面。当前实现随后用 request-private FTS5 BM25 给候选加了任务信号；这能改善一组已参与选参的案例，但没有让局部正文、适用条件与完整请求建立独立的向量匹配，而且仍存在候选外召回失败。继续把词面信号当作产品排序主干会把“任务识别”退化为关键词命中，无法满足研究结论指出的输入视角与 Practice 内容视角组合。
@@ -43,7 +46,7 @@ Issue #236 的已知实例中，帮助完成提交前 review 的 Practice 已经
 
 ## Issue #236 Scope Boundary
 
-本 change 关闭 #236 的**本地检索部分**，不承诺 #236 的全部排序目标：
+本 change 记录 #236 的**本地检索实验与已知限制**，不关闭 #236，也不承诺其全部排序目标：
 
 - **包含**：候选宽度与公开 top-k 分离；全量纯向量排序；多视角（task-card / body / clause）表示；候选观察在排序前完成全部 N 个候选的 canonical 校验；召回与排序分开的评测记录；对本地 harness 的可复现结果。
 - **不包含**：通用流程指导压过具体指导的问题的本地解决方案；词面、BM25/FTS5 或其他关键词排序通道；LLM 或 reranker 的本地判断。

@@ -1,4 +1,8 @@
-import { createEmbeddingProfile, createLocalStore } from "@lorelum/engine";
+import {
+  createVectorExecution,
+  resolveVectorRetrievalMethod,
+  createLocalStore,
+} from "@lorelum/engine";
 import { loadBackendConfig, resolveEmbeddingConfig } from "../config";
 import { createEmbeddingService } from "../modules/embedding/service";
 import { createQueryEmbeddingAdapter } from "../modules/index/embedding-adapter";
@@ -60,10 +64,11 @@ async function run(): Promise<void> {
           createEmbeddingProcess({ modelPath, threads: resolvedEmbedding.threads }),
       });
       const model = embedding.status();
-      const profile = createEmbeddingProfile({
-        encodingId: model.encodingId,
-        dimensions: model.dimensions,
-      });
+      const execution = createVectorExecution(
+        { encodingId: model.encodingId, dimensions: model.dimensions },
+        resolveVectorRetrievalMethod(parsed.request.retrievalMethod),
+      );
+      const { profile } = execution;
       if (parsed.request.embeddingProfileId !== profile.profileId) {
         response = { status: "error", errorCode: "profile_mismatch" };
       } else {
@@ -71,7 +76,7 @@ async function run(): Promise<void> {
         const query = createBenchmarkSemanticTraceService({
           store: createLocalStore(),
           cacheRoot,
-          profile,
+          execution,
           embedding: createQueryEmbeddingAdapter(embedding),
         });
         response = await executeSemanticRetrievalHarnessRequest(parsed.request, {

@@ -7,6 +7,8 @@ import {
   SemanticIndexNotReadyError,
   StoreBusyError,
   parseQueryRequest,
+  VECTOR_RETRIEVAL_METHOD_IDS,
+  type VectorRetrievalMethodId,
   type StorageRoot,
 } from "@lorelum/engine";
 import { EmbeddingError } from "../modules/embedding/errors";
@@ -20,6 +22,7 @@ const requestSchema = z
     query: z.string(),
     storeRoot: z.string().min(1).refine(isAbsolute),
     embeddingProfileId: z.string().regex(/^[a-f0-9]{64}$/),
+    retrievalMethod: z.enum(VECTOR_RETRIEVAL_METHOD_IDS),
     candidateWidth: z.number().int().min(1).max(MAX_QUERY_LIMIT),
     resultLimit: z.number().int().min(1).max(MAX_QUERY_LIMIT),
   })
@@ -29,6 +32,7 @@ export interface SemanticRetrievalHarnessRequest {
   readonly query: string;
   readonly storeRoot: string;
   readonly embeddingProfileId: string;
+  readonly retrievalMethod: VectorRetrievalMethodId;
   readonly candidateWidth: number;
   readonly resultLimit: number;
 }

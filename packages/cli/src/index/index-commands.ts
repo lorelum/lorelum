@@ -21,6 +21,7 @@ import {
   backendProjectTargetOptions,
   resolveProjectInvocationOptions,
 } from "../project-context/service";
+import { loadSemanticRetrievalSettings, type SemanticRetrievalSettings } from "../query/settings";
 
 export interface IndexCommandServices {
   /** Read-only status keeps its existing non-starting Backend path. */
@@ -28,6 +29,7 @@ export interface IndexCommandServices {
   /** Build/rebuild observe Backend-owned execution without waiting for model downloads. */
   readonly createRuntimeClient: (traceId?: TraceId, debug?: boolean) => Promise<IndexRuntimeClient>;
   readonly storageRoot: StorageRoot;
+  readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
 }
 
 const indexStatusResultSchema: JsonSchema = {
@@ -153,6 +155,7 @@ function command(
     resultSchema: isStatus ? indexStatusResultSchema : indexOperationResultSchema,
     errorCodes: [
       ...frameworkErrorCodes,
+      "query.config-invalid",
       ...backendErrorCodes,
       ...embeddingErrorCodes,
       ...indexOperationStoreErrorCodes,
@@ -165,7 +168,12 @@ function command(
           services.storageRoot,
         );
         const projectOptions = resolveProjectInvocationOptions(invocation.options);
-        const indexOptions = isOperation ? undefined : backendProjectTargetOptions(projectOptions);
+        const indexOptions = isOperation
+          ? undefined
+          : {
+              ...backendProjectTargetOptions(projectOptions),
+              ...(await (services.loadSemanticSettings ?? loadSemanticRetrievalSettings)()),
+            };
         if (isStatus || isOperation) {
           const client = await services.createClient(
             invocation.traceId,

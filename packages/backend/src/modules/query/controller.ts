@@ -24,7 +24,8 @@ import {
   requireJson,
 } from "../../plugins/local-auth";
 import { noopEmitter, withDiagnosticLevel, type LogEmitter } from "@lorelum/log";
-import { backendErrorBody, errorSchema } from "../../protocol/errors";
+import { BackendRemoteError, backendErrorBody, errorSchema } from "../../protocol/errors";
+import { resolveRequestedRetrievalMethod } from "../../protocol/retrieval-method";
 import { EmbeddingError } from "../embedding/errors";
 import { queryRequestSchema, queryResultSchema, type BackendQueryResult } from "./model";
 import type {
@@ -85,7 +86,7 @@ export function queryController(
             ...(body.query.limit === undefined ? {} : { limit: body.query.limit }),
           };
           const result =
-            (body.query.mode ?? "semantic") === "keyword"
+            body.query.mode === "keyword"
               ? await services.keywordQueryService.query(
                   { rootPath: body.storageRoot },
                   query,
@@ -172,6 +173,7 @@ export function queryController(
 }
 
 function targetFor(input: {
+  readonly retrievalMethod?: unknown;
   readonly projectContext?:
     | {
         readonly projectRoot?: string | undefined;
@@ -181,9 +183,11 @@ function targetFor(input: {
     | undefined;
   readonly cacheRoot?: string | undefined;
 }): ContentAddressedTargetRequest {
+  const retrievalMethod = resolveRequestedRetrievalMethod(input.retrievalMethod);
   if (input.projectContext !== undefined) {
     return Object.freeze({
       kind: "project",
+      retrievalMethod,
       cacheRoot: input.projectContext.cacheRoot,
       ...(input.projectContext.projectRoot === undefined
         ? {}
@@ -195,6 +199,7 @@ function targetFor(input: {
   }
   return Object.freeze({
     kind: "store",
+    retrievalMethod,
     cacheRoot: input.cacheRoot ?? defaultQueryArtifactCacheRoot(),
   });
 }
@@ -203,7 +208,11 @@ function queryFailureDiagnostic(error: unknown): {
   readonly status: number;
   readonly code: string;
 } {
-  if (error instanceof InvalidQueryRequestError) return { status: 400, code: "usage.invalid" };
+  if (
+    error instanceof InvalidQueryRequestError ||
+    (error instanceof BackendRemoteError && error.code === "usage.invalid")
+  )
+    return { status: 400, code: "usage.invalid" };
   if (error instanceof KeywordIndexUnavailableError)
     return { status: 503, code: "query.unavailable" };
   if (error instanceof KeywordIndexError) return { status: 500, code: "query.failed" };
@@ -223,7 +232,10 @@ function queryFailureDiagnostic(error: unknown): {
 }
 
 function queryFailure(error: unknown) {
-  if (error instanceof InvalidQueryRequestError)
+  if (
+    error instanceof InvalidQueryRequestError ||
+    (error instanceof BackendRemoteError && error.code === "usage.invalid")
+  )
     return status(400, domainError("usage.invalid", "The command invocation is invalid."));
   if (error instanceof KeywordIndexUnavailableError)
     return status(503, domainError("query.unavailable", "Keyword query is unavailable."));

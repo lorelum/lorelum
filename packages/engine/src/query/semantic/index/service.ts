@@ -14,16 +14,9 @@ import { acquireMutationLock } from "../../../local-store/storage/mutation-lock"
 import { openSqliteConnection } from "../../../persistence/database/connection";
 import { semanticIndexDatabaseDefinition } from "../../../persistence/definitions";
 import { embedInBatches, type EmbeddingPort } from "../encoding";
-import {
-  SemanticIndexError,
-  SemanticIndexSnapshotChangedError,
-} from "../errors";
-import type { EmbeddingProfile } from "../profile";
-import {
-  projectSemanticPractice,
-  type SemanticDocument,
-  type SemanticProjectionView,
-} from "../projection";
+import { SemanticIndexError, SemanticIndexSnapshotChangedError } from "../errors";
+import type { EmbeddingProfile, VectorExecution } from "../profile";
+import type { PracticeVectorProjection, EmbeddingInput } from "../representation";
 import {
   metadataFor,
   isCompatibleMetadata,
@@ -63,7 +56,7 @@ export interface SemanticIndexDependencies {
     | "readEffectivePracticeChanges"
     | "withSnapshotFence"
   >;
-  readonly profile: EmbeddingProfile;
+  readonly execution: VectorExecution;
   readonly embedding: EmbeddingPort;
   /** Store-local by default; ProjectContext supplies a content-addressed artifact location. */
   readonly paths?: (root: StorageRoot, profileId: string) => SemanticIndexPaths;
@@ -101,28 +94,29 @@ async function activeMetadata(
   }
 }
 
-async function embedViews(
+async function embedInputs(
   port: EmbeddingPort,
   profile: EmbeddingProfile,
-  views: readonly SemanticProjectionView[],
+  inputs: readonly EmbeddingInput[],
 ): Promise<readonly Float32Array[]> {
-  return embedInBatches(profile, port, views.map((view) => view.text));
+  return embedInBatches(
+    profile,
+    port,
+    inputs.map((input) => input.text),
+  );
 }
 
-function viewsForDocuments(
-  documents: readonly SemanticDocument[],
-): readonly SemanticProjectionView[] {
-  return Object.freeze(documents.flatMap((document) => document.views));
-}
-
-function vectorViewKey(practiceId: string, viewId: string): string {
-  return `${practiceId}\0${viewId}`;
+function inputsForDocuments(
+  documents: readonly PracticeVectorProjection[],
+): readonly EmbeddingInput[] {
+  return Object.freeze(documents.flatMap((document) => document.inputs));
 }
 
 export function createSemanticIndexService(
   dependencies: SemanticIndexDependencies,
 ): SemanticIndexService {
-  const { store, profile, embedding } = dependencies;
+  const { store, execution, embedding } = dependencies;
+  const { profile, method } = execution;
   const definition = dependencies.definition ?? semanticIndexDatabaseDefinition;
   const pathsFor =
     dependencies.paths ??
@@ -158,15 +152,17 @@ export function createSemanticIndexService(
     indexPaths: SemanticIndexPaths,
   ): Promise<SemanticIndexBuildResult> => {
     const snapshot = await store.readEffectivePracticeSnapshot(root);
-    const documents = Object.freeze(snapshot.practices.map(projectSemanticPractice));
-    const views = viewsForDocuments(documents);
+    const documents = Object.freeze(
+      snapshot.practices.map((practice) => method.projectDocument(practice)),
+    );
+    const inputs = inputsForDocuments(documents);
     const flatVectors =
-      views.length === 0 ? Object.freeze([]) : await embedViews(embedding, profile, views);
+      inputs.length === 0 ? Object.freeze([]) : await embedInputs(embedding, profile, inputs);
     let vectorIndex = 0;
     const vectors = Object.freeze(
       documents.map((document) =>
         Object.freeze(
-          document.views.map(() => {
+          document.inputs.map(() => {
             const vector = flatVectors[vectorIndex];
             vectorIndex += 1;
             if (vector === undefined)
@@ -241,23 +237,20 @@ export function createSemanticIndexService(
         changes.deltas.map((change) => change.delta),
         changes.currentPractices,
         (practiceId) => readSemanticIndexVectors(connection!, practiceId, profile.dimensions),
+        method,
       );
-      const embedded = await embedViews(embedding, profile, plan.viewsToEmbed);
-      const embeddedByViewId = new Map(
-        plan.viewsToEmbed.map(
-          (view, index) => [vectorViewKey(view.practiceId, view.viewId), embedded[index]!] as const,
-        ),
+      const embedded = await embedInputs(embedding, profile, plan.inputsToEmbed);
+      const embeddedByDigest = new Map(
+        plan.inputsToEmbed.map((input, index) => [input.inputDigest, embedded[index]!] as const),
       );
       const vectors = plan.documents.map((document) =>
         Object.freeze(
-          document.views.map((view) => {
-            const reused = plan.reusableVectors.get(document.practiceId)?.get(view.viewId);
-            const embeddedVector = embeddedByViewId.get(
-              vectorViewKey(document.practiceId, view.viewId),
-            );
+          document.inputs.map((input) => {
+            const reused = plan.reusableVectors.get(input.inputDigest);
+            const embeddedVector = embeddedByDigest.get(input.inputDigest);
             if (reused !== undefined) return reused;
             if (embeddedVector !== undefined) return embeddedVector;
-            throw new SemanticIndexError("Incremental semantic index view vector is missing");
+            throw new SemanticIndexError("Incremental semantic index input embedding is missing");
           }),
         ),
       );

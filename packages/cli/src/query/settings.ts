@@ -1,4 +1,10 @@
 import { ConfigError, loadConfig, type LoadConfigOptions } from "@lorelum/config";
+import {
+  DEFAULT_VECTOR_RETRIEVAL_METHOD_ID,
+  VECTOR_RETRIEVAL_METHOD_IDS,
+  isVectorRetrievalMethodId,
+  type VectorRetrievalMethodId,
+} from "@lorelum/engine";
 
 import { CliError } from "../runtime/errors";
 
@@ -10,6 +16,14 @@ export interface QuerySettings {
 export const DEFAULT_QUERY_SETTINGS: QuerySettings = Object.freeze({
   maxWaitMs: 3_000,
   minCoveragePercent: 0,
+});
+
+export interface SemanticRetrievalSettings {
+  readonly retrievalMethod: VectorRetrievalMethodId;
+}
+
+export const DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS: SemanticRetrievalSettings = Object.freeze({
+  retrievalMethod: DEFAULT_VECTOR_RETRIEVAL_METHOD_ID,
 });
 
 function invalid(subject = "query"): never {
@@ -56,4 +70,28 @@ export async function loadQuerySettings(options: LoadConfigOptions = {}): Promis
       integer(document.query.minCoveragePercent, "query.minCoveragePercent", 0, 100) ??
       DEFAULT_QUERY_SETTINGS.minCoveragePercent,
   });
+}
+
+/** Only the semantic consumer validates the method; keyword remains independent. */
+export async function loadSemanticRetrievalSettings(
+  options: LoadConfigOptions = {},
+): Promise<SemanticRetrievalSettings> {
+  let document: Readonly<Record<string, unknown>>;
+  try {
+    document = await loadConfig(options);
+  } catch (error) {
+    if (error instanceof ConfigError) invalid();
+    throw error;
+  }
+  if (document.query === undefined) return DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS;
+  if (!isPlainObject(document.query)) invalid("query section");
+  const retrievalMethod = document.query.retrievalMethod;
+  if (retrievalMethod === undefined) return DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS;
+  if (!isVectorRetrievalMethodId(retrievalMethod)) {
+    throw new CliError(
+      "query.config-invalid",
+      `query.retrievalMethod must be ${VECTOR_RETRIEVAL_METHOD_IDS.join(" or ")}. Fix or remove it in ~/.lorelum/config.yaml.`,
+    );
+  }
+  return Object.freeze({ retrievalMethod });
 }

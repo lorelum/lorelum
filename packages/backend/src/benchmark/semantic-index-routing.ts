@@ -5,7 +5,7 @@ import {
   indexCorpusDigest,
   type ContentAddressedCorpus,
   type EmbeddingPort,
-  type EmbeddingProfile,
+  type VectorExecution,
   type LocalStore,
   type StorageRoot,
 } from "@lorelum/engine";
@@ -73,7 +73,7 @@ export interface BenchmarkSemanticTraceDependencies {
   /** Canonical source reader only; it never selects the derived index location. */
   readonly store: Pick<LocalStore, "readEffectivePracticeSnapshot">;
   readonly cacheRoot: string;
-  readonly profile: EmbeddingProfile;
+  readonly execution: VectorExecution;
   readonly embedding: EmbeddingPort;
 }
 
@@ -87,7 +87,7 @@ export interface BenchmarkSemanticTraceDependencies {
 export function createBenchmarkSemanticTraceService(
   dependencies: BenchmarkSemanticTraceDependencies,
 ): BenchmarkSemanticTraceService {
-  const { store, cacheRoot, profile, embedding } = dependencies;
+  const { store, cacheRoot, execution, embedding } = dependencies;
   return Object.freeze({
     async query(root: StorageRoot, request: BenchmarkSemanticTraceRequest) {
       const snapshot = await store.readEffectivePracticeSnapshot(root);
@@ -98,7 +98,7 @@ export function createBenchmarkSemanticTraceService(
       const trace = createContentAddressedSemanticCandidateTraceService(
         corpus,
         cacheRoot,
-        profile,
+        execution,
         embedding,
       );
       return trace.query(CONTENT_ADDRESSED_ROOT, request);

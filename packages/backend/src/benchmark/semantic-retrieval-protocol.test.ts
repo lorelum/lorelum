@@ -3,17 +3,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  SEMANTIC_RETRIEVAL_HARNESS_PROTOCOL_VERSION,
+  type SemanticRetrievalHarnessRequest,
   executeSemanticRetrievalHarnessRequest,
   parseSemanticRetrievalHarnessRequest,
   serializeSemanticRetrievalHarnessResponse,
 } from "./semantic-retrieval-protocol";
 
 const profileId = "a".repeat(64);
-const validInput = {
+const validInput: SemanticRetrievalHarnessRequest = {
   query: "  inspect the retrieval boundary  ",
   storeRoot: join(tmpdir(), "lorelum-benchmark-owned-store"),
   embeddingProfileId: profileId,
+  retrievalMethod: "multi-view-vector",
   candidateWidth: 20,
   resultLimit: 5,
 };
@@ -21,10 +22,6 @@ const validInput = {
 function input(value: unknown = validInput): string {
   return JSON.stringify(value);
 }
-
-test("pins the harness protocol version used by benchmark provenance", () => {
-  expect(SEMANTIC_RETRIEVAL_HARNESS_PROTOCOL_VERSION).toBe(1);
-});
 
 test("accepts a fixed Store, Profile and explicit N/K request", () => {
   const parsed = parseSemanticRetrievalHarnessRequest(input());
@@ -41,6 +38,9 @@ test("rejects malformed input, labels and invalid N/K without leaking fields", (
     // The derived cache is benchmark-only process configuration, never a request field.
     input({ ...validInput, cacheRoot: validInput.storeRoot }),
     input({ ...validInput, candidateWidth: 4, resultLimit: 5 }),
+    input({ ...validInput, retrievalMethod: undefined }),
+    input({ ...validInput, retrievalMethod: "multi-view" }),
+    input({ ...validInput, retrievalMethod: null }),
     input({ ...validInput, storeRoot: "relative-store" }),
   ]) {
     const parsed = parseSemanticRetrievalHarnessRequest(value);

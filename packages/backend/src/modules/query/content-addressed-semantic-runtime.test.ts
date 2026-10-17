@@ -3,11 +3,14 @@ import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createEmbeddingProfile, type EffectivePractice } from "@lorelum/engine";
+import {
+  createVectorExecution,
+  resolveVectorRetrievalMethod,
+  type EffectivePractice,
+} from "@lorelum/engine";
 
 import { canonicalizePractice } from "../../../../engine/src/local-store/model/canonical-practice";
 import { createIsolatedProjectSandbox } from "../../../../engine/src/project-context/project-sandbox.test-helper";
-import { projectSemanticPractice } from "../../../../engine/src/query/semantic/projection";
 
 import { EmbeddingError } from "../embedding/errors";
 import { ContentAddressedSemanticRuntime } from "./content-addressed-semantic-runtime";
@@ -41,7 +44,7 @@ test("project query starts indexing and reads the completed semantic artifact", 
       join(pack, "practices", "query.md"),
       "---\nid: platform.query\ntitle: Project query\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When querying a project-local Pack.\n---\nUse an incrementally published semantic cache.\n",
     );
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const encoding = { encodingId, dimensions: 2 };
     let releaseEmbedding!: () => void;
     const embeddingGate = new Promise<void>((resolve) => {
       releaseEmbedding = resolve;
@@ -60,7 +63,7 @@ test("project query starts indexing and reads the completed semantic artifact", 
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 8,
         async embed(inputs) {
@@ -131,7 +134,7 @@ test("uses the Store target when automatic semantic discovery reaches the select
       join(storeRoot, "packs", "agentic-coding", "artifact", "pack.yaml"),
       "name: agentic-coding\nversion: 1.0.0\n",
     );
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const encoding = { encodingId, dimensions: 2 };
     const journal = new SemanticOperationJournal(runtime);
     const service = new ContentAddressedSemanticRuntime(
       {
@@ -147,7 +150,7 @@ test("uses the Store target when automatic semantic discovery reaches the select
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 8,
         async embed(inputs) {
@@ -229,7 +232,7 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
         ),
       ),
     );
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const encoding = { encodingId, dimensions: 2 };
     let documentCalls = 0;
     let markFirstDocumentStarted!: () => void;
     const firstDocumentStarted = new Promise<void>((resolve) => {
@@ -253,7 +256,7 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 1,
         async embed(inputs) {
@@ -280,7 +283,12 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
         },
       },
     );
-    const request = { kind: "project" as const, projectRoot: root, cacheRoot: cache };
+    const request = {
+      kind: "project" as const,
+      projectRoot: root,
+      cacheRoot: cache,
+      retrievalMethod: "multi-view-vector" as const,
+    };
     await expect(
       runtime.query(
         { rootPath: join(root, "store") },
@@ -346,7 +354,7 @@ ${id}
         ),
       ),
     );
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const encoding = { encodingId, dimensions: 2 };
     let releaseSecond!: () => void;
     const second = new Promise<void>((resolve) => {
       releaseSecond = resolve;
@@ -370,7 +378,7 @@ ${id}
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 1,
         async embed(inputs) {
@@ -429,7 +437,7 @@ test("queries only the 50 current Store Practices published by incremental progr
         storePractice(`platform.${String(index).padStart(3, "0")}`, `Store Practice ${index}`),
       ),
     );
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const encoding = { encodingId, dimensions: 2 };
     let releaseSecond!: () => void;
     const second = new Promise<void>((resolve) => {
       releaseSecond = resolve;
@@ -449,7 +457,7 @@ test("queries only the 50 current Store Practices published by incremental progr
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 50,
         async embed(inputs) {
@@ -521,7 +529,7 @@ test("uses retained Store revision deltas and safely falls back when later histo
     let practices: readonly EffectivePractice[] = first;
     const deltaReads: number[] = [];
     let documentEmbeddings = 0;
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const encoding = { encodingId, dimensions: 2 };
     const runtime = new ContentAddressedSemanticRuntime(
       {
         async readEffectivePracticeSnapshot() {
@@ -556,7 +564,7 @@ test("uses retained Store revision deltas and safely falls back when later histo
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 8,
         async embed(inputs) {
@@ -580,7 +588,11 @@ test("uses retained Store revision deltas and safely falls back when later histo
       },
     );
     const root = { rootPath: "/isolated/store-delta" };
-    const target = { kind: "store" as const, cacheRoot: cache };
+    const target = {
+      kind: "store" as const,
+      cacheRoot: cache,
+      retrievalMethod: "multi-view-vector" as const,
+    };
     const policy = { maxWaitMs: 1_000, minCoveragePercent: 100 };
 
     await expect(
@@ -647,21 +659,9 @@ test("joins one content-addressed operation for equivalent ordinary directories"
         ]);
       }),
     );
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    // Multi-view projection embeds one vector per content view; both equivalent
-    // directories must share that single build instead of embedding twice.
-    const sharedViewCount = projectSemanticPractice({
-      practiceId: "platform.shared",
-      ...canonicalizePractice({
-        id: "platform.shared",
-        title: "Shared",
-        stage: "implementation",
-        tech_stack: ["typescript"],
-        applies_when: "When validating shared content addressing.",
-        body: "Same Practice body.",
-      }),
-      sources: Object.freeze([]),
-    }).views.length;
+    const encoding = { encodingId, dimensions: 2 };
+    // The default single-vector build is shared across equivalent directories.
+    const sharedInputCount = 1;
     let release!: () => void;
     const block = new Promise<void>((resolve) => {
       release = resolve;
@@ -685,7 +685,7 @@ test("joins one content-addressed operation for equivalent ordinary directories"
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 1,
         async embed(inputs) {
@@ -733,7 +733,7 @@ test("joins one content-addressed operation for equivalent ordinary directories"
     expect(firstResult).toMatchObject({ state: "indexing" });
     expect(secondResult).toMatchObject({ state: "indexing" });
     expect(secondResult.operationId).toBe(firstResult.operationId);
-    expect(documentCalls).toBe(sharedViewCount);
+    expect(documentCalls).toBe(sharedInputCount);
   } finally {
     await Promise.all([
       rm(first, { recursive: true, force: true }),
@@ -749,7 +749,7 @@ test("surfaces a persisted model preparation failure until explicit recovery mak
     realpath(await mkdtemp(join(tmpdir(), "lorelum-backend-terminal-failure-runtime-"))),
   ]);
   try {
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const encoding = { encodingId, dimensions: 2 };
     const practices = Object.freeze([storePractice("platform.failed")]);
     let modelReady = false;
     let preparations = 0;
@@ -768,7 +768,7 @@ test("surfaces a persisted model preparation failure until explicit recovery mak
           };
         },
       },
-      profile,
+      encoding,
       {
         maxBatchSize: 1,
         async embed(inputs) {
@@ -834,6 +834,160 @@ test("surfaces a persisted model preparation failure until explicit recovery mak
     await Promise.all([
       rm(cache, { recursive: true, force: true }),
       rm(runtimeDirectory, { recursive: true, force: true }),
+    ]);
+  }
+});
+
+test("one runtime isolates method artifacts and preserves accepted operation targets on its shared queue", async () => {
+  const cacheRoot = await mkdtemp(join(tmpdir(), "lorelum-backend-method-cache-"));
+  const journalRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "lorelum-backend-method-journal-")),
+  );
+  const encoding = { encodingId, dimensions: 2 };
+  const single = createVectorExecution(encoding, resolveVectorRetrievalMethod("single-vector"));
+  const multi = createVectorExecution(encoding, resolveVectorRetrievalMethod("multi-view-vector"));
+  const practices = Object.freeze([storePractice("platform.method", "Method-isolated content")]);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let markStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  let documentInputs = 0;
+  let activeBatches = 0;
+  let maxActiveBatches = 0;
+  const queryInputs: string[][] = [];
+  const journal = new SemanticOperationJournal(journalRoot);
+  const runtime = new ContentAddressedSemanticRuntime(
+    {
+      async readEffectivePracticeSnapshot() {
+        return {
+          identity: {
+            rootBinding: "methods",
+            generation: 1,
+            effectiveRevision: 1,
+            manifestDigest: "0".repeat(64),
+          },
+          practices,
+        };
+      },
+    },
+    encoding,
+    {
+      maxBatchSize: 1,
+      async embed(inputs) {
+        documentInputs += inputs.length;
+        activeBatches += 1;
+        maxActiveBatches = Math.max(maxActiveBatches, activeBatches);
+        markStarted();
+        try {
+          await gate;
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        } finally {
+          activeBatches -= 1;
+        }
+      },
+    },
+    {
+      maxBatchSize: 8,
+      async embed(inputs) {
+        queryInputs.push([...inputs]);
+        return { encodingId, vectors: inputs.map(() => [1, 0]) };
+      },
+    },
+    {
+      beginModelPreparation() {
+        throw new Error("No preparation expected");
+      },
+      async waitModelPreparation() {
+        throw new Error("No preparation expected");
+      },
+    },
+    journal,
+  );
+  const root = { rootPath: "/isolated/methods" };
+  const singleTarget = { kind: "store" as const, cacheRoot };
+  const multiTarget = { ...singleTarget, retrievalMethod: "multi-view-vector" as const };
+  const policy = { maxWaitMs: 0, minCoveragePercent: 100 };
+  try {
+    const original = await runtime.build(root, multiTarget);
+    await started;
+    const joined = await runtime.build(root, multiTarget);
+    expect(joined.operationId).toBe(original.operationId);
+    const next = await runtime.build(root, singleTarget);
+    expect(next.operationId).not.toBe(original.operationId);
+    await expect(runtime.indexStatus(root, singleTarget)).resolves.toMatchObject({
+      state: "indexing",
+      profileId: single.profile.profileId,
+      operationId: next.operationId,
+    });
+    await expect(runtime.indexStatus(root, multiTarget)).resolves.toMatchObject({
+      state: "indexing",
+      profileId: multi.profile.profileId,
+      operationId: original.operationId,
+    });
+    await expect(journal.findById(original.operationId)).resolves.toMatchObject({
+      state: "building",
+      profileId: multi.profile.profileId,
+    });
+    release();
+    await runtime.waitForIdle();
+    expect(maxActiveBatches).toBe(1);
+    expect(documentInputs).toBe(multi.method.projectDocument(practices[0]!).inputs.length + 1);
+    await expect(runtime.indexOperation(original.operationId)).resolves.toMatchObject({
+      state: "ready",
+      index: { profileId: multi.profile.profileId },
+    });
+    await expect(runtime.indexOperation(next.operationId)).resolves.toMatchObject({
+      state: "ready",
+      index: { profileId: single.profile.profileId },
+    });
+    const query = { text: "First task. Second task." };
+    await expect(runtime.query(root, singleTarget, query, policy)).resolves.toMatchObject({
+      mode: "semantic",
+      coverage: "complete",
+      profileId: single.profile.profileId,
+      results: [{ practiceId: "platform.method" }],
+    });
+    expect(queryInputs.at(-1)).toEqual([query.text]);
+    await expect(runtime.query(root, multiTarget, query, policy)).resolves.toMatchObject({
+      mode: "semantic",
+      coverage: "complete",
+      profileId: multi.profile.profileId,
+      results: [{ practiceId: "platform.method" }],
+    });
+    expect(queryInputs.at(-1)).toEqual(
+      multi.method.projectQuery(query.text).map((input) => input.text),
+    );
+    await expect(runtime.query(root, singleTarget, query, policy)).resolves.toMatchObject({
+      mode: "semantic",
+      profileId: single.profile.profileId,
+    });
+    const reused = await runtime.build(root, singleTarget);
+    expect(reused.state).toBe("ready");
+    expect(documentInputs).toBe(multi.method.projectDocument(practices[0]!).inputs.length + 1);
+    await expect(journal.findById(original.operationId)).resolves.toMatchObject({
+      state: "ready",
+      profileId: multi.profile.profileId,
+    });
+    const rebuilt = await runtime.rebuild(root, singleTarget);
+    await runtime.waitForIdle();
+    await expect(runtime.indexOperation(rebuilt.operationId)).resolves.toMatchObject({
+      state: "ready",
+      index: { profileId: single.profile.profileId },
+    });
+    await expect(runtime.indexOperation(original.operationId)).resolves.toMatchObject({
+      state: "ready",
+      index: { profileId: multi.profile.profileId },
+    });
+  } finally {
+    release();
+    await runtime.waitForIdle();
+    await Promise.all([
+      rm(cacheRoot, { recursive: true, force: true }),
+      rm(journalRoot, { recursive: true, force: true }),
     ]);
   }
 });

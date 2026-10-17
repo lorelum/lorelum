@@ -3,7 +3,11 @@ import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createEmbeddingProfile } from "../semantic";
+import {
+  createVectorExecution,
+  resolveVectorRetrievalMethod,
+  VECTOR_RETRIEVAL_METHOD_IDS,
+} from "../semantic";
 import { contentSemanticArtifactId, contentSemanticIndexPaths } from "./cache";
 import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
@@ -13,6 +17,7 @@ import {
 } from "./semantic";
 
 const encodingId = "a".repeat(64);
+const methodIds = [...VECTOR_RETRIEVAL_METHOD_IDS];
 
 async function fixture(run: (root: string, cache: string) => Promise<void>): Promise<void> {
   const [root, cache] = await Promise.all([
@@ -133,53 +138,67 @@ async function snapshot(root: string) {
   return value;
 }
 
-test("builds and queries one immutable ProjectContext semantic artifact", () =>
-  fixture(async (root, cache) => {
-    await writeProject(root);
-    const current = await snapshot(root);
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    const calls: string[][] = [];
-    const services = createContentAddressedSemanticServices(current, cache, profile, {
-      maxBatchSize: 8,
-      async embed(inputs) {
-        calls.push([...inputs]);
-        return { encodingId, vectors: inputs.map(() => [1, 0]) };
-      },
-    });
+test.each(methodIds)(
+  "builds and queries one immutable ProjectContext semantic artifact (%s)",
+  (methodId) =>
+    fixture(async (root, cache) => {
+      await writeProject(root);
+      const current = await snapshot(root);
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      const calls: string[][] = [];
+      const services = createContentAddressedSemanticServices(current, cache, execution, {
+        maxBatchSize: 8,
+        async embed(inputs) {
+          calls.push([...inputs]);
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        },
+      });
 
-    await expect(services.index.build(services.root)).resolves.toMatchObject({
-      status: { state: "ready", vectorCount: 1 },
-    });
-    const result = await services.query.query(services.root, { text: "semantic index" });
-    expect(result).toMatchObject({
-      mode: "semantic",
-      coverage: "complete",
-      results: [{ practiceId: "platform.semantic" }],
-    });
-    expect(calls).toHaveLength(2);
-    await expect(
-      access(contentSemanticIndexPaths(cache, current, profile.profileId).active),
-    ).resolves.toBeNull();
-    await expect(access(join(root, ".lorelum", "cache"))).rejects.toThrow();
-  }));
+      await expect(services.index.build(services.root)).resolves.toMatchObject({
+        status: { state: "ready", vectorCount: 1 },
+      });
+      const result = await services.query.query(services.root, { text: "semantic index" });
+      expect(result).toMatchObject({
+        mode: "semantic",
+        coverage: "complete",
+        results: [{ practiceId: "platform.semantic" }],
+      });
+      expect(calls.flat()).toHaveLength(
+        current.practices.reduce(
+          (count, practice) => count + execution.method.projectDocument(practice).inputs.length,
+          0,
+        ) + execution.method.projectQuery("semantic index").length,
+      );
+      await expect(
+        access(contentSemanticIndexPaths(cache, current, execution.profile.profileId).active),
+      ).resolves.toBeNull();
+      await expect(access(join(root, ".lorelum", "cache"))).rejects.toThrow();
+    }),
+);
 
 test("uses the shared N/K candidate boundary for ProjectContext queries", () =>
   fixture(async (root, cache) => {
     await writeProjectCorpus(root, 24);
     const current = await snapshot(root);
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
     const embedding = {
       maxBatchSize: 8,
       async embed(inputs: readonly string[]) {
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
     };
-    const services = createContentAddressedSemanticServices(current, cache, profile, embedding);
+    const services = createContentAddressedSemanticServices(current, cache, execution, embedding);
     await services.index.build(services.root);
     const traceService = createContentAddressedSemanticCandidateTraceService(
       current,
       cache,
-      profile,
+      execution,
       embedding,
     );
 
@@ -198,19 +217,22 @@ test("uses the shared multi-view final ordering for ProjectContext queries", () 
   fixture(async (root, cache) => {
     await writeTaskFixtureProject(root);
     const current = await snapshot(root);
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 3 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
     const embedding = {
       maxBatchSize: 8,
       async embed(inputs: readonly string[]) {
         return { encodingId, vectors: inputs.map(taskFixtureVector) };
       },
     };
-    const services = createContentAddressedSemanticServices(current, cache, profile, embedding);
+    const services = createContentAddressedSemanticServices(current, cache, execution, embedding);
     await services.index.build(services.root);
     const traceService = createContentAddressedSemanticCandidateTraceService(
       current,
       cache,
-      profile,
+      execution,
       embedding,
     );
 
@@ -236,9 +258,12 @@ test("uses one semantic artifact identity for equivalent directory snapshots", a
   try {
     await Promise.all([writeProject(first), writeProject(second)]);
     const [left, right] = await Promise.all([snapshot(first), snapshot(second)]);
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    expect(contentSemanticArtifactId(left, profile.profileId)).toBe(
-      contentSemanticArtifactId(right, profile.profileId),
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    expect(contentSemanticArtifactId(left, execution.profile.profileId)).toBe(
+      contentSemanticArtifactId(right, execution.profile.profileId),
     );
   } finally {
     await Promise.all([
@@ -248,3 +273,43 @@ test("uses one semantic artifact identity for equivalent directory snapshots", a
     ]);
   }
 });
+
+test("complete artifacts keep independently selected method vectors and query results", () =>
+  fixture(async (root, cache) => {
+    await writeTaskFixtureProject(root);
+    const current = await snapshot(root);
+    const create = (methodId: (typeof methodIds)[number], preferPR: boolean) => {
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      return createContentAddressedSemanticServices(current, cache, execution, {
+        maxBatchSize: 8,
+        async embed(inputs) {
+          return {
+            encodingId,
+            vectors: inputs.map((text) => {
+              if (text === "isolation query") return [1, 0];
+              const isPR = text.includes("Cold Reviewer") || text.includes("State the problem");
+              return isPR === preferPR ? [1, 0] : [0, 1];
+            }),
+          };
+        },
+      });
+    };
+    const single = create("single-vector", false);
+    const multi = create("multi-view-vector", true);
+    await single.index.build(single.root);
+    await expect(multi.index.status(multi.root)).resolves.toMatchObject({ state: "missing" });
+    await multi.index.build(multi.root);
+    const request = { text: "isolation query", limit: 1 };
+    await expect(single.query.query(single.root, request)).resolves.toMatchObject({
+      coverage: "complete",
+      results: [{ practiceId: "platform.react-server-cache" }],
+    });
+    await expect(multi.query.query(multi.root, request)).resolves.toMatchObject({
+      coverage: "complete",
+      results: [{ practiceId: "platform.write-pr-body-for-a-cold-reviewer" }],
+    });
+    await expect(single.index.status(single.root)).resolves.toMatchObject({ state: "ready" });
+  }));

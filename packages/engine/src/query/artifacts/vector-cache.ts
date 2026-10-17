@@ -7,7 +7,7 @@ import { migrateSqlite } from "../../persistence/database/migrator";
 import { semanticVectorCacheDatabaseDefinition } from "../../persistence/definitions";
 import { embeddingVectors } from "../../persistence/schemas/semantic-vector-cache";
 import type { EmbeddingProfile } from "../semantic/profile";
-import type { SemanticProjectionView } from "../semantic/projection";
+import type { EmbeddingInput } from "../semantic/representation";
 import { contentArtifactVectorCachePaths } from "./cache";
 
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -33,10 +33,6 @@ function validVector(value: unknown, dimensions: number): Float32Array | undefin
   return Math.abs(Math.sqrt(squaredLength) - 1) < 0.001 ? vector : undefined;
 }
 
-function validView(view: SemanticProjectionView): boolean {
-  return DIGEST.test(view.projectionDigest);
-}
-
 async function databaseExists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -58,17 +54,21 @@ async function withWriter<T>(cacheRoot: string, work: () => Promise<T>): Promise
 }
 
 /**
- * Read compatible vectors by semantic projection. Corrupt entries are cache
+ * Read compatible vectors by Profile and input digest. Corrupt entries are cache
  * misses: the current target can safely embed again without trusting them.
  */
 export async function readSharedEmbeddingVectors(
   cacheRoot: string,
   profile: EmbeddingProfile,
-  views: readonly SemanticProjectionView[],
+  views: readonly EmbeddingInput[],
 ): Promise<ReadonlyMap<string, Float32Array>> {
   const paths = contentArtifactVectorCachePaths(cacheRoot);
   if (!(await databaseExists(paths.database)) || views.length === 0) return new Map();
-  const digests = [...new Set(views.filter(validView).map((item) => item.projectionDigest))];
+  const digests = [
+    ...new Set(
+      views.filter((input) => DIGEST.test(input.inputDigest)).map((input) => input.inputDigest),
+    ),
+  ];
   if (digests.length === 0) return new Map();
   try {
     return await withWriter(cacheRoot, async () => {
@@ -80,7 +80,7 @@ export async function readSharedEmbeddingVectors(
         migrateSqlite(connection, semanticVectorCacheDatabaseDefinition);
         const rows = connection.orm
           .select({
-            projectionDigest: embeddingVectors.projectionDigest,
+            inputDigest: embeddingVectors.inputDigest,
             encodingId: embeddingVectors.encodingId,
             dimensions: embeddingVectors.dimensions,
             normalization: embeddingVectors.normalization,
@@ -90,14 +90,14 @@ export async function readSharedEmbeddingVectors(
           .where(
             and(
               eq(embeddingVectors.profileId, profile.profileId),
-              inArray(embeddingVectors.projectionDigest, digests),
+              inArray(embeddingVectors.inputDigest, digests),
             ),
           )
           .all();
         const values = new Map<string, Float32Array>();
         for (const row of rows) {
           if (
-            !DIGEST.test(row.projectionDigest) ||
+            !DIGEST.test(row.inputDigest) ||
             row.encodingId !== profile.encodingId ||
             row.dimensions !== profile.dimensions ||
             row.normalization !== "l2"
@@ -105,7 +105,7 @@ export async function readSharedEmbeddingVectors(
             continue;
           }
           const vector = validVector(row.vector, profile.dimensions);
-          if (vector !== undefined) values.set(row.projectionDigest, vector);
+          if (vector !== undefined) values.set(row.inputDigest, vector);
         }
         if (values.size > 0) {
           connection.orm
@@ -114,7 +114,7 @@ export async function readSharedEmbeddingVectors(
             .where(
               and(
                 eq(embeddingVectors.profileId, profile.profileId),
-                inArray(embeddingVectors.projectionDigest, [...values.keys()]),
+                inArray(embeddingVectors.inputDigest, [...values.keys()]),
               ),
             )
             .run();
@@ -136,7 +136,7 @@ export async function readSharedEmbeddingVectors(
 export async function writeSharedEmbeddingVectors(
   cacheRoot: string,
   profile: EmbeddingProfile,
-  views: readonly SemanticProjectionView[],
+  views: readonly EmbeddingInput[],
   vectors: readonly Float32Array[],
 ): Promise<void> {
   if (views.length !== vectors.length || views.length === 0) return;
@@ -153,14 +153,14 @@ export async function writeSharedEmbeddingVectors(
         const timestamp = new Date().toISOString();
         connection.orm.transaction(() => {
           for (const [index, view] of views.entries()) {
-            if (!validView(view)) continue;
+            if (!DIGEST.test(view.inputDigest)) continue;
             const vector = validVector(vectorBlob(vectors[index]!), profile.dimensions);
             if (vector === undefined) continue;
             connection.orm
               .insert(embeddingVectors)
               .values({
                 profileId: profile.profileId,
-                projectionDigest: view.projectionDigest,
+                inputDigest: view.inputDigest,
                 encodingId: profile.encodingId,
                 dimensions: profile.dimensions,
                 normalization: "l2",
@@ -169,7 +169,7 @@ export async function writeSharedEmbeddingVectors(
                 lastAccessedAt: timestamp,
               })
               .onConflictDoUpdate({
-                target: [embeddingVectors.profileId, embeddingVectors.projectionDigest],
+                target: [embeddingVectors.profileId, embeddingVectors.inputDigest],
                 set: {
                   encodingId: profile.encodingId,
                   dimensions: profile.dimensions,

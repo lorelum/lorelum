@@ -8,7 +8,7 @@ import {
   createSemanticIndexService,
   createSemanticQueryService,
   type EmbeddingPort,
-  type EmbeddingProfile,
+  type VectorExecution,
   type SemanticIndexService,
   type SemanticQueryService,
 } from "../semantic";
@@ -60,11 +60,11 @@ function queryDependencies(
   snapshot: ContentAddressedCorpus,
   identity: StoreSnapshotIdentity,
   paths: (root: StorageRoot, profileId: string) => ReturnType<typeof contentSemanticIndexPaths>,
-  profile: EmbeddingProfile,
+  execution: VectorExecution,
   embedding: EmbeddingPort,
 ): SemanticQueryDependencies {
   return {
-    profile,
+    execution,
     embedding,
     paths,
     definition: projectSemanticIndexDatabaseDefinition,
@@ -90,7 +90,7 @@ function queryDependencies(
 export function createContentAddressedSemanticServices(
   snapshot: ContentAddressedCorpus,
   cacheRoot: string,
-  profile: EmbeddingProfile,
+  execution: VectorExecution,
   embedding: EmbeddingPort,
 ): ContentAddressedSemanticServices {
   const identity = identityFor(snapshot);
@@ -98,7 +98,7 @@ export function createContentAddressedSemanticServices(
   const paths = (_root: StorageRoot, profileId: string) =>
     contentSemanticIndexPaths(cacheRoot, snapshot, profileId);
   const index = createSemanticIndexService({
-    profile,
+    execution,
     embedding,
     paths,
     definition: projectSemanticIndexDatabaseDefinition,
@@ -119,7 +119,7 @@ export function createContentAddressedSemanticServices(
     },
   });
   const query = createSemanticQueryService(
-    queryDependencies(snapshot, identity, paths, profile, embedding),
+    queryDependencies(snapshot, identity, paths, execution, embedding),
   );
   return Object.freeze({ root, index, query });
 }
@@ -128,13 +128,13 @@ export function createContentAddressedSemanticServices(
 export function createContentAddressedSemanticCandidateTraceService(
   snapshot: ContentAddressedCorpus,
   cacheRoot: string,
-  profile: EmbeddingProfile,
+  execution: VectorExecution,
   embedding: EmbeddingPort,
 ) {
   const identity = identityFor(snapshot);
   const paths = (_root: StorageRoot, profileId: string) =>
     contentSemanticIndexPaths(cacheRoot, snapshot, profileId);
   return createSemanticCandidateTraceService(
-    queryDependencies(snapshot, identity, paths, profile, embedding),
+    queryDependencies(snapshot, identity, paths, execution, embedding),
   );
 }

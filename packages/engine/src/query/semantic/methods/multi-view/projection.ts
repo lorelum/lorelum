@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
-
-import type { EffectivePractice } from "../../local-store";
-import { SEMANTIC_PROJECTION_VERSION } from "./profile";
+import type { EffectivePractice } from "../../../../local-store";
+import type { EmbeddingInput, PracticeVectorProjection } from "../../representation";
+import type { VectorMethodRecipe } from "../types";
+import { createEmbeddingInput, createPracticeVectorProjection } from "../../projection-identity";
 
 /**
  * Views are cut by an estimated token budget, not by a character count: a
@@ -10,33 +10,6 @@ import { SEMANTIC_PROJECTION_VERSION } from "./profile";
  * conservative because the Engine has no tokenizer of its own.
  */
 export const SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS = 384;
-
-/**
- * Representation groups, never lexical field names. `full` keeps the whole
- * Practice as a context anchor for short text, `task-card` is the schema-backed
- * "when does this apply" text, and `body` is the chunked how-to prose. None of
- * them may carry a Practice id, an anti-pattern id, or an English field label:
- * those are lexical anchors rather than task meaning, and they break
- * non-English content. A change here changes the projection recipe and Profile.
- */
-export type SemanticViewKind = "full" | "task-card" | "body";
-
-export interface SemanticProjectionView {
-  readonly practiceId: string;
-  readonly contentDigest: string;
-  readonly viewId: string;
-  readonly viewKind: SemanticViewKind;
-  readonly ordinal: number;
-  readonly projectionDigest: string;
-  readonly text: string;
-}
-
-export interface SemanticDocument {
-  readonly practiceId: string;
-  readonly contentDigest: string;
-  readonly projectionDigest: string;
-  readonly views: readonly SemanticProjectionView[];
-}
 
 interface MarkdownUnit {
   readonly headingPath: readonly string[];
@@ -207,54 +180,18 @@ function bodyChunkTexts(body: string): readonly string[] {
   return Object.freeze(chunks);
 }
 
-function viewDigest(input: {
-  readonly viewId: string;
-  readonly viewKind: SemanticViewKind;
-  readonly text: string;
-}): string {
-  return createHash("sha256")
-    .update(
-      [SEMANTIC_PROJECTION_VERSION, input.viewKind, input.viewId, input.text].join("\n"),
-      "utf8",
-    )
-    .digest("hex");
-}
-
-function projectionView(input: {
-  readonly effective: EffectivePractice;
-  readonly viewId: string;
-  readonly viewKind: SemanticViewKind;
-  readonly ordinal: number;
-  readonly text: string;
-}): SemanticProjectionView {
-  return Object.freeze({
-    practiceId: input.effective.practiceId,
-    contentDigest: input.effective.contentDigest,
-    viewId: input.viewId,
-    viewKind: input.viewKind,
-    ordinal: input.ordinal,
-    projectionDigest: viewDigest(input),
-    text: input.text,
-  });
-}
-
 /**
  * Deterministic representation-group projection. The Store remains canonical;
  * this is derived state that a Profile/index version change can rebuild.
  */
-export function projectSemanticPractice(effective: EffectivePractice): SemanticDocument {
-  const views: SemanticProjectionView[] = [];
-  const add = (kind: SemanticViewKind, texts: readonly string[]): void => {
+export function projectMultiViewDocument(
+  effective: EffectivePractice,
+  recipe: VectorMethodRecipe,
+): PracticeVectorProjection {
+  const inputs: EmbeddingInput[] = [];
+  const add = (channel: string, texts: readonly string[]): void => {
     for (const [ordinal, text] of texts.entries()) {
-      views.push(
-        projectionView({
-          effective,
-          viewId: `${kind}:${ordinal.toString().padStart(4, "0")}`,
-          viewKind: kind,
-          ordinal,
-          text,
-        }),
-      );
+      inputs.push(createEmbeddingInput(recipe, channel, ordinal, text));
     }
   };
   add("full", splitByTokenBudget(fullText(effective.practice), SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS));
@@ -263,20 +200,5 @@ export function projectSemanticPractice(effective: EffectivePractice): SemanticD
     splitByTokenBudget(taskCardText(effective.practice), SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS),
   );
   add("body", bodyChunkTexts(effective.practice.body ?? ""));
-  const frozenViews = Object.freeze(views);
-  const projectionDigest = createHash("sha256")
-    .update(
-      [
-        SEMANTIC_PROJECTION_VERSION,
-        ...frozenViews.flatMap((view) => [view.viewId, view.viewKind, view.projectionDigest]),
-      ].join("\n"),
-      "utf8",
-    )
-    .digest("hex");
-  return Object.freeze({
-    practiceId: effective.practiceId,
-    contentDigest: effective.contentDigest,
-    projectionDigest,
-    views: frozenViews,
-  });
+  return createPracticeVectorProjection(effective, recipe, inputs);
 }

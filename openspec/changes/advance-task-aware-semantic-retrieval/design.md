@@ -1,5 +1,8 @@
 # Design
 
+> **适用域与历史状态：** 本文保留原始设计、版本迁移与实验路线。文档多视角、query clause、384 token 预算及既有聚合公式只约束显式 `multi-view-vector`，其中“默认”是该实验方法内部的默认 recipe，不是当前 semantic 方法默认。当前默认 `single-vector` 对每条完整文档和完整 query 各编码一次并以 cosine 排序，不受本文多视角拆分规则约束。共享的 canonical/snapshot 安全、全量排序后 K、N 只限制报告及禁止 keyword fallback 边界仍适用于两种方法。当前 Profile 绑定 encoding 与方法的 document/query/scoring recipe；原文的 index v3、view 列及“固定 Profile”是历史设计，不覆盖当前 [encoding-input schema v4](../../../docs/development/persistence.md#semantic-encoding-input-schema)。当前 harness 必填方法的示例见 [维护协议](../../../docs/development/semantic-retrieval-benchmark-harness.md#启动和输入)。历史评测数字、撤回记录及后续隔离实验规划不变，不据此声称质量改善或 #236 已解决。
+
+
 ## Context
 
 动机见 [proposal.md](./proposal.md)。当前实现与本 Issue 相关的事实如下：

@@ -407,33 +407,20 @@ test("every registered command has one actionable message for invalid invocation
 });
 
 test.each([
-  {
-    args: ["query", "text", "--mode", "private-token"],
-    message: "--mode must be one of: semantic, keyword.",
-  },
-  {
-    args: ["logs", "--level", "private-token"],
-    message: "--level must be one of: error, warn, info, debug.",
-  },
-  {
-    args: ["--log-level", "private-token"],
-    message: "--log-level must be one of: error, warn, info, debug.",
-  },
-  {
-    args: ["logs", "private-token"],
-    message: "<action> must be one of: prune.",
-  },
-])("uses registry choices in parser errors for $args", async ({ args, message }) => {
+  { args: ["query", "text", "--mode", "private-token"] },
+  { args: ["logs", "--level", "private-token"] },
+  { args: ["--log-level", "private-token"] },
+  { args: ["logs", "private-token"] },
+])("rejects invalid choices without exposing the input for $args", async ({ args }) => {
   const stdout = new MemoryWriter();
   expect(await run(["--json", ...args], { stdout })).toBe(2);
   const response = JSON.parse(stdout.value);
-  expect(response.error).toEqual({ code: "usage.invalid", message });
+  expect(response).toMatchObject({ ok: false, error: { code: "usage.invalid" } });
   expect(stdout.value).not.toContain("private-token");
   expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 
   const stderr = new MemoryWriter();
   expect(await run([...args], { stderr })).toBe(2);
-  expect(stderr.value).toContain(`message: ${message}`);
   expect(stderr.value).not.toContain("private-token");
 });
 

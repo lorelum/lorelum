@@ -24,19 +24,19 @@ export const semanticVectors = sqliteTable(
   "semantic_vectors",
   {
     practiceId: text("practice_id").notNull(),
-    viewId: text("view_id").notNull(),
-    viewKind: text("view_kind").notNull(),
-    viewOrdinal: integer("view_ordinal").notNull(),
+    inputKey: text("input_key").notNull(),
+    channel: text("channel").notNull(),
+    ordinal: integer("ordinal").notNull(),
     contentDigest: text("content_digest").notNull(),
-    projectionDigest: text("projection_digest").notNull(),
+    inputDigest: text("input_digest").notNull(),
     vector: blob("vector", { mode: "buffer" }).notNull(),
   },
   (table) => [
     primaryKey({
-      name: "semantic_vectors_practice_view_pk",
-      columns: [table.practiceId, table.viewId],
+      name: "semantic_vectors_practice_input_pk",
+      columns: [table.practiceId, table.inputKey],
     }),
-    check("semantic_vectors_view_kind", sql`${table.viewKind} IN ('full', 'task-card', 'body')`),
-    check("semantic_vectors_view_ordinal", sql`${table.viewOrdinal} >= 0`),
+    check("semantic_vectors_channel", sql`length(${table.channel}) > 0`),
+    check("semantic_vectors_ordinal", sql`${table.ordinal} >= 0`),
   ],
 );

@@ -1,7 +1,7 @@
 import { isAbsolute } from "node:path";
 import { z } from "zod";
 
-/** Wire contract for Backend query dispatch; Engine owns text and limit validation. */
+/** Wire shape only; controllers validate the method and Engine validates text/limit. */
 export const queryModeSchema = z.enum(["semantic", "keyword"]);
 export type QueryMode = z.infer<typeof queryModeSchema>;
 const absolutePath = z.string().min(1).refine(isAbsolute, "path must be absolute");
@@ -16,19 +16,30 @@ export const projectSemanticRequestSchema = z
     "projectContext requires projectRoot or startDirectory",
   );
 export type ProjectContextTargetRequest = z.infer<typeof projectSemanticRequestSchema>;
+const queryRequestFields = {
+  text: z.string(),
+  limit: z.int().optional(),
+  projectContext: projectSemanticRequestSchema.optional(),
+  cacheRoot: absolutePath.optional(),
+  maxWaitMs: z.int().nonnegative().max(120_000).optional(),
+  minCoveragePercent: z.int().min(0).max(100).optional(),
+};
 export const queryRequestSchema = z
   .strictObject({
     // The store root must be explicit and absolute; the separator convention is the host's.
     storageRoot: z.string().min(1).refine(isAbsolute, "storageRoot must be an absolute path"),
-    query: z.strictObject({
-      text: z.string(),
-      limit: z.int().optional(),
-      mode: queryModeSchema.optional(),
-      projectContext: projectSemanticRequestSchema.optional(),
-      cacheRoot: absolutePath.optional(),
-      maxWaitMs: z.int().nonnegative().max(120_000).optional(),
-      minCoveragePercent: z.int().min(0).max(100).optional(),
-    }),
+    query: z.union([
+      z.strictObject({
+        ...queryRequestFields,
+        mode: z.literal("semantic").optional(),
+        retrievalMethod: z.unknown().optional(),
+      }),
+      z.strictObject({
+        ...queryRequestFields,
+        mode: z.literal("keyword"),
+        retrievalMethod: z.unknown().optional(),
+      }),
+    ]),
   })
   .refine(
     (value) => value.query.projectContext === undefined || value.query.cacheRoot === undefined,

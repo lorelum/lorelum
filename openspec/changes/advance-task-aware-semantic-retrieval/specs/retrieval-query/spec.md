@@ -1,5 +1,8 @@
 # Spec Delta
 
+> **适用域：** 本 delta 的多内容视角、clause 拆解、预算与聚合公式 MUST 只约束显式选择的实验方法 `multi-view-vector`；下文“默认 query/排序”指该方法内部 recipe，MUST NOT 覆盖当前默认 `single-vector`，后者每条完整文档和完整 query 各编码一次并以 cosine 排序。两种方法仍 MUST 在同一 canonical corpus 上全量评分、完整排序后应用 K，benchmark N 只限制报告，且保持 canonical/snapshot 校验、隐私与无 keyword fallback 边界。多视角命中场景的前提均是显式 `multi-view-vector`。当前请求字段与方法对应的 Profile 见 [Query API](../../../../../docs/api/query.md)，当前 harness 必填方法输入见 [维护协议](../../../../../docs/development/semantic-retrieval-benchmark-harness.md#启动和输入)；这些规则不构成 #236 已解决或多视角质量更优的证据。
+
+
 ## ADDED Requirements
 
 ### Requirement: Vector relevance uses multiple query clauses and Practice content views
@@ -22,7 +25,7 @@ semantic retrieval SHALL 以自然语言 query 的 clause views 与同一 Practi
 - **THEN** 两段 MUST 都在全部 eligible Practices 上执行，第一段 MUST NOT 截取候选池后才计算第二段；`K` MUST 只作用于最终排序后的结果
 
 #### Scenario: Clause scores aggregate in a single retrieval pass
-- **WHEN** default query 被拆成多个 clause view
+- **WHEN** 显式 `multi-view-vector` query 被拆成多个 clause view
 - **THEN** 每个 clause MUST 对全部 eligible Practice 产生 clause 分数，且这些分数 MUST 在同一次检索里聚合成一个 Practice 分数；系统 MUST NOT 为每个 clause 生成独立排名再用 rank fusion 合并，也 MUST NOT 引入细化轮或单视图槽位轮
 
 #### Scenario: A background-only clause cannot carry the whole Practice

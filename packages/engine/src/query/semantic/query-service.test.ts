@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +15,8 @@ import { canonicalizePractice, type RevisionDelta } from "../../local-store/mode
 import type { EmbeddingPort } from "./encoding";
 import { SemanticIndexNotReadyError, SemanticIndexQueryError } from "./errors";
 import { createSemanticIndexService } from "./index/service";
-import { createEmbeddingProfile } from "./profile";
+import { createVectorExecution, type VectorExecution } from "./profile";
+import { resolveVectorRetrievalMethod } from "./methods/catalog";
 import { createSemanticCandidateTraceService, createSemanticQueryService } from "./query-service";
 
 const encodingId = "a".repeat(64);
@@ -195,7 +197,7 @@ function sameIdentity(left: StoreSnapshotIdentity, right: StoreSnapshotIdentity)
 async function build(
   rootPath: string,
   store: FakeStore,
-  profile: ReturnType<typeof createEmbeddingProfile>,
+  execution: VectorExecution,
   embedding: EmbeddingPort,
 ): Promise<void> {
   const index = createSemanticIndexService({
@@ -216,53 +218,50 @@ async function build(
         return publish();
       },
     },
-    profile,
+    execution,
     embedding,
   });
   await index.build({ rootPath });
 }
 
-function semantic(
-  store: FakeStore,
-  profile: ReturnType<typeof createEmbeddingProfile>,
-  embedding: EmbeddingPort,
-) {
-  return createSemanticQueryService({ store, profile, embedding });
+function semantic(store: FakeStore, execution: VectorExecution, embedding: EmbeddingPort) {
+  return createSemanticQueryService({ store, execution, embedding });
 }
 
-function semanticTrace(
-  store: FakeStore,
-  profile: ReturnType<typeof createEmbeddingProfile>,
-  embedding: EmbeddingPort,
-) {
-  return createSemanticCandidateTraceService({ store, profile, embedding });
+function semanticTrace(store: FakeStore, execution: VectorExecution, embedding: EmbeddingPort) {
+  return createSemanticCandidateTraceService({ store, execution, embedding });
 }
 
-test("returns complete semantic results with deterministic score and ID ordering", async () => {
-  await withRoot(async (rootPath) => {
-    const store = createStore(rootPath, [
-      practice("platform.beta"),
-      practice("platform.alpha"),
-      practice("platform.alpha2"),
-    ]);
-    const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+for (const methodId of ["single-vector", "multi-view-vector"] as const) {
+  test(`${methodId} returns complete results with deterministic cosine and ID ordering`, async () => {
+    await withRoot(async (rootPath) => {
+      const store = createStore(rootPath, [
+        practice("platform.beta"),
+        practice("platform.alpha"),
+        practice("platform.alpha2"),
+      ]);
+      const embedding = port();
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      await build(rootPath, store, execution, embedding);
 
-    const result = await semantic(store, profile, embedding).query(
-      { rootPath },
-      { text: "alpha", limit: 3 },
-    );
-    expect(result.mode).toBe("semantic");
-    expect(result.coverage).toBe("complete");
-    expect(result.results.map((hit) => hit.practiceId)).toEqual([
-      "platform.alpha",
-      "platform.alpha2",
-      "platform.beta",
-    ]);
-    expect(embedding.calls).toHaveLength(3);
+      const result = await semantic(store, execution, embedding).query(
+        { rootPath },
+        { text: "alpha", limit: 3 },
+      );
+      expect(result.mode).toBe("semantic");
+      expect(result.coverage).toBe("complete");
+      expect(result.results.map((hit) => hit.practiceId)).toEqual([
+        "platform.alpha",
+        "platform.alpha2",
+        "platform.beta",
+      ]);
+      expect(embedding.calls).toHaveLength(methodId === "single-vector" ? 2 : 3);
+    });
   });
-});
+}
 
 test("collects N candidates before returning the unchanged top K order", async () => {
   await withRoot(async (rootPath) => {
@@ -271,14 +270,17 @@ test("collects N candidates before returning the unchanged top K order", async (
     );
     const store = createStore(rootPath, practices);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
 
-    const trace = await semanticTrace(store, profile, embedding).query(
+    const trace = await semanticTrace(store, execution, embedding).query(
       { rootPath },
       { text: "baseline query", candidateWidth: 20, resultLimit: 5 },
     );
-    const normal = await semantic(store, profile, embedding).query(
+    const normal = await semantic(store, execution, embedding).query(
       { rootPath },
       { text: "baseline query", limit: 5 },
     );
@@ -303,14 +305,17 @@ test("candidate width grows with K when K exceeds the ordinary minimum", async (
       ),
     );
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
 
-    const trace = await semanticTrace(store, profile, embedding).query(
+    const trace = await semanticTrace(store, execution, embedding).query(
       { rootPath },
       { text: "wide query", candidateWidth: 50, resultLimit: 50 },
     );
-    const normal = await semantic(store, profile, embedding).query(
+    const normal = await semantic(store, execution, embedding).query(
       { rootPath },
       { text: "wide query", limit: 50 },
     );
@@ -325,11 +330,14 @@ test("rejects an internal benchmark window when K is wider than N", async () => 
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [practice("platform.only")]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
 
     await expect(
-      semanticTrace(store, profile, embedding).query(
+      semanticTrace(store, execution, embedding).query(
         { rootPath },
         { text: "invalid window", candidateWidth: 1, resultLimit: 2 },
       ),
@@ -340,9 +348,12 @@ test("empty index does not call the embedding port", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, []);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
-    const result = await semantic(store, profile, embedding).query(
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
+    const result = await semantic(store, execution, embedding).query(
       { rootPath },
       { text: "anything" },
     );
@@ -357,8 +368,11 @@ test("partial coverage excludes all Practice IDs touched by retained deltas", as
     const retained = practice("platform.retained");
     const store = createStore(rootPath, [original, retained]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
     const next = identity(rootPath, 2);
     store.current = next;
     store.practices = [practice("platform.original", "changed"), retained];
@@ -377,7 +391,7 @@ test("partial coverage excludes all Practice IDs touched by retained deltas", as
       currentPractices: [practice("platform.original", "changed")],
     };
 
-    const result = await semantic(store, profile, embedding).query(
+    const result = await semantic(store, execution, embedding).query(
       { rootPath },
       { text: "beta query" },
     );
@@ -391,8 +405,11 @@ test("partial query with every vector excluded returns empty without embedding",
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [practice("platform.only")]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
     const next = identity(rootPath, 2);
     store.current = next;
     store.changes = {
@@ -400,7 +417,7 @@ test("partial query with every vector excluded returns empty without embedding",
       deltas: [{ revision: 2, delta: { added: [], changed: ["platform.only"], invalidated: [] } }],
       currentPractices: [],
     };
-    const result = await semantic(store, profile, embedding).query(
+    const result = await semantic(store, execution, embedding).query(
       { rootPath },
       { text: "anything" },
     );
@@ -413,12 +430,15 @@ test("history gaps are explicit and never silently fall back to keyword", async 
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [practice("platform.only")]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
     store.current = identity(rootPath, 3);
     store.changes = undefined;
     await expect(
-      semantic(store, profile, embedding).query({ rootPath }, { text: "anything" }),
+      semantic(store, execution, embedding).query({ rootPath }, { text: "anything" }),
     ).rejects.toBeInstanceOf(SemanticIndexNotReadyError);
   });
 });
@@ -428,25 +448,45 @@ test("candidate digest mismatch is a typed query failure", async () => {
     const original = practice("platform.only");
     const store = createStore(rootPath, [original]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
     const invalid = { ...original, contentDigest: "f".repeat(64) };
     store.practices = [invalid];
     await expect(
-      semantic(store, profile, embedding).query({ rootPath }, { text: "anything" }),
+      semantic(store, execution, embedding).query({ rootPath }, { text: "anything" }),
     ).rejects.toBeInstanceOf(SemanticIndexQueryError);
   });
 });
 
 test("a digest mismatch outside the result limit still fails the attempt", async () => {
   await withRoot(async (rootPath) => {
-    const domain = detailedPractice({ id: "domain.overlap", title: "domain", stage: "implementation", techStack: ["typescript"], body: "domain", appliesWhen: "domain" });
-    const current = detailedPractice({ id: "task.current", title: "task", stage: "implementation", techStack: ["typescript"], body: "task", appliesWhen: "task" });
+    const domain = detailedPractice({
+      id: "domain.overlap",
+      title: "domain",
+      stage: "implementation",
+      techStack: ["typescript"],
+      body: "domain",
+      appliesWhen: "domain",
+    });
+    const current = detailedPractice({
+      id: "task.current",
+      title: "task",
+      stage: "implementation",
+      techStack: ["typescript"],
+      body: "task",
+      appliesWhen: "task",
+    });
     const store = createStore(rootPath, [domain, current]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
-    const trace = semanticTrace(store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
+    const trace = semanticTrace(store, execution, embedding);
     const request = { text: taskRequest, candidateWidth: 2, resultLimit: 1 };
     const clean = await trace.query({ rootPath }, request);
     const lowerRanked = clean.candidateIds.find((id) => id !== clean.finalIds[0])!;
@@ -465,8 +505,11 @@ test("discards candidate IDs from a snapshot attempt that is retried", async () 
     const retained = [practice("platform.b-retained"), practice("platform.c-retained")];
     const store = createStore(rootPath, [stale, ...retained]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
     const readAtSnapshot = store.readEffectivePracticesAtSnapshot;
     let reads = 0;
     store.readEffectivePracticesAtSnapshot = async (root, expected, ids) => {
@@ -486,7 +529,7 @@ test("discards candidate IDs from a snapshot attempt that is retried", async () 
       return readAtSnapshot(root, expected, ids);
     };
 
-    const trace = await semanticTrace(store, profile, embedding).query(
+    const trace = await semanticTrace(store, execution, embedding).query(
       { rootPath },
       { text: "retry query", candidateWidth: 20, resultLimit: 1 },
     );
@@ -501,8 +544,11 @@ test("benchmark trace fails without returning IDs when every snapshot attempt ch
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [practice("platform.only")]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
     let reads = 0;
     store.readEffectivePracticesAtSnapshot = async () => {
       reads += 1;
@@ -510,7 +556,7 @@ test("benchmark trace fails without returning IDs when every snapshot attempt ch
     };
 
     await expect(
-      semanticTrace(store, profile, embedding).query(
+      semanticTrace(store, execution, embedding).query(
         { rootPath },
         { text: "retry failure", candidateWidth: 20, resultLimit: 1 },
       ),
@@ -522,15 +568,18 @@ test("Store changes during candidate read are retried three times", async () => 
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [practice("platform.only")]);
     const embedding = port();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
     let reads = 0;
     store.readEffectivePracticesAtSnapshot = async () => {
       reads += 1;
       throw new StoreSnapshotChangedError();
     };
     await expect(
-      semantic(store, profile, embedding).query({ rootPath }, { text: "anything" }),
+      semantic(store, execution, embedding).query({ rootPath }, { text: "anything" }),
     ).rejects.toBeInstanceOf(StoreBusyError);
     expect(reads).toBe(3);
   });
@@ -540,10 +589,13 @@ test("decides on applicability and lets guidance and topic settle a near tie", a
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 3 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
 
-    const taskAware = await semantic(store, profile, embedding).query(
+    const taskAware = await semantic(store, execution, embedding).query(
       { rootPath },
       { text: taskRequest, limit: 2 },
     );
@@ -558,10 +610,13 @@ test("candidate and final lists keep one multi-view order inside the requested w
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 3 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
 
-    const trace = await semanticTrace(store, profile, embedding).query(
+    const trace = await semanticTrace(store, execution, embedding).query(
       { rootPath },
       { text: taskRequest, candidateWidth: 2, resultLimit: 1 },
     );
@@ -596,10 +651,13 @@ test("does not linearly reward a Practice for having more body views", async () 
         };
       },
     };
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
 
-    const result = await semantic(store, profile, embedding).query(
+    const result = await semantic(store, execution, embedding).query(
       { rootPath },
       { text: "conceptual request", limit: 2 },
     );
@@ -617,10 +675,13 @@ test("ranks by cosine even when the query shares more words with the wrong Pract
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
-    await build(rootPath, store, profile, embedding);
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 3 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
+    await build(rootPath, store, execution, embedding);
 
-    const service = createSemanticQueryService({ store, profile, embedding });
+    const service = createSemanticQueryService({ store, execution, embedding });
     const result = await service.query({ rootPath }, { text: taskRequest, limit: 2 });
     expect(result.results.map((hit) => hit.practiceId)).toEqual([
       postPractice.practiceId,
@@ -628,3 +689,47 @@ test("ranks by cosine even when the query shares more words with the wrong Pract
     ]);
   });
 });
+
+for (const methodId of ["single-vector", "multi-view-vector"] as const) {
+  test(`${methodId} closes its reader after embedding failure and every snapshot retry`, async () => {
+    await withRoot(async (rootPath) => {
+      const store = createStore(rootPath, [practice("platform.resource")]);
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      const embedding = port();
+      await build(rootPath, store, execution, embedding);
+      const close = spyOn(Database.prototype, "close");
+      try {
+        const failure: EmbeddingPort = {
+          maxBatchSize: 1,
+          async embed() {
+            throw new SemanticIndexQueryError("injected query encoding failure");
+          },
+        };
+        await expect(
+          semantic(store, execution, failure).query({ rootPath }, { text: "resource query" }),
+        ).rejects.toBeInstanceOf(SemanticIndexQueryError);
+        expect(close).toHaveBeenCalledTimes(1);
+        close.mockClear();
+        const original = store.readEffectivePracticesAtSnapshot;
+        let attempts = 0;
+        store.readEffectivePracticesAtSnapshot = async (root, expected, ids) => {
+          attempts += 1;
+          if (attempts === 1) throw new StoreSnapshotChangedError();
+          return original(root, expected, ids);
+        };
+        const result = await semantic(store, execution, embedding).query(
+          { rootPath },
+          { text: "resource query" },
+        );
+        expect(result.results.map((hit) => hit.practiceId)).toEqual(["platform.resource"]);
+        expect(attempts).toBe(2);
+        expect(close).toHaveBeenCalledTimes(2);
+      } finally {
+        close.mockRestore();
+      }
+    });
+  });
+}

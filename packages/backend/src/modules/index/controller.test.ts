@@ -344,8 +344,16 @@ test("project index routes use the supplied context without changing the Store s
     totalPracticeCount: 100,
   });
   expect(calls).toEqual([
-    ["status", { rootPath: "/tmp/index-controller" }, { kind: "project", projectRoot, cacheRoot }],
-    ["build", { rootPath: "/tmp/index-controller" }, { kind: "project", projectRoot, cacheRoot }],
+    [
+      "status",
+      { rootPath: "/tmp/index-controller" },
+      { kind: "project", projectRoot, cacheRoot, retrievalMethod: "single-vector" },
+    ],
+    [
+      "build",
+      { rootPath: "/tmp/index-controller" },
+      { kind: "project", projectRoot, cacheRoot, retrievalMethod: "single-vector" },
+    ],
   ]);
 });
 
@@ -412,12 +420,85 @@ test("Store cache routes use the common target runtime", async () => {
     [
       "status",
       { rootPath: "/tmp/index-controller" },
-      { kind: "store", cacheRoot: "/tmp/index-cache" },
+      { kind: "store", cacheRoot: "/tmp/index-cache", retrievalMethod: "single-vector" },
     ],
     [
       "build",
       { rootPath: "/tmp/index-controller" },
-      { kind: "store", cacheRoot: "/tmp/index-cache" },
+      { kind: "store", cacheRoot: "/tmp/index-cache", retrievalMethod: "single-vector" },
     ],
   ]);
+});
+
+test("index routes default to single-vector and validate exact method IDs before accepting operations", async () => {
+  const calls: unknown[] = [];
+  const instance = app(
+    {
+      status: async () => ({ state: "missing", profileId }),
+      build: () => ({ operationId, state: "queued" }),
+      rebuild: () => ({ operationId, state: "queued" }),
+      operation: () => undefined,
+      waitForIdle: async () => undefined,
+    },
+    createContentAddressedSemanticRuntimeStub({
+      async indexStatus(_root, target) {
+        calls.push(["status", target.retrievalMethod]);
+        return { state: "missing", profileId };
+      },
+      async build(_root, target) {
+        calls.push(["build", target.retrievalMethod]);
+        return { operationId, state: "queued" };
+      },
+      async rebuild(_root, target) {
+        calls.push(["rebuild", target.retrievalMethod]);
+        return { operationId, state: "queued" };
+      },
+    }),
+  );
+  for (const retrievalMethod of [undefined, "single-vector", "multi-view-vector"]) {
+    const suffix = retrievalMethod === undefined ? "" : `&retrievalMethod=${retrievalMethod}`;
+    const status = await instance.handle(
+      request(`/internal/v1/index/status?storageRoot=/tmp/method-index${suffix}`),
+    );
+    expect(status.status).toBe(200);
+    for (const route of ["build", "rebuild"]) {
+      const response = await instance.handle(
+        request(`/internal/v1/index/${route}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            storageRoot: "/tmp/method-index",
+            ...(retrievalMethod === undefined ? {} : { retrievalMethod }),
+          }),
+        }),
+      );
+      expect(response.status).toBe(202);
+    }
+  }
+  expect(calls).toEqual(
+    ["single-vector", "single-vector", "multi-view-vector"].flatMap((method) =>
+      ["status", "build", "rebuild"].map((route) => [route, method]),
+    ),
+  );
+  for (const retrievalMethod of ["simple", "multi-view", "multiview", null, 1, false, {}]) {
+    for (const route of ["build", "rebuild"]) {
+      const response = await instance.handle(
+        request(`/internal/v1/index/${route}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ storageRoot: "/tmp/method-index", retrievalMethod }),
+        }),
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ error: { code: "usage.invalid" } });
+    }
+    const status = await instance.handle(
+      request(
+        `/internal/v1/index/status?storageRoot=/tmp/method-index&retrievalMethod=${encodeURIComponent(String(retrievalMethod))}`,
+      ),
+    );
+    expect(status.status).toBe(400);
+    expect(await status.json()).toMatchObject({ error: { code: "usage.invalid" } });
+  }
+  expect(calls).toHaveLength(9);
 });

@@ -33,6 +33,8 @@ Installing the same artifact again is safe. If the installed name has different 
 
 Installation also starts the semantic index work needed for the Pack. The result includes its readable public `packRoot` at `packs/p-<pack-name>/current`; `indexSync` reports `ready`, `pending`, or `failed`, and an index failure leaves the Pack installed. Registry, source, Pack validation, Store, and `pack.update-required` errors exit `2`; see [Troubleshooting](../troubleshooting).
 
+After a successful install, `indexSync` reads the current [`query.retrievalMethod`](../configuration#semantic-retrieval-method) selection without requiring a Backend restart. If this derived work fails, including because the method setting is invalid, the Pack remains installed; correct the configuration and run `lore index build`.
+
 Registry-backed results include `registry` and `source: { type: "git" | "local-git", ref, commit }`.
 Directory-backed results include `source: { type: "directory" }` and omit Registry, Git ref/commit,
 and the input path. `pack install --path` has the same `indexSync` field as other installs;

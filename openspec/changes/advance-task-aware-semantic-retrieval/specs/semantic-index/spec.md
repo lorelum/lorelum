@@ -1,5 +1,8 @@
 # Spec Delta
 
+> **适用域：** 本 delta 的 `full` / `task-card` / `body`、分块和多视角兼容规则 MUST 只应用于显式 `multi-view-vector`，MUST NOT 将其施加给默认 `single-vector`。两种方法的 Profile/artifact/progress/cache MUST 隔离；对 single-vector 的兼容性不得以缺少多视角 views 为由否定。本文“固定 embedding Profile”指本次方法与 encoding 绑定的 Profile，不是 daemon 固定方法。共享的增量安全、snapshot fence 与原子发布规则适用于两种方法；当前 encoding-input schema/version 见 [持久化维护说明](../../../../../docs/development/persistence.md#semantic-encoding-input-schema)。历史表示升级场景不是从 single-vector 自动切换方法的授权。
+
+
 ## MODIFIED Requirements
 
 ### Requirement: Build and rebuild preserve consistency
@@ -14,7 +17,7 @@
 - **THEN** build SHALL 只编码新增或 view projection 改变的内容视角，并原子发布更新后的 index
 
 #### Scenario: Multi-view representation invalidates an older index
-- **WHEN** active index 基于单全文向量、旧 view 种类（如 `applicability`/`topic`/`guidance`）或不包含当前 view recipe 的旧 Profile 建立
+- **WHEN** 本次请求显式选择 `multi-view-vector`，而其待复用 active index 基于单全文向量、旧 view 种类（如 `applicability`/`topic`/`guidance`）或不包含当前 view recipe 的旧 Profile 建立
 - **THEN** 系统 MUST 不将其报告为 compatible ready，并且后续 build MUST 通过完整、一致的当前 Profile 表示原子发布新 index
 
 #### Scenario: Failed replacement leaves current index usable

@@ -5,7 +5,6 @@ import { resolveLorelumPaths } from "@lorelum/config";
 
 import type { EffectivePractice } from "../../local-store";
 import type { PersistentKeywordIndexPaths } from "../keyword/persistent-keyword-index";
-import { projectSemanticPractice } from "../semantic/projection";
 import type { SemanticIndexPaths } from "../semantic/index/paths";
 
 export const CONTENT_ARTIFACT_CACHE_VERSION = "v1";
@@ -68,13 +67,12 @@ export function contentArtifactVectorCachePaths(
 
 export function indexCorpusDigest(practices: readonly EffectivePractice[]): string {
   return hash([
-    "content-addressed-index/v1",
+    "content-addressed-index/v2",
     ...[...practices]
-      .sort((left, right) => left.practiceId.localeCompare(right.practiceId))
-      .flatMap((practice) => {
-        const projection = projectSemanticPractice(practice);
-        return [practice.practiceId, practice.contentDigest, projection.projectionDigest];
-      }),
+      .sort((left, right) =>
+        left.practiceId < right.practiceId ? -1 : left.practiceId > right.practiceId ? 1 : 0,
+      )
+      .flatMap((practice) => [practice.practiceId, practice.contentDigest]),
   ]);
 }
 

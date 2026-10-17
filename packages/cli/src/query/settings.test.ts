@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { CliError } from "../runtime/errors";
-import { DEFAULT_QUERY_SETTINGS, loadQuerySettings } from "./settings";
+import {
+  DEFAULT_QUERY_SETTINGS,
+  loadQuerySettings,
+  loadSemanticRetrievalSettings,
+} from "./settings";
 
 async function fixture(run: (home: string, file: string) => Promise<void>): Promise<void> {
   const home = await mkdtemp(join(tmpdir(), "lorelum-query-settings-"));
@@ -69,5 +73,45 @@ test("keeps YAML syntax failures safe and actionable", async () => {
     expect(caught).toBeInstanceOf(CliError);
     expect((caught as CliError).code).toBe("query.config-invalid");
     expect((caught as CliError).message).toContain("~/.lorelum/config.yaml");
+  });
+});
+
+test("defaults semantic retrieval to single-vector and reloads changes on each call", async () => {
+  await fixture(async (home, file) => {
+    expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
+      retrievalMethod: "single-vector",
+    });
+    await writeFile(file, "query:\n  retrievalMethod: multi-view-vector\n  maxWaitMs: invalid\n");
+    expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
+      retrievalMethod: "multi-view-vector",
+    });
+    await writeFile(file, "query:\n  retrievalMethod: single-vector\n");
+    expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
+      retrievalMethod: "single-vector",
+    });
+  });
+});
+
+test.each(["simple", "multi-view", "multiview", "null", "42", "true", "[]", "{}"])(
+  "rejects invalid semantic retrieval method %s without aliases",
+  async (value) => {
+    await fixture(async (home, file) => {
+      await writeFile(file, `query:\n  retrievalMethod: ${value}\n`);
+      await expect(loadSemanticRetrievalSettings({ homeDirectory: home })).rejects.toMatchObject({
+        code: "query.config-invalid",
+        message: expect.stringContaining("query.retrievalMethod"),
+      });
+      expect(await loadQuerySettings({ homeDirectory: home })).toEqual(DEFAULT_QUERY_SETTINGS);
+    });
+  },
+);
+
+test.each(["null", "42", "[]"])("rejects an invalid semantic query section %s", async (value) => {
+  await fixture(async (home, file) => {
+    await writeFile(file, `query: ${value}\n`);
+    await expect(loadSemanticRetrievalSettings({ homeDirectory: home })).rejects.toMatchObject({
+      code: "query.config-invalid",
+      message: expect.stringContaining("query section"),
+    });
   });
 });

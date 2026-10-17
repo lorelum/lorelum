@@ -4,52 +4,37 @@ import { assembleQueryHits } from "../result";
 import { embedInBatches, type EmbeddingPort } from "./encoding";
 import { SemanticIndexQueryError } from "./errors";
 import type { SemanticCandidate, SemanticIndexReader } from "./index/reader";
-import type { EmbeddingProfile } from "./profile";
-import { projectSemanticQuery } from "./query-views";
+import type { EmbeddingProfile, VectorExecution } from "./profile";
+import type { QueryVector } from "./representation";
 import type { SemanticQueryResult } from "./query-service";
-
-export interface SemanticArtifactQueryView {
-  readonly viewId: string;
-  readonly text: string;
-  readonly weight: number;
-}
 
 /** Execute the source-neutral reader/embedding half of a semantic query. */
 export async function searchSemanticArtifact(input: {
   readonly reader: SemanticIndexReader;
-  readonly profile: EmbeddingProfile;
+  readonly execution: VectorExecution;
   readonly embedding: EmbeddingPort;
   readonly text: string;
-  /** Candidate width passed to the reader; not the public 1..50 result limit. */
-  readonly candidateLimit: number;
   readonly excludedPracticeIds: ReadonlySet<string>;
-  /** Internal experiment seam; default semantic query derives clause views from the request. */
-  readonly queryViews?: readonly SemanticArtifactQueryView[];
 }): Promise<readonly SemanticCandidate[]> {
   if (!input.reader.hasEligibleVectors(input.excludedPracticeIds)) return Object.freeze([]);
-  // Validate and normalize the text through the shared request boundary; the
-  // candidate width is an internal ordering width, not the public result limit.
+  // Validate and normalize text through the shared request boundary.
   const text = parseQueryRequest({ text: input.text, limit: 1 }).text;
-  const queryViews =
-    input.queryViews === undefined || input.queryViews.length === 0
-      ? projectSemanticQuery(text)
-      : input.queryViews;
-  const vectors = await embedInBatches(
-    input.profile,
+  const { execution } = input;
+  const inputs = execution.method.projectQuery(text);
+  const embeddings = await embedInBatches(
+    execution.profile,
     input.embedding,
-    queryViews.map((view) => view.text),
+    inputs.map((item) => item.text),
   );
-  return input.reader.search(
-    queryViews.map((view, index) => {
-      const vector = vectors[index];
-      if (vector === undefined) {
-        throw new SemanticIndexQueryError("Embedding result did not contain a query view vector");
-      }
-      return { viewId: view.viewId, vector, weight: view.weight };
-    }),
-    input.excludedPracticeIds,
-    input.candidateLimit,
-  );
+  const queries: readonly QueryVector[] = inputs.map((item, index) => {
+    const embedding = embeddings[index];
+    if (embedding === undefined) {
+      throw new SemanticIndexQueryError("Embedding result did not contain a query input vector");
+    }
+    return { inputKey: item.inputKey, embedding, weight: item.weight };
+  });
+  const scorer = execution.method.prepareScorer(queries, execution.profile.dimensions);
+  return input.reader.search(scorer, input.excludedPracticeIds);
 }
 
 /** Assemble a public semantic result from rows already proven current by the caller. */

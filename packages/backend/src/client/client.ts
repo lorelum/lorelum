@@ -20,6 +20,7 @@ import {
   BackendError,
   backendErrorCodes,
 } from "../protocol/errors";
+import { resolveRequestedRetrievalMethod } from "../protocol/retrieval-method";
 import { EmbeddingError, embeddingErrorCodes } from "../modules/embedding/errors";
 import { constantTimeEqual, identityProof, type InstanceIdentity } from "../protocol/identity";
 import {
@@ -57,7 +58,7 @@ import {
 import { ENCODING_ID } from "../modules/embedding/model";
 import type { EmbeddingResult } from "../modules/embedding/model";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
-import type { QueryRequest, StorageRoot } from "@lorelum/engine";
+import type { QueryRequest, StorageRoot, VectorRetrievalMethodId } from "@lorelum/engine";
 import type { SessionRef } from "../modules/sessions/model";
 import {
   practiceHintAckSchema,
@@ -71,6 +72,7 @@ import {
 
 export type BackendQueryRequest = QueryRequest & {
   readonly mode?: QueryMode;
+  readonly retrievalMethod?: VectorRetrievalMethodId;
   readonly projectContext?: ProjectContextTargetRequest;
   readonly cacheRoot?: string;
   readonly maxWaitMs?: number;
@@ -88,6 +90,7 @@ export interface BackendRequestOptions {
 export interface BackendIndexRequestOptions extends BackendRequestOptions {
   readonly projectContext?: ProjectIndexRequest;
   readonly cacheRoot?: string;
+  readonly retrievalMethod?: VectorRetrievalMethodId;
 }
 
 export interface CreateBackendClientOptions {
@@ -421,11 +424,15 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       const payload = { storageRoot: root.rootPath, query };
       if (!queryRequestSchema.safeParse(payload).success)
         throw new BackendRemoteError("usage.invalid");
+      if (query.mode !== "keyword") resolveRequestedRetrievalMethod(query.retrievalMethod);
       return request(BACKEND_ROUTES.query, queryResultSchema, { payload, ...requestOptions });
     },
     async indexStatus(root, requestOptions) {
       const payload = {
         storageRoot: root.rootPath,
+        ...(requestOptions?.retrievalMethod === undefined
+          ? {}
+          : { retrievalMethod: requestOptions.retrievalMethod }),
         ...(requestOptions?.projectContext !== undefined
           ? {
               ...(requestOptions.projectContext.projectRoot === undefined
@@ -442,7 +449,11 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       };
       if (!indexStatusQuerySchema.safeParse(payload).success)
         throw new BackendError("backend.invalid-request");
+      resolveRequestedRetrievalMethod(requestOptions?.retrievalMethod);
       const search = new URLSearchParams({ storageRoot: root.rootPath });
+      if (requestOptions?.retrievalMethod !== undefined) {
+        search.set("retrievalMethod", requestOptions.retrievalMethod);
+      }
       if (requestOptions?.projectContext !== undefined) {
         if (requestOptions.projectContext.projectRoot !== undefined) {
           search.set("projectRoot", requestOptions.projectContext.projectRoot);
@@ -463,6 +474,9 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     async buildIndex(root, requestOptions) {
       const payload = {
         storageRoot: root.rootPath,
+        ...(requestOptions?.retrievalMethod === undefined
+          ? {}
+          : { retrievalMethod: requestOptions.retrievalMethod }),
         ...(requestOptions?.projectContext !== undefined
           ? { projectContext: requestOptions.projectContext }
           : requestOptions?.cacheRoot === undefined
@@ -471,6 +485,7 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       };
       if (!indexMutationSchema.safeParse(payload).success)
         throw new BackendError("backend.invalid-request");
+      resolveRequestedRetrievalMethod(requestOptions?.retrievalMethod);
       return request(BACKEND_ROUTES.indexBuild, indexOperationSchema, {
         payload,
         ...requestOptions,
@@ -479,6 +494,9 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     async rebuildIndex(root, requestOptions) {
       const payload = {
         storageRoot: root.rootPath,
+        ...(requestOptions?.retrievalMethod === undefined
+          ? {}
+          : { retrievalMethod: requestOptions.retrievalMethod }),
         ...(requestOptions?.projectContext !== undefined
           ? { projectContext: requestOptions.projectContext }
           : requestOptions?.cacheRoot === undefined
@@ -487,6 +505,7 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       };
       if (!indexMutationSchema.safeParse(payload).success)
         throw new BackendError("backend.invalid-request");
+      resolveRequestedRetrievalMethod(requestOptions?.retrievalMethod);
       return request(BACKEND_ROUTES.indexRebuild, indexOperationSchema, {
         payload,
         ...requestOptions,

@@ -22,7 +22,7 @@ import {
 } from "./index/reader";
 import type { SemanticIndexPaths } from "./index/paths";
 import type { SemanticIndexDatabaseDefinition } from "./index/database";
-import type { EmbeddingProfile } from "./profile";
+import type { VectorExecution } from "./profile";
 import { assembleSemanticArtifactResult, searchSemanticArtifact } from "./read";
 
 const MAX_QUERY_RETRIES = 3;
@@ -57,7 +57,7 @@ export interface SemanticQueryDependencies {
       ids: readonly string[],
     ): Promise<readonly EffectivePractice[]>;
   };
-  readonly profile: EmbeddingProfile;
+  readonly execution: VectorExecution;
   readonly embedding: EmbeddingPort;
   readonly paths?: (root: StorageRoot, profileId: string) => SemanticIndexPaths;
   readonly definition?: SemanticIndexDatabaseDefinition;
@@ -157,13 +157,6 @@ function semanticCandidateIds(candidates: readonly SemanticCandidate[]): readonl
   return Object.freeze(ids);
 }
 
-/**
- * The ranking is computed over every eligible Practice. The requested top-k is
- * applied only after the full ordering exists, and the benchmark-only candidate
- * cap below limits which ids are reported, never which ids are scored.
- */
-const ALL_SEMANTIC_CANDIDATES = Number.MAX_SAFE_INTEGER;
-
 interface SemanticQueryWindow {
   readonly request: Required<QueryRequest>;
   readonly resultLimit: number;
@@ -187,7 +180,8 @@ async function executeSemanticQuery(
   /** Maximum ids reported to the benchmark harness; scoring always uses the full corpus. */
   candidateCap?: number,
 ): Promise<SemanticQueryExecution> {
-  const { store, profile, embedding } = dependencies;
+  const { store, execution, embedding } = dependencies;
+  const { profile } = execution;
   const pathsFor = dependencies.paths;
   const definition = dependencies.definition;
 
@@ -213,10 +207,9 @@ async function executeSemanticQuery(
       // eslint-disable-next-line no-await-in-loop -- the model admits one request at a time.
       const candidates = await searchSemanticArtifact({
         reader,
-        profile,
+        execution,
         embedding,
         text: window.request.text,
-        candidateLimit: ALL_SEMANTIC_CANDIDATES,
         excludedPracticeIds: coverage.excludedPracticeIds,
       });
       const rankedCandidateIds = semanticCandidateIds(candidates);

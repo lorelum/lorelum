@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 
-import type { EffectivePractice } from "../../local-store";
-import { canonicalizePractice } from "../../local-store/model";
+import type { EffectivePractice } from "../../../../local-store";
+import { canonicalizePractice } from "../../../../local-store/model";
 import {
   estimatedTokens,
-  projectSemanticPractice,
+  projectMultiViewDocument,
   SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS,
 } from "./projection";
+import { multiViewRecipe } from "./method";
 
 function practice(body: string): EffectivePractice {
   const canonical = canonicalizePractice({
@@ -22,62 +23,69 @@ function practice(body: string): EffectivePractice {
 }
 
 test("projects full, task-card, and heading-aware body views deterministically", () => {
-  const document = projectSemanticPractice(
+  const document = projectMultiViewDocument(
     practice("## Review\n\nKeep the exception and its condition.\n\nReview the result."),
+    multiViewRecipe,
   );
 
-  expect(document.views.map((view) => view.viewKind)).toEqual([
+  expect(document.inputs.map((view) => view.channel)).toEqual([
     "full",
     "task-card",
     "body",
     "body",
   ]);
-  expect(document.views.map((view) => view.viewId)).toEqual([
+  expect(document.inputs.map((view) => view.inputKey)).toEqual([
     "full:0000",
     "task-card:0000",
     "body:0000",
     "body:0001",
   ]);
   expect(
-    document.views.filter((view) => view.viewKind === "body").map((view) => view.text),
+    document.inputs.filter((view) => view.channel === "body").map((view) => view.text),
   ).toEqual(["Review\n\nKeep the exception and its condition.", "Review\n\nReview the result."]);
   expect(
-    projectSemanticPractice(
+    projectMultiViewDocument(
       practice("## Review\n\nKeep the exception and its condition.\n\nReview the result."),
+      multiViewRecipe,
     ),
   ).toEqual(document);
 });
 
 test("keeps ids and field labels out of every view, and the tech stack out of the task card", () => {
-  const document = projectSemanticPractice(practice("## Review\n\nKeep the condition."));
-  const full = document.views.find((view) => view.viewKind === "full");
-  const taskCard = document.views.find((view) => view.viewKind === "task-card");
+  const document = projectMultiViewDocument(
+    practice("## Review\n\nKeep the condition."),
+    multiViewRecipe,
+  );
+  const full = document.inputs.find((view) => view.channel === "full");
+  const taskCard = document.inputs.find((view) => view.channel === "task-card");
 
   expect(taskCard?.text).toBe("Projection fixture\n\nChecking semantic views.\n\nimplementation");
   expect(taskCard?.text).not.toContain("typescript");
   // The full context anchor keeps the technology world so domain terms still have a home.
   expect(full?.text).toContain("typescript");
   expect(full?.text).toContain("Keep the condition.");
-  for (const view of document.views) {
+  for (const view of document.inputs) {
     expect(view.text).not.toContain("platform.projection");
   }
 });
 
 test("a local body edit reuses the task card and untouched body chunks", () => {
-  const original = projectSemanticPractice(
+  const original = projectMultiViewDocument(
     practice("## Review\n\nKeep the exception and its condition.\n\nReview the result."),
+    multiViewRecipe,
   );
-  const changed = projectSemanticPractice(
+  const changed = projectMultiViewDocument(
     practice("## Review\n\nKeep the exception and its condition.\n\nReview the replacement."),
+    multiViewRecipe,
   );
 
-  expect(changed.views.find((view) => view.viewKind === "task-card")?.projectionDigest).toBe(
-    original.views.find((view) => view.viewKind === "task-card")?.projectionDigest,
+  expect(changed.inputs.find((view) => view.channel === "task-card")?.inputDigest).toBe(
+    original.inputs.find((view) => view.channel === "task-card")?.inputDigest,
   );
-  expect(changed.views[2]?.projectionDigest).toBe(original.views[2]?.projectionDigest);
-  expect(changed.views[3]?.projectionDigest).not.toBe(original.views[3]?.projectionDigest);
+  expect(changed.inputs[2]?.inputDigest).toBe(original.inputs[2]?.inputDigest);
+  expect(changed.inputs[3]?.inputDigest).not.toBe(original.inputs[3]?.inputDigest);
   // The full view contains the body, so editing any body text changes it.
-  expect(changed.views[0]?.projectionDigest).not.toBe(original.views[0]?.projectionDigest);
+  expect(changed.inputs[0]?.inputDigest).not.toBe(original.inputs[0]?.inputDigest);
   expect(changed.projectionDigest).not.toBe(original.projectionDigest);
 });
 
@@ -86,9 +94,9 @@ test("splits an over-long full view and unpunctuated CJK body by the estimated t
     { length: 400 },
     () => "当同一个服务端渲染中多个组件重复执行相同的请求级查询时应当去重",
   ).join("");
-  const document = projectSemanticPractice(practice(body));
-  const full = document.views.filter((view) => view.viewKind === "full");
-  const chunked = document.views.filter((view) => view.viewKind === "body");
+  const document = projectMultiViewDocument(practice(body), multiViewRecipe);
+  const full = document.inputs.filter((view) => view.channel === "full");
+  const chunked = document.inputs.filter((view) => view.channel === "body");
 
   expect(full.length).toBeGreaterThan(1);
   expect(chunked.length).toBeGreaterThan(1);
@@ -101,9 +109,10 @@ test("splits an over-long full view and unpunctuated CJK body by the estimated t
 test("every body view, including its heading context, stays within the token budget", () => {
   const heading = `## ${"服务端渲染设计".repeat(20)}`;
   const paragraph = "当同一个服务端渲染中多个组件重复执行相同的请求级查询时应当去重。".repeat(40);
-  const views = projectSemanticPractice(practice(`${heading}\n\n${paragraph}`)).views.filter(
-    (view) => view.viewKind === "body",
-  );
+  const views = projectMultiViewDocument(
+    practice(`${heading}\n\n${paragraph}`),
+    multiViewRecipe,
+  ).inputs.filter((view) => view.channel === "body");
   expect(views.length).toBeGreaterThan(1);
   for (const view of views) {
     expect(estimatedTokens(view.text)).toBeLessThanOrEqual(SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS);
@@ -118,8 +127,8 @@ test("nested headings keep the most specific context and stay within budget", ()
     "",
     "缓存失效时需要同时清理派生视图。".repeat(30),
   ].join("\n");
-  const views = projectSemanticPractice(practice(body)).views.filter(
-    (view) => view.viewKind === "body",
+  const views = projectMultiViewDocument(practice(body), multiViewRecipe).inputs.filter(
+    (view) => view.channel === "body",
   );
   for (const view of views) {
     expect(estimatedTokens(view.text)).toBeLessThanOrEqual(SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS);
@@ -129,8 +138,8 @@ test("nested headings keep the most specific context and stay within budget", ()
 
 test("a heading longer than the budget on its own is cut, not dropped, and body text survives", () => {
   const body = `# ${"极长标题".repeat(200)}\n\n正文第一段。`;
-  const views = projectSemanticPractice(practice(body)).views.filter(
-    (view) => view.viewKind === "body",
+  const views = projectMultiViewDocument(practice(body), multiViewRecipe).inputs.filter(
+    (view) => view.channel === "body",
   );
   expect(views.length).toBeGreaterThan(0);
   for (const view of views) {

@@ -14,9 +14,15 @@ lore index rebuild
 lore index operation <operation-id>
 ```
 
+## Retrieval method
+
+Index status, build, and rebuild use the current [`query.retrievalMethod` configuration](../configuration#semantic-retrieval-method): `single-vector` by default, or `multi-view-vector` (experimental). Each command reads the selection again, even with the same running Backend; changing it does not require a restart. Invalid values return `query.config-invalid`; correct or remove the field. The old `simple` and `multi-view` IDs are not aliases.
+
+Status reports only the selected method's artifact and progress, not work from another method. Switching methods may therefore show `missing` or `indexing` even when the previous method was `ready`. Methods keep separate cached work; switching back can reuse a compatible artifact. An operation ID accepted before a switch still refers to its original method's work.
+
 ## Build and rebuild
 
-`build` reuses compatible artifacts and `(profileId, projectionDigest)` vectors. It starts the Backend and prepares the model when needed. If a complete artifact already covers the current context, it can return without rebuilding. Identical final corpora join one operation; different targets queue instead of returning `backend.busy`.
+`build` reuses compatible artifacts and cached vectors for the selected method. It starts the Backend and prepares the model when needed. If a complete artifact already covers the current context, it can return without rebuilding. Identical final corpora using the same method join one operation; different targets queue instead of returning `backend.busy`.
 
 `rebuild` discards reuse and builds a complete replacement. Use it when Lorelum reports an incompatible index.
 

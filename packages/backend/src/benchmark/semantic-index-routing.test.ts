@@ -6,7 +6,8 @@ import { join } from "node:path";
 import {
   contentSemanticIndexPaths,
   createContentAddressedSemanticServices,
-  createEmbeddingProfile,
+  createVectorExecution,
+  resolveVectorRetrievalMethod,
   createLocalStore,
   createSemanticIndexService,
   defaultQueryArtifactCacheRoot,
@@ -32,7 +33,11 @@ import {
 } from "./semantic-retrieval-protocol";
 
 const encodingId = "a".repeat(64);
-const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+const execution = createVectorExecution(
+  { encodingId, dimensions: 2 },
+  resolveVectorRetrievalMethod("multi-view-vector"),
+);
+const { profile } = execution;
 const practiceIds = ["platform.core", "platform.domain", "platform.support"] as const;
 
 /** Fully controlled embedding port: deterministic vectors, no model or native runtime. */
@@ -102,7 +107,7 @@ async function corpusFor(storeRoot: string): Promise<ContentAddressedCorpus> {
 
 /** Build the semantic artifact exactly the way Store-only `lore index build` does. */
 async function buildDerivedArtifact(corpus: ContentAddressedCorpus, cacheRoot: string) {
-  const services = createContentAddressedSemanticServices(corpus, cacheRoot, profile, embedding);
+  const services = createContentAddressedSemanticServices(corpus, cacheRoot, execution, embedding);
   return services.index.build(services.root);
 }
 
@@ -173,7 +178,7 @@ test("queries the content-addressed artifact from the cache root, not the Store 
     const trace = createBenchmarkSemanticTraceService({
       store: createLocalStore(),
       cacheRoot,
-      profile,
+      execution,
       embedding,
     });
     const result = await trace.query(
@@ -191,17 +196,20 @@ test("does not fall back to a Store-local index when the derived cache has no ar
   fixture(async ({ storeRoot, cacheRoot }) => {
     await seedStore(storeRoot);
     const store = createLocalStore();
-    await createSemanticIndexService({ store, profile, embedding }).build({ rootPath: storeRoot });
+    await createSemanticIndexService({ store, execution, embedding }).build({
+      rootPath: storeRoot,
+    });
     // The legacy Store-local artifact really is there and really is compatible.
     await expect(
       access(semanticIndexPaths(storeRoot, profile.profileId).active),
     ).resolves.toBeNull();
 
-    const trace = createBenchmarkSemanticTraceService({ store, cacheRoot, profile, embedding });
+    const trace = createBenchmarkSemanticTraceService({ store, cacheRoot, execution, embedding });
     const response = await runHarnessRequest(trace, {
       query: "benchmark routing",
       storeRoot,
       embeddingProfileId: profile.profileId,
+      retrievalMethod: "multi-view-vector",
       candidateWidth: 3,
       resultLimit: 2,
     });
@@ -217,7 +225,7 @@ test("returns one protocol v1 trace built from the benchmark cache artifact", ()
     const trace = createBenchmarkSemanticTraceService({
       store: createLocalStore(),
       cacheRoot,
-      profile,
+      execution,
       embedding,
     });
 
@@ -225,6 +233,7 @@ test("returns one protocol v1 trace built from the benchmark cache artifact", ()
       query: "benchmark routing",
       storeRoot,
       embeddingProfileId: profile.profileId,
+      retrievalMethod: "multi-view-vector",
       candidateWidth: 3,
       resultLimit: 1,
     });
@@ -252,13 +261,14 @@ test("keeps structured failures free of partial lists for runtime and Profile mi
       createBenchmarkSemanticTraceService({
         store: createLocalStore(),
         cacheRoot,
-        profile,
+        execution,
         embedding: failing,
       }),
       {
         query: "benchmark routing",
         storeRoot,
         embeddingProfileId: profile.profileId,
+        retrievalMethod: "multi-view-vector",
         candidateWidth: 3,
         resultLimit: 2,
       },
@@ -269,13 +279,14 @@ test("keeps structured failures free of partial lists for runtime and Profile mi
       createBenchmarkSemanticTraceService({
         store: createLocalStore(),
         cacheRoot,
-        profile,
+        execution,
         embedding,
       }),
       {
         query: "benchmark routing",
         storeRoot,
         embeddingProfileId: "b".repeat(64),
+        retrievalMethod: "multi-view-vector",
         candidateWidth: 3,
         resultLimit: 2,
       },
@@ -296,16 +307,19 @@ test("rejects an artifact whose metadata belongs to another corpus", () =>
     await buildDerivedArtifact(first, cacheRoot);
     // A Store-local artifact is not a content-addressed artifact for this corpus.
     const store = createLocalStore();
-    await createSemanticIndexService({ store, profile, embedding }).build({ rootPath: storeRoot });
+    await createSemanticIndexService({ store, execution, embedding }).build({
+      rootPath: storeRoot,
+    });
     const localArtifact = semanticIndexPaths(storeRoot, profile.profileId).active;
     const contentAddressed = contentSemanticIndexPaths(cacheRoot, corpus, profile.profileId).active;
     await Bun.write(contentAddressed, await Bun.file(localArtifact).arrayBuffer());
 
-    const trace = createBenchmarkSemanticTraceService({ store, cacheRoot, profile, embedding });
+    const trace = createBenchmarkSemanticTraceService({ store, cacheRoot, execution, embedding });
     const response = await runHarnessRequest(trace, {
       query: "benchmark routing",
       storeRoot,
       embeddingProfileId: profile.profileId,
+      retrievalMethod: "multi-view-vector",
       candidateWidth: 3,
       resultLimit: 2,
     });
@@ -319,7 +333,7 @@ test("fails as a structured index error when the artifact is missing", () =>
     const trace = createBenchmarkSemanticTraceService({
       store: createLocalStore(),
       cacheRoot,
-      profile,
+      execution,
       embedding,
     });
     await expect(
@@ -328,4 +342,48 @@ test("fails as a structured index error when the artifact is missing", () =>
         { text: "benchmark routing", candidateWidth: 3, resultLimit: 2 },
       ),
     ).rejects.toBeInstanceOf(SemanticIndexNotReadyError);
+  }));
+
+test("benchmarks either explicitly bound method without borrowing the other method's artifact", () =>
+  fixture(async ({ storeRoot, cacheRoot }) => {
+    await seedStore(storeRoot);
+    const corpus = await corpusFor(storeRoot);
+    const singleExecution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("single-vector"),
+    );
+    const singleTrace = createBenchmarkSemanticTraceService({
+      store: createLocalStore(),
+      cacheRoot,
+      execution: singleExecution,
+      embedding,
+    });
+    await buildDerivedArtifact(corpus, cacheRoot);
+    const request = {
+      text: "Inspect routing. Preserve boundaries.",
+      candidateWidth: 3,
+      resultLimit: 1,
+    };
+    await expect(singleTrace.query({ rootPath: storeRoot }, request)).rejects.toBeInstanceOf(
+      SemanticIndexNotReadyError,
+    );
+    const services = createContentAddressedSemanticServices(
+      corpus,
+      cacheRoot,
+      singleExecution,
+      embedding,
+    );
+    await services.index.build(services.root);
+    const multiTrace = createBenchmarkSemanticTraceService({
+      store: createLocalStore(),
+      cacheRoot,
+      execution,
+      embedding,
+    });
+    for (const trace of [singleTrace, multiTrace]) {
+      await expect(trace.query({ rootPath: storeRoot }, request)).resolves.toEqual({
+        candidateIds: [...practiceIds],
+        finalIds: [practiceIds[0]],
+      });
+    }
   }));

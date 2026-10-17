@@ -39,7 +39,12 @@ import {
 } from "../project-context/service.js";
 import { queryResultSchema } from "./result-schema.js";
 import type { SemanticRuntimeClient, SemanticRuntimeResult } from "./runtime-client.js";
-import { DEFAULT_QUERY_SETTINGS, type QuerySettings } from "./settings.js";
+import {
+  DEFAULT_QUERY_SETTINGS,
+  loadSemanticRetrievalSettings,
+  type QuerySettings,
+  type SemanticRetrievalSettings,
+} from "./settings.js";
 import { renderQueryDecisionText } from "./text.js";
 import type { TraceId } from "@lorelum/log";
 
@@ -75,9 +80,10 @@ export interface QueryCommandServices {
   /** The registry wires this to Engine; tests can keep an isolated Store-only route. */
   readonly resolveProjectContext?: ProjectContextResolver;
   readonly loadSettings?: () => Promise<QuerySettings>;
+  readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
 }
 
-const queryModes = ["semantic", "keyword"] as const;
+const queryModes = ["semantic", "keyword", "multi-view-vector"] as const;
 type QueryMode = (typeof queryModes)[number];
 const queryErrorCodes = Object.freeze([
   ...new Set([
@@ -92,7 +98,7 @@ const queryErrorCodes = Object.freeze([
 function parseMode(value: unknown): QueryMode {
   if (value === undefined) return "semantic";
   if (typeof value !== "string" || !queryModes.includes(value as QueryMode)) {
-    throw invalidInvocationError("--mode must be semantic or keyword.");
+    throw invalidInvocationError(`--mode must be ${queryModes.join(" or ")}.`);
   }
   return value as QueryMode;
 }
@@ -267,7 +273,8 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
     options: [
       {
         longFlag: "--mode",
-        description: "Choose semantic relevance (default) or the offline keyword index.",
+        description:
+          "Choose semantic relevance (default), offline keyword, or experimental multi-view-vector for this query.",
         value: { name: "mode", required: true },
         optionRequired: false,
         defaultValue: "semantic",
@@ -348,6 +355,12 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
             ? 100
             : (minCoverageOverride ?? settings.minCoveragePercent);
         const request = limit === undefined ? { text } : { text, limit };
+        const semanticSettings =
+          mode === "multi-view-vector"
+            ? { retrievalMethod: mode }
+            : mode === "semantic"
+              ? await (services.loadSemanticSettings ?? loadSemanticRetrievalSettings)()
+              : undefined;
         const project =
           mode !== "keyword" || services.resolveProjectContext === undefined
             ? undefined
@@ -366,7 +379,8 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
                 await services.createClient(invocation.traceId, invocation.options.debug === true)
               ).query(root, {
                 ...request,
-                mode,
+                mode: "semantic",
+                ...semanticSettings,
                 maxWaitMs,
                 minCoveragePercent,
                 ...backendProjectTargetOptions(projectOptions),

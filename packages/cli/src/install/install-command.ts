@@ -22,6 +22,10 @@ import type { CommandDefinition } from "../registry.js";
 import { CliError, cliErrorCodes, frameworkErrorCodes } from "../runtime/errors.js";
 import { resolveInvocationStorageRoot } from "../store/storage-root.js";
 import {
+  loadSemanticRetrievalSettings,
+  type SemanticRetrievalSettings,
+} from "../query/settings.js";
+import {
   mutationResultProperties,
   mutationResultRequired,
   stringSchema,
@@ -50,6 +54,7 @@ export interface InstallCommandServices {
   /** Install submits derived-index synchronization after its canonical commit. */
   readonly createIndexRuntimeClient: () => Promise<IndexRuntimeClient>;
   readonly progressWriter?: OutputWriter;
+  readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
   /** Ancillary dependencies default to the production implementations. */
   readonly loadRegistry?: (locator?: string) => Promise<LoadedRegistry>;
   readonly loadLocalRegistry?: (directory: string) => Promise<LoadedLocalRegistry>;
@@ -440,7 +445,12 @@ async function synchronizeIndex(
   root: StorageRoot,
 ): Promise<InstallIndexSync> {
   try {
-    return await syncSemanticIndexAfterInstall(root, await services.createIndexRuntimeClient());
+    const settings = await services.loadSemanticSettings();
+    return await syncSemanticIndexAfterInstall(
+      root,
+      await services.createIndexRuntimeClient(),
+      settings.retrievalMethod,
+    );
   } catch (error) {
     return failedInstallIndexSync(error);
   }
@@ -459,6 +469,7 @@ function createRegistryMutationCommand(
     decodePackDirectory: services.decodePackDirectory ?? decodePackDirectory,
     resolveLocalPackDirectory: services.resolveLocalPackDirectory ?? resolveLocalPackDirectory,
     createIndexRuntimeClient: services.createIndexRuntimeClient,
+    loadSemanticSettings: services.loadSemanticSettings ?? loadSemanticRetrievalSettings,
     progressWriter: services.progressWriter ?? process.stderr,
     store: services.store,
     storageRoot: services.storageRoot,

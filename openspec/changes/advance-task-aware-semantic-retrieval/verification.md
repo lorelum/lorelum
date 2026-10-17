@@ -2,6 +2,9 @@
 
 > 本文件记录 Lorelum 主仓库实现的验证方案；完整 query 集、gold labels 和正式 benchmark record 由关联 benchmark 工作流维护，不复制进 Core 测试目录。
 
+> **阅读范围注记：** 以下数字、Profile、版本和运行记录按原 checkout 保留，不是方法隔离后的重新评测。多视角/clause/聚合公式证据只对应现在显式选择的实验方法 `multi-view-vector`，不能覆盖默认 `single-vector`，也不表明排名质量改善或 #236 已解决。§1 等处的五字段请求是历史协议示例；当前 harness 虽仍记录 protocol version `1`，生产者必须额外发送 `retrievalMethod`（`single-vector` 或 `multi-view-vector`），并使用与该方法匹配的 Profile/artifact。最新可复制输入入口见 [harness 启动和输入](../../../docs/development/semantic-retrieval-benchmark-harness.md#启动和输入)；不要直接把本页旧 JSON 发给当前入口。
+
+
 ## 1. Harness 协议与版本
 
 benchmark runner 在固定 Lorelum checkout 中启动本地 harness，使用 stdin/stdout 传输。请求含固定评测输入，不含 gold labels：
@@ -1203,7 +1206,7 @@ scope（Q 1、Q+I 2）与 forbidden-before-core（均 0）满足不高于 2 / 1�
 - 归因:唯一的 pilot 改善出现在不含新信息的 S-dup,不在 S;F 也无收益。概括内容没有显示额外信号。
 - 成本:新增编码 97+ 条概括文本(distinct 1953,含全部条件文本);S 的评分 p95 113 ms(control 103 ms),进程 RSS 约 141 MB,均在预算内。
 - 样本很小:有目标 query 10 条,单评审 agent 标注,`labelsIndependent=false`;pilot 的 5 条失败不能解释为排序问题,可能是语料覆盖或评审分歧。结论方向是“没有证据支持”,不是“已证无效”。
-- 实现:`summary-view.ts`、`summary-conditions.ts` 与测试;`role-replay.ts` 新增 S/S-dup/F 条件,`role-scoring.ts` 把 S 加入门?候选。`bun test packages/backend/src/benchmark` 152 pass / 0 fail,backend typecheck 通过。原始数据与标注在 `C:\Users\HP\.codex\lorelum-g1\`(`run-pilot-d2`、`run-dev-3`、`labels-pilot-d`),不提交。
+- 实现:`summary-view.ts`、`summary-conditions.ts` 与测试;`role-replay.ts` 新增 S/S-dup/F 条件,`role-scoring.ts` 把 S 加入门?候选。`bun test packages/backend/src/benchmark` 152 pass / 0 fail,backend typecheck 通过。原始数据与标注保存在本机私有评测目录,不随仓库提交。
 
 ## 27. 高级检索前的离线探索：subagent 适用性判断与融合对照（2026-10-13）
 

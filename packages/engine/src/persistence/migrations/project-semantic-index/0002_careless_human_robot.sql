@@ -8,8 +8,8 @@ CREATE TABLE `__new_semantic_vectors` (
 	`projection_digest` text NOT NULL,
 	`vector` blob NOT NULL,
 	PRIMARY KEY(`practice_id`, `view_id`),
-	CONSTRAINT "semantic_vectors_view_kind" CHECK("__new_semantic_vectors"."view_kind" IN ('full', 'task-card', 'body')),
-	CONSTRAINT "semantic_vectors_view_ordinal" CHECK("__new_semantic_vectors"."view_ordinal" >= 0)
+	CONSTRAINT "semantic_vectors_view_kind" CHECK("view_kind" IN ('full', 'task-card', 'body')),
+	CONSTRAINT "semantic_vectors_view_ordinal" CHECK("view_ordinal" >= 0)
 );
 --> statement-breakpoint
 DROP TABLE `semantic_vectors`;--> statement-breakpoint

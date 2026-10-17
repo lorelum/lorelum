@@ -3,7 +3,7 @@ import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createEmbeddingProfile } from "../semantic";
+import { createVectorExecution, resolveVectorRetrievalMethod } from "../semantic";
 import { withContentArtifactLease } from "./artifact-lease";
 import {
   contentArtifactCachePaths,
@@ -16,10 +16,11 @@ import { queryContentAddressedKeyword } from "../keyword/content-addressed-query
 import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
 import { ContentAddressedSemanticProgressService } from "./semantic-progress";
-import { projectSemanticPractice } from "../semantic/projection";
+import { createContentAddressedSemanticServices } from "./semantic";
 import { writeSharedEmbeddingVectors } from "./vector-cache";
 
 const encodingId = "c".repeat(64);
+const methodIds = ["single-vector", "multi-view-vector"] as const;
 
 test("reports and explicitly prunes only derived project cache state", async () => {
   const [root, cache] = await Promise.all([
@@ -52,30 +53,46 @@ Keep source data outside the cache.
       },
     });
     if (snapshot === undefined) throw new Error("Expected ProjectContext");
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const executions = methodIds.map((methodId) =>
+      createVectorExecution({ encodingId, dimensions: 2 }, resolveVectorRetrievalMethod(methodId)),
+    );
 
     await queryContentAddressedKeyword(snapshot, cache, { text: "derived cache" });
-    await new ContentAddressedSemanticProgressService(snapshot, cache, profile, {
-      maxBatchSize: 8,
-      async embed(inputs) {
-        return { encodingId, vectors: inputs.map(() => [1, 0]) };
-      },
-    }).build();
+    for (const execution of executions) {
+      // eslint-disable-next-line no-await-in-loop -- build each method through the shared cache writer.
+      await new ContentAddressedSemanticProgressService(snapshot, cache, execution, {
+        maxBatchSize: 8,
+        async embed(inputs) {
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        },
+      }).build();
+    }
 
     await expect(contentArtifactCacheStatus(cache)).resolves.toMatchObject({
-      artifactCount: 2,
+      artifactCount: 3,
       keywordArtifactCount: 1,
-      semanticArtifactCount: 1,
-      vectorCount: 3,
+      semanticArtifactCount: 2,
+      vectorCount: executions.reduce(
+        (count, execution) =>
+          count +
+          snapshot.practices.reduce(
+            (total, practice) => total + execution.method.projectDocument(practice).inputs.length,
+            0,
+          ),
+        0,
+      ),
     });
     await expect(pruneContentArtifactCache(cache)).resolves.toMatchObject({
-      removedArtifactCount: 2,
+      removedArtifactCount: 3,
       skippedArtifactCount: 0,
     });
     await expect(access(contentKeywordIndexPaths(cache, snapshot).active)).rejects.toThrow();
-    await expect(
-      access(contentSemanticIndexPaths(cache, snapshot, profile.profileId).active),
-    ).rejects.toThrow();
+    for (const execution of executions) {
+      // eslint-disable-next-line no-await-in-loop -- each method artifact must be pruned.
+      await expect(
+        access(contentSemanticIndexPaths(cache, snapshot, execution.profile.profileId).active),
+      ).rejects.toThrow();
+    }
     expect(await Bun.file(practicePath).text()).toBe(source);
     await expect(contentArtifactCacheStatus(cache)).resolves.toMatchObject({
       artifactCount: 0,
@@ -120,14 +137,27 @@ Keep derived vectors while a reader holds a lease.
       },
     });
     if (snapshot === undefined) throw new Error("Expected ProjectContext");
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
-    await queryContentAddressedKeyword(snapshot, cache, { text: "leased cache" });
-    await new ContentAddressedSemanticProgressService(snapshot, cache, profile, {
+    const executions = methodIds.map((methodId) =>
+      createVectorExecution({ encodingId, dimensions: 2 }, resolveVectorRetrievalMethod(methodId)),
+    );
+    const embedding = {
       maxBatchSize: 8,
-      async embed(inputs) {
+      async embed(inputs: readonly string[]) {
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
-    }).build();
+    };
+    await queryContentAddressedKeyword(snapshot, cache, { text: "leased cache" });
+    for (const execution of executions) {
+      // eslint-disable-next-line no-await-in-loop -- build each method through the shared cache writer.
+      await new ContentAddressedSemanticProgressService(
+        snapshot,
+        cache,
+        execution,
+        embedding,
+      ).build();
+    }
+    const leasedExecution = executions[0];
+    if (leasedExecution === undefined) throw new Error("Expected leased method");
 
     let release!: () => void;
     let markLeaseHeld!: () => void;
@@ -135,7 +165,7 @@ Keep derived vectors while a reader holds a lease.
       markLeaseHeld = resolve;
     });
     const lease = withContentArtifactLease(
-      contentKeywordIndexPaths(cache, snapshot).directory,
+      contentSemanticIndexPaths(cache, snapshot, leasedExecution.profile.profileId).directory,
       async () => {
         markLeaseHeld();
         await new Promise<void>((resolve) => {
@@ -146,11 +176,23 @@ Keep derived vectors while a reader holds a lease.
     await leaseHeld;
 
     await expect(pruneContentArtifactCache(cache)).resolves.toMatchObject({
-      removedArtifactCount: 1,
+      removedArtifactCount: 2,
       skippedArtifactCount: 1,
       removedVectorByteSize: 0,
     });
-    await expect(access(contentKeywordIndexPaths(cache, snapshot).active)).resolves.toBeNull();
+    const retained = createContentAddressedSemanticServices(
+      snapshot,
+      cache,
+      leasedExecution,
+      embedding,
+    );
+    await expect(
+      retained.query.query(retained.root, { text: "leased cache" }),
+    ).resolves.toMatchObject({
+      coverage: "complete",
+      results: [{ practiceId: "platform.cache" }],
+    });
+    await expect(access(contentKeywordIndexPaths(cache, snapshot).active)).rejects.toThrow();
     release();
     await lease;
     await expect(pruneContentArtifactCache(cache)).resolves.toMatchObject({
@@ -199,9 +241,12 @@ test("catalog, vectors, and semantic artifacts retain no ProjectContext source p
       },
     });
     if (snapshot === undefined) throw new Error("Expected ProjectContext");
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const execution = createVectorExecution(
+      { encodingId, dimensions: 2 },
+      resolveVectorRetrievalMethod("multi-view-vector"),
+    );
     await queryContentAddressedKeyword(snapshot, cache, { text: "private cache" });
-    await new ContentAddressedSemanticProgressService(snapshot, cache, profile, {
+    await new ContentAddressedSemanticProgressService(snapshot, cache, execution, {
       maxBatchSize: 8,
       async embed(inputs) {
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
@@ -211,15 +256,17 @@ test("catalog, vectors, and semantic artifacts retain no ProjectContext source p
     if (document === undefined) throw new Error("Expected ProjectContext Practice");
     await writeSharedEmbeddingVectors(
       cache,
-      profile,
-      projectSemanticPractice(document).views,
-      projectSemanticPractice(document).views.map(() => new Float32Array([1, 0])),
+      execution.profile,
+      resolveVectorRetrievalMethod("multi-view-vector").projectDocument(document).inputs,
+      resolveVectorRetrievalMethod("multi-view-vector")
+        .projectDocument(document)
+        .inputs.map(() => new Float32Array([1, 0])),
     );
 
     const protectedFiles = [
       contentArtifactCachePaths(cache).catalog,
       contentArtifactVectorCachePaths(cache).database,
-      contentSemanticIndexPaths(cache, snapshot, profile.profileId).active,
+      contentSemanticIndexPaths(cache, snapshot, execution.profile.profileId).active,
     ];
     for (const path of protectedFiles) {
       // eslint-disable-next-line no-await-in-loop -- each physical SQLite file has an independent privacy assertion.

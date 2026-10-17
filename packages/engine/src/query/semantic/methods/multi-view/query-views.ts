@@ -1,4 +1,4 @@
-import type { SemanticArtifactQueryView } from "./read";
+import type { QueryEmbeddingInput } from "../../representation";
 
 /**
  * Query clauses are split only at semantic boundaries that survive across
@@ -53,12 +53,12 @@ function queryFragments(text: string): readonly string[] {
  * the sentence as an additional high-weight view would let domain context
  * dominate the action clause again.
  */
-export function projectSemanticQuery(text: string): readonly SemanticArtifactQueryView[] {
+export function projectMultiViewQuery(text: string): readonly QueryEmbeddingInput[] {
   const fragments = queryFragments(text);
   return Object.freeze(
     fragments.map((fragment, ordinal) =>
       Object.freeze({
-        viewId: `clause:${ordinal.toString().padStart(4, "0")}`,
+        inputKey: `clause:${ordinal.toString().padStart(4, "0")}`,
         text: fragment,
         weight: 1,
       }),

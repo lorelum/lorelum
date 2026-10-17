@@ -14,9 +14,9 @@ Engine has Store-local and user-cache SQLite database kinds. They use one shared
 | --- | --- | --- | --- |
 | LocalStore | installed Pack catalog, effective Practices, sources, and revision records | `packages/engine/src/persistence/schemas/local-store.ts` | `packages/engine/src/persistence/migrations/local-store/` |
 | Store keyword index | Store-only FTS5 documents and the index checkpoint | `packages/engine/src/persistence/schemas/keyword-index.ts` | `packages/engine/src/persistence/migrations/keyword-index/` |
-| Store semantic index | Legacy Store-local Profile metadata and Practice content-view vectors | `packages/engine/src/persistence/schemas/semantic-index.ts` | `packages/engine/src/persistence/migrations/semantic-index/` |
+| Store semantic index | Legacy Store-local method Profile metadata and encoding-input vectors | `packages/engine/src/persistence/schemas/semantic-index.ts` | `packages/engine/src/persistence/migrations/semantic-index/` |
 | Content-addressed cache catalog | Artifact inventory without source paths or Practice content | `packages/engine/src/persistence/schemas/project-cache.ts` | `packages/engine/src/persistence/migrations/project-cache/` |
-| Shared vector cache | Reusable Profile/projection vectors | `packages/engine/src/persistence/schemas/semantic-vector-cache.ts` | `packages/engine/src/persistence/migrations/semantic-vector-cache/` |
+| Shared vector cache | Reusable Profile/input-digest vectors | `packages/engine/src/persistence/schemas/semantic-vector-cache.ts` | `packages/engine/src/persistence/migrations/semantic-vector-cache/` |
 | Project keyword artifact | Content-addressed ProjectContext FTS5 artifact | `packages/engine/src/persistence/schemas/keyword-index.ts` | `packages/engine/src/persistence/migrations/project-keyword-index/` |
 | Content-addressed semantic artifact | Complete vector artifact for one Store or ProjectContext target | `packages/engine/src/persistence/schemas/semantic-index.ts` | `packages/engine/src/persistence/migrations/project-semantic-index/` |
 | Semantic progress artifact | Mutable, queryable progress for one Store or ProjectContext target | `packages/engine/src/persistence/schemas/semantic-index.ts` | `packages/engine/src/persistence/migrations/semantic-progress-index/` |
@@ -49,6 +49,25 @@ Use native parameterized SQL when SQLite has a feature that is not a normal tabl
 
 Drizzle remains responsible for schema, migration history, ordinary metadata rows, and transactional CRUD around these operations. Native SQL is a narrow escape hatch inside the owning Engine module, not a reason for lifecycle code, CLI code, or Backend controllers to open SQLite directly.
 
+## Semantic encoding-input schema
+
+Semantic index format/schema version is `4` (`SEMANTIC_INDEX_VERSION`, persisted as `index_version`), independently of LocalStore's `schema_version`, Drizzle snapshot versions, and the harness protocol version. Store-local semantic files, content-addressed complete artifacts, and progress artifacts share the method-neutral `semantic_vectors` schema:
+
+| Column | Maintenance contract |
+| --- | --- |
+| `practice_id` | Canonical Practice identity; all inputs for one Practice must agree on its content digest. |
+| `input_key` | Method-owned encoding-input identity, replacing `view_id`; primary key is `(practice_id, input_key)`. |
+| `channel` | Nonempty method-owned channel, replacing `view_kind`; the generic schema does not enumerate multi-view kinds. |
+| `ordinal` | Nonnegative input ordinal, replacing `view_ordinal`. |
+| `content_digest` | Digest of the current canonical Practice, not a method-specific source of truth. |
+| `input_digest` | Versioned encoding-input digest, replacing `projection_digest`; drives reuse within a compatible Profile. |
+| `vector` | SQLite BLOB; the codec validates and decodes it into an in-memory embedding before method scoring. |
+
+`VectorExecution` binds an encoding contract to one method and its document/query/scoring recipe versions. The resulting Profile identity also includes dimensions, normalization, and distance metric. `single-vector` and `multi-view-vector` must not share a Profile even if some input text or digest happens to match. The shared cache is keyed by `(profile_id, input_digest)`; progress and complete artifacts likewise remain Profile-isolated. An accepted operation retains its execution and target rather than consulting a later CLI method setting.
+
+Canonical corpus identity v2 is built from the sorted active `(practiceId, contentDigest)` list, without method projection data. Both methods read the same canonical corpus. A semantic artifact ID hashes the versioned artifact namespace, Profile ID, and corpus digest; index format compatibility is checked separately. Earlier derived schemas/Profiles are incompatible and rebuildable, not canonical data migrations. Do not rename historical Drizzle snapshot fields or rewrite their journals to pretend they always used encoding-input names.
+
+
 ## Changing a schema
 
 For a normal table change:
@@ -66,13 +85,22 @@ For a normal table change:
 4. Add or update the owning repository/index tests and the behavior-level tests that exercise the changed data.
 5. Commit the schema TypeScript, migration SQL, and generated metadata together.
 
-Do not use `drizzle-kit push` against a developer Store, make schema changes with ad-hoc runtime DDL, or edit migration history as part of an ordinary feature change. Runtime behavior must come from checked-in migrations.
+Do not use `drizzle-kit push` against a developer Store, make schema changes with ad-hoc runtime DDL, or edit migration history as part of an ordinary feature change. Runtime behavior must come from checked-in migrations. The narrowly equivalent SQLite CHECK correction below is not a precedent for general history rewrites.
 
 ### Native SQL migrations
 
 An FTS5 virtual-table shape change is still a schema change. Give it a reviewed custom SQL migration in the keyword-index migration directory, and keep the related search SQL and integration tests in `packages/engine/src/query/keyword/`.
 
-The existing migration files are immutable records of what a database has applied. Drizzle does not rewrite them when `db:generate` runs. The repository currently exposes only the normal generator path; if a SQL-only migration is needed, extend `scripts/db/generate.ts` in the same change so it remains part of `bun run db:generate` rather than adding a second public database command. Do not append runtime DDL to a query path.
+The existing migration files record what a database has applied. Except for the equivalent SQLite CHECK qualifier correction described below, `db:generate` must not rewrite existing migration SQL; snapshots and journals remain historical records. If a SQL-only migration is needed, extend `scripts/db/generate.ts` in the same change so it remains part of `bun run db:generate` rather than adding a second public database command. Do not append runtime DDL to a query path.
+
+### SQLite rebuild generation corrections
+
+The single generator also repairs two Drizzle SQLite table-rebuild hazards in the semantic-index, project-semantic-index, semantic-progress-index, and semantic-vector-cache migration histories:
+
+- A rebuilt table's CHECK must use unqualified column references. Generated expressions such as `"__new_semantic_vectors"."ordinal" >= 0` can fail SQLite's schema validation when the temporary table is renamed. Removing only `"__new_semantic_vectors".` preserves the same constraint before and after rename. Existing checked-in SQL receives only this equivalent temporary-table-qualifier removal; historical snapshots and migration journals remain unchanged.
+- `INSERT INTO new_table (...) SELECT ... FROM old_table` must read the **old source column names**, not destination names. The generator consults the previous snapshot before changing source SELECT references: `view_id → input_key`, `view_kind → channel`, `view_ordinal → ordinal`, and `projection_digest → input_digest` for semantic rows; the shared cache also renames `projection_digest → input_digest`. Destination columns keep their new names. Once the previous snapshot already has the new source column, later migrations must not rewrite it back.
+
+Review both the CHECK expressions and source SELECT list in generated rebuild SQL. Do not fix this by relaxing checks, renaming historical snapshot columns, replacing journals, adding ad-hoc runtime DDL, or rewriting unrelated migration statements.
 
 ## When migrations run
 
@@ -92,7 +120,7 @@ Store-only keyword and legacy semantic indexes remain Store-local derived state.
 - One SQLite transaction covers one physical database file. Do not claim a cross-file transaction exists.
 - LocalStore repository writes keep the catalog, effective Practice rows, revision records, and outbox state consistent within LocalStore.
 - Keyword FTS mutations and checkpoint updates share the owning Store-only or ProjectContext keyword-index transaction.
-- Semantic content-view rows and semantic metadata share the owning Store-only, complete-artifact, or progress transaction; complete publication remains a separate close-and-rename step guarded by the current snapshot fence.
+- Semantic encoding-input rows and semantic metadata share the owning Store-only, complete-artifact, or progress transaction; complete publication remains a separate close-and-rename step guarded by the current snapshot fence.
 - Canonical query results are assembled from LocalStore or current ProjectContext sources. A keyword or semantic index supplies candidates and may be rebuilt, but does not become an alternate source for Practice content.
 
 ## Verification checklist

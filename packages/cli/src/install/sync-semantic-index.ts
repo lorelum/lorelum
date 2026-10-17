@@ -8,7 +8,8 @@ import {
   type IndexOperation,
   type IndexStatus,
 } from "@lorelum/backend/protocol";
-import type { StorageRoot } from "@lorelum/engine";
+import type { StorageRoot, VectorRetrievalMethodId } from "@lorelum/engine";
+import { CliError } from "../runtime/errors.js";
 
 export type InstallIndexSync =
   | { readonly state: "ready"; readonly index: IndexStatus }
@@ -26,9 +27,10 @@ export type InstallIndexSync =
 export async function syncSemanticIndexAfterInstall(
   root: StorageRoot,
   client: IndexRuntimeClient,
+  retrievalMethod: VectorRetrievalMethodId,
 ): Promise<InstallIndexSync> {
   try {
-    return fromOperation(await client.build(root));
+    return fromOperation(await client.build(root, { retrievalMethod }));
   } catch (error) {
     return failed(error);
   }
@@ -73,7 +75,7 @@ function fromOperation(operation: IndexOperation): InstallIndexSync {
 }
 
 function failed(error: unknown): InstallIndexSync {
-  if (error instanceof EmbeddingError || error instanceof BackendError)
+  if (error instanceof CliError || error instanceof EmbeddingError || error instanceof BackendError)
     return failure(error.code, error.message);
   if (
     error instanceof BackendRemoteError &&

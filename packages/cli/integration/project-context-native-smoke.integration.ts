@@ -1,11 +1,11 @@
 /* eslint-disable no-await-in-loop -- Native smoke observations are ordered by lifecycle. */
 import assert from "node:assert/strict";
-import { cp, mkdir, mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { createEmbeddingProfile, createLocalStore, createQueryService } from "@lorelum/engine";
+import { createLocalStore, createQueryService } from "@lorelum/engine";
 import { createBackendClient } from "@lorelum/backend/client";
 import { resolveEmbeddingConfig, DEFAULT_BACKEND_SETTINGS } from "@lorelum/backend/config";
 import {
@@ -36,6 +36,7 @@ import { createProjectContextCommands } from "../src/project-context/commands.js
 import { createProjectContextResolver } from "../src/project-context/service.js";
 import { createQueryCommand } from "../src/query/query-command.js";
 import { createSemanticRuntimeClient } from "../src/query/runtime-client.js";
+import { loadSemanticRetrievalSettings } from "../src/query/settings.js";
 import { snapshotCommandDefinitions } from "../src/registry.js";
 import { createInterruptedDownloadServer } from "../../backend/integration/support/download-server.js";
 
@@ -69,6 +70,8 @@ const root = await realpath(await mkdtemp(join(tmpdir(), "lorelum-project-contex
 const storeRoot = join(root, "store");
 const cacheRoot = join(root, "cache");
 const modelCacheRoot = join(root, "model-cache");
+const configHome = join(root, "home");
+const configFile = join(configHome, ".lorelum", "config.yaml");
 const parentRoot = join(root, "parent");
 const childRoot = join(parentRoot, "child");
 const mirrorRoot = join(root, "mirror");
@@ -87,6 +90,7 @@ try {
   await Promise.all([
     mkdir(storeRoot, { recursive: true }),
     mkdir(parentRoot, { recursive: true }),
+    mkdir(join(configHome, ".lorelum"), { recursive: true }),
   ]);
   await writeProjectPack(parentRoot, totalPractices);
   await writeChildOverlay(childRoot);
@@ -110,10 +114,10 @@ try {
       createRuntime: (path) => createEmbeddingProcess({ modelPath: path, threads: 4 }),
     });
     const store = createLocalStore();
-    const profile = createEmbeddingProfile({
+    const encoding = {
       encodingId: embedding.status().encodingId,
       dimensions: embedding.status().dimensions,
-    });
+    };
     let successfulDocumentBatches = 0;
     let documentCalls = 0;
     let encodedDocumentCount = 0;
@@ -144,7 +148,7 @@ try {
     };
     const semanticRuntime = new ContentAddressedSemanticRuntime(
       store,
-      profile,
+      encoding,
       documentEmbedding,
       createQueryEmbeddingAdapter(embedding),
       embedding,
@@ -194,12 +198,13 @@ try {
         createClient: async () => runtimeClient,
         storageRoot: { rootPath: storeRoot },
         resolveProjectContext: resolver,
+        loadSemanticSettings: () => loadSemanticRetrievalSettings({ homeDirectory: configHome }),
       }),
       ...createIndexCommands({
         createClient: async () => client,
         createRuntimeClient: async () => createIndexRuntimeClient(coordinator),
         storageRoot: { rootPath: storeRoot },
-        resolveProjectContext: resolver,
+        loadSemanticSettings: () => loadSemanticRetrievalSettings({ homeDirectory: configHome }),
       }),
       ...createModelCommands({
         createClient: async () => client,
@@ -381,6 +386,116 @@ try {
     expectOk("index rebuild", rebuild);
     await semanticRuntime.waitForIdle(Date.now() + 180_000);
 
+    const singleStatus = await invoke([...parentArgs, "index", "status"]);
+    expectOk("default single-vector index", singleStatus);
+    assert.equal(singleStatus.response.data?.state, "ready");
+    const temporaryQuery = await invoke([
+      ...parentArgs,
+      "query",
+      "marker-v2-010",
+      "--mode",
+      "multi-view-vector",
+      "--require-complete",
+      "--max-wait-ms",
+      "120000",
+    ]);
+    expectOk("temporary experimental mode builds its own artifact", temporaryQuery);
+    assert.equal(temporaryQuery.response.data?.mode, "semantic");
+    assert.equal(temporaryQuery.response.data?.coverage, "complete");
+    assert.notEqual(temporaryQuery.response.data?.profileId, singleStatus.response.data?.profileId);
+    await assert.rejects(readFile(configFile), { code: "ENOENT" });
+    const defaultAfterTemporary = await invoke([
+      ...parentArgs,
+      "query",
+      "marker-v2-010",
+      "--require-complete",
+      "--max-wait-ms",
+      "0",
+    ]);
+    expectOk("ordinary query restores default after temporary mode", defaultAfterTemporary);
+    assert.equal(
+      defaultAfterTemporary.response.data?.profileId,
+      singleStatus.response.data?.profileId,
+    );
+    await writeFile(configFile, "query:\n  retrievalMethod: multi-view-vector\n");
+    const multiStatus = await invoke([...parentArgs, "index", "status"]);
+    expectOk("multi-view-vector isolated status", multiStatus);
+    assert.equal(multiStatus.response.data?.state, "ready");
+    assert.notEqual(multiStatus.response.data?.profileId, singleStatus.response.data?.profileId);
+    assert.equal(multiStatus.response.data?.profileId, temporaryQuery.response.data?.profileId);
+    const multiBuild = await invoke([...parentArgs, "index", "build"]);
+    expectOk("multi-view-vector build", multiBuild);
+    await semanticRuntime.waitForIdle(Date.now() + 180_000);
+    const multiQuery = await invoke([
+      ...parentArgs,
+      "query",
+      "marker-v2-010; implementation performance",
+      "--require-complete",
+      "--max-wait-ms",
+      "0",
+    ]);
+    expectOk("multi-view-vector complete query", multiQuery);
+    assert.equal(multiQuery.response.data?.coverage, "complete");
+    assert.equal(multiQuery.response.data?.profileId, multiStatus.response.data?.profileId);
+    const multiRebuild = await invoke([...parentArgs, "index", "rebuild"]);
+    expectOk("multi-view-vector rebuild", multiRebuild);
+    await semanticRuntime.waitForIdle(Date.now() + 180_000);
+    await writeFile(configFile, "query:\n  retrievalMethod: single-vector\n");
+    const restoredStatus = await invoke([...parentArgs, "index", "status"]);
+    expectOk("single-vector restored without daemon restart", restoredStatus);
+    assert.equal(restoredStatus.response.data?.state, "ready");
+    assert.equal(restoredStatus.response.data?.profileId, singleStatus.response.data?.profileId);
+    const restoredQuery = await invoke([
+      ...parentArgs,
+      "query",
+      "marker-v2-010",
+      "--require-complete",
+      "--max-wait-ms",
+      "0",
+    ]);
+    expectOk("single-vector restored query", restoredQuery);
+    assert.equal(restoredQuery.response.data?.profileId, singleStatus.response.data?.profileId);
+    const previousOperation = await invoke([
+      "--store-root",
+      storeRoot,
+      "index",
+      "operation",
+      String(multiRebuild.response.data?.operationId),
+    ]);
+    expectOk("multi-view-vector operation survives selection change", previousOperation);
+    assert.equal(
+      (previousOperation.response.data?.index as Record<string, unknown> | undefined)?.profileId,
+      multiStatus.response.data?.profileId,
+    );
+    await writeFile(configFile, "query:\n  retrievalMethod: invalid\n");
+    const invalidSemantic = await invoke([...parentArgs, "query", "marker-v2-010"]);
+    assert.equal(invalidSemantic.response.error?.code, "query.config-invalid");
+    const explicitWithInvalidConfig = await invoke([
+      ...parentArgs,
+      "query",
+      "marker-v2-010",
+      "--mode",
+      "multi-view-vector",
+      "--require-complete",
+      "--max-wait-ms",
+      "0",
+    ]);
+    expectOk("temporary mode overrides invalid method config", explicitWithInvalidConfig);
+    assert.equal(explicitWithInvalidConfig.response.data?.mode, "semantic");
+    assert.equal(
+      explicitWithInvalidConfig.response.data?.profileId,
+      multiStatus.response.data?.profileId,
+    );
+    assert.equal(await readFile(configFile, "utf8"), "query:\n  retrievalMethod: invalid\n");
+    const keywordWithInvalidMethod = await invoke([
+      ...parentArgs,
+      "query",
+      "marker-v2-010",
+      "--mode",
+      "keyword",
+    ]);
+    expectOk("keyword ignores invalid semantic method", keywordWithInvalidMethod);
+
     const cacheBeforePrune = await invoke(["--cache-root", cacheRoot, "cache", "status"]);
     expectOk("cache status", cacheBeforePrune);
     const cachePrune = await invoke(["--cache-root", cacheRoot, "cache", "prune"]);
@@ -412,6 +527,9 @@ try {
           equivalentDirectoryQueryMs: mirrorQuery.elapsedMs,
           incrementalBuildSubmitMs: incrementalBuild.elapsedMs,
           rebuildSubmitMs: rebuild.elapsedMs,
+          retrievalMethods: ["single-vector", "multi-view-vector", "single-vector"],
+          temporaryModeOverride: true,
+          configurationUnchanged: true,
           documentBatches: documentCalls,
           initialDocumentEmbedding: summarizeThroughput(initialDocumentEmbedding),
           incrementalDocumentEmbedding: summarizeThroughput(incrementalDocumentEmbedding),

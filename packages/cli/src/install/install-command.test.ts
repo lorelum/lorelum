@@ -23,6 +23,10 @@ import {
   type InstallCommandServices,
 } from "./install-command.js";
 import { resolveRegistryRepository } from "./load-registry.js";
+import {
+  DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS,
+  loadSemanticRetrievalSettings,
+} from "../query/settings.js";
 
 const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
   runCli(["--json", ...arguments_], options);
@@ -128,6 +132,7 @@ function createServices(
         };
       },
       decodePackDirectory,
+      loadSemanticSettings: async () => DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS,
       async createIndexRuntimeClient() {
         return {
           async build(root) {
@@ -847,5 +852,81 @@ test("does not fall back when a saved local Git Registry source is unavailable",
     expect(remoteRegistryCalls).toBe(0);
   } finally {
     await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test.each(["single-vector", "multi-view-vector"] as const)(
+  "installation synchronizes the selected %s method after canonical commit",
+  async (retrievalMethod) => {
+    const directory = await mkdtemp(join(tmpdir(), "lorelum-install-method-"));
+    try {
+      const storageRoot = join(directory, "store");
+      const fixture = createServices(await createPack(directory), storageRoot);
+      const calls: unknown[] = [];
+      const definition = createInstallCommand({
+        ...fixture.services,
+        loadSemanticSettings: async () => ({ retrievalMethod }),
+        createIndexRuntimeClient: async () => ({
+          build: async (root, options) => {
+            expect(await fixture.store.readEffectivePractices(root)).toHaveLength(1);
+            calls.push(options);
+            return { operationId: crypto.randomUUID(), state: "queued" };
+          },
+          rebuild: async () => {
+            throw new Error("install uses ordinary build");
+          },
+        }),
+      });
+      const stdout = new MemoryWriter();
+      expect(
+        await run(["pack", "install", "agentic-coding"], {
+          registry: snapshotCommandDefinitions([definition]),
+          stdout,
+        }),
+      ).toBe(0);
+      expect(calls).toEqual([{ retrievalMethod }]);
+      expect(JSON.parse(stdout.value).data.indexSync.state).toBe("pending");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+test("invalid method configuration only fails indexSync after the canonical install", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "lorelum-install-method-"));
+  try {
+    const storageRoot = join(directory, "store");
+    const fixture = createServices(await createPack(directory), storageRoot);
+    await mkdir(join(directory, ".lorelum"));
+    await writeFile(
+      join(directory, ".lorelum", "config.yaml"),
+      "query:\n  retrievalMethod: simple\n",
+    );
+    const definition = createInstallCommand({
+      ...fixture.services,
+      loadSemanticSettings: async () => {
+        expect(await fixture.store.readEffectivePractices({ rootPath: storageRoot })).toHaveLength(
+          1,
+        );
+        return loadSemanticRetrievalSettings({ homeDirectory: directory });
+      },
+      createIndexRuntimeClient: async () => {
+        throw new Error("invalid config must not connect");
+      },
+    });
+    const stdout = new MemoryWriter();
+    expect(
+      await run(["pack", "install", "agentic-coding"], {
+        registry: snapshotCommandDefinitions([definition]),
+        stdout,
+      }),
+    ).toBe(0);
+    expect(JSON.parse(stdout.value)).toMatchObject({
+      ok: true,
+      data: { indexSync: { state: "failed", error: { code: "query.config-invalid" } } },
+    });
+    expect(await fixture.store.readEffectivePractices({ rootPath: storageRoot })).toHaveLength(1);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });

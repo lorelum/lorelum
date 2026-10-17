@@ -1,5 +1,11 @@
 import { BACKEND_ROUTES } from "../../protocol/constants";
-import { BackendError, backendErrorBody, errorSchema } from "../../protocol/errors";
+import {
+  BackendError,
+  BackendRemoteError,
+  backendErrorBody,
+  errorSchema,
+} from "../../protocol/errors";
+import { resolveRequestedRetrievalMethod } from "../../protocol/retrieval-method";
 import { Elysia, status } from "elysia";
 import { randomUUID } from "node:crypto";
 import {
@@ -196,6 +202,7 @@ function recordIndexMutationAccepted(
 }
 
 function publicErrorCode(error: unknown): string {
+  if (error instanceof BackendRemoteError) return error.code;
   if (error instanceof EmbeddingError) return error.code;
   if (error instanceof BackendError) return error.code;
   if (error instanceof StoreBusyError) return "store.busy";
@@ -204,14 +211,17 @@ function publicErrorCode(error: unknown): string {
 }
 
 function targetForStatus(input: {
+  readonly retrievalMethod?: unknown;
   readonly cacheRoot?: string | undefined;
   readonly projectRoot?: string | undefined;
   readonly projectStartDirectory?: string | undefined;
 }): ContentAddressedTargetRequest {
+  const retrievalMethod = resolveRequestedRetrievalMethod(input.retrievalMethod);
   const cacheRoot = input.cacheRoot ?? defaultQueryArtifactCacheRoot();
   if (input.projectRoot !== undefined || input.projectStartDirectory !== undefined) {
     return Object.freeze({
       kind: "project",
+      retrievalMethod,
       cacheRoot,
       ...(input.projectRoot === undefined ? {} : { projectRoot: input.projectRoot }),
       ...(input.projectStartDirectory === undefined
@@ -219,10 +229,11 @@ function targetForStatus(input: {
         : { startDirectory: input.projectStartDirectory }),
     });
   }
-  return Object.freeze({ kind: "store", cacheRoot });
+  return Object.freeze({ kind: "store", cacheRoot, retrievalMethod });
 }
 
 function targetForMutation(input: {
+  readonly retrievalMethod?: unknown;
   readonly projectContext?:
     | {
         readonly cacheRoot: string;
@@ -232,9 +243,11 @@ function targetForMutation(input: {
     | undefined;
   readonly cacheRoot?: string | undefined;
 }): ContentAddressedTargetRequest {
+  const retrievalMethod = resolveRequestedRetrievalMethod(input.retrievalMethod);
   if (input.projectContext !== undefined) {
     return Object.freeze({
       kind: "project",
+      retrievalMethod,
       cacheRoot: input.projectContext.cacheRoot,
       ...(input.projectContext.projectRoot === undefined
         ? {}
@@ -246,11 +259,14 @@ function targetForMutation(input: {
   }
   return Object.freeze({
     kind: "store",
+    retrievalMethod,
     cacheRoot: input.cacheRoot ?? defaultQueryArtifactCacheRoot(),
   });
 }
 
 function indexFailure(error: unknown) {
+  if (error instanceof BackendRemoteError && error.code === "usage.invalid")
+    return status(400, domainError(error.code, "The command invocation is invalid."));
   if (error instanceof EmbeddingError) {
     return status(503, { error: { code: error.code, message: error.message } });
   }
