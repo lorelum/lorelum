@@ -25,7 +25,7 @@ test("source build identity includes the independent config package", async () =
   const root = await mkdtemp(join(tmpdir(), "lore-build-config-"));
   try {
     await Promise.all(
-      ["backend", "cli", "config", "engine", "format", "shared"].map(async (name) => {
+      ["backend", "cli", "config", "engine", "format"].map(async (name) => {
         await mkdir(join(root, "packages", name, "src"), { recursive: true });
         await writeFile(join(root, "packages", name, "package.json"), JSON.stringify({ name }));
       }),

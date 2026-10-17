@@ -72,7 +72,7 @@ Skill MUST 不因预期延迟跳过可执行的 semantic query，也不得在首
 - **THEN** Skill MAY 使用 `--mode keyword`，并 MUST 将结果标识为 keyword retrieval
 
 ### Requirement: No local MCP surface
-当前产品 MUST 不提供或预留本地 MCP server、stdio transport、MCP tools、MCP-backed Plugin/UI/authentication，`packages/mcp` MUST 继续被视为非产品 scaffold。只有需要 Lorelum 运营的远程检索服务时，才可以在新批准的设计中重新评估 MCP。
+当前产品 MUST 不提供或预留本地 MCP server、stdio transport、MCP tools、MCP-backed Plugin/UI/authentication。只有需要 Lorelum 运营的远程检索服务时，才可以在新批准的设计中重新评估 MCP。
 
 #### Scenario: Adding a host integration
 - **WHEN** 新的本地宿主集成需要调用 Lorelum

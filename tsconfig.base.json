@@ -20,10 +20,8 @@
     "allowImportingTsExtensions": true,
     "types": ["bun"],
     "paths": {
-      "@lorelum/shared": ["./packages/shared/src/index.ts"],
       "@lorelum/format": ["./packages/format/src/index.ts"],
       "@lorelum/engine": ["./packages/engine/src/index.ts"],
-      "@lorelum/mcp": ["./packages/mcp/src/index.ts"],
       "@lorelum/log": ["./packages/log/src/index.ts"],
       "@lorelum/cli": ["./packages/cli/src/index.ts"],
       "@lorelum/ui": ["./packages/ui/src/index.ts"],

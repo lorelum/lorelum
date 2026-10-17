@@ -12,7 +12,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@lorelum/shared": "workspace:*",
     "gray-matter": "4.0.3",
     "js-yaml": "4.3.1",
     "prettier": "3.9.6",

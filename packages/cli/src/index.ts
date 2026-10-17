@@ -1,5 +1,3 @@
-export const PACKAGE_NAME = "@lorelum/cli";
-
 export { createProgram, type CliRuntime, type ProgramLifecycle } from "./create-program.js";
 export { run, type RunOptions } from "./main.js";
 export {

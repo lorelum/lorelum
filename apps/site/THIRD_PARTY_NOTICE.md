@@ -22,7 +22,6 @@ license header; this file records provenance for review.
 | SpecularButton | `specular-button` (JS + CSS variant, ported to TS) | `ogl` |
 | SpotlightCard | `SpotlightCard-TS-TW` | none |
 | TextType | `TextType-TS-TW` | `gsap` |
-| VariableProximity | `VariableProximity-TS-TW` | `motion` |
 
 Notes:
 
@@ -54,6 +53,8 @@ Notes:
   the wrong look for the heading. The vendored file is gone from the tree.
 - `Magnet` was vendored in the original snapshot and later **removed** when the CTAs
   switched to `SpecularButton`; the vendored file is gone from the tree.
+- `VariableProximity` was vendored in the original snapshot but never gained a consumer,
+  so it was **removed**; the vendored file is gone from the tree.
 - `Aurora` (WebGL fragment shader) is the single GPU-heavy layer. It is lazy-loaded
   (`React.lazy`, separate async chunk), gated to dark theme + desktop pointer +
   dark theme only, resolution/DPR-capped, and its rAF loop pauses when

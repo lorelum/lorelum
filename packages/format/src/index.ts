@@ -7,8 +7,6 @@
  * parseFrontmatter thin wrapper over gray-matter; seed fixtures.
  */
 
-export const PACKAGE_NAME = "@lorelum/format";
-
 export * from "./schema";
 export * from "./validate";
 export * from "./frontmatter";

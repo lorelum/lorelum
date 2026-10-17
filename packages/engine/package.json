@@ -15,7 +15,6 @@
     "@lorelum/config": "workspace:*",
     "@lorelum/format": "workspace:*",
     "@lorelum/log": "workspace:*",
-    "@lorelum/shared": "workspace:*",
     "drizzle-orm": "0.45.2"
   }
 }

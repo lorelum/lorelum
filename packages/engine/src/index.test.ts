@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  PACKAGE_NAME,
   createListService,
   retrievePackDetails,
   retrievePackPractices,
@@ -9,10 +8,6 @@ import {
 } from "./index";
 
 describe("@lorelum/engine", () => {
-  test("exposes its package name", () => {
-    expect(PACKAGE_NAME).toBe("@lorelum/engine");
-  });
-
   test("exposes the List runtime API through the package boundary", () => {
     expect(typeof createListService).toBe("function");
     expect(typeof retrievePackDetails).toBe("function");

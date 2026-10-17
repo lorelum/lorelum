@@ -6,7 +6,7 @@
 ## Requirements
 
 ### Requirement: UI ownership and scoped tokens
-`@lorelum/ui` SHALL 拥有生产 design tokens 与可复用 Web primitives；消费应用 SHALL 拥有 route、locale 文案、数据、theme lifecycle 和页面级 motion。tokens MUST 通过 `.lorelum-ui` 作用域提供，且不得在未明确的全站迁移中扩展到 `:root`；`@lorelum/shared` MUST 保持 domain-neutral，不得依赖 React、browser 或 Tailwind。
+`@lorelum/ui` SHALL 拥有生产 design tokens 与可复用 Web primitives；消费应用 SHALL 拥有 route、locale 文案、数据、theme lifecycle 和页面级 motion。tokens MUST 通过 `.lorelum-ui` 作用域提供，且不得在未明确的全站迁移中扩展到 `:root`。
 
 #### Scenario: A site surface adopts shared UI
 - **WHEN** 站点将一个 surface 迁入共享 UI

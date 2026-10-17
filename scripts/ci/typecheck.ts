@@ -9,8 +9,6 @@ export const workspaceTypecheckConfigs = [
   "packages/engine/tsconfig.json",
   "packages/format/tsconfig.json",
   "packages/log/tsconfig.json",
-  "packages/mcp/tsconfig.json",
-  "packages/shared/tsconfig.json",
   "packages/ui/tsconfig.json",
   "apps/site/tsconfig.json",
 ] as const;
