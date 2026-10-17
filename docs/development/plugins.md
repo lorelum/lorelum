@@ -13,6 +13,39 @@ Read [Host Plugin conventions](./plugin-conventions.md) first. This guide is for
 
 All artifacts use the released `lore` executable. The CLI owns the Hook ABI and Catalog rendering; the Plugin owns host lifecycle matching and Skill guidance. Do not import Engine packages, read LocalStore files, duplicate retrieval/ranking logic, or add a local MCP wrapper.
 
+## Hook code ownership
+
+`packages/cli/src/main.ts` selects the Hook path before ordinary command parsing.
+`hook/command.ts` parses the invocation once, selects an explicit host endpoint,
+and assembles its dependencies. `hook/runner.ts` owns stdin/JSON/stdout and the
+error exit; the caller closes the process log runtime in `finally`.
+
+- `hook/hosts/<host>.ts` owns native input interpretation, supported events,
+  output envelopes, permission fields, and fallback responses. omp has a separate
+  extension-bridge request contract; it is not another native session payload.
+- `hook/services/` provides Catalog reads, shell session association, and read-hint
+  context through narrow interfaces. It does not interpret host payloads.
+  Catalog dependencies are resolved only when requested, including when an omp
+  child Catalog is enabled; disabled requests do not touch Store services.
+- `hook/pack-catalog.ts` remains the shared bounded metadata renderer.
+  `backend/process-client.ts` connects to the verified running Backend without
+  starting it; optional hint policy remains in `practice-hints/backend.ts`.
+- Session snapshots and child-origin handoff remain in the omp extension.
+  Session association and persisted read hints remain Backend-owned, not
+  process-local CLI task state.
+
+Keep host protocols in their endpoints instead of adding host branches to the
+runner or shared services. Tests exercise the production composition; they must
+not depend on removed per-host forwarding functions.
+
+Colocate native protocol tests with `hook/hosts/<host>.ts`. Shared native alias
+and fallback cases live in `hook/hosts/native-protocol.test.ts`, not in one
+host's test file. Keep option parsing and ordinary CLI error routing in
+`hook/command.test.ts`, and transport/error-exit coverage in
+`hook/runner.test.ts`. Shared renderer, settings, and service tests remain next
+to their implementations. `hook/endpoint.test-helper.ts` is shared test support
+for invoking production composition; it does not replace a host endpoint.
+
 ## Verify source changes
 
 From the repository root:

@@ -2,25 +2,14 @@
 
 import { hasDaemonLaunchEnvironment } from "@lorelum/backend/config";
 import { createProgram, type CliRuntime } from "./create-program.js";
-import { parseCodexHookInvocation, runCodexHook, type CodexHookServices } from "./hook/codex.js";
 import {
-  parseClaudeHookInvocation,
-  runClaudeHook,
-  type ClaudeHookServices,
-} from "./hook/claude.js";
-import {
-  parseCursorHookInvocation,
-  runCursorHook,
-  type CursorHookServices,
-} from "./hook/cursor.js";
-import {
-  parseWorkbuddyHookInvocation,
-  runWorkbuddyHook,
-  type WorkbuddyHookServices,
-} from "./hook/workbuddy.js";
-import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
-import { parseOmpHookInvocation, runOmpHook, type OmpHookServices } from "./hook/omp.js";
-import type { TextInput } from "./hook/host-hook.js";
+  createHookEndpoint,
+  hookStartEvents,
+  parseHookInvocation,
+  type HookServiceOverrides,
+} from "./hook/command.js";
+import { runHook } from "./hook/runner.js";
+import type { TextInput } from "./hook/types.js";
 import { resolveOutputFormat } from "./output/format-selection.js";
 import { renderHelpText } from "./output/presentation.js";
 import { renderResult, type OutputFormat } from "./output/render.js";
@@ -44,18 +33,8 @@ export interface RunOptions {
   runtime?: CliRuntime;
   /** Override the raw Hook input stream in source-level tests. */
   stdin?: TextInput;
-  /** Override the raw Codex Hook Store adapter in source-level tests. */
-  codexHookServices?: CodexHookServices;
-  /** Override the raw ZCode Hook Store adapter in source-level tests. */
-  zcodeHookServices?: ZcodeHookServices;
-  /** Override the raw Cursor Hook Store adapter in source-level tests. */
-  cursorHookServices?: CursorHookServices;
-  /** Override the raw Claude Code Hook Store adapter in source-level tests. */
-  claudeHookServices?: ClaudeHookServices;
-  /** Override the raw WorkBuddy Hook Store adapter in source-level tests. */
-  workbuddyHookServices?: WorkbuddyHookServices;
-  /** Override omp bridge services in source-level tests. */
-  ompHookServices?: OmpHookServices;
+  /** Override shared dependencies at the Hook composition boundary. */
+  hookServices?: Partial<HookServiceOverrides>;
   stderr?: OutputWriter;
   stdout?: OutputWriter;
   /** Source-test override; production calls always create a fresh invocation trace. */
@@ -69,145 +48,32 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
   const traceId = options.traceId ?? createTraceId();
-  const ompHook = parseOmpHookInvocation(arguments_);
-  if (ompHook !== undefined) {
+  const hook = parseHookInvocation(arguments_);
+  if (hook !== undefined) {
     const runtime = await createProcessLogRuntime(stderr, traceId, {
-      debug: ompHook.debug ?? false,
+      debug: hook.debug ?? false,
       source: "hook",
-      host: "omp",
+      host: hook.host,
       ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
       persist:
         (options.stdout === undefined && options.stderr === undefined) ||
         options.logDirectory !== undefined,
     });
-    runtime.log.info("hook.started", { event: "catalog" });
-    const exitCode = await runOmpHook({
-      stdin: options.stdin ?? standardInput,
-      stdout,
-      stderr,
-      ...(options.ompHookServices === undefined ? {} : { services: options.ompHookServices }),
-      ...(ompHook.storeRoot === undefined ? {} : { storeRoot: ompHook.storeRoot }),
-      log: runtime.log,
-    });
-    await runtime.flush();
-    return exitCode;
-  }
-  const codexHook = parseCodexHookInvocation(arguments_);
-  if (codexHook !== undefined) {
-    const runtime = await createProcessLogRuntime(stderr, traceId, {
-      debug: codexHook.debug ?? false,
-      source: "hook",
-      host: "codex",
-      ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
-      persist:
-        (options.stdout === undefined && options.stderr === undefined) ||
-        options.logDirectory !== undefined,
-    });
-    runtime.log.info("hook.started", { event: "SessionStart" });
-    const exitCode = await runCodexHook({
-      stdin: options.stdin ?? standardInput,
-      stdout,
-      stderr,
-      ...(options.codexHookServices === undefined ? {} : { services: options.codexHookServices }),
-      ...(codexHook.storeRoot === undefined ? {} : { storeRoot: codexHook.storeRoot }),
-      log: runtime.log,
-    });
-    await runtime.flush();
-    return exitCode;
-  }
-  const zcodeHook = parseZcodeHookInvocation(arguments_);
-  if (zcodeHook !== undefined) {
-    const runtime = await createProcessLogRuntime(stderr, traceId, {
-      debug: zcodeHook.debug ?? false,
-      source: "hook",
-      host: "zcode",
-      ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
-      persist:
-        (options.stdout === undefined && options.stderr === undefined) ||
-        options.logDirectory !== undefined,
-    });
-    runtime.log.info("hook.started", { event: "SessionStart" });
-    const exitCode = await runZcodeHook({
-      stdin: options.stdin ?? standardInput,
-      stdout,
-      stderr,
-      ...(options.zcodeHookServices === undefined ? {} : { services: options.zcodeHookServices }),
-      ...(zcodeHook.storeRoot === undefined ? {} : { storeRoot: zcodeHook.storeRoot }),
-      log: runtime.log,
-    });
-    await runtime.flush();
-    return exitCode;
-  }
-  const cursorHook = parseCursorHookInvocation(arguments_);
-  if (cursorHook !== undefined) {
-    const runtime = await createProcessLogRuntime(stderr, traceId, {
-      debug: cursorHook.debug ?? false,
-      source: "hook",
-      host: "cursor",
-      ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
-      persist:
-        (options.stdout === undefined && options.stderr === undefined) ||
-        options.logDirectory !== undefined,
-    });
-    runtime.log.info("hook.started", { event: "sessionStart" });
-    const exitCode = await runCursorHook({
-      stdin: options.stdin ?? standardInput,
-      stdout,
-      stderr,
-      ...(options.cursorHookServices === undefined ? {} : { services: options.cursorHookServices }),
-      ...(cursorHook.storeRoot === undefined ? {} : { storeRoot: cursorHook.storeRoot }),
-      log: runtime.log,
-    });
-    await runtime.flush();
-    return exitCode;
-  }
-  const workbuddyHook = parseWorkbuddyHookInvocation(arguments_);
-  if (workbuddyHook !== undefined) {
-    const runtime = await createProcessLogRuntime(stderr, traceId, {
-      debug: workbuddyHook.debug ?? false,
-      source: "hook",
-      host: "workbuddy",
-      ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
-      persist:
-        (options.stdout === undefined && options.stderr === undefined) ||
-        options.logDirectory !== undefined,
-    });
-    runtime.log.info("hook.started", { event: "SessionStart" });
-    const exitCode = await runWorkbuddyHook({
-      stdin: options.stdin ?? standardInput,
-      stdout,
-      stderr,
-      ...(options.workbuddyHookServices === undefined
-        ? {}
-        : { services: options.workbuddyHookServices }),
-      ...(workbuddyHook.storeRoot === undefined ? {} : { storeRoot: workbuddyHook.storeRoot }),
-      log: runtime.log,
-    });
-    await runtime.flush();
-    return exitCode;
-  }
-  const claudeHook = parseClaudeHookInvocation(arguments_);
-  if (claudeHook !== undefined) {
-    const runtime = await createProcessLogRuntime(stderr, traceId, {
-      debug: claudeHook.debug ?? false,
-      source: "hook",
-      host: "claude",
-      ...(options.logDirectory === undefined ? {} : { rootDirectory: options.logDirectory }),
-      persist:
-        (options.stdout === undefined && options.stderr === undefined) ||
-        options.logDirectory !== undefined,
-    });
-    runtime.log.info("hook.started", { event: "SessionStart" });
-    const exitCode = await runClaudeHook({
-      stdin: options.stdin ?? standardInput,
-      stdout,
-      stderr,
-      ...(options.claudeHookServices === undefined ? {} : { services: options.claudeHookServices }),
-      ...(claudeHook.storeRoot === undefined ? {} : { storeRoot: claudeHook.storeRoot }),
-      log: runtime.log,
-    });
-    await runtime.flush();
-    return exitCode;
+    try {
+      runtime.log.info("hook.started", { event: hookStartEvents[hook.host] });
+      return await runHook(
+        createHookEndpoint(hook.host, options.hookServices, hook.storeRoot, runtime.log),
+        {
+          host: hook.host,
+          stdin: options.stdin ?? standardInput,
+          stdout,
+          stderr,
+          log: runtime.log,
+        },
+      );
+    } finally {
+      await runtime.flush();
+    }
   }
   const invocationId = crypto.randomUUID();
   const startedAt = Date.now();

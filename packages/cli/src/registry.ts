@@ -26,7 +26,8 @@ import {
   createBackendCommands,
   createProcessBackendSupervisor,
 } from "./backend/control-commands.js";
-import { createModelCommands, createProcessBackendClient } from "./model/commands";
+import { createModelCommands } from "./model/commands";
+import { createProcessBackendClient } from "./backend/process-client.js";
 import { createIndexCommands } from "./index/index-commands";
 import { createProcessIndexRuntimeClient } from "./index/runtime-client";
 import { createLocalizationCommands } from "./localization/index.js";

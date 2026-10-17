@@ -1,11 +1,8 @@
 import { createModelProgressReporter } from "./progress";
 import type { OutputWriter } from "../output/protocol";
 import { lifecycleCommand } from "../backend/common";
-import { defaultRuntimeDirectory, resolveBackendSettings } from "@lorelum/backend/config";
 import type { BackendClient } from "@lorelum/backend/client";
-import { BACKEND_URL } from "@lorelum/backend/protocol";
 import {
-  BackendError,
   backendErrorCodes,
   embeddingErrorCodes,
   EmbeddingError,
@@ -60,34 +57,6 @@ const modelStatusResultSchema: JsonSchema = {
     error: { enum: embeddingErrorCodes },
   },
 };
-
-/** Connect to the verified daemon record without starting it or creating runtime state. */
-export async function createProcessBackendClient(
-  traceId?: TraceId,
-  debug = false,
-): Promise<BackendClient> {
-  const [clientModule, controlModule] = await Promise.all([
-    import("@lorelum/backend/client"),
-    import("@lorelum/backend/control"),
-  ]);
-  const { createBackendClient } = clientModule;
-  const { currentBuildIdentity, isSameProcess, readRecord } = controlModule;
-  const record = await readRecord(defaultRuntimeDirectory());
-  if (record === undefined || !(await isSameProcess(record)))
-    throw new BackendError("backend.unavailable");
-  const settings = resolveBackendSettings(record.settings);
-  return createBackendClient({
-    identity: record,
-    secret: record.secret,
-    buildIdentity: await currentBuildIdentity(Bun.main),
-    baseUrl: BACKEND_URL,
-    timeoutMs: settings.requestTimeoutMs,
-    startupTimeoutMs: settings.startupTimeoutMs,
-    shutdownTimeoutMs: settings.shutdownTimeoutMs,
-    ...(traceId === undefined ? {} : { traceId }),
-    ...(debug ? { diagnosticLevel: "debug" as const } : {}),
-  });
-}
 
 function toResult(status: ModelStatus): JsonValue {
   const message =

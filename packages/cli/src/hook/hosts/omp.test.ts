@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import type { ListPackDetailsResult } from "@lorelum/engine";
-import { run } from "../main.js";
-import type { OmpHookServices } from "./omp.js";
-import { DEFAULT_AGENT_HOOK_SETTINGS, loadSubagentPackCatalogSetting } from "./agent-settings.js";
+import { run } from "../../main.js";
+import type { HookServiceOverrides } from "../command.js";
+import { DEFAULT_AGENT_HOOK_SETTINGS, loadSubagentPackCatalogSetting } from "../agent-settings.js";
 
 class MemoryWriter {
   value = "";
@@ -31,19 +31,18 @@ const details: ListPackDetailsResult = {
 
 async function invoke(
   payload: string,
-  services: OmpHookServices = {
+  services: HookServiceOverrides = {
     list: { listPackDetails: async () => details },
     storageRoot: { rootPath: "/default-store" },
   },
-  argv = ["hook", "omp"],
 ) {
   const stdout = new MemoryWriter();
   const stderr = new MemoryWriter();
-  const exitCode = await run(argv, {
+  const exitCode = await run(["hook", "omp"], {
     stdin: { text: async () => payload },
     stdout,
     stderr,
-    ompHookServices: services,
+    hookServices: services,
   });
   return { stdout: stdout.value, stderr: stderr.value, exitCode };
 }
@@ -100,28 +99,6 @@ describe("lore hook omp source entry", () => {
     expect(JSON.parse(duplicate.stdout).additionalContext.match(/- pack-149/g)).toHaveLength(1);
   });
 
-  test.each([
-    { argv: ["--store-root", "/override-store", "hook", "omp"] },
-    { argv: ["hook", "omp", "--store-root=/override-store"] },
-  ])("preserves Store override for argv %j", async ({ argv }) => {
-    let root: string | undefined;
-    const result = await invoke(
-      catalogRequest,
-      {
-        list: {
-          async listPackDetails(request) {
-            root = request?.storageRoot?.rootPath;
-            return details;
-          },
-        },
-        storageRoot: { rootPath: "/default-store" },
-      },
-      [...argv],
-    );
-    expect(result.exitCode).toBe(0);
-    expect(root).toBe(resolve("/override-store"));
-  });
-
   test.each(["{", "null", "[]", "{}", '{"event":"query"}', '{"hook_event_name":"SessionStart"}'])(
     "degrades unsupported input %s without reading metadata",
     async (payload) => {
@@ -161,25 +138,10 @@ describe("lore hook omp source entry", () => {
     expect(failed.stdout).toBe("{}\n");
     expect(failed.stderr).toContain("Store unavailable");
   });
-
-  test.each([
-    { argv: ["hook", "omp", "extra"] },
-    { argv: ["hook", "omp", "--json"] },
-    { argv: ["hook", "omp", "--store-root"] },
-    { argv: ["hook", "omp", "--store-root="] },
-    { argv: ["hook", "omp", "--debug", "--debug"] },
-    { argv: ["hook", "omp", "--store-root=/one", "--store-root=/two"] },
-    { argv: ["hook", "pi"] },
-  ])("rejects invalid argv %j through ordinary CLI usage errors", async ({ argv }) => {
-    const result = await invoke(catalogRequest, undefined, [...argv]);
-    expect(result.exitCode).toBe(2);
-    expect(result.stdout).not.toBe("{}\n");
-    expect(result.stderr).not.toContain("hook omp degraded");
-  });
 });
 
 describe("omp shell and child hint consumers", () => {
-  const services: OmpHookServices = {
+  const services: HookServiceOverrides = {
     list: {
       async listPackDetails() {
         throw new Error("shell and read-hints must not read the Store");

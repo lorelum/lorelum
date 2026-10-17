@@ -5,11 +5,10 @@ import { join } from "node:path";
 import type { ListPackDetailsResult } from "@lorelum/engine";
 import { ConfigError } from "@lorelum/config";
 
-import { DEFAULT_AGENT_HOOK_SETTINGS, loadAgentHookSettings } from "./agent-settings.js";
-import { parseCodexHookInvocation } from "./codex.js";
-import { parseCursorHookInvocation, runCursorHook, type CursorHookServices } from "./cursor.js";
-import { parseZcodeHookInvocation } from "./zcode.js";
-import type { TextInput } from "./host-hook.js";
+import { DEFAULT_AGENT_HOOK_SETTINGS, loadAgentHookSettings } from "../agent-settings.js";
+import type { HookServiceOverrides } from "../command.js";
+import { invokeHook } from "../endpoint.test-helper.js";
+import type { TextInput } from "../types.js";
 
 class MemoryWriter {
   value = "";
@@ -41,7 +40,7 @@ function input(value: string): TextInput {
   };
 }
 
-function services(overrides: Partial<CursorHookServices> = {}): CursorHookServices {
+function services(overrides: Partial<HookServiceOverrides> = {}): HookServiceOverrides {
   return {
     list: {
       async listPackDetails() {
@@ -60,7 +59,7 @@ describe("lore hook cursor", () => {
     const stderr = new MemoryWriter();
 
     await expect(
-      runCursorHook({
+      invokeHook("cursor", {
         stdin: input('{"hook_event_name":"sessionStart"}'),
         stdout,
         stderr,
@@ -90,7 +89,7 @@ describe("lore hook cursor", () => {
     const stderr = new MemoryWriter();
 
     await expect(
-      runCursorHook({ stdin: input(payload), stdout, stderr, services: services() }),
+      invokeHook("cursor", { stdin: input(payload), stdout, stderr, services: services() }),
     ).resolves.toBe(0);
 
     expect(stdout.value).toBe('{"continue":true}\n');
@@ -109,7 +108,7 @@ describe("lore hook cursor", () => {
     });
 
     await expect(
-      runCursorHook({
+      invokeHook("cursor", {
         stdin: input('{"hook_event_name":"sessionStart"}'),
         stdout,
         stderr,
@@ -130,7 +129,7 @@ describe("lore hook cursor", () => {
       });
       const original = { command: "pwd | cat; exit 23", explanation: "probe", extra: [1] };
       const stdout = new MemoryWriter();
-      await runCursorHook({
+      await invokeHook("cursor", {
         stdin: input(
           JSON.stringify({
             hook_event_name: "preToolUse",
@@ -176,7 +175,7 @@ describe("lore hook cursor", () => {
     ]) {
       const stdout = new MemoryWriter();
       // eslint-disable-next-line no-await-in-loop -- Check each independent session-id source.
-      await runCursorHook({
+      await invokeHook("cursor", {
         stdin: input(JSON.stringify(payload)),
         stdout,
         stderr: new MemoryWriter(),
@@ -214,7 +213,7 @@ describe("lore hook cursor", () => {
     },
   ])("no-ops for $hook_event_name/$tool_name without a usable shell command", async (payload) => {
     const stdout = new MemoryWriter();
-    await runCursorHook({
+    await invokeHook("cursor", {
       stdin: input(JSON.stringify(payload)),
       stdout,
       stderr: new MemoryWriter(),
@@ -227,7 +226,7 @@ describe("lore hook cursor", () => {
     "lore-only default leaves %s untouched",
     async (command) => {
       const stdout = new MemoryWriter();
-      await runCursorHook({
+      await invokeHook("cursor", {
         stdin: input(
           JSON.stringify({
             hook_event_name: "preToolUse",
@@ -246,7 +245,7 @@ describe("lore hook cursor", () => {
 
   test("subagentStart stays a no-op because Cursor cannot inject context there", async () => {
     const stdout = new MemoryWriter();
-    await runCursorHook({
+    await invokeHook("cursor", {
       stdin: input('{"hook_event_name":"subagentStart","conversation_id":"parent"}'),
       stdout,
       stderr: new MemoryWriter(),
@@ -264,7 +263,7 @@ describe("lore hook cursor", () => {
   test("an invalid Agent setting leaves shell input unchanged and does not block the tool", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
-    await runCursorHook({
+    await invokeHook("cursor", {
       stdin: input(
         JSON.stringify({
           hook_event_name: "preToolUse",
@@ -294,7 +293,7 @@ describe("lore hook cursor", () => {
         "agent:\n  shellSessionInjection: all-shell\n",
       );
       const stdout = new MemoryWriter();
-      await runCursorHook({
+      await invokeHook("cursor", {
         stdin: input(
           JSON.stringify({
             hook_event_name: "preToolUse",
@@ -321,7 +320,7 @@ describe("lore hook cursor", () => {
     "the export rewrite passes session identity to a child process without changing exit status",
     async () => {
       const stdout = new MemoryWriter();
-      await runCursorHook({
+      await invokeHook("cursor", {
         stdin: input(
           JSON.stringify({
             hook_event_name: "preToolUse",
@@ -349,23 +348,4 @@ describe("lore hook cursor", () => {
       expect(exitCode).toBe(23);
     },
   );
-
-  test("accepts the global Store override before or after the raw Hook command", () => {
-    expect(parseCursorHookInvocation(["hook", "cursor", "--store-root", "isolated-store"])).toEqual(
-      {
-        storeRoot: "isolated-store",
-      },
-    );
-    expect(parseCursorHookInvocation(["--store-root=isolated-store", "hook", "cursor"])).toEqual({
-      storeRoot: "isolated-store",
-    });
-    expect(parseCursorHookInvocation(["hook", "cursor", "extra"])).toBeUndefined();
-  });
-
-  test("keeps the Codex, ZCode, and Cursor raw Hook invocations disjoint", () => {
-    expect(parseCursorHookInvocation(["hook", "codex"])).toBeUndefined();
-    expect(parseCursorHookInvocation(["hook", "zcode"])).toBeUndefined();
-    expect(parseCodexHookInvocation(["hook", "cursor"])).toBeUndefined();
-    expect(parseZcodeHookInvocation(["hook", "cursor"])).toBeUndefined();
-  });
 });
