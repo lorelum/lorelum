@@ -12,7 +12,7 @@ CREATE TABLE `__new_semantic_vectors` (
 	CONSTRAINT "semantic_vectors_ordinal" CHECK("ordinal" >= 0)
 );
 --> statement-breakpoint
-INSERT INTO `__new_semantic_vectors`("practice_id", "input_key", "channel", "ordinal", "content_digest", "input_digest", "vector") SELECT "practice_id", "view_id", "view_kind", "view_ordinal", "content_digest", "projection_digest", "vector" FROM `semantic_vectors`;--> statement-breakpoint
+-- Old single-vector rows lack the current input identity; rebuild from canonical content.
 DROP TABLE `semantic_vectors`;--> statement-breakpoint
 ALTER TABLE `__new_semantic_vectors` RENAME TO `semantic_vectors`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;

@@ -24,65 +24,6 @@ for (const config of configs) {
   const exitCode = await child.exited;
   if (exitCode !== 0) process.exit(exitCode);
 }
-// Drizzle 0.31 table rebuilds use destination names in the source SELECT
-// when columns are renamed alongside constraints. Repair only transitions
-// whose previous snapshot still has the old names; later migrations already
-// use the new source schema and must remain unchanged.
-for (const kind of [
-  "semantic-index",
-  "project-semantic-index",
-  "semantic-progress-index",
-  "semantic-vector-cache",
-]) {
-  const directory = join(repositoryRoot, "packages/engine/src/persistence/migrations", kind);
-  const files = (await readdir(directory)).filter((name) => name.endsWith(".sql")).sort();
-  for (const file of files) {
-    const sequence = Number(file.slice(0, 4));
-    if (sequence === 0) continue;
-    const priorPath = join(
-      directory,
-      "meta",
-      `${String(sequence - 1).padStart(4, "0")}_snapshot.json`,
-    );
-    const previous = JSON.parse(await readFile(priorPath, "utf8")) as {
-      tables: Record<string, { columns: Record<string, unknown> }>;
-    };
-    const path = join(directory, file);
-    const generated = await readFile(path, "utf8");
-    // SQLite rename validation cannot resolve the temporary table qualifier in
-    // its own CHECK constraints. Unqualified columns preserve the same checks
-    // before and after rename, including replay of existing generated history.
-    let corrected = generated.replaceAll('"__new_semantic_vectors".', "");
-    for (const [table, columns] of [
-      [
-        "semantic_vectors",
-        [
-          ["view_id", "input_key"],
-          ["view_kind", "channel"],
-          ["view_ordinal", "ordinal"],
-          ["projection_digest", "input_digest"],
-        ],
-      ],
-      ["embedding_vectors", [["projection_digest", "input_digest"]]],
-    ] as const) {
-      const priorColumns = previous.tables[table]?.columns;
-      if (priorColumns === undefined) continue;
-      corrected = corrected.replace(
-        new RegExp(`SELECT ([^;]+) FROM \u0060${table}\u0060;`, "g"),
-        (statement, selected: string) => {
-          let source = selected;
-          for (const [oldName, newName] of columns) {
-            if (oldName in priorColumns && !(newName in priorColumns)) {
-              source = source.replaceAll(`"${newName}"`, `"${oldName}"`);
-            }
-          }
-          return statement.replace(selected, source);
-        },
-      );
-    }
-    if (corrected !== generated) await writeFile(path, corrected);
-  }
-}
 
 // Drizzle does not model FTS5 virtual tables. The ProjectContext keyword
 // artifact owns the same SQLite-specific FTS shape as the Store index, so

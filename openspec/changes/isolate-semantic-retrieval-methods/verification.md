@@ -1,6 +1,6 @@
 # 实施与验收记录
 
-> 下文主体记录对应方法隔离实现阶段；新增的单次 mode 入口及其最终验证见页末“临时实验 mode 追加验收”。前一阶段的整包计数、未重跑项和 CLI 状态不替代追加阶段的验证。
+> 下文保留方法隔离、临时 mode 和验收脚本整理各阶段的实际结果，阶段之间的计数不合并冒充一次整包通过。迁移基线及最终迁移验证以页末“以 main 为基线清理过渡迁移”为准；早期对 #272 中间 schema 的搬运覆盖不属于发布版本兼容承诺。
 
 ## 验证边界
 
@@ -14,7 +14,7 @@
 |---|---|
 | 方法、编码及 Profile | `bun test packages/engine/src/query/semantic/methods packages/engine/src/query/semantic/profile.test.ts packages/engine/src/query/semantic/encoding.test.ts`：30 pass。覆盖原单向量完整配方、不分句、数值排序、多视角公式/预算、输入摘要与方法版本隔离。 |
 | Backend、benchmark、共享 query service | `bun test packages/backend/src/modules/query packages/backend/src/modules/index/controller.test.ts packages/backend/src/client packages/backend/src/benchmark packages/engine/src/query/semantic/query-service.test.ts`：86 pass。覆盖缺省/显式方法、非法值、keyword 绕过、共享队列与 operation 身份、全量评分后报告 N/K、canonical 快照重试及关闭连接。 |
-| reader 与真实历史迁移 | `ReaderMigrationCoverage` 负责人最终运行 reader/migrator 两文件：29 pass、73 assertions。使用真实迁移前缀创建旧库，验证三类 semantic artifact 与共享向量缓存的旧行升级、列和向量保留、复合主键约束；真实 pre-0003 旧列索引被分类为 incompatible，不提前查询新列。 |
+| 早期 reader/迁移验证（迁移覆盖已替换） | `ReaderMigrationCoverage` 负责人当轮运行 reader/migrator 两文件：29 pass、73 assertions。该轮使用包含 #272 中间 schema 的前缀，验证旧行搬运与 pre-0003 旧列拒绝；这部分覆盖由页末基于 main 单向量格式的回归替换，不作为最终兼容范围。 |
 | index、complete/progress/cache | `ArtifactCoverage` 负责人运行指定片区 43 用例：首次 41 pass、2 fail；修正新增 fixture/预期后仅重跑失败两例，2 pass。覆盖两方法隔离、相同 key 的文本变化/跨 Practice 内容不串用、缺必要输入不计完成、删除和 metadata-only 不编码、失败保留 active、清空共享缓存后仍复用已验证 predecessor。没有为制造全绿而重复整片检查。 |
 | 最终方法校验边界 | 将方法 type guard 改为直接遍历 catalog 的唯一允许值列表后，运行 catalog、query/index controller、client 四文件：41 pass；方法值和默认行为未改变。 |
 
@@ -61,7 +61,7 @@ bun run build:cli
 
 ## 迁移修正及实现决策
 
-- 本机逐条回放定位到历史 0001 的 `ALTER TABLE`：临时表限定的 CHECK 在 rename 后无法解析。生成器等价移除该限定，保留同一列约束，同时根据前一 snapshot 修正新迁移 SELECT 的旧源列名。`bun run db:generate` 成功；旧 snapshot/journal 顺序和身份未改；新增迁移由现有公共命令管理，不引入运行时迁移旁路。
+- 初次实现保留了 #272 新增的 `0001/0002` 及其后续搬运迁移，曾为这些 SQL 增加临时表 CHECK 和源列名修补，并成功运行 `bun run db:generate`。这些是相对工作分支的前序迁移，不是 main 已有的迁移历史；对应生成器修补和中间迁移已在页末基线整理中删除。
 - 旧版本 metadata 在读取版本特定向量列前被识别；reader 返回 incompatible，重建仍由既有路径处理。
 - 客户端协议只需纯 catalog，因此 `@lorelum/engine/vector-methods` 直接指向现有 catalog，而不是导入 Engine root 的 SQL/Store 图或新增转发 shim。依赖边界构建测试通过。
 - 方法是业务输入：wire shape 校验后统一解析方法并返回既有 `usage.invalid`，不为此改变其它 schema 错误的 `backend.invalid-request`；keyword 不进入方法解析。
@@ -108,3 +108,23 @@ bun run build:cli
 - 中英 query/config 页面、CLI 维护合同及 Backend API 组装说明同步；站点 production build/prerender 通过。
 
 本轮未改用户 Store/config、未停止或重启用户 daemon，临时发现命令 HOME 已清理。没有重跑质量 benchmark，未替换 PATH 中的已安装 CLI；新入口属于当前 worktree 的源码及上述编译产物。
+
+## 原生验收脚本结构整理（2026-10-17）
+
+- `project-context-native-smoke.integration.ts` 从 663 行缩为 49 行，只保留场景选择、结果汇总和 finally 清理。原生环境、语料生成、ProjectContext 和方法选择分别归入既有 `support/`、`fixtures/`、`scenarios/` 结构；组织和运行方法见 [维护说明](../../../docs/development/backend-integration.md#cli-原生-smoke-的场景边界)。
+- 两个场景共用一个真实模型/runtime 和 HTTP Backend，但有独立的 Store、derived cache、配置和语料。ProjectContext 保留 48 条语料；方法场景从自己的 5 条语料开始，并断言多视角编码跨过 native 文档批次边界。切回默认及已有方法的查询保留零等待，未用等待重建放宽复用验收。
+- 最终 `bun run test:native-smoke -- <model.gguf>` 通过两个场景：初始编码 48 条、增量仅 1 条；方法场景编码 20 个文档输入，临时 mode、配置不写回、两方法隔离、配置往返和原 operation 身份均通过。另以 `retrieval-methods` 参数从全新环境独立运行通过，不依赖前一个场景的模型准备或索引状态。
+- 第一次重构后的完整运行发现同步点误按尝试次数计数，导致模型准备阶段提前阻塞，partial 查询仍返回 preparing。恢复按成功编码批次设置同步点后通过；保留 partial/strict 原断言，没有延迟重试或放宽结果掩盖问题。
+- CLI `tsconfig.json` 将 integration 纳入类型检查；修正因此暴露的既有 stdin 收窄问题，保留按是否提供输入选择 pipe/ignore 的行为。最终 CLI typecheck、相关 oxlint、7 个变更代码/配置文件的 oxfmt check 通过；进程完成、stdin 和超时的现有测试 **3 pass / 0 fail**。
+- 本轮只调整验收结构与维护说明，未改生产检索合同、用户 Store/config 或已安装 CLI；真实路径是源码 command registry、HTTP Backend 和 native 模型，没有重新构建或验证编译发布包，也没有质量或性能收益结论。
+
+## 以 main 为基线清理过渡迁移（2026-10-17）
+
+- 基线为 `963963e6cdc334258842f8924f03a21e8d8c92d5`：其单向量索引格式版本为 2，三类 semantic index 只有初始 `0000` 迁移。保留这些 SQL、snapshot 和初始 journal 身份；删除 #272 及本分支叠加的 9 份过渡 SQL、9 份 snapshot，重新生成 3 份直接到最终结构的 `0001` 及其 snapshot，净减少 12 份迁移产物。不承诺兼容 PR 内部的过渡格式。
+- `scripts/db/generate.ts` 从 120 行减至 61 行，删除历史遍历、旧 snapshot 推断、字段映射及事后 CHECK 修补。CHECK 由 schema 的不带表限定列引用直接生成。共享向量缓存相对 main 的 digest 列迁移确有必要，保留其已有 `0001` 和行保留验证；canonical LocalStore 与 keyword 迁移不改。
+- 对直接生成的 SQL 做真实旧库回放，3 个回归首先失败：SQLite 把不存在的 `"input_key"`、`"channel"` 等源列解释为字符串，复制出了无效向量行。新迁移删除该不需要的数据复制，旧 metadata 保持版本 2、不误判为当前 ready；从 canonical 内容重建，不再为中间 schema 搬运向量。
+- 再次执行 `bun run db:generate`，8 个配置均无 schema 变化；3 份新 SQL 的前后 SHA-256 相同。迁移与 reader 两文件最终 **25 pass / 0 fail、62 assertions**，覆盖真实 main 初始迁移、旧行失效、当前行不被重复迁移清空、通用 channel/复合键以及共享缓存的必要升级。删除了迁移条数、表名和字段清单的实现断言，不把旧计数改成新计数。
+- Engine 聚合执行采用既有无关失败名排除规则，结果 **332 pass / 2 fail**。两项失败都是向量复用测试中固定迁移数为 4 的断言；删除该断言，保留不重复编码和更新后 content digest 的行为验证后，仅复跑这两例，**2 pass / 0 fail**。没有再次执行整包，也不把分次结果写成一次未观察到的全绿聚合。
+- 新迁移下的 `bun run test:native-smoke -- <model.gguf>` 通过 ProjectContext 和检索方法两个场景：初始实际编码 48 条、增量仅 1 条，独立 5 条方法语料编码 20 个输入，单向量/多视角/切回、临时 mode、配置不写回及 operation 身份通过。
+- 全仓 typecheck、5 个相关 TypeScript 文件的 oxlint、11 个 TypeScript/JSON 文件的格式检查以及 OpenSpec strict validation 通过。维护规则与设计已同步，不保留生成器的历史修补例外。
+- 未操作用户 Store/config、模型文件或已安装 CLI；本轮没有重新构建编译发布包、commit 或 push。上述原生证据属于源码 command registry、实际 HTTP Backend 与 native 模型路径，不代表发布包或 CI 验证。

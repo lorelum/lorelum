@@ -39,3 +39,9 @@
 - [x] 6.1 query 增加 `--mode multi-view-vector`，仅为本次选择实验方法，跳过被覆盖的方法配置；保留 semantic/keyword 行为、等待/输入校验优先级及 Backend/结果 semantic mode，不增加独立方法参数。
 - [x] 6.2 补充模式及错误优先级回归，用真实 CLI/模型验证默认与临时实验往返、非法配置覆盖、配置不写回、方法隔离和未知 mode 拒绝。
 - [x] 6.3 同步中英 query/config 指南、维护合同与本记录，运行类型/CLI 测试、相关格式检查和 OpenSpec strict validation，记录实际验证及边界。
+
+## 7. 清除 PR 中间格式的迁移兼容
+
+- [x] 7.1 以 main 的单向量 schema 为基线，保留已有迁移身份，三类 semantic index 直接生成到最终结构；删除 #272 中间格式及其向量搬运迁移，不改 canonical 数据。
+- [x] 7.2 删除生成器中的历史 SQL 扫描、字段改名映射和事后 CHECK 修补；在 schema 中表达重建时也有效的相同约束，保留共享向量缓存相对 main 的必要迁移。
+- [x] 7.3 将真实迁移与旧 reader 夹具改为 main 的旧格式，验证失效/重建、新库、两方法真实查询及生成幂等性，同步维护规则和验收记录。

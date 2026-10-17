@@ -6,17 +6,12 @@ import { join } from "node:path";
 import { semanticIndexMetadata, semanticVectors } from "../schemas/semantic-index";
 import { embeddingVectors } from "../schemas/semantic-vector-cache";
 import { isCompatibleMetadata, metadataFor } from "../../query/semantic/index/metadata";
-import {
-  readSemanticIndexMetadata,
-  readSemanticIndexVectors,
-} from "../../query/semantic/index/database";
+import { readSemanticIndexMetadata } from "../../query/semantic/index/database";
 import { createVectorExecution } from "../../query/semantic/profile";
 import { resolveVectorRetrievalMethod } from "../../query/semantic/methods/catalog";
 
 import {
   keywordIndexDatabaseDefinition,
-  localStoreDatabaseDefinition,
-  projectCacheDatabaseDefinition,
   projectKeywordIndexDatabaseDefinition,
   projectSemanticIndexDatabaseDefinition,
   semanticProgressIndexDatabaseDefinition,
@@ -27,161 +22,60 @@ import {
 import { openSqliteConnection } from "./connection";
 import { migrateSqlite } from "./migrator";
 
-test("Drizzle LocalStore init is versioned and idempotent", () => {
-  const connection = openSqliteConnection(":memory:", localStoreDatabaseDefinition.schema);
-  try {
-    migrateSqlite(connection, localStoreDatabaseDefinition);
-    migrateSqlite(connection, localStoreDatabaseDefinition);
-
-    const tables = connection.client
-      .query(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('__drizzle_migrations', 'local_store_metadata', 'active_packs', 'practice_sources', 'effective_practices', 'effective_revision_outbox', 'effective_revision_log') ORDER BY name",
-      )
-      .all()
-      .map((row) => (row as { name: string }).name);
-
-    expect(tables).toEqual([
-      "__drizzle_migrations",
-      "active_packs",
-      "effective_practices",
-      "effective_revision_log",
-      "effective_revision_outbox",
-      "local_store_metadata",
-      "practice_sources",
-    ]);
-    expect(
-      connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get(),
-    ).toEqual({
-      count: 1,
-    });
-  } finally {
-    connection.close();
-  }
-});
-
-test("Drizzle keyword init includes the owned FTS5 virtual table", () => {
-  const connection = openSqliteConnection(":memory:", keywordIndexDatabaseDefinition.schema);
-  try {
-    migrateSqlite(connection, keywordIndexDatabaseDefinition);
-
-    // FTS5 MATCH is SQLite-specific; exercise tokenization rather than DDL text.
-    connection.client
-      .query(
-        "INSERT INTO keyword_documents (practice_id, content_digest, id, title, applies_when, tech_stack, stage, anti_patterns, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      )
-      .run("example", "digest", "example", "SQLite indexing", "", "", "", "", "Canonical storage");
-    expect(
-      connection.client
-        .query("SELECT practice_id FROM keyword_documents WHERE keyword_documents MATCH ?")
-        .all("canonical"),
-    ).toEqual([{ practice_id: "example" }]);
-  } finally {
-    connection.close();
-  }
-});
-
-test("Drizzle semantic init creates the metadata and vector tables", () => {
-  const connection = openSqliteConnection(":memory:", semanticIndexDatabaseDefinition.schema);
-  try {
-    migrateSqlite(connection, semanticIndexDatabaseDefinition);
-
-    expect(
+test.each([keywordIndexDatabaseDefinition, projectKeywordIndexDatabaseDefinition])(
+  "$id preserves searchable FTS content when migrations run again",
+  (definition) => {
+    const connection = openSqliteConnection(":memory:", definition.schema);
+    try {
+      migrateSqlite(connection, definition);
+      // FTS5 MATCH is SQLite-specific; exercise tokenization rather than DDL text.
       connection.client
         .query(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('semantic_index_metadata', 'semantic_vectors') ORDER BY name",
+          "INSERT INTO keyword_documents (practice_id, content_digest, id, title, applies_when, tech_stack, stage, anti_patterns, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .all(),
-    ).toEqual([{ name: "semantic_index_metadata" }, { name: "semantic_vectors" }]);
-    expect(
-      connection.client
-        .query("PRAGMA table_info(semantic_vectors)")
-        .all()
-        .map((row) => (row as { readonly name: string }).name),
-    ).toEqual([
-      "practice_id",
-      "input_key",
-      "channel",
-      "ordinal",
-      "content_digest",
-      "input_digest",
-      "vector",
-    ]);
-  } finally {
-    connection.close();
-  }
-});
-
-test("ProjectContext keyword migrations include the owned FTS5 virtual table", () => {
-  const connection = openSqliteConnection(":memory:", projectKeywordIndexDatabaseDefinition.schema);
-  try {
-    migrateSqlite(connection, projectKeywordIndexDatabaseDefinition);
-    migrateSqlite(connection, projectKeywordIndexDatabaseDefinition);
-    expect(
-      connection.client
-        .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'keyword_documents'")
-        .get(),
-    ).toEqual({ name: "keyword_documents" });
-  } finally {
-    connection.close();
-  }
-});
+        .run(
+          "example",
+          "digest",
+          "example",
+          "SQLite indexing",
+          "",
+          "",
+          "",
+          "",
+          "Canonical storage",
+        );
+      migrateSqlite(connection, definition);
+      expect(
+        connection.client
+          .query("SELECT practice_id FROM keyword_documents WHERE keyword_documents MATCH ?")
+          .all("canonical"),
+      ).toEqual([{ practice_id: "example" }]);
+    } finally {
+      connection.close();
+    }
+  },
+);
 
 test.each([
   semanticIndexDatabaseDefinition,
   projectSemanticIndexDatabaseDefinition,
   semanticProgressIndexDatabaseDefinition,
-])("ProjectContext semantic migration definitions initialize idempotently", (definition) => {
+])("$id does not replay destructive migrations over current vectors", (definition) => {
   const connection = openSqliteConnection(":memory:", definition.schema);
   try {
     migrateSqlite(connection, definition);
+    const vector = {
+      practiceId: "current",
+      inputKey: "full:0000",
+      channel: "full",
+      ordinal: 0,
+      contentDigest: "b".repeat(64),
+      inputDigest: "c".repeat(64),
+      vector: Buffer.from(new Float32Array([1, 0]).buffer),
+    };
+    connection.orm.insert(semanticVectors).values(vector).run();
     migrateSqlite(connection, definition);
-    expect(
-      connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get() as {
-        readonly count: number;
-      },
-    ).toEqual({ count: 4 });
-  } finally {
-    connection.close();
-  }
-});
-
-test("Drizzle project cache init is versioned and idempotent", () => {
-  const connection = openSqliteConnection(":memory:", projectCacheDatabaseDefinition.schema);
-  try {
-    migrateSqlite(connection, projectCacheDatabaseDefinition);
-    migrateSqlite(connection, projectCacheDatabaseDefinition);
-    expect(
-      connection.client
-        .query(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('content_artifact_sources', 'project_context_artifacts', 'project_context_artifact_indexes') ORDER BY name",
-        )
-        .all(),
-    ).toEqual([
-      { name: "content_artifact_sources" },
-      { name: "project_context_artifact_indexes" },
-      { name: "project_context_artifacts" },
-    ]);
-    expect(
-      connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get(),
-    ).toEqual({ count: 2 });
-  } finally {
-    connection.close();
-  }
-});
-
-test("Drizzle shared-vector cache init is versioned and idempotent", () => {
-  const connection = openSqliteConnection(":memory:", semanticVectorCacheDatabaseDefinition.schema);
-  try {
-    migrateSqlite(connection, semanticVectorCacheDatabaseDefinition);
-    migrateSqlite(connection, semanticVectorCacheDatabaseDefinition);
-    expect(
-      connection.client
-        .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'embedding_vectors'")
-        .all(),
-    ).toEqual([{ name: "embedding_vectors" }]);
-    expect(
-      connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get(),
-    ).toEqual({ count: 2 });
+    expect(connection.orm.select().from(semanticVectors).all()).toEqual([vector]);
   } finally {
     connection.close();
   }
@@ -230,16 +124,16 @@ async function withMigrationPrefix(
 }
 
 test.each(semanticDefinitions)(
-  "$id upgrades real legacy vector rows without changing their identities or falsely making metadata compatible",
+  "$id discards incompatible main single-vector rows without making old metadata ready",
   async (definition) => {
-    await withMigrationPrefix(definition, 3, async (migrationsFolder) => {
+    await withMigrationPrefix(definition, 1, async (migrationsFolder) => {
       const connection = openSqliteConnection(":memory:", definition.schema);
       try {
         migrateSqlite(connection, { ...definition, migrationsFolder });
         const metadata = {
           ...metadataFor(
             {
-              rootBinding: "legacy-root",
+              rootBinding: "main-root",
               generation: 7,
               effectiveRevision: 11,
               manifestDigest: "old-manifest",
@@ -247,87 +141,32 @@ test.each(semanticDefinitions)(
             execution.profile,
             2,
           ),
-          indexVersion: 3,
+          indexVersion: 2,
         };
         connection.orm
           .insert(semanticIndexMetadata)
           .values({ singleton: 1, ...metadata })
           .run();
-        const firstBlob = Buffer.from(new Float32Array([1, 0]).buffer);
-        const secondBlob = Buffer.from(new Float32Array([0, 1]).buffer);
-        // Historical column names have intentionally no current Drizzle mapping.
+        // main's single-vector columns have no mapping in the current Drizzle schema.
         const insertLegacy = connection.client.query(
-          "INSERT INTO semantic_vectors (practice_id, view_id, view_kind, view_ordinal, content_digest, projection_digest, vector) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO semantic_vectors (practice_id, content_digest, projection_digest, vector) VALUES (?, ?, ?, ?)",
         );
-        insertLegacy.run("a", "full:0000", "full", 0, "b".repeat(64), "c".repeat(64), firstBlob);
-        insertLegacy.run("a", "body:0002", "body", 2, "b".repeat(64), "d".repeat(64), secondBlob);
+        insertLegacy.run(
+          "a",
+          "b".repeat(64),
+          "c".repeat(64),
+          Buffer.from(new Float32Array([1, 0]).buffer),
+        );
         insertLegacy.run(
           "b",
-          "task-card:0000",
-          "task-card",
-          0,
+          "d".repeat(64),
           "e".repeat(64),
-          "f".repeat(64),
-          firstBlob,
+          Buffer.from(new Float32Array([0, 1]).buffer),
         );
 
         migrateSqlite(connection, definition);
         migrateSqlite(connection, definition);
-        expect(connection.orm.select().from(semanticVectors).all()).toEqual([
-          {
-            practiceId: "a",
-            inputKey: "full:0000",
-            channel: "full",
-            ordinal: 0,
-            contentDigest: "b".repeat(64),
-            inputDigest: "c".repeat(64),
-            vector: firstBlob,
-          },
-          {
-            practiceId: "a",
-            inputKey: "body:0002",
-            channel: "body",
-            ordinal: 2,
-            contentDigest: "b".repeat(64),
-            inputDigest: "d".repeat(64),
-            vector: secondBlob,
-          },
-          {
-            practiceId: "b",
-            inputKey: "task-card:0000",
-            channel: "task-card",
-            ordinal: 0,
-            contentDigest: "e".repeat(64),
-            inputDigest: "f".repeat(64),
-            vector: firstBlob,
-          },
-        ]);
-        expect(
-          [...(readSemanticIndexVectors(connection, "a", 2) ?? [])]
-            .sort((left, right) => left.ordinal - right.ordinal)
-            .map((row) => ({
-              inputKey: row.inputKey,
-              channel: row.channel,
-              ordinal: row.ordinal,
-              inputDigest: row.inputDigest,
-              embedding: [...row.embedding],
-            })),
-        ).toEqual([
-          {
-            inputKey: "full:0000",
-            channel: "full",
-            ordinal: 0,
-            inputDigest: "c".repeat(64),
-            embedding: [1, 0],
-          },
-          {
-            inputKey: "body:0002",
-            channel: "body",
-            ordinal: 2,
-            inputDigest: "d".repeat(64),
-            embedding: [0, 1],
-          },
-        ]);
+        expect(connection.orm.select().from(semanticVectors).all()).toEqual([]);
         const upgradedMetadata = readSemanticIndexMetadata(connection);
         expect(upgradedMetadata).toEqual(metadata);
         expect(

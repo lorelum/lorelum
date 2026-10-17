@@ -12,22 +12,8 @@
     {
       "idx": 1,
       "version": "6",
-      "when": 1790487371558,
-      "tag": "0001_orange_miss_america",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1790587410533,
-      "tag": "0002_careless_human_robot",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1792227146192,
-      "tag": "0003_gorgeous_pride",
+      "when": 1792257203094,
+      "tag": "0001_previous_ozymandias",
       "breakpoints": true
     }
   ]

@@ -322,7 +322,7 @@ embedInBatches 已保证输出数量、维度及归一化。helper 不拥有 rea
 
 schema/index 版本与方法版本分开：字段迁移和解除封闭 channel 枚举按 Drizzle/versioned migration；改分块只提升 recipe。公共 codec 不硬编码 full/task-card/body；方法校验自身类别与组合，公共层验证 key/ordinal/编码及内容身份。旧 schema/Profile 不做兼容读取，走安全重建。
 
-派生 schema 的本次版本为 4。迁移由既有 `bun run db:generate` 生成；生成器在重建表的 `SELECT` 中按前一 snapshot 使用真实旧列名，并把临时表自引用的 `CHECK` 改为等价的不带表限定的列引用。后者也修正既有语义迁移 SQL 的可重放性：本机 SQLite 在历史 `ALTER TABLE … RENAME` 时无法解析保留的临时表限定名。既有 snapshot、journal 顺序和迁移身份不变；已应用的迁移不重新执行，不新增运行时 SQL 兼容读取。
+派生 schema 的本次版本为 4。迁移以 `main` 已有的单向量 schema 为基线：保留三类 semantic index 的 `0000` SQL、snapshot 和 journal 身份，本 PR 新增迁移直接到达最终中立结构，不保留 #272 分支内部的 `view_*` 过渡格式或其向量搬运兼容。旧索引按 schema/Profile 不兼容处理，后续从 canonical 内容重建；canonical 数据不迁移或删除。共享向量缓存从 `main` 已有的 `projection_digest` 到 `input_digest` 的迁移是独立的真实变更，保留该必要迁移。迁移由既有 `bun run db:generate` 生成，重建表的 CHECK 在 schema 中使用不带表限定的列引用；生成器不扫描、改写历史 SQL，不持有本次字段改名映射，也不增加运行时兼容读取。
 
 **三个派生层：** complete active artifact 证明精确 corpus/Profile 的完整覆盖；progress 记录该精确 target 已完成的 Practice，支持安全 partial；向量缓存只复用 Profile + inputDigest 对应的编码结果，不证明覆盖，也不让 status 直接变 ready。paths/锁/lease 使用已有实现，各方法 target 隔离，缓存管理实现共享。
 

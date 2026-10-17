@@ -259,7 +259,7 @@ test("distinguishes missing, corrupt, and incompatible artifacts", async () => {
     );
     const connection = openSqliteConnection(paths.active, semanticIndexDatabaseDefinition.schema);
     try {
-      connection.orm.update(semanticIndexMetadata).set({ indexVersion: 3 }).run();
+      connection.orm.update(semanticIndexMetadata).set({ indexVersion: 2 }).run();
     } finally {
       connection.close();
     }
@@ -274,7 +274,7 @@ test.each([
   projectSemanticIndexDatabaseDefinition,
   semanticProgressIndexDatabaseDefinition,
 ])(
-  "$id rejects actual pre-input-column artifacts as incompatible before reading current vector columns",
+  "$id rejects main single-vector artifacts before reading current input columns",
   async (definition) => {
     const directory = await mkdtemp(join(tmpdir(), "lorelum-reader-legacy-"));
     const paths = {
@@ -291,7 +291,7 @@ test.each([
       ) as {
         entries: { tag: string }[];
       };
-      const entries = journal.entries.slice(0, 3);
+      const entries = journal.entries.slice(0, 1);
       await mkdir(join(migrationsFolder, "meta"), { recursive: true });
       await writeFile(
         join(migrationsFolder, "meta", "_journal.json"),
@@ -322,19 +322,16 @@ test.each([
               profile,
               1,
             ),
-            indexVersion: 3,
+            indexVersion: 2,
           })
           .run();
         // Historical column names intentionally have no current Drizzle mapping.
         connection.client
           .query(
-            "INSERT INTO semantic_vectors (practice_id, view_id, view_kind, view_ordinal, content_digest, projection_digest, vector) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO semantic_vectors (practice_id, content_digest, projection_digest, vector) VALUES (?, ?, ?, ?)",
           )
           .run(
             "legacy",
-            "full:0000",
-            "full",
-            0,
             "b".repeat(64),
             "c".repeat(64),
             Buffer.from(new Float32Array([1, 0]).buffer),

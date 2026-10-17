@@ -479,9 +479,6 @@ test.each(methodIds)(
         readonly: true,
       });
       try {
-        expect(database.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get()).toEqual({
-          count: 4,
-        });
         const row = database
           .query("SELECT content_digest FROM semantic_vectors WHERE practice_id = ?")
           .get("platform.original") as { readonly content_digest: string };

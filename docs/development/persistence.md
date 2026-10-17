@@ -56,16 +56,16 @@ Semantic index format/schema version is `4` (`SEMANTIC_INDEX_VERSION`, persisted
 | Column | Maintenance contract |
 | --- | --- |
 | `practice_id` | Canonical Practice identity; all inputs for one Practice must agree on its content digest. |
-| `input_key` | Method-owned encoding-input identity, replacing `view_id`; primary key is `(practice_id, input_key)`. |
-| `channel` | Nonempty method-owned channel, replacing `view_kind`; the generic schema does not enumerate multi-view kinds. |
-| `ordinal` | Nonnegative input ordinal, replacing `view_ordinal`. |
+| `input_key` | Method-owned encoding-input identity; primary key is `(practice_id, input_key)`. |
+| `channel` | Nonempty method-owned channel; the generic schema does not enumerate multi-view kinds. |
+| `ordinal` | Nonnegative input ordinal. |
 | `content_digest` | Digest of the current canonical Practice, not a method-specific source of truth. |
 | `input_digest` | Versioned encoding-input digest, replacing `projection_digest`; drives reuse within a compatible Profile. |
 | `vector` | SQLite BLOB; the codec validates and decodes it into an in-memory embedding before method scoring. |
 
 `VectorExecution` binds an encoding contract to one method and its document/query/scoring recipe versions. The resulting Profile identity also includes dimensions, normalization, and distance metric. `single-vector` and `multi-view-vector` must not share a Profile even if some input text or digest happens to match. The shared cache is keyed by `(profile_id, input_digest)`; progress and complete artifacts likewise remain Profile-isolated. An accepted operation retains its execution and target rather than consulting a later CLI method setting.
 
-Canonical corpus identity v2 is built from the sorted active `(practiceId, contentDigest)` list, without method projection data. Both methods read the same canonical corpus. A semantic artifact ID hashes the versioned artifact namespace, Profile ID, and corpus digest; index format compatibility is checked separately. Earlier derived schemas/Profiles are incompatible and rebuildable, not canonical data migrations. Do not rename historical Drizzle snapshot fields or rewrite their journals to pretend they always used encoding-input names.
+Canonical corpus identity v2 is built from the sorted active `(practiceId, contentDigest)` list, without method projection data. Both methods read the same canonical corpus. A semantic artifact ID hashes the versioned artifact namespace, Profile ID, and corpus digest; index format compatibility is checked separately. Earlier derived schemas/Profiles are incompatible and rebuildable, not canonical data migrations. Compatibility is defined against accepted schemas, not intermediate development formats. Preserve accepted migration SQL, snapshots, and existing journal identities.
 
 
 ## Changing a schema
@@ -85,22 +85,23 @@ For a normal table change:
 4. Add or update the owning repository/index tests and the behavior-level tests that exercise the changed data.
 5. Commit the schema TypeScript, migration SQL, and generated metadata together.
 
-Do not use `drizzle-kit push` against a developer Store, make schema changes with ad-hoc runtime DDL, or edit migration history as part of an ordinary feature change. Runtime behavior must come from checked-in migrations. The narrowly equivalent SQLite CHECK correction below is not a precedent for general history rewrites.
+Do not use `drizzle-kit push` against a developer Store, make schema changes with ad-hoc runtime DDL, or edit accepted migration history as part of an ordinary feature change. Runtime behavior must come from checked-in migrations.
 
 ### Native SQL migrations
 
 An FTS5 virtual-table shape change is still a schema change. Give it a reviewed custom SQL migration in the keyword-index migration directory, and keep the related search SQL and integration tests in `packages/engine/src/query/keyword/`.
 
-The existing migration files record what a database has applied. Except for the equivalent SQLite CHECK qualifier correction described below, `db:generate` must not rewrite existing migration SQL; snapshots and journals remain historical records. If a SQL-only migration is needed, extend `scripts/db/generate.ts` in the same change so it remains part of `bun run db:generate` rather than adding a second public database command. Do not append runtime DDL to a query path.
+The checked-in migrations record what a database has applied. `db:generate` must not rewrite existing migration SQL or snapshots; existing journal entries retain their identities. If a SQL-only migration is needed, extend `scripts/db/generate.ts` in the same change so it remains part of `bun run db:generate` rather than adding a second public database command. Do not append runtime DDL to a query path.
 
-### SQLite rebuild generation corrections
+### SQLite rebuild review
 
-The single generator also repairs two Drizzle SQLite table-rebuild hazards in the semantic-index, project-semantic-index, semantic-progress-index, and semantic-vector-cache migration histories:
+Express rebuilt-table CHECK constraints with unqualified column references in the owning schema, for example `sql.identifier("channel")`. A constraint containing `"__new_semantic_vectors"."channel"` can fail when SQLite renames the temporary table; generate the correct constraint instead of repairing historical SQL afterward.
 
-- A rebuilt table's CHECK must use unqualified column references. Generated expressions such as `"__new_semantic_vectors"."ordinal" >= 0` can fail SQLite's schema validation when the temporary table is renamed. Removing only `"__new_semantic_vectors".` preserves the same constraint before and after rename. Existing checked-in SQL receives only this equivalent temporary-table-qualifier removal; historical snapshots and migration journals remain unchanged.
-- `INSERT INTO new_table (...) SELECT ... FROM old_table` must read the **old source column names**, not destination names. The generator consults the previous snapshot before changing source SELECT references: `view_id → input_key`, `view_kind → channel`, `view_ordinal → ordinal`, and `projection_digest → input_digest` for semantic rows; the shared cache also renames `projection_digest → input_digest`. Destination columns keep their new names. Once the previous snapshot already has the new source column, later migrations must not rewrite it back.
+When replacing the single-vector table with method-bound encoding inputs, old vector rows do not have the current input identity. The new migration deliberately omits their data-copy statement. Their metadata stays incompatible, and the existing build path recreates vectors from canonical content. Do not invent a row-conversion path for an intermediate development schema.
 
-Review both the CHECK expressions and source SELECT list in generated rebuild SQL. Do not fix this by relaxing checks, renaming historical snapshot columns, replacing journals, adding ad-hoc runtime DDL, or rewriting unrelated migration statements.
+Review generated `INSERT … SELECT` statements against the actual source schema. SQLite can treat a double-quoted missing column as a string literal, producing invalid rows instead of reporting a missing column. A generated copy statement is not evidence that old vectors are reusable. The shared vector cache's `projection_digest` to `input_digest` rename is a separate migration from its accepted schema; it preserves the existing Profile-keyed cache rows without making them compatible with a different Profile.
+
+Keep these choices in reviewed new migrations and schema definitions. The generator must not scan history, infer renamed columns from old snapshots, or maintain feature-specific rewrite maps.
 
 ## When migrations run
 

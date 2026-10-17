@@ -12,22 +12,8 @@
     {
       "idx": 1,
       "version": "6",
-      "when": 1790487369203,
-      "tag": "0001_blue_talos",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1790587407986,
-      "tag": "0002_reflective_tusk",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1792227134708,
-      "tag": "0003_jazzy_mad_thinker",
+      "when": 1792257201228,
+      "tag": "0001_classy_warbird",
       "breakpoints": true
     }
   ]

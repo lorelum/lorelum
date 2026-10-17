@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "74de9943-0fe3-4faf-aff0-9b05fc64b2f9",
+  "id": "4a694f5b-a362-46f2-a4ba-1fa3871253b8",
   "prevId": "217812a4-21a8-4a00-b55f-865cad8483e4",
   "tables": {
     "semantic_index_metadata": {
@@ -113,22 +113,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "view_id": {
-          "name": "view_id",
+        "input_key": {
+          "name": "input_key",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "view_kind": {
-          "name": "view_kind",
+        "channel": {
+          "name": "channel",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "view_ordinal": {
-          "name": "view_ordinal",
+        "ordinal": {
+          "name": "ordinal",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -141,8 +141,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "projection_digest": {
-          "name": "projection_digest",
+        "input_digest": {
+          "name": "input_digest",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -159,23 +159,20 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "semantic_vectors_practice_view_pk": {
-          "columns": [
-            "practice_id",
-            "view_id"
-          ],
-          "name": "semantic_vectors_practice_view_pk"
+        "semantic_vectors_practice_input_pk": {
+          "columns": ["practice_id", "input_key"],
+          "name": "semantic_vectors_practice_input_pk"
         }
       },
       "uniqueConstraints": {},
       "checkConstraints": {
-        "semantic_vectors_view_kind": {
-          "name": "semantic_vectors_view_kind",
-          "value": "\"semantic_vectors\".\"view_kind\" IN ('applicability', 'topic', 'guidance')"
+        "semantic_vectors_channel": {
+          "name": "semantic_vectors_channel",
+          "value": "length(\"channel\") > 0"
         },
-        "semantic_vectors_view_ordinal": {
-          "name": "semantic_vectors_view_ordinal",
-          "value": "\"semantic_vectors\".\"view_ordinal\" >= 0"
+        "semantic_vectors_ordinal": {
+          "name": "semantic_vectors_ordinal",
+          "value": "\"ordinal\" >= 0"
         }
       }
     }

@@ -36,7 +36,7 @@ export const semanticVectors = sqliteTable(
       name: "semantic_vectors_practice_input_pk",
       columns: [table.practiceId, table.inputKey],
     }),
-    check("semantic_vectors_channel", sql`length(${table.channel}) > 0`),
-    check("semantic_vectors_ordinal", sql`${table.ordinal} >= 0`),
+    check("semantic_vectors_channel", sql`length(${sql.identifier("channel")}) > 0`),
+    check("semantic_vectors_ordinal", sql`${sql.identifier("ordinal")} >= 0`),
   ],
 );

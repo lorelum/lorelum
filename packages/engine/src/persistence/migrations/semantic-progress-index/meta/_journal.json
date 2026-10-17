@@ -12,22 +12,8 @@
     {
       "idx": 1,
       "version": "6",
-      "when": 1790487372196,
-      "tag": "0001_left_rhodey",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1790587411103,
-      "tag": "0002_cynical_the_captain",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1792227153076,
-      "tag": "0003_calm_spacker_dave",
+      "when": 1792257203738,
+      "tag": "0001_wild_joseph",
       "breakpoints": true
     }
   ]
