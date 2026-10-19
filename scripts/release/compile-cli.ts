@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { chmod, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -55,9 +56,9 @@ export type CompiledReleaseCli = CompiledCli;
 export async function compileCli(options: CompileCliOptions): Promise<CompiledCli> {
   const job = await createCompileJob(options);
   if (options.useBunCommand === true || process.platform === "win32") {
-    return compileWithBunCommand(job);
+    return compileWithBunCommand(job, { define: job.define });
   }
-  return compileWithBuildApi(job);
+  return compileWithBuildApi(job, job.define);
 }
 
 /** Compile one CLI whose embedded manifest is byte-for-byte the staged native manifest. */
@@ -69,7 +70,10 @@ export async function compileReleaseCli(
     ...(options.entrypoint === undefined ? {} : { entrypoint: options.entrypoint }),
     target: options.target ?? options.artifact.compileTarget,
   });
-  const define = releaseManifestDefine(options.artifact, options.nativeManifest);
+  const define = {
+    ...job.define,
+    ...releaseManifestDefine(options.artifact, options.nativeManifest),
+  };
   if (options.useBunCommand === true || process.platform === "win32") {
     return compileWithBunCommand(job, { define });
   }
@@ -83,6 +87,8 @@ async function createCompileJob(options: CompileCliOptions): Promise<CompileCliJ
     entrypoint: options.entrypoint ?? defaultEntrypoint,
     compileTarget:
       options.target ?? (`bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget),
+    // One identity per compilation, shared by all processes launched from that binary.
+    define: { LORELUM_BUILD_IDENTITY: JSON.stringify(randomBytes(32).toString("hex")) },
   };
 }
 
@@ -166,6 +172,7 @@ interface CompileCliJob {
   readonly outfile: string;
   readonly entrypoint: string;
   readonly compileTarget: Bun.Build.CompileTarget;
+  readonly define: CompileDefinitions;
 }
 
 interface CompileWithBunCommandOptions {

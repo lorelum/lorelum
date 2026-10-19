@@ -80,7 +80,6 @@ async function activeMetadata(
     connection = openSqliteConnection(path, definition.schema, {
       readonly: true,
     });
-    verifySemanticIndexIntegrity(connection);
     return readSemanticIndexMetadata(connection);
   } catch (error) {
     if (error instanceof SemanticIndexError) throw error;

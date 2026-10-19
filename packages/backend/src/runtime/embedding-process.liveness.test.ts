@@ -2,12 +2,10 @@ import { expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { createEmbeddingProcess, type EmbeddingProcessDeps } from "./embedding-process";
-import { EmbeddingError } from "../modules/embedding/errors";
 
 /**
- * The launcher's collaboration seams (resource resolution and child spawn) are
- * injected, so the startup contract can be observed without a native build, a
- * real model file, or global module mocks.
+ * The launcher's child spawn is injected, so the startup contract can be observed
+ * without a native build, a real model file, or global module mocks.
  */
 interface CapturedSpawn {
   readonly executable: string;
@@ -15,6 +13,13 @@ interface CapturedSpawn {
 }
 
 const capturedSpawns: CapturedSpawn[] = [];
+
+const prepared = {
+  modelPath: "stub-model",
+  executable: "stub-llama-server",
+  buildIdentity: "test-build-identity",
+  threads: 1,
+};
 
 /** Behavior switch for the fake child: resolved with the first spawn of a test. */
 let onFakeChild:
@@ -48,11 +53,6 @@ class FakeNativeChild extends EventEmitter {
 
 function deps(): EmbeddingProcessDeps {
   return {
-    resolveResources: async () => ({
-      executable: "stub-llama-server",
-      buildIdentity: "test-build-identity",
-      assertUnchanged: async () => {},
-    }),
     spawnProcess: (executable, _args, options) => {
       capturedSpawns.push({ executable, options });
       return new FakeNativeChild() as unknown as ChildProcess;
@@ -63,11 +63,7 @@ function deps(): EmbeddingProcessDeps {
 test("daemon-owned spawn carries the parent liveness opt-in", async () => {
   capturedSpawns.length = 0;
   onFakeChild = () => {};
-  const runtime = createEmbeddingProcess(
-    { modelPath: "stub-model", threads: 1 },
-    undefined,
-    deps(),
-  );
+  const runtime = createEmbeddingProcess(prepared, undefined, deps());
   try {
     await expect(
       runtime.start(new AbortController().signal, Date.now() + 400),
@@ -87,11 +83,7 @@ test("a native runtime that exits during startup fails terminally after bounded 
     child.exitCode = 0;
     queueMicrotask(() => child.emit("close", 0));
   };
-  const runtime = createEmbeddingProcess(
-    { modelPath: "stub-model", threads: 1 },
-    undefined,
-    deps(),
-  );
+  const runtime = createEmbeddingProcess(prepared, undefined, deps());
   await expect(
     runtime.start(new AbortController().signal, Date.now() + 5_000),
   ).rejects.toMatchObject({ code: "embedding.failed" });
@@ -99,36 +91,21 @@ test("a native runtime that exits during startup fails terminally after bounded 
   await runtime.stop(Date.now() + 1_000);
 });
 
-test("a native integrity failure during the readiness probe retains its resource details", async () => {
+test("a successful readiness probe allows encoding until its owned process is stopped", async () => {
   capturedSpawns.length = 0;
   onFakeChild = () => {};
-  const resource = {
-    kind: "native",
-    file: "native/darwin-arm64/llama-server",
-    check: "invalid",
-  } as const;
-  let checks = 0;
-  const runtime = createEmbeddingProcess({ modelPath: "stub-model", threads: 1 }, undefined, {
+  const vector = [1, ...Array<number>(383).fill(0)];
+  const runtime = createEmbeddingProcess(prepared, undefined, {
     ...deps(),
-    resolveResources: async () => ({
-      executable: "stub-llama-server",
-      buildIdentity: "test-build-identity",
-      assertUnchanged: async () => {
-        if (++checks === 2)
-          throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
-      },
-    }),
-    createClient: () => ({ encode: async () => [] }),
+    createClient: () => ({ encode: async () => vector }),
   });
   try {
-    await expect(
-      runtime.start(new AbortController().signal, Date.now() + 1_000),
-    ).rejects.toMatchObject({
-      code: "embedding.native-resource-invalid",
-      resource,
-    });
-    expect(checks).toBe(2);
+    await runtime.start(new AbortController().signal, Date.now() + 1_000);
+    await expect(runtime.encode("query", new AbortController().signal)).resolves.toEqual(vector);
   } finally {
     await runtime.stop(Date.now() + 1_000);
   }
+  await expect(runtime.encode("query", new AbortController().signal)).rejects.toMatchObject({
+    code: "embedding.not-loaded",
+  });
 });

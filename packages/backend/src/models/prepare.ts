@@ -1,12 +1,12 @@
-import { open, rename, stat } from "node:fs/promises";
+import { lstat, open, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ResolvedEmbeddingConfig } from "../config/embedding";
 import { downloadFile, DownloadError } from "../download/file";
 import { EmbeddingError } from "../modules/embedding/errors";
 import { EMBEDDING_MODEL } from "../modules/embedding/model";
 import type { ModelProgress } from "../modules/embedding/dto";
-import { verifyResource } from "../runtime/embedding-resources";
-import { assertPrivateFile, checkDirectory } from "../runtime/runtime-state";
+import { verifyResource } from "../runtime/resource-integrity";
+import { assertPrivateFile, hasCode } from "../runtime/runtime-state";
 import { withStartupLock } from "../runtime/startup-lock";
 
 interface ModelArtifact {
@@ -50,16 +50,22 @@ export async function prepareModel(
   const directory = join(config.cacheDirectory, artifact.sha256);
   const destination = join(directory, "model.gguf");
   // Do not create a cache just to report a missing source or disabled download.
-  if (await checkDirectory(directory)) {
-    if (await assertPrivateFile(destination)) return verify(destination);
-  }
+  const cached = await lstat(destination).then(
+    () => true,
+    (error: unknown) => !hasCode(error, "ENOENT"),
+  );
+  if (cached) return verify(destination);
   if (!config.download.enabled) throw new EmbeddingError("embedding.not-configured");
   if (!config.download.url) throw new EmbeddingError("embedding.download-unavailable");
   signal.throwIfAborted();
   // Reuse the existing crash-released SQLite writer lock; never create a PID lock protocol.
   return withStartupLock(directory, 0, async () => {
     signal.throwIfAborted();
-    if (await assertPrivateFile(destination)) return verify(destination);
+    const publishedByAnotherWriter = await lstat(destination).then(
+      () => true,
+      (error: unknown) => !hasCode(error, "ENOENT"),
+    );
+    if (publishedByAnotherWriter) return verify(destination);
     const partial = `${destination}.part`;
     signal.throwIfAborted();
     if (!(await assertPrivateFile(partial))) {
@@ -100,6 +106,7 @@ export async function prepareModel(
       }
     }
     await verify(partial);
+    signal.throwIfAborted();
     await rename(partial, destination);
     return destination;
   }).catch((error: unknown) => {

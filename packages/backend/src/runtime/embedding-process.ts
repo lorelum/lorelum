@@ -10,10 +10,9 @@ import { noopEmitter, type LogEmitter, type LogEventInput } from "@lorelum/log";
 import { platformEnvironment } from "../config/launch";
 import type { EmbeddingConfig } from "../config/embedding";
 import { EmbeddingError } from "../modules/embedding/errors";
-import type { EmbeddingRuntime } from "../modules/embedding/model";
+import type { EmbeddingRuntime, PreparedEmbeddingResources } from "../modules/embedding/model";
 import { processIdentity, type ProcessIdentity } from "./process-identity";
 import { createLlamaClient } from "./llama-client";
-import { resolveEmbeddingResources, type EmbeddingResources } from "./embedding-resources";
 
 const MAX_BIND_ATTEMPTS = 3;
 const STARTUP_PROBE_TIMEOUT_MS = 500;
@@ -22,7 +21,6 @@ const FORCE_KILL_WAIT_MS = 100;
 
 /** Collaboration seams for tests; production callers use the defaults. */
 export interface EmbeddingProcessDeps {
-  resolveResources?(modelPath: string, signal: AbortSignal): Promise<EmbeddingResources>;
   createClient?: typeof createLlamaClient;
   spawnProcess?(
     executable: string,
@@ -74,13 +72,12 @@ export interface EmbeddingProcessOptions
 
 /** This object owns a single lifetime, including failed startup and bounded bind retries. */
 export function createEmbeddingProcess(
-  config: Pick<EmbeddingConfig, "modelPath" | "threads"> | undefined,
+  config: PreparedEmbeddingResources & Pick<EmbeddingConfig, "threads">,
   recordProcess?: (
     identity: (ProcessIdentity & { nativeBuild: string }) | undefined,
   ) => Promise<void>,
   options: EmbeddingProcessOptions = {},
 ): EmbeddingRuntime {
-  const resolveResources = options.resolveResources ?? resolveEmbeddingResources;
   const createClient = options.createClient ?? createLlamaClient;
   const spawnProcess = options.spawnProcess ?? spawn;
   const diagnostics = options.diagnostics ?? noopEmitter;
@@ -89,7 +86,6 @@ export function createEmbeddingProcess(
   let startTask: Promise<void> | undefined;
   let stopTask: Promise<void> | undefined;
   let client: ReturnType<typeof createLlamaClient> | undefined;
-  let resources: EmbeddingResources | undefined;
   const lifetime = new AbortController();
   let resolveExit!: () => void;
   const exited = new Promise<void>((resolve) => {
@@ -114,16 +110,13 @@ export function createEmbeddingProcess(
     return startTask;
   }
   async function launch(signal: AbortSignal, deadline: number) {
-    if (!config?.modelPath) throw new EmbeddingError("embedding.not-configured");
-    resources = await resolveResources(config.modelPath, signal);
+    const resources = config;
     for (let attempt = 0; attempt < MAX_BIND_ATTEMPTS; attempt++) {
       signal.throwIfAborted();
       const port = await reservePort();
       signal.throwIfAborted();
       const secret = randomBytes(32).toString("hex");
       const alias = randomBytes(32).toString("hex");
-      await resources.assertUnchanged();
-      signal.throwIfAborted();
       const nativeRunId = randomUUID();
       let readiness: "pending" | "ready" | "failed" = "pending";
       let stdoutBytes = 0;
@@ -154,7 +147,7 @@ export function createEmbeddingProcess(
               ...(options.preparationId === undefined
                 ? {}
                 : { preparationId: options.preparationId }),
-              ...(resources === undefined ? {} : { buildIdentity: resources.buildIdentity }),
+              buildIdentity: resources.buildIdentity,
               readiness,
               stopped,
               exitCode,
@@ -210,7 +203,6 @@ export function createEmbeddingProcess(
           // Native /health is unauthenticated; it cannot establish this process's readiness.
           try {
             await candidate.encode("hello", probeSignal);
-            await resources.assertUnchanged();
             signal.throwIfAborted();
             if (owned.exitCode !== null || owned.signalCode !== null) break;
             client = candidate;
@@ -233,13 +225,7 @@ export function createEmbeddingProcess(
           } finally {
             probeTimeout.dispose();
           }
-        } catch (error) {
-          if (
-            error instanceof EmbeddingError &&
-            (error.code === "embedding.resource-invalid" ||
-              error.code === "embedding.native-resource-invalid")
-          )
-            throw error;
+        } catch {
           signal.throwIfAborted();
           await Bun.sleep(STARTUP_POLL_MS);
         }
@@ -274,19 +260,13 @@ export function createEmbeddingProcess(
     });
     return stopTask;
   }
-  async function checkedClient() {
-    if (!client || lifetime.signal.aborted) throw new EmbeddingError("embedding.not-loaded");
-    await resources!.assertUnchanged();
-    return client;
-  }
   return {
     start,
     stop,
     exited,
     encode: async (text, signal) => {
-      const vector = await (await checkedClient()).encode(text, signal);
-      await resources!.assertUnchanged();
-      return vector;
+      if (!client || lifetime.signal.aborted) throw new EmbeddingError("embedding.not-loaded");
+      return client.encode(text, signal);
     },
   };
 }

@@ -5,7 +5,7 @@ import darwinTrusted from "../../packages/backend/src/runtime/native/embedding/d
 import linuxTrusted from "../../packages/backend/src/runtime/native/embedding/linux-x64.json";
 import win32Trusted from "../../packages/backend/src/runtime/native/embedding/win32-x64.json";
 import { stableSha256 } from "./cache-paths";
-import { assertNativePatchDigest } from "./source-tree";
+import { VerifiedNativePatch } from "./source-tree";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 
@@ -60,5 +60,5 @@ test("x64 recipes keep the AVX2 baseline", () => {
 });
 
 test("reviewed patch file matches its pinned digest", () => {
-  expect(() => assertNativePatchDigest(repositoryRoot)).not.toThrow();
+  expect(() => VerifiedNativePatch.read(repositoryRoot)).not.toThrow();
 });

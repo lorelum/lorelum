@@ -1,6 +1,7 @@
+/* eslint-disable no-await-in-loop -- Rejected replacements must preserve the same active artifact before the next attempt. */
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -207,16 +208,62 @@ test.each(methodIds)("failed rebuild preserves the prior active index (%s)", asy
     };
     const initial = createSemanticIndexService({ store, execution, embedding: port() });
     await initial.build({ rootPath });
-    const failing = createSemanticIndexService({
-      store,
-      execution,
-      embedding: port(() => [[0, 0]]),
-    });
+    const activePath = activeIndexPath(rootPath, execution.profile.profileId);
+    const priorArtifact = await readFile(activePath);
+    for (const invalidVector of [
+      [0, 0],
+      [2, 0],
+      [Number.NaN, 0],
+    ]) {
+      const failing = createSemanticIndexService({
+        store,
+        execution,
+        embedding: port((inputs) => inputs.map(() => invalidVector)),
+      });
 
-    await expect(failing.rebuild({ rootPath })).rejects.toBeInstanceOf(SemanticEmbeddingError);
-    await expect(initial.status({ rootPath })).resolves.toMatchObject({ state: "ready" });
+      await expect(failing.rebuild({ rootPath })).rejects.toBeInstanceOf(SemanticEmbeddingError);
+      expect(await readFile(activePath)).toEqual(priorArtifact);
+      await expect(initial.status({ rootPath })).resolves.toMatchObject({ state: "ready" });
+    }
   });
 });
+
+test.each(methodIds)(
+  "failed incremental embedding preserves the prior active index (%s)",
+  async (methodId) => {
+    await withRoot(async (rootPath) => {
+      const store = createLocalStore();
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      const initial = createSemanticIndexService({ store, execution, embedding: port() });
+      await store.install(
+        { rootPath },
+        candidate("platform", "1.0.0", { "platform.original": "Keep the original practice." }),
+      );
+      await initial.build({ rootPath });
+      const activePath = activeIndexPath(rootPath, execution.profile.profileId);
+      const priorArtifact = await readFile(activePath);
+      await store.upgrade(
+        { rootPath },
+        candidate("platform", "1.1.0", {
+          "platform.original": "Keep the original practice.",
+          "platform.added": "Add a new practice.",
+        }),
+      );
+      const failing = createSemanticIndexService({
+        store,
+        execution,
+        embedding: port((inputs) => inputs.map(() => [Number.NaN, 0])),
+      });
+
+      await expect(failing.build({ rootPath })).rejects.toBeInstanceOf(SemanticEmbeddingError);
+      expect(await readFile(activePath)).toEqual(priorArtifact);
+      await expect(initial.status({ rootPath })).resolves.toMatchObject({ state: "stale" });
+    });
+  },
+);
 
 test("rejects a build when the Store changes before publication", async () => {
   await withRoot(async (rootPath) => {

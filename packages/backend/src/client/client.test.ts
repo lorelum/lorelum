@@ -14,11 +14,15 @@ import type { QueryRequest, QueryService, StorageRoot } from "@lorelum/engine";
 import { createBackendApp } from "../app";
 import { createEmbeddingService, type EmbeddingService } from "../modules/embedding/service";
 import { createBackendService } from "../modules/backend/service";
-import type { InstanceIdentity } from "../protocol/identity";
-import { BackendRemoteError } from "../protocol/errors";
+import { identityProof, type InstanceIdentity } from "../protocol/identity";
+import { backendErrorBody, BackendRemoteError } from "../protocol/errors";
 import { EmbeddingError } from "../modules/embedding/errors";
-import { EMBEDDING_MODEL, ENCODING_ID } from "../modules/embedding/model";
-import { PROTOCOL_VERSION } from "../protocol/constants";
+import {
+  EMBEDDING_MODEL,
+  ENCODING_ID,
+  type PreparedEmbeddingResources,
+} from "../modules/embedding/model";
+import { BACKEND_ROUTES, PROTOCOL_VERSION } from "../protocol/constants";
 import { DEFAULT_BACKEND_SETTINGS } from "../config/model";
 import { createBackendClient } from "./client";
 import { createContentAddressedSemanticRuntimeStub } from "../modules/query/content-addressed-semantic-runtime.test-helper";
@@ -68,10 +72,269 @@ function runningApp(
   return { app, url: `http://127.0.0.1:${app.server.port}` };
 }
 
+async function withLoopbackServer(
+  fetch: (request: Request) => Response | Promise<Response>,
+  run: (url: string) => Promise<void>,
+) {
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch });
+  try {
+    await run(`http://127.0.0.1:${server.port}`);
+  } finally {
+    await server.stop(true);
+  }
+}
+
+function identityResponse(request: Request, presented: InstanceIdentity = identity) {
+  const nonce = new URL(request.url).searchParams.get("nonce")!;
+  return Response.json({ ...presented, proof: identityProof(secret, nonce, presented) });
+}
+
+describe("verified backend client sessions", () => {
+  test("continues authenticated business requests without a working identity endpoint", async () => {
+    let identifyAvailable = true;
+    const requests: Request[] = [];
+    await withLoopbackServer(
+      (request) => {
+        requests.push(request);
+        if (new URL(request.url).pathname === BACKEND_ROUTES.identity)
+          return identifyAvailable
+            ? identityResponse(request)
+            : Response.json(backendErrorBody("backend.unavailable"), { status: 503 });
+        if (request.headers.get("authorization") !== `Bearer ${secret}`)
+          return Response.json(backendErrorBody("backend.unauthorized"), { status: 401 });
+        return Response.json({ mode: "keyword", results: [] });
+      },
+      async (url) => {
+        const client = createBackendClient({
+          identity,
+          secret,
+          buildIdentity: identity.buildIdentity,
+          baseUrl: url,
+        });
+        const root = { rootPath: "/tmp/client-session" };
+        const query = { text: "search", mode: "keyword" } as const;
+        await expect(client.query(root, query)).resolves.toEqual({ mode: "keyword", results: [] });
+        identifyAvailable = false;
+        await expect(client.query(root, query)).resolves.toEqual({ mode: "keyword", results: [] });
+        const businessRequests = requests.filter(
+          (request) => new URL(request.url).pathname === BACKEND_ROUTES.query,
+        );
+        for (const request of businessRequests) {
+          expect(request.headers.get("authorization")).toBe(`Bearer ${secret}`);
+          expect(request.headers.get("host")).toBe(new URL(url).host);
+          expect(request.headers.get("origin")).toBeNull();
+        }
+        await expect(client.identity()).rejects.toMatchObject({ code: "backend.unavailable" });
+        const freshClient = createBackendClient({
+          identity,
+          secret,
+          buildIdentity: identity.buildIdentity,
+          baseUrl: url,
+        });
+        await expect(freshClient.query(root, query)).rejects.toMatchObject({
+          code: "backend.unavailable",
+        });
+        identifyAvailable = true;
+        await expect(client.identity()).resolves.toMatchObject(identity);
+      },
+    );
+  });
+
+  test("explicit identify challenges again and a failed check preserves the verified identity", async () => {
+    let presented: InstanceIdentity = identity;
+    const nonces: string[] = [];
+    await withLoopbackServer(
+      (request) => {
+        const url = new URL(request.url);
+        if (url.pathname === BACKEND_ROUTES.identity) {
+          nonces.push(url.searchParams.get("nonce")!);
+          return identityResponse(request, presented);
+        }
+        return Response.json({
+          state: "ready",
+          model: "unloaded",
+          instanceId: identity.instanceId,
+          buildIdentity: identity.buildIdentity,
+        });
+      },
+      async (url) => {
+        const client = createBackendClient({
+          identity,
+          secret,
+          buildIdentity: identity.buildIdentity,
+          baseUrl: url,
+        });
+        const verified = await client.identity();
+        // A public response is not the client's private verified identity.
+        verified.buildIdentity = "caller-edited";
+        await expect(client.status()).resolves.toMatchObject({ state: "ready" });
+        await expect(client.identity()).resolves.toMatchObject(identity);
+        expect(nonces[0]).toMatch(/^[a-f0-9]{64}$/);
+        expect(nonces[1]).not.toBe(nonces[0]);
+        presented = { ...identity, buildIdentity: "replacement-build" };
+        await expect(client.identity()).rejects.toMatchObject({ code: "backend.state-invalid" });
+        await expect(client.status()).resolves.toMatchObject({ state: "ready" });
+      },
+    );
+  });
+
+  test.each([
+    [{ ...identity, instanceId: "replacement-instance" }, "backend.state-invalid"],
+    [{ ...identity, buildIdentity: "replacement-build" }, "backend.state-invalid"],
+    [{ ...identity, protocolVersion: PROTOCOL_VERSION + 1 }, "backend.protocol-mismatch"],
+  ] as const)("rejects an incompatible first identity %j", async (presented, code) => {
+    await withLoopbackServer(
+      (request) => identityResponse(request, presented),
+      async (url) => {
+        const client = createBackendClient({
+          identity,
+          secret,
+          buildIdentity: identity.buildIdentity,
+          baseUrl: url,
+        });
+        await expect(client.status()).rejects.toMatchObject({ code });
+      },
+    );
+  });
+
+  test("rejects a valid-shaped identity with an invalid nonce proof", async () => {
+    await withLoopbackServer(
+      () => Response.json({ ...identity, proof: "0".repeat(64) }),
+      async (url) => {
+        const client = createBackendClient({
+          identity,
+          secret,
+          buildIdentity: identity.buildIdentity,
+          baseUrl: url,
+        });
+        await expect(client.stop()).rejects.toMatchObject({ code: "backend.port-conflict" });
+      },
+    );
+  });
+
+  test.each(["cancellation", "deadline"] as const)(
+    "keeps concurrent first-request %s scoped to its own caller",
+    async (failure) => {
+      let firstArrived!: () => void;
+      const arrived = new Promise<void>((resolve) => {
+        firstArrived = resolve;
+      });
+      let releaseFirst!: () => void;
+      const held = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      let secondArrived!: () => void;
+      const secondIdentifying = new Promise<void>((resolve) => {
+        secondArrived = resolve;
+      });
+      let releaseSecond!: () => void;
+      const secondHeld = new Promise<void>((resolve) => {
+        releaseSecond = resolve;
+      });
+      const identityNonces: string[] = [];
+      let businessRequests = 0;
+      await withLoopbackServer(
+        async (request) => {
+          if (new URL(request.url).pathname === BACKEND_ROUTES.identity) {
+            identityNonces.push(new URL(request.url).searchParams.get("nonce")!);
+            if (identityNonces.length === 1) {
+              firstArrived();
+              await held;
+            } else {
+              secondArrived();
+              await secondHeld;
+            }
+            return identityResponse(request);
+          }
+          businessRequests++;
+          return Response.json({ mode: "keyword", results: [] });
+        },
+        async (url) => {
+          try {
+            const client = createBackendClient({
+              identity,
+              secret,
+              buildIdentity: identity.buildIdentity,
+              baseUrl: url,
+              timeoutMs: 1_000,
+            });
+            const controller = new AbortController();
+            const cancelled = new Error("cancel first caller only");
+            // Capture the outcome without a Bun promise matcher, which may wait synchronously
+            // before the test reaches its barriers or abort.
+            const first = client
+              .query(
+                { rootPath: "/tmp/client-concurrent-session" },
+                { text: "first", mode: "keyword" },
+                failure === "cancellation"
+                  ? { signal: controller.signal }
+                  : { deadline: Date.now() + 100 },
+              )
+              .catch((error: unknown) => error);
+            await arrived;
+            const second = client
+              .query(
+                { rootPath: "/tmp/client-concurrent-session" },
+                { text: "second", mode: "keyword" },
+              )
+              .catch((error: unknown) => error);
+            // Keep the other caller pending on its own challenge while the first caller fails.
+            await secondIdentifying;
+            if (failure === "cancellation") controller.abort(cancelled);
+            const firstOutcome = await first;
+            if (failure === "cancellation") expect(firstOutcome).toBe(cancelled);
+            else expect(firstOutcome).toMatchObject({ code: "backend.deadline-exceeded" });
+            expect(identityNonces).toHaveLength(2);
+            expect(identityNonces[1]).not.toBe(identityNonces[0]);
+            releaseSecond();
+            expect(await second).toEqual({ mode: "keyword", results: [] });
+            expect(businessRequests).toBe(1);
+          } finally {
+            releaseFirst();
+            releaseSecond();
+          }
+        },
+      );
+    },
+  );
+
+  test("rejects a replacement instance credential without re-admitting or replaying business", async () => {
+    let replaced = false;
+    await withLoopbackServer(
+      (request) => {
+        if (new URL(request.url).pathname === BACKEND_ROUTES.identity) {
+          if (replaced)
+            return identityResponse(request, { ...identity, instanceId: "replacement" });
+          return identityResponse(request);
+        }
+        if (replaced)
+          return Response.json(backendErrorBody("backend.unauthorized"), { status: 401 });
+        return Response.json({
+          state: "ready",
+          model: "unloaded",
+          instanceId: identity.instanceId,
+          buildIdentity: identity.buildIdentity,
+        });
+      },
+      async (url) => {
+        const client = createBackendClient({
+          identity,
+          secret,
+          buildIdentity: identity.buildIdentity,
+          baseUrl: url,
+        });
+        await expect(client.status()).resolves.toMatchObject({ state: "ready" });
+        replaced = true;
+        await expect(client.status()).rejects.toMatchObject({ code: "backend.unauthorized" });
+      },
+    );
+  });
+});
+
 describe("createBackendClient", () => {
   test("configured preparation returns before transfer completion and explicit load joins it", async () => {
-    let finish!: (value: string) => void;
-    const transfer = new Promise<string>((resolve) => {
+    let finish!: (value: PreparedEmbeddingResources) => void;
+    const transfer = new Promise<PreparedEmbeddingResources>((resolve) => {
       finish = resolve;
     });
     let prepares = 0;
@@ -101,7 +364,7 @@ describe("createBackendClient", () => {
     expect((await client.beginModelPreparation()).preparationId).toBe(accepted.preparationId);
     const explicit = client.loadModel();
     expect((await client.modelPreparation(accepted.preparationId)).status.state).toBe("loading");
-    finish("fixture");
+    finish({ modelPath: "fixture", executable: "fixture-native", buildIdentity: "fixture-build" });
     expect((await explicit).state).toBe("ready");
     expect((await client.modelPreparation(accepted.preparationId)).status.state).toBe("ready");
     expect(prepares).toBe(1);
@@ -276,7 +539,7 @@ describe("createBackendClient", () => {
     );
   });
 
-  test("stops an authenticated service with a different build", async () => {
+  test("cross-build stop access does not authorize subsequent strict requests", async () => {
     const { url } = runningApp();
     const client = createBackendClient({
       identity,
@@ -290,6 +553,11 @@ describe("createBackendClient", () => {
       instanceId: identity.instanceId,
       buildIdentity: identity.buildIdentity,
     });
+    await expect(client.status()).rejects.toMatchObject({ code: "backend.build-mismatch" });
+    await expect(
+      client.query({ rootPath: "/tmp/client-cross-build" }, { text: "search", mode: "keyword" }),
+    ).rejects.toMatchObject({ code: "backend.build-mismatch" });
+    await expect(client.identity()).rejects.toMatchObject({ code: "backend.build-mismatch" });
   });
 
   test("preserves the established domain error code from a query response", async () => {

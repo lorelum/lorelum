@@ -12,20 +12,40 @@ export function patchedLlamaSourceDirectory(repositoryRoot: string): string {
   return join(nativeBuildWorktreeDirectory(repositoryRoot), "source");
 }
 
-/** Verify the reviewed patch before it affects a cache key or native source tree. */
-export function assertNativePatchDigest(repositoryRoot: string): void {
-  const patchPath = join(repositoryRoot, "native", "embedding", config.patch.path);
-  if (sha256File(patchPath) !== config.patch.sha256)
-    throw new Error(`patch digest does not match ${config.patch.path}`);
+/** A reviewed patch snapshot: verification and application always use the same bytes. */
+export class VerifiedNativePatch {
+  private constructor(
+    readonly repositoryRoot: string,
+    private readonly contents: Buffer,
+  ) {}
+
+  static read(repositoryRoot: string): VerifiedNativePatch {
+    const patchPath = join(repositoryRoot, "native", "embedding", config.patch.path);
+    const contents = readFileSync(patchPath);
+    if (createHash("sha256").update(contents).digest("hex") !== config.patch.sha256)
+      throw new Error(`patch digest does not match ${config.patch.path}`);
+    return new VerifiedNativePatch(repositoryRoot, contents);
+  }
+
+  apply(sourceRoot: string): void {
+    if (process.platform === "win32") {
+      // Windows has no `patch`; git apply consumes the same verified snapshot.
+      const ceiling = { GIT_CEILING_DIRECTORIES: this.repositoryRoot };
+      run(["git", "apply", "--check", "-"], sourceRoot, ceiling, this.contents);
+      run(["git", "apply", "-"], sourceRoot, ceiling, this.contents);
+    } else {
+      run(["patch", "--dry-run", "--batch", "-p1"], sourceRoot, undefined, this.contents);
+      run(["patch", "--batch", "-p1"], sourceRoot, undefined, this.contents);
+    }
+  }
 }
 
 /** Materialize the pinned and patched llama.cpp tree for a native build or liveness harness. */
-export async function materializePatchedLlamaSource(repositoryRoot: string): Promise<string> {
-  assertNativePatchDigest(repositoryRoot);
+export async function materializePatchedLlamaSource(patch: VerifiedNativePatch): Promise<string> {
+  const { repositoryRoot } = patch;
   const worktreeBuildRoot = nativeBuildWorktreeDirectory(repositoryRoot);
   const sourceArchive = join(worktreeBuildRoot, `llama.cpp-${config.source.commit}.tar.gz`);
   const sourceRoot = patchedLlamaSourceDirectory(repositoryRoot);
-  const patchPath = join(repositoryRoot, "native", "embedding", config.patch.path);
   mkdirSync(worktreeBuildRoot, { recursive: true });
   await ensurePinnedDownload({
     url: config.source.archiveUrl,
@@ -44,15 +64,7 @@ export async function materializePatchedLlamaSource(repositoryRoot: string): Pro
     [tarExecutable, "-xzf", sourceArchive, "-C", sourceRoot, "--strip-components=1"],
     repositoryRoot,
   );
-  if (process.platform === "win32") {
-    // Windows has no `patch`; git apply serves the same reviewed diff from the same digest pin.
-    const ceiling = { GIT_CEILING_DIRECTORIES: repositoryRoot };
-    run(["git", "apply", "--check", patchPath], sourceRoot, ceiling);
-    run(["git", "apply", patchPath], sourceRoot, ceiling);
-  } else {
-    run(["patch", "--dry-run", "--batch", "-p1", "-i", patchPath], sourceRoot);
-    run(["patch", "--batch", "-p1", "-i", patchPath], sourceRoot);
-  }
+  patch.apply(sourceRoot);
   if (
     !readFileSync(join(sourceRoot, "tools/server/main.cpp"), "utf8").includes(
       "start_parent_liveness_watcher",
@@ -63,18 +75,16 @@ export async function materializePatchedLlamaSource(repositoryRoot: string): Pro
   return sourceRoot;
 }
 
-function sha256File(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
-}
-
 function run(
   command: readonly string[],
   cwd: string,
   extraEnvironment?: Readonly<Record<string, string>>,
+  input?: Uint8Array,
 ): void {
   const result = Bun.spawnSync([...command], {
     cwd,
     ...(extraEnvironment === undefined ? {} : { env: { ...process.env, ...extraEnvironment } }),
+    stdin: input ?? "ignore",
     stdout: "pipe",
     stderr: "pipe",
   });

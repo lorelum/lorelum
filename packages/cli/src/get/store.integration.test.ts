@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -215,13 +215,11 @@ test.each(["artifact", "sqlite"] as const)(
   },
 );
 
-test("requires a valid selected artifact before returning a source locator", async () => {
+test("reports recovery required when the selected source artifact is missing", async () => {
   await withDirectory(async (directory) => {
     const root = await install(directory);
     const artifactRoot = join(root.rootPath, "packs/p-sample");
-    const [digest] = await readdir(artifactRoot);
-    expect(digest).toBeDefined();
-    await writeFile(join(artifactRoot, digest!, "practices/read.md"), "Changed artifact.\n");
+    await rm(await realpath(join(artifactRoot, "current")), { recursive: true });
     const result = await get(directory, "store", id);
     expect(result.exitCode).toBe(2);
     expect(result.response.error.code).toBe("store.recovery-required");

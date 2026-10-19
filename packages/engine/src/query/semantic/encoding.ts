@@ -42,17 +42,8 @@ export function validateEmbeddingBatch(
       if (vector.length !== expected.dimensions) {
         throw new SemanticEmbeddingError("Embedding vector dimensions are invalid");
       }
-      const values = Float32Array.from(vector);
-      let squaredLength = 0;
-      for (const value of values) {
-        if (!Number.isFinite(value))
-          throw new SemanticEmbeddingError("Embedding vector is not finite");
-        squaredLength += value * value;
-      }
-      if (Math.abs(Math.sqrt(squaredLength) - 1) >= 0.001) {
-        throw new SemanticEmbeddingError("Embedding vector is not L2-normalized");
-      }
-      return values;
+      // Native response decoding owns finite-value and L2 validation.
+      return Float32Array.from(vector);
     }),
   );
 }

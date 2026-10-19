@@ -51,6 +51,14 @@ test("project query starts indexing and reads the completed semantic artifact", 
     });
     const runtime = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "test-store",
+            generation: 0,
+            effectiveRevision: 0,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -138,6 +146,14 @@ test("uses the Store target when automatic semantic discovery reaches the select
     const journal = new SemanticOperationJournal(runtime);
     const service = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "store-boundary",
+            generation: 0,
+            effectiveRevision: 0,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -244,6 +260,14 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
     });
     const runtime = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "test-store",
+            generation: 0,
+            effectiveRevision: 0,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -366,6 +390,14 @@ ${id}
     const journal = new SemanticOperationJournal(runtime);
     const service = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "test-store",
+            generation: 0,
+            effectiveRevision: 0,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -445,6 +477,14 @@ test("queries only the 50 current Store Practices published by incremental progr
     let queryEmbeddings = 0;
     const runtime = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "store-progress",
+            generation: 1,
+            effectiveRevision: 1,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -532,6 +572,14 @@ test("uses retained Store revision deltas and safely falls back when later histo
     const encoding = { encodingId, dimensions: 2 };
     const runtime = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "store-delta",
+            generation: revision,
+            effectiveRevision: revision,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -673,6 +721,14 @@ test("joins one content-addressed operation for equivalent ordinary directories"
     });
     const runtime = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "equivalent-project-store",
+            generation: 0,
+            effectiveRevision: 0,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -756,6 +812,14 @@ test("surfaces a persisted model preparation failure until explicit recovery mak
     const journal = new SemanticOperationJournal(runtimeDirectory);
     const runtime = new ContentAddressedSemanticRuntime(
       {
+        async readSnapshotIdentity() {
+          return {
+            rootBinding: "terminal-failure-store",
+            generation: 1,
+            effectiveRevision: 1,
+            manifestDigest: "0".repeat(64),
+          };
+        },
         async readEffectivePracticeSnapshot() {
           return {
             identity: {
@@ -862,6 +926,14 @@ test("one runtime isolates method artifacts and preserves accepted operation tar
   const journal = new SemanticOperationJournal(journalRoot);
   const runtime = new ContentAddressedSemanticRuntime(
     {
+      async readSnapshotIdentity() {
+        return {
+          rootBinding: "methods",
+          generation: 1,
+          effectiveRevision: 1,
+          manifestDigest: "0".repeat(64),
+        };
+      },
       async readEffectivePracticeSnapshot() {
         return {
           identity: {
@@ -991,3 +1063,96 @@ test("one runtime isolates method artifacts and preserves accepted operation tar
     ]);
   }
 });
+
+test.each(
+  (["single-vector", "multi-view-vector"] as const).flatMap((method) =>
+    (["effective", "source-only", "root"] as const).map((mutation) => ({ method, mutation })),
+  ),
+)(
+  "Store query observes $mutation commits without mixing targets ($method)",
+  async ({ method, mutation }) => {
+    const cacheRoot = await mkdtemp(join(tmpdir(), "lorelum-store-freshness-"));
+    let identity = {
+      rootBinding: "store-freshness",
+      generation: 1,
+      effectiveRevision: 1,
+      manifestDigest: "1".repeat(64),
+    };
+    let practices: readonly EffectivePractice[] = [storePractice("platform.original")];
+    let mutateOnQuery = true;
+    const runtime = new ContentAddressedSemanticRuntime(
+      {
+        async readSnapshotIdentity() {
+          return identity;
+        },
+        async readEffectivePracticeSnapshot() {
+          return { identity, practices };
+        },
+      },
+      { encodingId, dimensions: 2 },
+      {
+        maxBatchSize: 8,
+        async embed(inputs) {
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        },
+      },
+      {
+        maxBatchSize: 8,
+        async embed(inputs) {
+          if (mutateOnQuery) {
+            mutateOnQuery = false;
+            identity = {
+              rootBinding: mutation === "root" ? "replacement-store" : identity.rootBinding,
+              generation: 2,
+              effectiveRevision: mutation === "effective" ? 2 : 1,
+              manifestDigest: "2".repeat(64),
+            };
+            if (mutation !== "source-only") practices = [storePractice("platform.current")];
+          }
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        },
+      },
+      {
+        beginModelPreparation() {
+          throw new Error("Unexpected model preparation");
+        },
+        async waitModelPreparation() {
+          throw new Error("Unexpected model preparation");
+        },
+      },
+    );
+    const root = { rootPath: "/isolated/store-freshness" };
+    const target = { kind: "store" as const, cacheRoot, retrievalMethod: method };
+    const policy = { maxWaitMs: 0, minCoveragePercent: 100 };
+    try {
+      await runtime.build(root, target);
+      await runtime.waitForIdle();
+      const first = await runtime.query(root, target, { text: "current guidance" }, policy);
+      if (mutation === "source-only") {
+        expect(first).toMatchObject({
+          coverage: "complete",
+          results: [{ practiceId: "platform.original" }],
+        });
+        await expect(runtime.build(root, target)).resolves.toMatchObject({ state: "ready" });
+      } else {
+        if ("results" in first) {
+          expect(first.results.map((result) => result.practiceId)).not.toContain(
+            "platform.original",
+          );
+        } else {
+          expect(first).toMatchObject({ state: "indexing" });
+        }
+        await runtime.waitForIdle();
+        await expect(
+          runtime.query(root, target, { text: "current guidance" }, policy),
+        ).resolves.toMatchObject({
+          coverage: "complete",
+          results: [{ practiceId: "platform.current" }],
+        });
+      }
+    } finally {
+      await runtime.waitForIdle();
+      await rm(cacheRoot, { recursive: true, force: true });
+    }
+  },
+);

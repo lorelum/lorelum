@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import { createEmbeddingProcess, nativeExitLogRecord } from "./embedding-process";
 
 test("runtime exit settles even if clearing the ownership record fails", async () => {
-  const runtime = createEmbeddingProcess(undefined, async () => {
-    throw new Error("record update failed");
-  });
-  await expect(runtime.start(new AbortController().signal, Date.now() + 100)).rejects.toMatchObject(
-    { code: "embedding.not-configured" },
+  const runtime = createEmbeddingProcess(
+    { modelPath: "model", executable: "native", buildIdentity: "build" },
+    async () => {
+      throw new Error("record update failed");
+    },
   );
   await expect(runtime.stop(Date.now() + 100)).rejects.toThrow("record update failed");
   let exited = false;
