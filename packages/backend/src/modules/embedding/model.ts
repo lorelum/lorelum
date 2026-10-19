@@ -19,6 +19,13 @@ export interface EmbeddingResult {
   readonly vectors: number[][];
 }
 
+/** File preparation is complete before a native process owns these resources. */
+export interface PreparedEmbeddingResources {
+  readonly modelPath: string;
+  readonly executable: string;
+  readonly buildIdentity: string;
+}
+
 /** The service owns admission/state; this handle owns one native process lifetime. */
 export interface EmbeddingRuntime {
   start(signal: AbortSignal, deadline: number): Promise<void>;

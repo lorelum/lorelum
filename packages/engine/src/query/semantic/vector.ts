@@ -29,9 +29,12 @@ export function validateQueryVectors(queries: readonly QueryVector[], dimensions
     ) {
       throw new SemanticIndexQueryError("Semantic query vector input is invalid");
     }
+    // Scorer preparation also accepts direct query vectors; reject non-finite
+    // components here without repeating the native boundary's L2 validation.
     for (const value of query.embedding) {
-      if (!Number.isFinite(value))
+      if (!Number.isFinite(value)) {
         throw new SemanticIndexQueryError("Semantic query vector is not finite");
+      }
     }
     keys.add(query.inputKey);
     total += query.weight;

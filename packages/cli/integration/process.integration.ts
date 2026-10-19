@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { compileCli } from "../../../scripts/release/compile-cli";
 
 import { createInstalledPacksFixture } from "./fixtures/installed-packs.js";
 import { verifyGetAndQueryScenario } from "./scenarios/get-query.js";
@@ -29,7 +30,7 @@ async function main(): Promise<void> {
   try {
     await verifySourceEntrypoint(bunExecutable, directory);
     const executable = join(directory, process.platform === "win32" ? "lore.exe" : "lore");
-    await compileCli(bunExecutable, executable);
+    await compileCli({ outfile: executable });
     await verifyCompiledEntrypoint(executable, directory);
 
     const fixture = await createInstalledPacksFixture(directory);
@@ -93,20 +94,6 @@ async function verifySourceEntrypoint(bunExecutable: string, directory: string):
     ok: false,
   });
   assert.equal(hiddenWithoutGrant.stderr, "");
-}
-
-async function compileCli(bunExecutable: string, executable: string): Promise<void> {
-  const build = await runProcess([
-    bunExecutable,
-    "build",
-    "--compile",
-    "--asset",
-    "packages/engine/src/persistence/migrations",
-    entrypoint,
-    "--outfile",
-    executable,
-  ]);
-  assert.equal(build.exitCode, 0, build.stderr || build.stdout);
 }
 
 async function verifyCompiledEntrypoint(executable: string, directory: string): Promise<void> {

@@ -133,6 +133,31 @@ export async function readNativeArtifactManifest(
 
 /** Verify every declared native file and the target's system-library allowlist. */
 export async function verifyNativeArtifact(directory: string): Promise<NativeArtifactManifest> {
+  const manifest = await inspectNativeArtifact(directory);
+  await Promise.all(
+    manifest.files.map(async (file) => {
+      const actual = await sha256File(join(directory, file.path)).catch(() => {
+        throw new NativeArtifactValidationError(
+          `native artifact file cannot be read: ${file.path}`,
+          file.path,
+          "invalid",
+        );
+      });
+      if (actual !== file.sha256)
+        throw new NativeArtifactValidationError(
+          `native artifact file digest does not match: ${file.path}`,
+          file.path,
+          "sha256-mismatch",
+          file.sha256,
+          actual,
+        );
+    }),
+  );
+  return manifest;
+}
+
+/** Inspect layout, sizes, executable permissions and dependencies; callers verify file digests. */
+async function inspectNativeArtifact(directory: string): Promise<NativeArtifactManifest> {
   const manifest = await readNativeArtifactManifest(directory);
   const expectedNames = new Set(["manifest.json", ...manifest.files.map((file) => file.path)]);
   const entries = await readdir(directory, { withFileTypes: true });
@@ -180,21 +205,6 @@ export async function verifyNativeArtifact(directory: string): Promise<NativeArt
           "size-mismatch",
           String(file.bytes),
           String(info.size),
-        );
-      const actual = await sha256File(path).catch(() => {
-        throw new NativeArtifactValidationError(
-          `native artifact file cannot be read: ${file.path}`,
-          file.path,
-          "invalid",
-        );
-      });
-      if (actual !== file.sha256)
-        throw new NativeArtifactValidationError(
-          `native artifact file digest does not match: ${file.path}`,
-          file.path,
-          "sha256-mismatch",
-          file.sha256,
-          actual,
         );
     }),
   );

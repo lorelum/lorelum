@@ -115,45 +115,28 @@ test("locator point read returns verified roots for every selected source", asyn
   });
 });
 
-test("locator point read validates selected artifacts but not unrelated Packs", async () => {
+test("locator point read uses committed canonical data without reopening Pack contents", async () => {
   await withRoot(async (root) => {
     const store = createLocalStore();
-    await store.install(root, candidate("platform", { "platform.api": "Use APIs.\n" }));
-    await store.install(root, candidate("other", { "other.api": "Other guidance.\n" }));
-    const manifest = await readManifest(root.rootPath);
-    const other = manifest.packs.find((entry) => entry.packName === "other")!;
-    await writeFile(
-      join(
-        root.rootPath,
-        "packs",
-        other.storageKey,
-        other.artifactDigest,
-        "practices/other/api.md",
-      ),
-      "Tampered artifact.\n",
+    const installed = await store.install(
+      root,
+      candidate("platform", { "platform.api": "Use APIs.\n" }),
     );
+    const entry = (await readManifest(root.rootPath)).packs[0]!;
+    const artifact = join(root.rootPath, "packs", entry.storageKey, entry.artifactDigest);
+    await rm(join(artifact, "practices"), { recursive: true });
+    await rm(join(artifact, ".lorelum"), { recursive: true });
 
-    await expect(
-      store.getEffectivePracticeWithPackRoots(root, "platform.api"),
-    ).resolves.toMatchObject({
-      effectivePractice: { practiceId: "platform.api" },
-      sources: [{ packName: "platform" }],
-    });
-
-    const platform = manifest.packs.find((entry) => entry.packName === "platform")!;
-    await writeFile(
-      join(
-        root.rootPath,
-        "packs",
-        platform.storageKey,
-        platform.artifactDigest,
-        "practices/platform/api.md",
-      ),
-      "Tampered artifact.\n",
-    );
-    await expect(
-      store.getEffectivePracticeWithPackRoots(root, "platform.api"),
-    ).rejects.toBeInstanceOf(StoreRecoveryRequiredError);
+    const located = await store.getEffectivePracticeWithPackRoots(root, "platform.api");
+    expect(located?.effectivePractice.practice.body).toBe("Use APIs.\n");
+    expect(located?.sources).toEqual([
+      {
+        packName: "platform",
+        sourcePath: "practices/platform/api.md",
+        packRoot: installed.packRoot,
+      },
+    ]);
+    await expect(store.open(root)).rejects.toBeInstanceOf(StoreRecoveryRequiredError);
   });
 });
 

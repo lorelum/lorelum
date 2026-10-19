@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, realpath, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { prepareModel } from "../src/models/prepare";
+import { prepareEmbeddingResources } from "../src/runtime/embedding-resources";
 import { downloadFile } from "../src/download/file";
 import { resolveEmbeddingConfig } from "../src/config/embedding";
 import { DEFAULT_BACKEND_SETTINGS } from "../src/config/model";
@@ -30,11 +30,13 @@ async function verifyResumableModel(server: ReturnType<typeof createInterruptedD
   const service = createEmbeddingService({
     settings: DEFAULT_BACKEND_SETTINGS,
     prepareModel: (signal, progress) =>
-      prepareModel(config, signal, progress, {
-        download: (options) =>
-          downloadFile({ ...options, url: server.url }, { protocols: "=http,https" }),
+      prepareEmbeddingResources(config, signal, progress, {
+        model: {
+          download: (options) =>
+            downloadFile({ ...options, url: server.url }, { protocols: "=http,https" }),
+        },
       }),
-    createRuntime: (path) => createEmbeddingProcess({ modelPath: path }),
+    createRuntime: (prepared) => createEmbeddingProcess(prepared!),
   });
   try {
     assert.equal(

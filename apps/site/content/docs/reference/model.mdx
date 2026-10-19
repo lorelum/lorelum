@@ -20,6 +20,8 @@ lore model load
 
 Repeated calls join the same preparation task.
 
+Each new preparation verifies the native executable and the fixed model; a verified download loads directly without a second full scan after promotion. Readable model symlinks and hardlinks are accepted when their contents match the fixed model. Once ready, the runtime does not continuously inspect these files. After replacing local model/native files, run `lore model unload` followed by `lore model load` to prepare them again.
+
 ## status
 
 ```sh

@@ -1,5 +1,4 @@
-import { prepareModel } from "../models/prepare";
-import { verifyNativeEmbeddingResources } from "./embedding-resources";
+import { prepareEmbeddingResources } from "./embedding-resources";
 import { createEmbeddingService } from "../modules/embedding/service";
 import { createEmbeddingProcess } from "./embedding-process";
 import { consumeDaemonLaunch, resolveBackendSettings, resolveEmbeddingConfig } from "../config";
@@ -64,13 +63,11 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     diagnostics,
     onPreparationActivityChange: (active) => updateActivity("model-preparation", active),
     threads: embeddingConfig.threads,
-    prepareModel: async (signal, progress) => {
-      await verifyNativeEmbeddingResources(signal);
-      return prepareModel(embeddingConfig, signal, progress);
-    },
-    createRuntime: (modelPath, preparationId) =>
+    prepareModel: (signal, progress) =>
+      prepareEmbeddingResources(embeddingConfig, signal, progress),
+    createRuntime: (prepared, preparationId) =>
       createEmbeddingProcess(
-        { modelPath, threads: embeddingConfig.threads },
+        { ...prepared!, threads: embeddingConfig.threads },
         async (modelProcess) => {
           const current = await readRecord(directory);
           if (!current || current.instanceId !== instanceId)

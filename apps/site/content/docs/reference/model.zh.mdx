@@ -20,6 +20,8 @@ lore model load
 
 重复调用会加入同一个准备任务。
 
+每次新的准备会验证 native executable 与固定模型；下载验证后直接加载，不因提升为正式文件再次完整扫描。可读模型 symlink/hardlink 的内容符合固定模型时可以使用。模型 ready 后不持续巡检这些文件；替换本机模型/native 文件后，执行 `lore model unload`，再执行 `lore model load` 重新准备。
+
 ## status
 
 ```sh

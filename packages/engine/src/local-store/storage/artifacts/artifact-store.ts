@@ -50,11 +50,17 @@ export async function calculateArtifactDigest(snapshotPath: string): Promise<str
   return hash.digest("hex");
 }
 
+/** A private staging snapshot whose files must remain unchanged until promotion. */
+export interface SealedSnapshot {
+  readonly snapshotPath: string;
+  readonly artifactDigest: string;
+}
+
 /** Write the generated projection before calculating the sealed artifact digest. */
 export async function sealSnapshot(
   snapshotPath: string,
   projection: SnapshotProjection,
-): Promise<string> {
+): Promise<SealedSnapshot> {
   const projectionPath = join(snapshotPath, PROJECTION_RELATIVE_PATH);
   const temporaryPath = projectionPath + ".tmp-" + crypto.randomUUID();
   await mkdir(join(snapshotPath, ".lorelum"), { recursive: true });
@@ -65,7 +71,8 @@ export async function sealSnapshot(
     await rm(temporaryPath, { force: true });
     throw new ArtifactIntegrityError(snapshotPath, "cannot publish the generated projection");
   }
-  return calculateArtifactDigest(snapshotPath);
+  const artifactDigest = await calculateArtifactDigest(snapshotPath);
+  return Object.freeze({ snapshotPath, artifactDigest });
 }
 
 export function artifactPath(rootPath: string, storageKey: string, artifactDigest: string): string {
@@ -109,25 +116,19 @@ function isArtifactReference(
 }
 
 /**
- * Promote a staged snapshot into its immutable location. Existing artifacts are
- * accepted only after recomputing their complete digest. A corrupt directory
- * can only be replaced with explicit lifecycle authorization and only when the
- * supplied active-manifest references prove that it is not currently active.
+ * Promote a sealed, unchanged staging snapshot into its immutable location,
+ * reusing its digest. Existing artifacts are accepted only after recomputing
+ * their complete digest. A corrupt directory can only be replaced with explicit
+ * lifecycle authorization and only when the supplied active-manifest references
+ * prove that it is not currently active.
  */
 export async function promoteArtifact(
   rootPath: string,
   storageKey: string,
-  artifactDigest: string,
-  stagedSnapshotPath: string,
+  sealedSnapshot: SealedSnapshot,
   options: PromoteArtifactOptions = {},
 ): Promise<PromoteArtifactResult> {
-  const stagedDigest = await calculateArtifactDigest(stagedSnapshotPath);
-  if (stagedDigest !== artifactDigest) {
-    throw new ArtifactIntegrityError(
-      stagedSnapshotPath,
-      "staged digest does not match requested artifact digest",
-    );
-  }
+  const { snapshotPath: stagedSnapshotPath, artifactDigest } = sealedSnapshot;
   const target = artifactPath(rootPath, storageKey, artifactDigest);
   try {
     const existing = await lstat(target);

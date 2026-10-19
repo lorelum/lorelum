@@ -19,7 +19,6 @@ import {
   readSemanticIndexMetadata,
   readSemanticIndexVectors,
   type SemanticIndexConnection,
-  verifySemanticIndexIntegrity,
 } from "./database";
 import { semanticIndexPaths, type SemanticIndexPaths } from "./paths";
 
@@ -126,7 +125,6 @@ export async function openSemanticIndexReaderAt(
     connection = openSqliteConnection(path, definition.schema, {
       readonly: true,
     });
-    verifySemanticIndexIntegrity(connection);
     const metadata = readSemanticIndexMetadata(connection);
     if (!isCompatibleMetadata(metadata, profile, metadata.rootBinding)) {
       throw new SemanticIndexIncompatibleError("Semantic index does not match the active Profile");
@@ -140,9 +138,16 @@ export async function openSemanticIndexReaderAt(
         );
       },
       search(scorer, excludedPracticeIds) {
-        return Object.freeze(
-          readCandidateRows(activeConnection, metadata, scorer, excludedPracticeIds),
-        );
+        try {
+          return Object.freeze(
+            readCandidateRows(activeConnection, metadata, scorer, excludedPracticeIds),
+          );
+        } catch (error) {
+          if (error instanceof SemanticIndexError && !(error instanceof SemanticIndexQueryError)) {
+            throw new SemanticIndexQueryError(error.message, { cause: error });
+          }
+          throw error;
+        }
       },
       close() {
         activeConnection.close();

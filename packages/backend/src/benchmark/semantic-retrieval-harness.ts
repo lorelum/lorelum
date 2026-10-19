@@ -6,7 +6,7 @@ import {
 import { loadBackendConfig, resolveEmbeddingConfig } from "../config";
 import { createEmbeddingService } from "../modules/embedding/service";
 import { createQueryEmbeddingAdapter } from "../modules/index/embedding-adapter";
-import { prepareModel } from "../models/prepare";
+import { prepareEmbeddingResources } from "../runtime/embedding-resources";
 import { createEmbeddingProcess } from "../runtime/embedding-process";
 import {
   createBenchmarkSemanticTraceService,
@@ -59,9 +59,10 @@ async function run(): Promise<void> {
       embedding = createEmbeddingService({
         settings: config.settings,
         threads: resolvedEmbedding.threads,
-        prepareModel: (signal, progress) => prepareModel(benchmarkEmbedding, signal, progress),
-        createRuntime: (modelPath) =>
-          createEmbeddingProcess({ modelPath, threads: resolvedEmbedding.threads }),
+        prepareModel: (signal, progress) =>
+          prepareEmbeddingResources(benchmarkEmbedding, signal, progress),
+        createRuntime: (prepared) =>
+          createEmbeddingProcess({ ...prepared!, threads: resolvedEmbedding.threads }),
       });
       const model = embedding.status();
       const execution = createVectorExecution(

@@ -13,6 +13,7 @@ import {
   applySemanticIndexChanges,
   initializeSemanticIndex,
   readSemanticIndexMetadata,
+  readSemanticIndexInputs,
   readSemanticIndexVectors,
   type SemanticIndexConnection,
   verifySemanticIndexIntegrity,
@@ -115,7 +116,6 @@ function openProgress(
 ): SemanticIndexConnection {
   const connection = openSqliteConnection(path, semanticProgressIndexDatabaseDefinition.schema);
   try {
-    verifySemanticIndexIntegrity(connection);
     const metadata = readSemanticIndexMetadata(connection);
     if (stateForMetadata(metadata, targetIdentity(snapshot), profile) !== "ready") {
       throw new SemanticIndexError("Content-addressed semantic progress belongs to another target");
@@ -130,11 +130,10 @@ function openProgress(
 function readyIds(
   connection: SemanticIndexConnection,
   documents: readonly PracticeVectorProjection[],
-  dimensions: number,
 ): ReadonlySet<string> {
   const ready = new Set<string>();
   for (const document of documents) {
-    const rows = readSemanticIndexVectors(connection, document.practiceId, dimensions) ?? [];
+    const rows = readSemanticIndexInputs(connection, document.practiceId);
     if (rows.length !== document.inputs.length || rows.length === 0) continue;
     const byKey = new Map(rows.map((row) => [row.inputKey, row] as const));
     if (
@@ -160,7 +159,14 @@ async function ensureProgress(
 ): Promise<SemanticIndexConnection> {
   if (await exists(path)) {
     try {
-      return openProgress(path, snapshot, profile);
+      const connection = openProgress(path, snapshot, profile);
+      try {
+        verifySemanticIndexIntegrity(connection);
+        return connection;
+      } catch (error) {
+        connection.close();
+        throw error;
+      }
     } catch {
       await rm(path, { force: true }).catch(() => undefined);
     }
@@ -414,11 +420,7 @@ export class ContentAddressedSemanticProgressService {
       try {
         const connection = openProgress(this.paths.active, this.snapshot, this.execution.profile);
         try {
-          const indexed = readyIds(
-            connection,
-            this.documents,
-            this.execution.profile.dimensions,
-          ).size;
+          const indexed = readyIds(connection, this.documents).size;
           if (
             indexed !== this.documents.length ||
             readSemanticIndexMetadata(connection).vectorCount !== indexed
@@ -455,11 +457,7 @@ export class ContentAddressedSemanticProgressService {
       try {
         return Object.freeze({
           state: "indexing",
-          indexedPracticeCount: readyIds(
-            connection,
-            this.documents,
-            this.execution.profile.dimensions,
-          ).size,
+          indexedPracticeCount: readyIds(connection, this.documents).size,
           totalPracticeCount: this.snapshot.practices.length,
         });
       } finally {
@@ -504,11 +502,7 @@ export class ContentAddressedSemanticProgressService {
           return connection;
         };
         try {
-          let completed = readyIds(
-            openConnection(),
-            this.documents,
-            this.execution.profile.dimensions,
-          );
+          let completed = readyIds(openConnection(), this.documents);
           if (completed.size === 0 && options.force !== true && this.seed !== undefined) {
             if (this.seed.kind === "store-delta") {
               openConnection().close();
@@ -543,11 +537,7 @@ export class ContentAddressedSemanticProgressService {
                 execution: this.execution,
               });
             }
-            completed = readyIds(
-              openConnection(),
-              this.documents,
-              this.execution.profile.dimensions,
-            );
+            completed = readyIds(openConnection(), this.documents);
             if (completed.size > 0) {
               // Seeded rows are verified against the current Practice IDs and
               // projection digests before publication, so they are immediately
@@ -620,24 +610,20 @@ export class ContentAddressedSemanticProgressService {
             // eslint-disable-next-line no-await-in-loop -- journal progress must commit before the next batch is visible.
             await this.onProgress?.({
               state: "indexing",
-              indexedPracticeCount: readyIds(
-                openConnection(),
-                this.documents,
-                this.execution.profile.dimensions,
-              ).size,
+              indexedPracticeCount: readyIds(openConnection(), this.documents).size,
               totalPracticeCount: this.snapshot.practices.length,
             });
           }
           const metadata = readSemanticIndexMetadata(openConnection());
           if (
             metadata.vectorCount !== this.snapshot.practices.length ||
-            readyIds(openConnection(), this.documents, this.execution.profile.dimensions).size !==
-              this.documents.length
+            readyIds(openConnection(), this.documents).size !== this.documents.length
           ) {
             throw new SemanticIndexError(
               "Project semantic progress did not cover the current snapshot",
             );
           }
+          verifySemanticIndexIntegrity(openConnection());
         } finally {
           connection?.close();
         }
@@ -676,7 +662,7 @@ export class ContentAddressedSemanticProgressService {
       const connection = openProgress(this.progress, this.snapshot, this.execution.profile);
       let completed: ReadonlySet<string>;
       try {
-        completed = readyIds(connection, this.documents, this.execution.profile.dimensions);
+        completed = readyIds(connection, this.documents);
       } finally {
         connection.close();
       }

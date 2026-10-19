@@ -4,7 +4,12 @@ import { join } from "node:path";
 import type { ValidationIssue } from "@lorelum/format";
 
 import { diffEffectivePractices, reconcileEffectivePractices, type PackCandidate } from "../model";
-import { artifactPath, promoteArtifact, sealSnapshot } from "../storage/artifacts/artifact-store";
+import {
+  artifactPath,
+  promoteArtifact,
+  sealSnapshot,
+  type SealedSnapshot,
+} from "../storage/artifacts/artifact-store";
 import { currentPackRoot, syncCurrentPackLocators } from "../storage/artifacts/current-locator";
 import { createProjection, type SnapshotProjection } from "../storage/artifacts/projection";
 import { writeSnapshotFromCandidate } from "../storage/artifacts/snapshot-writer";
@@ -66,7 +71,7 @@ function withPackEntry(
  * operation type differ.
  *
  * Sequencing (all cross-medium commits happen here, never in storage/):
- * 1. stage a rebuilt snapshot + projection, seal it → artifactDigest
+ * 1. stage a rebuilt snapshot + projection, seal it → snapshot path + digest
  * 2. idempotency check (same digest already active → no-op success)
  * 3. conflict check via the pure merge rules (install: add; upgrade: replace)
  * 4. promote the artifact, write the operation journal
@@ -93,7 +98,7 @@ export async function installOrUpgrade(
       // manifest or SQLite state changes. The staging dir is cleaned up on
       // every non-success path.
       const stagingPath = join(rootPath, "staging", crypto.randomUUID());
-      let artifactDigest: string;
+      let sealedSnapshot: SealedSnapshot;
       try {
         await writeSnapshotFromCandidate(stagingPath, candidate);
         const projection: SnapshotProjection = createProjection(
@@ -101,11 +106,12 @@ export async function installOrUpgrade(
           candidate.sources,
           candidate.decisions,
         );
-        artifactDigest = await sealSnapshot(stagingPath, projection);
+        sealedSnapshot = await sealSnapshot(stagingPath, projection);
       } catch (error) {
         await rm(stagingPath, { recursive: true, force: true });
         throw error;
       }
+      const { artifactDigest } = sealedSnapshot;
 
       // Same digest already active → idempotent success, no state change.
       if (existingEntry !== undefined && existingEntry.artifactDigest === artifactDigest) {
@@ -198,20 +204,14 @@ export async function installOrUpgrade(
       await writeOperationJournal(rootPath, journal);
 
       try {
-        const promotion = await promoteArtifact(
-          rootPath,
-          entry.storageKey,
-          artifactDigest,
-          stagingPath,
-          {
-            replaceCorruptTarget: {
-              activeReferences: active.packs.map(({ storageKey, artifactDigest: digest }) => ({
-                storageKey,
-                artifactDigest: digest,
-              })),
-            },
+        const promotion = await promoteArtifact(rootPath, entry.storageKey, sealedSnapshot, {
+          replaceCorruptTarget: {
+            activeReferences: active.packs.map(({ storageKey, artifactDigest: digest }) => ({
+              storageKey,
+              artifactDigest: digest,
+            })),
           },
-        );
+        });
         if (!promotion.stagedSnapshotConsumed) {
           await rm(stagingPath, { recursive: true, force: true });
         }

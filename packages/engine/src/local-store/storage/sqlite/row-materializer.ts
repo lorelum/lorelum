@@ -1,10 +1,12 @@
 import { PracticeSchema } from "@lorelum/format";
 import {
-  canonicalizePractice,
   isPracticeSourcePath,
+  type CanonicalPractice,
   type EffectivePractice,
   type PracticeSource,
+  type PracticeSnapshot,
 } from "../../model";
+import { deepFreeze } from "../../model/freeze";
 import { SqliteStateError } from "../errors";
 import type { StoreMetadataSnapshot } from "./snapshot-reader";
 
@@ -53,16 +55,15 @@ function effectiveFromRow(row: MaterializedRow): EffectivePractice {
   if (!parsedPractice.success) {
     throw new SqliteStateError("effective canonical content violates Practice schema");
   }
-  const canonical = canonicalizePractice(parsedPractice.data);
+  const practice = deepFreeze(parsedPractice.data) as PracticeSnapshot;
   if (
-    canonical.canonicalContent !== row.canonical_content ||
-    canonical.contentDigest !== row.content_digest ||
-    canonical.practice.id !== row.practice_id ||
-    canonical.practice.title !== row.title ||
-    canonical.practice.stage !== row.stage ||
-    JSON.stringify(canonical.practice.tech_stack) !== row.tech_stack_json ||
-    canonical.practice.applies_when !== row.applies_when ||
-    canonical.practice.severity !== row.severity
+    !/^[a-f0-9]{64}$/.test(row.content_digest) ||
+    practice.id !== row.practice_id ||
+    practice.title !== row.title ||
+    practice.stage !== row.stage ||
+    JSON.stringify(practice.tech_stack) !== row.tech_stack_json ||
+    practice.applies_when !== row.applies_when ||
+    practice.severity !== row.severity
   ) {
     throw new SqliteStateError("effective Practice materialization is inconsistent");
   }
@@ -70,7 +71,7 @@ function effectiveFromRow(row: MaterializedRow): EffectivePractice {
     practiceId: row.practice_id,
     contentDigest: row.content_digest,
     canonicalContent: row.canonical_content,
-    practice: canonical.practice,
+    practice,
     sources: Object.freeze([]),
   });
 }
@@ -81,6 +82,7 @@ export function materializePracticeRows(
 ): readonly EffectivePractice[] {
   const practices: EffectivePractice[] = [];
   let effective: EffectivePractice | undefined;
+  let canonical: CanonicalPractice | undefined;
   let sources: PracticeSource[] = [];
   for (const rawRow of rows) {
     if (!isMaterializedRow(rawRow)) throw new SqliteStateError("materialized row is malformed");
@@ -97,6 +99,11 @@ export function materializePracticeRows(
         practices.push(Object.freeze({ ...effective, sources: Object.freeze(sources) }));
       }
       effective = effectiveFromRow(rawRow);
+      canonical = Object.freeze({
+        practice: effective.practice,
+        canonicalContent: effective.canonicalContent,
+        contentDigest: effective.contentDigest,
+      });
       sources = [];
     }
     if (effective.contentDigest !== rawRow.source_digest) {
@@ -108,7 +115,7 @@ export function materializePracticeRows(
         practiceId: effective.practiceId,
         contentDigest: effective.contentDigest,
         sourcePath: rawRow.source_path,
-        canonicalPractice: canonicalizePractice(effective.practice),
+        canonicalPractice: canonical!,
       }),
     );
   }

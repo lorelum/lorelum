@@ -143,7 +143,10 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
   private readonly recovered: Promise<readonly SemanticOperationRecord[]>;
 
   constructor(
-    private readonly store: Pick<LocalStore, "readEffectivePracticeSnapshot"> &
+    private readonly store: Pick<
+      LocalStore,
+      "readEffectivePracticeSnapshot" | "readSnapshotIdentity"
+    > &
       Partial<Pick<LocalStore, "readEffectivePracticeChanges">>,
     private readonly encoding: EncodingContract,
     private readonly documentEmbedding: EmbeddingPort,
@@ -406,9 +409,13 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       execution,
       sourceRevision: snapshot.identity.effectiveRevision,
       ...(seed === undefined ? {} : { seed }),
-      isCurrent: async () =>
-        indexCorpusDigest((await this.store.readEffectivePracticeSnapshot(root)).practices) ===
-        corpus.indexCorpusDigest,
+      isCurrent: async () => {
+        const current = await this.store.readSnapshotIdentity(root);
+        return (
+          current.rootBinding === snapshot.identity.rootBinding &&
+          current.effectiveRevision === snapshot.identity.effectiveRevision
+        );
+      },
     });
   }
 

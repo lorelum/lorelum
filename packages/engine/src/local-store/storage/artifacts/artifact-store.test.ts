@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createHash } from "node:crypto";
+import * as nodeCrypto from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +7,16 @@ import { join } from "node:path";
 import { createPackCandidate } from "../../model";
 import { calculateArtifactDigest, promoteArtifact, sealSnapshot } from "./artifact-store";
 import { createProjection } from "./projection";
+
+const { candidate } = createPackCandidate(
+  {
+    pack: { name: "platform", version: "1.0.0" },
+    practices: [],
+    decisions: [],
+  },
+  {},
+);
+const projection = createProjection(candidate.pack, candidate.sources, candidate.decisions);
 
 async function withDirectory(run: (path: string) => Promise<void>): Promise<void> {
   const path = await mkdtemp(join(tmpdir(), "lorelum-artifact-"));
@@ -50,7 +60,7 @@ test(
         await Promise.all(batch.map((name) => writeFile(join(snapshot, name), name)));
       }
 
-      const expected = createHash("sha256");
+      const expected = nodeCrypto.createHash("sha256");
       for (const name of names) {
         expected.update(name, "utf8");
         expected.update(Buffer.from([0]));
@@ -65,14 +75,14 @@ test(
   process.platform === "win32" ? 120_000 : 30_000,
 );
 
-test("promotion verifies an existing artifact before treating it as idempotent", async () => {
+test("promotion publishes the sealed snapshot under its content digest", async () => {
   await withDirectory(async (root) => {
     const staging = join(root, "staging");
     await mkdir(staging);
     await writeFile(join(staging, "pack.yaml"), "name: platform\n");
-    const digest = await calculateArtifactDigest(staging);
-    const result = await promoteArtifact(root, "p-platform", digest, staging);
-    expect(result.targetPath).toContain(digest);
+    const sealed = await sealSnapshot(staging, projection);
+    const result = await promoteArtifact(root, "p-platform", sealed);
+    expect(await calculateArtifactDigest(result.targetPath)).toBe(sealed.artifactDigest);
     expect(result.stagedSnapshotConsumed).toBe(true);
   });
 });
@@ -82,14 +92,15 @@ test("promotion rejects a digest-mismatched target for lifecycle to handle safel
     const firstStaging = join(root, "first-staging");
     await mkdir(firstStaging);
     await writeFile(join(firstStaging, "pack.yaml"), "name: platform\n");
-    const digest = await calculateArtifactDigest(firstStaging);
-    const target = (await promoteArtifact(root, "p-platform", digest, firstStaging)).targetPath;
+    const firstSealed = await sealSnapshot(firstStaging, projection);
+    const target = (await promoteArtifact(root, "p-platform", firstSealed)).targetPath;
 
     await writeFile(join(target, "pack.yaml"), "tampered\n");
     const secondStaging = join(root, "second-staging");
     await mkdir(secondStaging);
     await writeFile(join(secondStaging, "pack.yaml"), "name: platform\n");
-    await expect(promoteArtifact(root, "p-platform", digest, secondStaging)).rejects.toThrow(
+    const secondSealed = await sealSnapshot(secondStaging, projection);
+    await expect(promoteArtifact(root, "p-platform", secondSealed)).rejects.toThrow(
       "existing artifact digest differs",
     );
   });
@@ -100,14 +111,15 @@ test("promotion can replace a corrupt unreferenced target only with explicit aut
     const firstStaging = join(root, "first-staging");
     await mkdir(firstStaging);
     await writeFile(join(firstStaging, "pack.yaml"), "name: platform\n");
-    const digest = await calculateArtifactDigest(firstStaging);
-    const first = await promoteArtifact(root, "p-platform", digest, firstStaging);
+    const firstSealed = await sealSnapshot(firstStaging, projection);
+    const first = await promoteArtifact(root, "p-platform", firstSealed);
 
     await writeFile(join(first.targetPath, "pack.yaml"), "tampered\n");
     const secondStaging = join(root, "second-staging");
     await mkdir(secondStaging);
     await writeFile(join(secondStaging, "pack.yaml"), "name: platform\n");
-    const replacement = await promoteArtifact(root, "p-platform", digest, secondStaging, {
+    const secondSealed = await sealSnapshot(secondStaging, projection);
+    const replacement = await promoteArtifact(root, "p-platform", secondSealed, {
       replaceCorruptTarget: { activeReferences: [] },
     });
 
@@ -124,17 +136,20 @@ test("promotion never replaces a corrupt target still referenced by the active m
     const firstStaging = join(root, "first-staging");
     await mkdir(firstStaging);
     await writeFile(join(firstStaging, "pack.yaml"), "name: platform\n");
-    const digest = await calculateArtifactDigest(firstStaging);
-    const first = await promoteArtifact(root, "p-platform", digest, firstStaging);
+    const firstSealed = await sealSnapshot(firstStaging, projection);
+    const first = await promoteArtifact(root, "p-platform", firstSealed);
 
     await writeFile(join(first.targetPath, "pack.yaml"), "tampered\n");
     const secondStaging = join(root, "second-staging");
     await mkdir(secondStaging);
     await writeFile(join(secondStaging, "pack.yaml"), "name: platform\n");
+    const secondSealed = await sealSnapshot(secondStaging, projection);
     await expect(
-      promoteArtifact(root, "p-platform", digest, secondStaging, {
+      promoteArtifact(root, "p-platform", secondSealed, {
         replaceCorruptTarget: {
-          activeReferences: [{ storageKey: "p-platform", artifactDigest: digest }],
+          activeReferences: [
+            { storageKey: "p-platform", artifactDigest: firstSealed.artifactDigest },
+          ],
         },
       }),
     ).rejects.toThrow("cannot replace an artifact referenced by the active manifest");
@@ -147,14 +162,14 @@ test("promotion reports that an existing valid target did not consume staging", 
     const firstStaging = join(root, "first-staging");
     await mkdir(firstStaging);
     await writeFile(join(firstStaging, "pack.yaml"), "name: platform\n");
-    const digest = await calculateArtifactDigest(firstStaging);
-    const first = await promoteArtifact(root, "p-platform", digest, firstStaging);
+    const firstSealed = await sealSnapshot(firstStaging, projection);
+    const first = await promoteArtifact(root, "p-platform", firstSealed);
 
     const secondStaging = join(root, "second-staging");
     await mkdir(secondStaging);
     await writeFile(join(secondStaging, "pack.yaml"), "name: platform\n");
-    const second = await promoteArtifact(root, "p-platform", digest, secondStaging);
-
+    const secondSealed = await sealSnapshot(secondStaging, projection);
+    const second = await promoteArtifact(root, "p-platform", secondSealed);
     expect(second.targetPath).toBe(first.targetPath);
     expect(second.stagedSnapshotConsumed).toBe(false);
     expect(await readFile(join(secondStaging, "pack.yaml"), "utf8")).toBe("name: platform\n");
@@ -177,21 +192,10 @@ test("artifact digest rejects symbolic links instead of following them", async (
 
 test("sealing publishes the generated projection before calculating the digest", async () => {
   await withDirectory(async (path) => {
-    const { candidate } = createPackCandidate(
-      {
-        pack: { name: "platform", version: "1.0.0" },
-        practices: [],
-        decisions: [],
-      },
-      {},
-    );
-    const digest = await sealSnapshot(
-      path,
-      createProjection(candidate.pack, candidate.sources, candidate.decisions),
-    );
+    const sealed = await sealSnapshot(path, projection);
     expect(await readFile(join(path, ".lorelum", "local-store-projection.json"), "utf8")).toContain(
       '"projectionVersion":2',
     );
-    expect(digest).toBe(await calculateArtifactDigest(path));
+    expect(sealed.artifactDigest).toBe(await calculateArtifactDigest(path));
   });
 });

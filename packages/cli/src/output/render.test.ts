@@ -147,17 +147,18 @@ test("renders JSON failures as one envelope with the supplied trace", () => {
   expect(writer.value.split("\n")).toEqual([expect.any(String), ""]);
 });
 
-test("rejects non-JSON-safe data before writing either format", () => {
+test.each([
+  { name: "non-finite number", data: { value: NaN } },
+  { name: "undefined property", data: { value: undefined } },
+  { name: "bigint", data: { value: 1n } },
+])("rejects $name at the JSON envelope boundary without writing", ({ data }) => {
   const writer = new MemoryWriter();
-  const circular: Record<string, unknown> = {};
-  circular.self = circular;
-
   expect(() =>
-    renderResult(writer, "text", {
+    renderResult(writer, "json", {
       kind: "success",
       command: "invalid",
-      data: circular as never,
+      data: data as never,
     }),
-  ).toThrow();
+  ).toThrow(TypeError);
   expect(writer.value).toBe("");
 });

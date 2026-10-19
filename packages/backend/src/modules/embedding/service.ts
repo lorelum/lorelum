@@ -23,16 +23,20 @@ import {
   type EmbeddingRuntime,
   type EmbeddingResult,
   type ModelState,
+  type PreparedEmbeddingResources,
 } from "./model";
 
 const SHUTDOWN_DRAIN_RESERVE_MS = 200;
 
 export interface EmbeddingServiceOptions {
-  readonly createRuntime: (modelPath?: string, preparationId?: string) => EmbeddingRuntime;
+  readonly createRuntime: (
+    prepared?: PreparedEmbeddingResources,
+    preparationId?: string,
+  ) => EmbeddingRuntime;
   readonly prepareModel?: (
     signal: AbortSignal,
     progress: (value: ModelProgress) => void,
-  ) => Promise<string>;
+  ) => Promise<PreparedEmbeddingResources>;
   readonly threads?: number;
   readonly settings: BackendSettings;
   /** Publishes durable Backend activity before a preparation can begin. */
@@ -120,12 +124,12 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
           activityPublished = true;
         }
         signal.throwIfAborted();
-        const modelPath = await options.prepareModel?.(signal, (value) => {
+        const prepared = await options.prepareModel?.(signal, (value) => {
           if (state === "loading" && !signal.aborted) progress = value;
         });
         signal.throwIfAborted();
         progress = { phase: "starting" };
-        handle = options.createRuntime(modelPath, activePreparationId);
+        handle = options.createRuntime(prepared, activePreparationId);
         runtime = handle;
         await handle.start(signal, Date.now() + options.settings.startupTimeoutMs);
         signal.throwIfAborted();

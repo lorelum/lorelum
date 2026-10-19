@@ -21,6 +21,8 @@ For a Store source, `sourcePath` is relative to its readable `packRoot` current 
 
 If one Practice has multiple sources, retain each root separately: do not silently choose one source or combine resources from several Packs. A later Pack mutation can make the same current path resolve to newer bytes, or remove it with the Pack; call `get` again, or explicitly select a Pack with `lore pack list <pack-name>`, before treating it as the current source. Never derive a path from Store internals. See [Pack format](./pack-format) for how to read references, copy assets, and explicitly run scripts.
 
+Store guidance is the canonical content committed by Pack installation/update. `get` checks the selected snapshot and current source locators, but does not rehash the Pack or audit every resource on each read. Editing installed Pack files directly is not an update workflow and is not continuously detected; update the source Pack and use [Pack commands](./packs). Editable ProjectContext files are still read as project sources.
+
 Use the `practiceId` returned by query as the exact `practice-id`. An invalid ID returns `usage.invalid`; an ID absent from the selected query context returns `practice.not-found`. Store contention and recovery report `store.busy` or `store.recovery-required`.
 
 Exit `0` means success; all declared failures exit `2`. Run `lore describe get` for the exact result schema.

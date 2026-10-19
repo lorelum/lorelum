@@ -24,7 +24,7 @@ import { nativeBuildCacheKey, nativeBuildCacheRoot, stableSha256 } from "./cache
 import { materializeNativeBuildCache } from "./cache-store";
 import { ensurePinnedDownload } from "./download";
 import {
-  assertNativePatchDigest,
+  VerifiedNativePatch,
   materializePatchedLlamaSource,
   nativeBuildWorktreeDirectory,
   patchedLlamaSourceDirectory,
@@ -280,13 +280,6 @@ function buildNativeArtifact(outputRoot: string): NativeArtifactManifest {
     ].join("\n"),
   );
 
-  const recipeIdentity = stableSha256({
-    schemaVersion: config.schemaVersion,
-    source: config.source,
-    patchSha256: config.patch.sha256,
-    cmakeFlags,
-    model: config.model,
-  });
   const licenseFiles = [...licenses.map(([, file]) => file), "THIRD_PARTY_NOTICES.txt"];
   const files = [artifactExecutableName, ...licenseFiles].map((path) => ({
     path,
@@ -320,7 +313,7 @@ function buildNativeArtifact(outputRoot: string): NativeArtifactManifest {
   return manifest;
 }
 
-assertNativePatchDigest(repositoryRoot);
+const verifiedPatch = VerifiedNativePatch.read(repositoryRoot);
 
 const recipeIdentity = stableSha256({
   schemaVersion: config.schemaVersion,
@@ -345,7 +338,7 @@ const manifest = await materializeNativeBuildCache({
   validate: (candidate) => assertSourceNativeArtifactMatch(artifact.manifest, candidate),
   async build(outputDirectory) {
     await toolchain.prepare();
-    await materializePatchedLlamaSource(repositoryRoot);
+    await materializePatchedLlamaSource(verifiedPatch);
     buildNativeArtifact(outputDirectory);
   },
   report: (message) => console.log(message),

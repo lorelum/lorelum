@@ -16,7 +16,7 @@ function vectorBlob(vector: Float32Array): Buffer {
   return Buffer.from(vector.buffer, vector.byteOffset, vector.byteLength);
 }
 
-function validVector(value: unknown, dimensions: number): Float32Array | undefined {
+function decodeVector(value: unknown, dimensions: number): Float32Array | undefined {
   if (
     !(value instanceof Uint8Array) ||
     value.byteLength !== dimensions * Float32Array.BYTES_PER_ELEMENT
@@ -24,7 +24,12 @@ function validVector(value: unknown, dimensions: number): Float32Array | undefin
     return undefined;
   }
   const copy = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
-  const vector = new Float32Array(copy);
+  return new Float32Array(copy);
+}
+
+function validVector(value: unknown, dimensions: number): Float32Array | undefined {
+  const vector = decodeVector(value, dimensions);
+  if (vector === undefined) return undefined;
   let squaredLength = 0;
   for (const coordinate of vector) {
     if (!Number.isFinite(coordinate)) return undefined;

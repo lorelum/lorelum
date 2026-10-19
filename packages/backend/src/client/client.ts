@@ -211,6 +211,7 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     throw new TypeError("Diagnostic level must be debug when provided.");
   }
   let expectedEncodingId: string | undefined;
+  let verifiedIdentity: InstanceIdentity | undefined;
   const baseUrl = validatedLoopbackUrl(options.baseUrl ?? BACKEND_URL);
 
   const send = async (
@@ -275,6 +276,7 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       throw new BackendError("backend.protocol-mismatch");
     if (!allowCurrentBuildMismatch && identity.buildIdentity !== options.buildIdentity)
       throw new BackendError("backend.build-mismatch");
+    verifiedIdentity = identity;
     return parsed.data;
   };
 
@@ -303,7 +305,9 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     } = {},
   ): Promise<T> => {
     const budget = { signal, deadline: deadline ?? Date.now() + timeout };
-    await identify(budget, allowCurrentBuildMismatch);
+    if (verifiedIdentity === undefined) await identify(budget, allowCurrentBuildMismatch);
+    else if (!allowCurrentBuildMismatch && verifiedIdentity.buildIdentity !== options.buildIdentity)
+      throw new BackendError("backend.build-mismatch");
     const traceId = requestTraceId ?? options.traceId;
     const diagnosticLevel = requestDiagnosticLevel ?? options.diagnosticLevel;
     const headers: Record<string, string> = {
