@@ -25,6 +25,8 @@ bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf
 
 busy 场景通过编码入口的显式同步点占住请求，不依靠 sleep 猜测推理耗时；daemon 无响应场景暂停本次启动的 native 进程，让请求确定超时，再确认实际进程退出。这些是故障注入，不是性能测量。daemon 端口仍由现有 supervisor 合同决定，端口竞争会明确失败，不会改绑未知服务。
 
+崩溃恢复测试需分别确认已拥有的进程身份失效和监听端口释放；前者不能作为后者的同步信号。测试在有界观察期内等待实际进程与 TCP 事件，不用固定 sleep 猜测退出完成；只有连接明确被拒绝才认为端口关闭，其它连接错误仍使测试失败。生产 supervisor 对未知监听者的拒绝保持不变。
+
 ## CLI 原生 smoke 的场景边界
 
 - [入口](../../packages/cli/integration/project-context-native-smoke.integration.ts)只选择场景、汇总结果，并在 finally 释放环境；默认依次运行三个场景。

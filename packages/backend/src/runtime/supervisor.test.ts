@@ -1,6 +1,8 @@
 /* eslint-disable no-await-in-loop -- Wait for the exact test child to exit before testing recovery. */
 import { expect, test } from "bun:test";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { createConnection } from "node:net";
 import { mkdtemp, realpath, rm, stat, readFile, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +20,19 @@ const execute = promisify(execFile);
 async function processDisplayName(pid: number): Promise<string> {
   const { stdout } = await execute("ps", ["-o", "comm=", "-p", String(pid)]);
   return stdout.trim();
+}
+
+async function listenerHasClosed(port: number): Promise<boolean> {
+  const socket = createConnection({ host: "127.0.0.1", port });
+  try {
+    await once(socket, "connect");
+    return false;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ECONNREFUSED") throw error;
+    return true;
+  } finally {
+    socket.destroy();
+  }
 }
 
 async function fixture(
@@ -276,8 +291,14 @@ test.concurrent(
       const first = await controller.start();
       const record = (await readRecord(directory))!;
       process.kill(record.pid, "SIGKILL");
-      for (let i = 0; i < 100 && (await isSameProcess(record)); i++) await Bun.sleep(25);
+      // A dead process identity can precede release of its listening socket.
+      // Each observation awaits actual process/TCP I/O, not a guessed sleep.
+      const deadline = performance.now() + 2_500;
+      while (performance.now() < deadline) {
+        if (!(await isSameProcess(record)) && (await listenerHasClosed(port))) break;
+      }
       expect(await isSameProcess(record)).toBe(false);
+      expect(await listenerHasClosed(port)).toBe(true);
       expect((await controller.status()).state).toBe("stopped");
       const second = await controller.start();
       expect(second.instanceId).not.toBe(first.instanceId);
