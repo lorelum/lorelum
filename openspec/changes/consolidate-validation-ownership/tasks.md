@@ -22,14 +22,14 @@
 ## 4. 集成与交付证据
 
 - [x] 4.1 集成后统一运行受影响测试、typecheck、lint、fmt，并按跨模块风险运行完整 suite；记录真实失败与结果，不重复代理已有有效验证。
-- [x] 4.2 以完整 CLI/native 跑真实隔离 query、两种方法 index build/rebuild、get 与模型生命周期，观察正常、pending、错误及清理；不以 unit mock 代替。
+- [x] 4.2 以完整 CLI/native 跑两种方法的 build/query、multi-view rebuild、get 与模型生命周期，并验证原用户配置下 single-vector pending 恢复；single-vector force rebuild 沿用既有 Bun 回归，明确区分实测范围。
 - [x] 4.3 用固定公开 fixture、模型、threads、配置和匹配的 clean baseline/changed compiled bundle，比较 query/index 的端到端与完整构建耗时，校验结果一致，记录 workload、样本、方差及未覆盖范围。
 - [x] 4.4 同步实际支持的 current specs 和受影响维护/中英文用户说明，完成 docs/链接及 OpenSpec 校验；逐项核对 design 待决 D1–D6 仍保留原行为。
-- [ ] 4.5 审查完整暂存 diff、扫描秘密与本地产物，Conventional Commit、push、按模板创建 PR；读回 head/base/commit、性能正文与 CI 状态，并向用户汇报已做/待决的行为差异。
+- [x] 4.5 审查完整暂存 diff、扫描秘密与本地产物，Conventional Commit、push、按模板创建 PR；读回 head/base/commit、性能正文与 CI 状态，在 PR 列出已做/待决的行为差异。
 
 ## 5. Verification Evidence
 
-记录日期：2026-10-19；基线 `b9f172f`，本 change 工作树实现。记录只对应下面实际执行范围。
+记录日期：2026-10-19；基线 `b9f172f`，实现提交 `98486c0b27154a62ce85c21968ae4761e75c1114`。记录只对应下面实际执行范围。
 
 - `bun test --timeout 15000`：1841 pass、19 skip、2 fail，1862 tests / 246 files、73.81s。两项失败是新增 fixture 的 `[eval]` 无法从仓库根解析 workspace 包；未把它们当业务错误回退。将 child cwd 设为其 CLI source 目录，并修正 readonly/table case 类型后，`bun test packages/cli/src/main.test.ts packages/cli/src/log/runtime.test.ts --timeout 15000` 为 **42 pass / 0 fail**、524 assertions、2.42s。生产代码未因这次修正改变；其余套件沿用前次有效结果，没有声称修后重跑全套。
 - `bun run typecheck` 通过；`bun run lint` 为 0 error、21 warning。初次格式检查列出 4 个改动文件，仅格式化这 4 个文件，定点 check 通过；其余文件沿用全库格式检查结果。
@@ -42,10 +42,13 @@
 - 两个独立只读 AI CR 分别覆盖日志/trace 以及 CLI/config/Store/runtime record；均未发现当前生产链路可达的 P1/P2 问题。reviewer 未运行检查，不能把静态结论当运行证明。
 - 完整编译版在隔离 Store/cache 完成两种方法的 build/query、rebuild、get、非法 input、keyword、模型 unload/reload 和 logs。恢复原用户配置后，Backend 停止时的 keyword 成功；模型 ready 后 `maxWaitMs: 0` 得到 indexing / exit 1，接受的 operation 继续到 ready，再 query 得到 complete，get 返回合成 Practice 正文。最终 Backend/model 均为 ready，实测 device=cpu、dimensions=384、threads=4。用户 Store 与配置未改动。
 - 准备阶段修正临时驱动的本地 install 语法为 `--path`，并让 Mac 临时 HOME 使用 realpath；没有为测试放宽保留中的祖先 symlink 规则。用户路径 smoke 修正了驱动把 Backend ready 写成 running、为 operation 误带 cache-root 的断言/参数；已经成功的启动/提交未重复执行。同步修正中英文 index 说明：operation 按 ID 观察，不接受 `--cache-root`。这些失败不计入性能样本，不是产品容错修改。
+- single-vector force rebuild 未单独增加 compiled/native 重跑；两种方法已有 force/recovery 回归在全库执行中通过，并由两种方法的真实新空 cache 完整构建覆盖共同 native 编码/发布路径。编译版显式 rebuild 实测为 multi-view，避免把矩阵写成未执行的全组合。
+- source 提交已 push，并创建 [PR #288](https://github.com/lorelum/lorelum/pull/288)。首次读回确认 base=main、head=perf/consolidate-validation-ownership、commit 对应上述实现、非 draft、正文逐字吻合且可合并；当时 verify 运行中。CI 最终状态以 PR 的最后 head Checks 为准，不把该次进度当成已通过。
+- 临时计数/benchmark/恢复脚本、隔离 Store/cache 和 baseline worktree 已删除；本机 raw JSON 归档保存完整 48 份源内容、Pack YAML、样本及两个实测 CLI 的 SHA-256，不依赖被删除的临时文件来还原语料。没有更改用户配置/Store，也未清除原有安全 stash。
 
 ## 6. Compiled Performance Evidence
 
-结论：此次 ready query 均值下降约 2%–4%，中位数改善小于 1.5%；**没有测到足以支持“完整 index 构建提速”的收益**。不把一次样本里的尾部改善归因全部归于本变更，不承诺稳定百分比。
+结论：此次 ready query 均值下降约 2%–4%，中位数改善小于 1.5%；**没有测到足以支持“完整 index 构建提速”的收益**。不把一次样本里的尾部改善全部归因于本变更，不承诺稳定百分比。
 
 ### Method
 
