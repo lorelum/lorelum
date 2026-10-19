@@ -1,0 +1,197 @@
+---
+title: "Finding the task first: how we reworked semantic retrieval ranking"
+description: "An Agent asked how to write a PR description and got a React caching Practice first. We split both the query and the Practices into pieces. On our 50-case set the right Practice moved from rank 1 in 26 cases to 33. This post covers the test sets, the detours, and why the new method shipped as an opt-in mode."
+date: 2026-10-19
+category: lorelum
+author: Yuchao Huang
+image: /blog/covers/task-aware-retrieval.svg
+---
+
+Lorelum supplies engineering experience to AI coding agents such as Codex and Cursor. Each piece of experience is a Practice: a short note on what to do in a given situation and why, such as "when writing a PR description for a reviewer who missed the discussion, include the context and the decision", or "when React renders on the server, deduplicate repeated queries within the same request." An Agent asks with one sentence, and Lorelum returns the five most relevant Practices.
+
+The lookup is semantic retrieval: the question and every Practice are turned into vectors (embeddings), and closer vectors mean closer meaning. Exact wording is not required, so a Chinese question can find an English Practice.
+
+This works most of the time. There is one kind of query it consistently gets wrong.
+
+## A ranking example
+
+An Agent has just fixed a React caching bug and is about to open a PR. It asks (the original query is in English):
+
+> I am opening a PR that fixes a React cache bug; a reviewer will see it without our chat history, so make the context and decision self-contained.
+
+It wants to know how to write the PR description. The first result is a Practice about deduplicating server-side request caches in React. The PR-writing Practice ranks second.
+
+The answer was found. The order was wrong. The whole sentence became one vector, and the technical words "React" and "cache" weighed heavily, while what the Agent is actually about to do — write a PR description — was diluted.
+
+## Real tasks need more than one answer
+
+That example is simple: exactly one Practice should come first. Real task queries are usually messier.
+
+Say an Agent has finished changing a React form and, before committing, wants a code review that removes the extra state, helper files, and wrapper components it added along the way. Three kinds of Practice are useful here:
+
+- **The target Practice** answers "what should I do right now". Here: run a subtractive review before committing, and delete what this change does not need.
+- **Supporting Practices** are not the task itself, but they help do it well. Here: React's "derive values from props instead of mirroring them in state", which is exactly what to check during the review, and "choose the smallest sufficient design".
+- **Lookalike Practices** sound similar but should not apply. Our corpus also has a "subtractive review" Practice, but it is about trimming Pack content, not code.
+
+The ideal result: the target first, the supporting Practices also in the top five, and the lookalike nowhere near. The technical domain should help, not take over.
+
+We set the ordering principle as: first what is being done now, then the stage, objects, and constraints, and only then the technical domain. Two product constraints came with it: authors cannot be asked to write Practices in a different structure, and users cannot be asked to mark which part of their query is the task and which is background.
+
+## How we test
+
+To know whether a change helps, we need test questions. We built two sets, both against the same 97 Practices from four Packs: 34 on AI coding workflows, 27 on writing Packs, 24 on React, and 12 on issues and PRs.
+
+**Set one: 50 questions, each labeled with one target Practice.** Each question is a sentence an Agent would actually type, covering several typical forms:
+
+| Form | Count | Example (translated) |
+| --- | --- | --- |
+| Direct request | 16 | Before committing, remove the code and abstractions this change does not need, even if they might be useful later. |
+| Paraphrase | 15 | A component stores `fullName` in state and recomputes it whenever `firstName` changes. Simplify it using the current props. |
+| Mixed constraints | 12 | We are handing off with a known migration limitation and one failed optional check. What must the next engineer know? |
+| Adjacent stage | 11 | This is a one-line copy change, but the team is proposing a full browser matrix and a load test. How much verification is proportionate? |
+| Easy to confuse with a neighboring Practice | 6 | When the cart count is zero, the page renders a literal 0. |
+| Task conflicts with domain | 5 | The React cache PR question from the opening. |
+| Chinese query | 2 | The server-rendered time differs from the first client render, so the page logs a hydration warning. How should this be handled? |
+
+> Source: the 50 questions in set one · one question can belong to several forms
+
+Six questions also carry a labeled lookalike, to check whether it outranks the target.
+
+**Set two: 40 questions that test targets plus supporting Practices.** Set one only had a target, so it could not tell whether supporting Practices were still served. Set two has eight categories of five: direct, paraphrase, lookalike, adjacent stage, task/domain conflict, same topic at a different stage, Chinese querying English, and long mixed constraints. The React form review example above is one of them.
+
+Two annotators labeled each question independently, without seeing each other or any ranking, marking the target, supporting, and unwanted Practices. A target counts when both agree. Thirty-four questions have a target; the other six should match nothing and only check whether an unwanted Practice slips into the top five. We later added one Chinese code-review question, for 35 with a target.
+
+Both sets score all 97 Practices and produce a full ordering, so beyond the top five we can see exactly where the right answer landed.
+
+## What the problem looked like
+
+Running the original retrieval on set one gave a clear picture: 49 of 50 questions had their target within the top twenty, only 42 had it in the top five, and only 26 had it first. Several answers sat between ranks 6 and 13, just short of the cutoff.
+
+In other words, retrieval usually finds the answer. The ordering is what fails.
+
+## The keyword boost that we deleted
+
+The most direct fix is to add a small keyword-matching bonus on top of the vector similarity. We used BM25, the standard search-engine algorithm, with a very small weight that only mattered when two results were close.
+
+The effect was immediate: on set one, top-five hits went from 42 to 48.
+
+But the more we looked, the more problems appeared.
+
+The biggest was Chinese. Most Practices are written in English, while users often ask in Chinese. Keyword matching requires literal overlap, and a Chinese question shares no characters with an English Practice. We searched for "server rendering", "request-level query", and "deduplication" against the matching English Practice and got nothing; the embedding model scored that Chinese-English pair at 0.9937, essentially the same meaning.
+
+There were subtler failures. One question contained the English pronoun "I", and two unrelated Practices whose text contains "I/O" collected a high keyword score and pushed the correct answer down. A keyword hit is not evidence that the Practice relates to the task.
+
+Trading the overall experience for Chinese users for six test cases is a bad deal. We deleted the keyword code and added a test that fails if keyword logic is ever quietly reintroduced into semantic retrieval.
+
+## Changing what gets compared
+
+The root cause was "one sentence, one vector". No bonus can separate the technical words from the task description once they are compressed together.
+
+So we changed the unit of comparison: split the question into clauses, split each Practice into pieces, compare piece by piece, then combine.
+
+Questions are split at punctuation, including both ASCII and full-width CJK marks. The opening question becomes three clauses:
+
+1. I am opening a PR that fixes a React cache bug
+2. a reviewer will see it without our chat history
+3. so make the context and decision self-contained
+
+A Practice is split into two parts. One is the applicability view: title, when it applies, its stage, and common mistakes. It answers "when should this Practice be used". The tech-stack field is deliberately excluded, so a word like "React" cannot decide the match on its own. The other part is the body, split at paragraph boundaries, with each chunk keeping its heading path so conditions such as "unless" and "do not" stay attached to their context.
+
+After splitting, each clause finds its own best-matching Practices. During development, looking at each clause separately:
+
+- The first clause mentions "React cache": the cache Practice ranks 1, and the PR-writing Practice only 10.
+- The second clause is about the reviewer lacking context: PR writing rises to 3, the cache Practice falls to 50.
+- The third clause asks for complete context: PR writing ranks 30, and the cache Practice drops to 87.
+
+The cache Practice wins in the first clause and barely connects in the other two; the PR-writing Practice is not especially strong anywhere but is decent in all three. With the final implementation on all 97 Practices, PR writing ranks second, and the cache Practice falls from first to 23rd.
+
+The technical words still count. They no longer decide on their own.
+
+## Small details that mattered
+
+A few details took more work than expected.
+
+**Scoring the body.** A Practice has many body chunks. Taking only the most similar chunk favors Practices with more chunks, which get more chances to hit; taking only the average dilutes the one chunk that matters. We take half of each.
+
+**Whether to penalize background clauses.** We worried that background clauses carried too much weight, so we mixed the lowest-scoring clause into the total as a penalty. The heavier the penalty, the worse the results: it also depressed another kind of correct answer, the Practice that matches the action but not the background. Averaging was enough; the penalty was redundant.
+
+**Estimating Chinese length.** The embedding model has an input limit, and exceeding it is an error. Chinese is roughly one token per character and English about one token per four characters; splitting by character count would exceed the limit about four times sooner for Chinese. So chunks are cut by estimated tokens, not characters.
+
+## Other ideas we tried
+
+A few other directions came up and were not adopted.
+
+One was to merge the ranks of each clause instead of their scores. It gained one extra correct case, but it amounts to a different ranking algorithm, and there are several ways to merge, none of which has a principled claim to be the default.
+
+Another was to have a person annotate each part of the question — which part is the task, which is technical background — and weight them by role. It did worse. We then ran a control: split the question the same way but without role labels. The result matched the labeled version, so the splitting was doing the work and the roles added nothing.
+
+The most effective idea was to have a large language model judge whether each candidate Practice applies to the current task. Ranking by that judgment alone raised top-five hits from 33 to 54 out of 69 test questions. But it requires a model call, with a different cost and latency profile, so it belongs in a separate service layer rather than inside local retrieval.
+
+## Results: targets rank higher, supporting Practices do not
+
+All numbers below were re-run with the shipped code on the same 97 Practices.
+
+**On set one, the gain is mostly at the top.**
+
+| | Single-vector (before) | Multi-view (after) |
+| --- | --- | --- |
+| Target ranked 1st | 26/50 | **33/50** |
+| Target in top 3 | 36/50 | **43/50** |
+| Target in top 5 | 42/50 | **45/50** |
+| Target in top 20 | 49/50 | 47/50 |
+| Lookalike ranked ahead of the target | 2 | 1 |
+
+> Source: the 50 questions in set one · 97 Practices
+
+Agents read the first few results, so moving the target from first in 26 cases to 33 matters more than the two extra top-five hits. The cost is two targets that fell out of the top twenty; neither had been in the top five.
+
+**On set two, the picture is mixed.**
+
+| | Single-vector (before) | Multi-view (after) |
+| --- | --- | --- |
+| Target in top 5 | 26/35 | 27/35 |
+| Target ranked 1st | 20/35 | 17/35 |
+| A supporting Practice in top 5 | 16/27 | 13/27 |
+| An unwanted Practice in top 5 | 9/41 | 7/41 |
+
+> Source: the 40 questions in set two plus one added question · 97 Practices · the supporting row counts only the 27 questions that carry a supporting Practice
+
+Multi-view is at its best when technical words swallow the task. For "before I start coding the React dashboard, how far should I let the scope grow, and when do I stop adding things?", the original ranking put six React performance and rendering Practices first and the target, "decide scope and stop conditions", at 13. Multi-view puts the target first, with no React Practice in the top five. Long queries with mixed constraints also improve: a scope question that mentions shipping today and recording a demo at lunch moved its target from 30 to 11.
+
+It also demotes some supporting Practices. For "write the closing note on the server-action authorization fix; which leftover issues must I include?", the original ranking had React's "authorize server actions" first and the target eighth. Multi-view puts the target first, but that React Practice drops to 15 — it was genuinely useful background.
+
+The React form review example above works in both: the target ranked 1st and the React supporting Practice 3rd before; 2nd and 5th after, with the Pack-content lookalike outside the top 14 either way.
+
+In one sentence: multi-view reliably moves "what to do" to the top, but it cannot yet tell which domain Practices help and which crowd the answer out.
+
+## Shipping as an opt-in mode
+
+The first implementation made multi-view the default. We did not merge it that way.
+
+Set two shows that multi-view is better on some questions and loses useful supporting Practices on others. Users depend on the default every day, and it should not be replaced by a version with a clear weakness. So the second version kept the default as it was and made multi-view an opt-in mode. Adding one flag is enough, with no configuration change:
+
+```sh
+lore query "current task" --mode multi-view-vector
+```
+
+Each mode maintains its own index, so the two cannot read each other's vectors, and the CLI labels which mode produced the results.
+
+The next problem is teaching retrieval to separate "helping" from "crowding out". The LLM applicability judge points straight at it and will be built as a separate service layer.
+
+## Closing
+
+The main lesson: when retrieval is wrong, do not reach for another term in the formula first. Check whether the comparison itself is wrong. The keyword bonus improved the numbers for a while, but what actually worked was comparing the question and the Practices in pieces.
+
+The second lesson is that the test questions determine what you can see. With targets only, multi-view looked like a clean win. Adding supporting Practices revealed its weakness. Shipping the new method as an opt-in was the safer call.
+
+## References
+
+<BlogEvidenceList>
+
+- **[Original issue](https://github.com/lorelum/lorelum/issues/236)** — the observed case, the expected ranking precedence, and the acceptance criteria.
+- **[First implementation](https://github.com/lorelum/lorelum/pull/272)** — the multi-view implementation, index migration, and acceptance tests.
+- **[Second version: opt-in mode](https://github.com/lorelum/lorelum/pull/279)** — restored the single-vector default, made multi-view opt-in, and isolated the two methods' indexes.
+- **[Verification record](https://github.com/lorelum/lorelum/blob/main/openspec/changes/advance-task-aware-semantic-retrieval/verification.md)** — the raw data behind each comparison in this post.
+- **[Multi-view scorer](https://github.com/lorelum/lorelum/blob/main/packages/engine/src/query/semantic/methods/multi-view/scoring.ts)** — the implementation of the scoring described above.
+
+</BlogEvidenceList>
