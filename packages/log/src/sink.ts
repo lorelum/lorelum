@@ -1,8 +1,14 @@
-import { allowsLogLevel, type LogLevel } from "./context.js";
+import {
+  allowsLogLevel,
+  pickCorrelation,
+  sanitizeLogContext,
+  type LogCorrelation,
+  type LogLevel,
+} from "./context.js";
 import { createLogRecord, type LogEventInput, type LogRecord } from "./record.js";
 
 export interface LogSink {
-  write(record: LogRecord | LogEventInput): void | Promise<void>;
+  write(record: LogRecord): void | Promise<void>;
 }
 
 export interface LogEmitter {
@@ -14,8 +20,8 @@ export const noopEmitter: LogEmitter = Object.freeze({ emit: () => undefined });
 export class MemoryLogSink implements LogSink {
   readonly records: LogRecord[] = [];
 
-  write(record: LogRecord | LogEventInput): void {
-    this.records.push(createLogRecord(record));
+  write(record: LogRecord): void {
+    this.records.push(record);
   }
 }
 
@@ -46,7 +52,7 @@ export class FilteredLogEmitter implements LogEmitter {
 
 const correlationFields = ["requestId", "operationId", "preparationId", "nativeRunId"] as const;
 
-function correlationKeys(record: LogRecord): readonly string[] {
+function correlationKeys(record: LogCorrelation): readonly string[] {
   return correlationFields.flatMap((field) => {
     const value = record[field];
     return value === undefined ? [] : [`${field}:${value}`];
@@ -70,7 +76,10 @@ export class TraceDetailLogEmitter implements LogEmitter {
   ) {}
 
   emit(input: LogEventInput): void {
-    const record = createLogRecord(input);
+    const record = {
+      ...pickCorrelation(sanitizeLogContext({ ...pickCorrelation(input.context ?? {}) }) ?? {}),
+      ...pickCorrelation(input),
+    };
     const directDebug =
       record.traceId !== undefined &&
       (input.diagnosticLevel === "debug" || this.debugTraces.has(record.traceId));
@@ -84,7 +93,7 @@ export class TraceDetailLogEmitter implements LogEmitter {
     if (directDebug || relatedDebug) {
       for (const key of correlationKeys(record)) this.debugRelations.add(key);
     }
-    if (allowsLogLevel(this.minimumLevel, record.level) || directDebug || relatedDebug) {
+    if (allowsLogLevel(this.minimumLevel, input.level) || directDebug || relatedDebug) {
       this.delegate.emit(input);
     }
   }
@@ -106,7 +115,7 @@ export function withDiagnosticLevel(
 export class FanoutLogSink implements LogSink {
   constructor(private readonly sinks: readonly LogSink[]) {}
 
-  write(record: LogRecord | LogEventInput): void {
+  write(record: LogRecord): void {
     for (const sink of this.sinks) {
       try {
         const result = sink.write(record);

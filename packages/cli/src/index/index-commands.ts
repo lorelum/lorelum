@@ -1,3 +1,4 @@
+import type { ConfigReader } from "@lorelum/config";
 import type { BackendClient } from "@lorelum/backend/client";
 import type { IndexRuntimeClient } from "@lorelum/backend/coordination";
 import {
@@ -29,7 +30,7 @@ export interface IndexCommandServices {
   /** Build/rebuild observe Backend-owned execution without waiting for model downloads. */
   readonly createRuntimeClient: (traceId?: TraceId, debug?: boolean) => Promise<IndexRuntimeClient>;
   readonly storageRoot: StorageRoot;
-  readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
+  readonly loadSemanticSettings?: (readConfig?: ConfigReader) => Promise<SemanticRetrievalSettings>;
 }
 
 const indexStatusResultSchema: JsonSchema = {
@@ -172,7 +173,9 @@ function command(
           ? undefined
           : {
               ...backendProjectTargetOptions(projectOptions),
-              ...(await (services.loadSemanticSettings ?? loadSemanticRetrievalSettings)()),
+              ...(await (services.loadSemanticSettings === undefined
+                ? loadSemanticRetrievalSettings({}, invocation.readConfig)
+                : services.loadSemanticSettings(invocation.readConfig))),
             };
         if (isStatus || isOperation) {
           const client = await services.createClient(

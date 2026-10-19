@@ -133,4 +133,46 @@ describe("Effective Practice reconciliation", () => {
       reconcileEffectivePractices([{ ...source, sourcePath: "practices/../escape.md" }], valid),
     ).toThrow(InvalidPracticeSourceError);
   });
+
+  test("rejects candidate Pack, Practice ID and canonical content mismatches", () => {
+    const valid = candidate("react-core");
+    const source = valid.sources[0]!;
+    const invalidSources = [
+      { ...source, packName: "react-other" },
+      { ...source, practiceId: "react.other" },
+      {
+        ...source,
+        canonicalPractice: { ...source.canonicalPractice, canonicalContent: "corrupted" },
+      },
+    ];
+    for (const invalid of invalidSources) {
+      expect(() => reconcileEffectivePractices([], { ...valid, sources: [invalid] })).toThrow(
+        InvalidPracticeSourceError,
+      );
+    }
+  });
+
+  test("validates existing sources even when an upgrade or removal would discard them", () => {
+    const valid = candidate("react-core");
+    const source = valid.sources[0]!;
+    const invalidSources = [
+      { ...source, sourcePath: "practices/../escape.md" },
+      { ...source, contentDigest: "0".repeat(64) },
+      { ...source, practiceId: "react.other" },
+    ];
+    for (const invalid of invalidSources) {
+      expect(() => reconcileEffectivePractices([invalid], valid, "react-core")).toThrow(
+        InvalidPracticeSourceError,
+      );
+      expect(() => removePackSources([invalid], "react-core")).toThrow(InvalidPracticeSourceError);
+    }
+  });
+
+  test("removal still rejects conflicting existing sources before filtering", () => {
+    const first = candidate("react-core");
+    const conflicting = candidate("react-alt", "0.1.0", "Different");
+    expect(() =>
+      removePackSources([...first.sources, ...conflicting.sources], "react-alt"),
+    ).toThrow(PracticeConflictError);
+  });
 });

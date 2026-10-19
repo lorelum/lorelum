@@ -163,7 +163,6 @@ export function createLogRecord(
   return transportBound(record, options.maxBytes ?? DEFAULT_LOG_RECORD_BYTES);
 }
 
-export function serializeLogRecord(record: LogRecord | LogEventInput): string {
-  const normalized = isLogRecord(record) ? record : createLogRecord(record);
-  return `${JSON.stringify(normalized)}\n`;
+export function serializeLogRecord(record: LogRecord): string {
+  return `${JSON.stringify(record)}\n`;
 }

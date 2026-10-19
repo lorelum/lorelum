@@ -21,15 +21,9 @@ function compareSources(left: PracticeSource, right: PracticeSource): number {
 }
 
 /**
- * Fully re-canonicalize a source before trusting it. This is deliberate
- * defense-in-depth: at this stage sources may come from an untrusted caller
- * (snapshot decode, cold open, recovery), so the stored digest and canonical
- * content are re-derived and compared rather than assumed consistent.
- * `createPackCandidate` already validated sources at build time; this second
- * pass guards the merge boundary itself. The cost is O(canonicalization) per
- * source — negligible at P1/P2 scale; if a future lifecycle layer can prove
- * sources were validated at a trusted boundary, this can be relaxed to the
- * cheap id/digest/path checks below.
+ * Validate each source at the public merge/removal boundary, including snapshots
+ * supplied by cold open or recovery. Assemblers in the same synchronous call
+ * reuse these validated sources without re-deriving their canonical content.
  */
 function assertValidSource(source: PracticeSource, expectedPackName?: string): void {
   if (expectedPackName !== undefined && source.packName !== expectedPackName) {
@@ -60,7 +54,6 @@ function assertValidSource(source: PracticeSource, expectedPackName?: string): v
 function buildEffectivePractices(sources: readonly PracticeSource[]): readonly EffectivePractice[] {
   const byPracticeId = new Map<string, PracticeSource[]>();
   for (const source of sources) {
-    assertValidSource(source);
     const group = byPracticeId.get(source.practiceId);
     if (group === undefined) byPracticeId.set(source.practiceId, [source]);
     else group.push(source);
@@ -158,6 +151,7 @@ export function reconcileEffectivePractices(
     );
   }
   for (const source of candidate.sources) assertValidSource(source, candidate.pack.name);
+  for (const source of existingSources) assertValidSource(source);
   const previous = buildEffectivePractices(existingSources);
   const retainedSources = existingSources.filter((source) => source.packName !== replacePackName);
   for (const source of candidate.sources) {
@@ -187,6 +181,7 @@ export function removePackSources(
   existingSources: readonly PracticeSource[],
   packName: string,
 ): ReconciledPractices {
+  for (const source of existingSources) assertValidSource(source);
   const previous = buildEffectivePractices(existingSources);
   const sources = existingSources
     .filter((source) => source.packName !== packName)

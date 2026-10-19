@@ -1,4 +1,4 @@
-import { readManagedLogs, type ManagedLogReadResult } from "./reader.js";
+import { DEFAULT_MAX_RECORDS, readManagedLogs } from "./reader.js";
 import type { LogRecord } from "./record.js";
 import type { TraceId } from "./context.js";
 
@@ -34,10 +34,6 @@ function relationKeys(record: LogRecord): readonly string[] {
   });
 }
 
-function mergeMissing(...results: readonly ManagedLogReadResult[]): readonly string[] {
-  return [...new Set(results.flatMap((result) => result.missing))];
-}
-
 /**
  * Reads one trace from managed logs and follows only anonymous shared lifecycle
  * records by request/operation/preparation/native-run relation. A record owned
@@ -46,18 +42,23 @@ function mergeMissing(...results: readonly ManagedLogReadResult[]): readonly str
 export async function collectTraceLogs(
   options: CollectTraceLogsOptions,
 ): Promise<TraceLogCollection> {
-  const [direct, available] = await Promise.all([
-    readManagedLogs({
-      rootDirectory: options.rootDirectory,
-      traceId: options.traceId,
-      ...(options.limit === undefined ? {} : { limit: options.limit }),
-    }),
-    readManagedLogs({
-      rootDirectory: options.rootDirectory,
-      ...(options.limit === undefined ? {} : { limit: options.limit }),
-    }),
-  ]);
-  const relations = new Set(direct.records.flatMap(relationKeys));
+  const limit = options.limit ?? DEFAULT_MAX_RECORDS;
+  const directRecords: LogRecord[] = [];
+  let directTruncated = false;
+  const available = await readManagedLogs({
+    rootDirectory: options.rootDirectory,
+    limit,
+    onRecord(record) {
+      if (record.traceId !== options.traceId) return;
+      directRecords.push(record);
+      if (directRecords.length > limit) {
+        directRecords.shift();
+        directTruncated = true;
+      }
+    },
+  });
+  directRecords.sort((left, right) => left.time.localeCompare(right.time));
+  const relations = new Set(directRecords.flatMap(relationKeys));
   const shared: LogRecord[] = [];
   const seen = new Set<string>();
   let changed = true;
@@ -83,14 +84,14 @@ export async function collectTraceLogs(
   }
 
   const missing = [
-    ...mergeMissing(direct, available),
-    ...(direct.truncated || available.truncated ? ["trace-log-collection-truncated"] : []),
+    ...available.missing,
+    ...(directTruncated || available.truncated ? ["trace-log-collection-truncated"] : []),
   ];
   return {
     traceId: options.traceId,
-    directRecords: direct.records,
+    directRecords,
     sharedRecords: shared.sort((left, right) => left.time.localeCompare(right.time)),
     missing: [...new Set(missing)],
-    truncated: direct.truncated || available.truncated,
+    truncated: directTruncated || available.truncated,
   };
 }

@@ -3,7 +3,12 @@ import { lstat, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { initializeProjectConfig, loadProjectConfig, resolveProjectPaths } from "./project";
+import {
+  initializeProjectConfig,
+  loadProjectConfig,
+  parseProjectConfig,
+  resolveProjectPaths,
+} from "./project";
 
 async function fixture(run: (root: string) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "lorelum-project-config-"));
@@ -79,4 +84,26 @@ test("does not follow a project marker or configuration symlink", async () => {
       await rm(external, { recursive: true, force: true });
     }
   });
+});
+
+test("project configuration is an immutable snapshot of caller-owned pack settings", () => {
+  const input = {
+    inherit: false,
+    packs: { platform: { enabled: true, priority: 10 } },
+  };
+  const config = parseProjectConfig(input);
+  input.inherit = true;
+  input.packs.platform.enabled = false;
+  input.packs.platform.priority = 20;
+  expect(config).toEqual({
+    inherit: false,
+    packs: { platform: { enabled: true, priority: 10 } },
+  });
+  expect(Object.isFrozen(input.packs.platform)).toBe(false);
+  expect(() => {
+    Object.assign(config.packs!.platform!, { priority: 30 });
+  }).toThrow(TypeError);
+  expect(() => {
+    Object.assign(config.packs!, { another: { enabled: false } });
+  }).toThrow(TypeError);
 });

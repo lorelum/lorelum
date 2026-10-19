@@ -1,10 +1,4 @@
-import {
-  serializeLogRecord,
-  createLogRecord,
-  type LogEventInput,
-  type LogRecord,
-  type LogSink,
-} from "@lorelum/log";
+import { serializeLogRecord, type LogRecord, type LogSink } from "@lorelum/log";
 
 import { Logger } from "./logger.js";
 
@@ -12,8 +6,8 @@ import { Logger } from "./logger.js";
 export class CliStderrLogSink implements LogSink {
   constructor(private readonly logger: Logger) {}
 
-  write(record: LogEventInput | LogRecord): void {
-    const normalized = createLogRecord(record);
-    this.logger.log(normalized.level, serializeLogRecord(normalized).trimEnd());
+  write(record: LogRecord): void {
+    if (!this.logger.isEnabled(record.level)) return;
+    this.logger.log(record.level, serializeLogRecord(record).trimEnd());
   }
 }

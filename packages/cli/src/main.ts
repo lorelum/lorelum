@@ -95,7 +95,6 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
   const runtime = options.runtime ?? processRuntime;
   if (runtime === undefined) throw new Error("CLI runtime was not constructed.");
   const diagnostics = runtime.diagnostics ?? noopEmitter;
-  runtime.log?.info("command.started", { invocationId });
   if (arguments_.includes("--debug")) runtime.log?.debug("command.debug-enabled", { invocationId });
   diagnostics.emit({
     time: new Date().toISOString(),
@@ -139,12 +138,6 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
         durationMs: Date.now() - startedAt,
         exitCode: 0,
       });
-      runtime.log?.info("command.completed", {
-        invocationId,
-        command,
-        durationMs: Date.now() - startedAt,
-        exitCode: 0,
-      });
       await processRuntime?.flush();
       return 0;
     }
@@ -171,12 +164,6 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       component: "cli",
       event: "cli.command.completed",
       traceId,
-      invocationId,
-      command,
-      durationMs: Date.now() - startedAt,
-      exitCode: commandExitCode,
-    });
-    runtime.log?.info("command.completed", {
       invocationId,
       command,
       durationMs: Date.now() - startedAt,

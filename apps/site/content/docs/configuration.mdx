@@ -60,6 +60,8 @@ query:
 
 The next semantic query, `index status`, `index build`, `index rebuild`, or post-install index synchronization reads the current selection. No Backend restart is needed. Each method has separate index and progress state; switching back can reuse compatible cached work. See [Index commands](./reference/indexing).
 
+Within one query or index command, including post-install index synchronization, logging and retrieval settings share the configuration document first read by that invocation. An edit made after that read applies to the next invocation, not partway through the current one. Each consumer still validates only the settings it uses.
+
 An invalid value reports `query.config-invalid` for commands that read this setting; correct or remove the field. `--mode single-vector` and `--mode multi-view-vector` override this method value for one query, but do not bypass unrelated configuration errors; with `multi-view-vector` configured, `--mode single-vector` compares against the default for one query. `lore query "<text>" --mode keyword` remains offline and does not read or validate the semantic method. No separate method flag or environment variable is needed.
 
 ## Query cache and wait policy

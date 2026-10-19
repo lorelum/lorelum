@@ -50,23 +50,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-function freezeConfig(config: ProjectConfig): ProjectConfig {
-  const packs = config.packs;
-  return Object.freeze({
-    ...(config.inherit === undefined ? {} : { inherit: config.inherit }),
-    ...(config.base === undefined ? {} : { base: config.base }),
-    ...(packs === undefined
-      ? {}
-      : {
-          packs: Object.freeze(
-            Object.fromEntries(
-              Object.entries(packs).map(([name, value]) => [name, Object.freeze({ ...value })]),
-            ),
-          ),
-        }),
-  });
-}
-
 /** Validate only the project-owned schema. Invalid layers are recoverable to callers. */
 export function parseProjectConfig(value: unknown): ProjectConfig {
   if (!isPlainObject(value)) throw new ProjectConfigError();
@@ -97,9 +80,7 @@ export function parseProjectConfig(value: unknown): ProjectConfig {
         throw new ProjectConfigError();
       if (
         rawPriority !== undefined &&
-        (typeof rawPriority !== "number" ||
-          !Number.isSafeInteger(rawPriority) ||
-          !Number.isInteger(rawPriority))
+        (typeof rawPriority !== "number" || !Number.isSafeInteger(rawPriority))
       ) {
         throw new ProjectConfigError();
       }
@@ -112,10 +93,10 @@ export function parseProjectConfig(value: unknown): ProjectConfig {
     }
   }
 
-  return freezeConfig({
+  return Object.freeze({
     ...(inherit === undefined ? {} : { inherit }),
     ...(base === undefined ? {} : { base }),
-    ...(rawPacks === undefined ? {} : { packs }),
+    ...(rawPacks === undefined ? {} : { packs: Object.freeze(packs) }),
   });
 }
 
@@ -176,10 +157,7 @@ export async function loadProjectConfig(rootDirectory: string): Promise<ProjectC
     const document = load(source, { schema: JSON_SCHEMA });
     const config = document === undefined ? Object.freeze({}) : parseProjectConfig(document);
     return Object.freeze({ state: "valid", config });
-  } catch (error) {
-    if (error instanceof ProjectConfigError) {
-      return Object.freeze({ state: "invalid", config: Object.freeze({}) });
-    }
+  } catch {
     return Object.freeze({ state: "invalid", config: Object.freeze({}) });
   } finally {
     await file?.close().catch(() => undefined);

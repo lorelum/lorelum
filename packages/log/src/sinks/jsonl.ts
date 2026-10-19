@@ -2,12 +2,7 @@ import { constants } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import {
-  createLogRecord,
-  serializeLogRecord,
-  type LogEventInput,
-  type LogRecord,
-} from "../record.js";
+import { serializeLogRecord, type LogRecord } from "../record.js";
 import type { LogSink } from "../sink.js";
 import {
   hasCode,
@@ -74,7 +69,7 @@ export class JsonlFileSink implements LogSink {
     await walkManagedLocation(this.trustedDirectory, dirname(this.path));
   }
 
-  write(record: LogRecord | LogEventInput): Promise<void> {
+  write(record: LogRecord): Promise<void> {
     if (this.disabled) return Promise.resolve();
     const operation = this.queue.then(async () => {
       if (this.disabled) return;
@@ -95,7 +90,7 @@ export class JsonlFileSink implements LogSink {
     return operation;
   }
 
-  private async appendRecord(record: LogRecord | LogEventInput): Promise<void> {
+  private async appendRecord(record: LogRecord): Promise<void> {
     // One lstat keeps symlink refusal platform-independent: Windows has no
     // O_NOFOLLOW, so the open below would follow a reparse point there.
     const existing = await lstat(this.path).catch((error: unknown) => {
@@ -126,7 +121,7 @@ export class JsonlFileSink implements LogSink {
       if (verdict.verdict === "unsafe") {
         throw new ManagedLogLocationError(verdict.reason, this.path);
       }
-      await file.writeFile(serializeLogRecord(createLogRecord(record)), "utf8");
+      await file.writeFile(serializeLogRecord(record), "utf8");
       await file.sync();
     } finally {
       await file.close();

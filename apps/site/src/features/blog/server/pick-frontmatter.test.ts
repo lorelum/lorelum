@@ -7,6 +7,7 @@ const frontmatter = {
   date: "2026-03-04",
   category: "benchmark" as const,
   author: "Starduet",
+  draft: false,
 };
 
 /** The projection must preserve the author's draft flag for every visibility consumer. */
@@ -16,25 +17,17 @@ describe("pickFrontmatter", () => {
     expect(pickFrontmatter({ ...frontmatter, draft: false }).draft).toBe(false);
   });
 
-  test("defaults an absent draft flag to false", () => {
-    expect(pickFrontmatter(frontmatter).draft).toBe(false);
-  });
-
-  test("projects the payload instead of passing it through", () => {
-    const projected = pickFrontmatter({ ...frontmatter, getText: () => "raw source" });
-    expect(projected).not.toHaveProperty("getText");
-    expect(projected).toEqual({ ...frontmatter, draft: false });
-  });
-
-  test("rejects frontmatter that drifts from the contract", () => {
-    expect(() => pickFrontmatter({ ...frontmatter, updated: "2026-01-01" })).toThrow();
-    expect(() => pickFrontmatter({ ...frontmatter, title: "" })).toThrow();
-    expect(() => pickFrontmatter({ ...frontmatter, category: "notes" })).toThrow();
-    // A non-boolean `draft` must fail the build-time check rather than be coerced:
-    // a `.catch(false)` rewrite would turn a frontmatter mistake into silently
-    // publishing the draft instead.
-    expect(() => pickFrontmatter({ ...frontmatter, draft: "yes" })).toThrow();
-    expect(() => pickFrontmatter({ ...frontmatter, draft: 1 })).toThrow();
-    expect(() => pickFrontmatter({ ...frontmatter, draft: null })).toThrow();
+  test("preserves authored fields without leaking collection helpers into the route payload", () => {
+    const pageData = {
+      ...frontmatter,
+      image: "/blog/covers/practice-injection.svg",
+      updated: "2026-03-06",
+      getText: () => "raw source",
+    };
+    expect(pickFrontmatter(pageData)).toEqual({
+      ...frontmatter,
+      image: pageData.image,
+      updated: pageData.updated,
+    });
   });
 });

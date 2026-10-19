@@ -5,7 +5,7 @@ description: 查看、构建或重建当前 query context 的 semantic artifact�
 
 query 会自动启动所需的 index 工作；这组命令用于查看、显式构建、强制重建或恢复当前 context。
 
-所有命令支持 `--store-root <path>`、`--cache-root <path>` 与 `--log-level <level>`。Store 只提供基础语料，derived artifact 位于用户级 cache；Backend 和模型设置仍属于用户级。目录中有 `.lorelum/` 时默认使用 ProjectContext，`--no-project` 可只用 Store。
+status、build 和 rebuild 支持 `--store-root <path>`、`--cache-root <path>` 与 `--log-level <level>`；operation 按 ID 查看已接受的工作，不接受 `--cache-root`。Store 只提供基础语料，derived artifact 位于用户级 cache；Backend 和模型设置仍属于用户级。目录中有 `.lorelum/` 时默认使用 ProjectContext，`--no-project` 可只用 Store。
 
 ```sh
 lore index status

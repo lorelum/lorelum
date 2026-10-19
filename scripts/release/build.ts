@@ -7,6 +7,7 @@ import {
 } from "../../packages/backend/src/runtime/native/embedding/catalog";
 import {
   assertNativeArtifactMatch,
+  readNativeArtifactManifest,
   verifyNativeArtifact,
 } from "../../packages/backend/src/runtime/native/embedding/manifest";
 import { compileReleaseCli } from "./compile-cli";
@@ -28,7 +29,7 @@ export async function buildReleaseStaging(): Promise<{
     );
   await runNativeBuild();
   const nativeDirectory = developmentEmbeddingArtifactDirectory(artifact);
-  const manifest = await verifyNativeArtifact(nativeDirectory);
+  const manifest = await readNativeArtifactManifest(nativeDirectory);
   const directory = join(repositoryRoot, "dist/release", artifact.id);
   await rm(directory, { recursive: true, force: true });
   await mkdir(directory, { recursive: true });

@@ -1,4 +1,10 @@
-import { ConfigError, loadConfig, type LoadConfigOptions } from "@lorelum/config";
+import {
+  ConfigError,
+  loadConfig,
+  type ConfigDocument,
+  type ConfigReader,
+  type LoadConfigOptions,
+} from "@lorelum/config";
 import {
   DEFAULT_VECTOR_RETRIEVAL_METHOD_ID,
   VECTOR_RETRIEVAL_METHOD_IDS,
@@ -52,10 +58,13 @@ function integer(value: unknown, key: string, min: number, max: number): number 
 }
 
 /** Consumer-owned validation: unrelated query fields remain available to their owners. */
-export async function loadQuerySettings(options: LoadConfigOptions = {}): Promise<QuerySettings> {
-  let document: Readonly<Record<string, unknown>>;
+export async function loadQuerySettings(
+  options: LoadConfigOptions = {},
+  readConfig?: ConfigReader,
+): Promise<QuerySettings> {
+  let document: ConfigDocument;
   try {
-    document = await loadConfig(options);
+    document = await (readConfig === undefined ? loadConfig(options) : readConfig());
   } catch (error) {
     if (error instanceof ConfigError) invalid();
     throw error;
@@ -75,10 +84,11 @@ export async function loadQuerySettings(options: LoadConfigOptions = {}): Promis
 /** Only the semantic consumer validates the method; keyword remains independent. */
 export async function loadSemanticRetrievalSettings(
   options: LoadConfigOptions = {},
+  readConfig?: ConfigReader,
 ): Promise<SemanticRetrievalSettings> {
-  let document: Readonly<Record<string, unknown>>;
+  let document: ConfigDocument;
   try {
-    document = await loadConfig(options);
+    document = await (readConfig === undefined ? loadConfig(options) : readConfig());
   } catch (error) {
     if (error instanceof ConfigError) invalid();
     throw error;

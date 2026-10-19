@@ -5,7 +5,7 @@ description: Inspect, build, or rebuild the current query context's semantic art
 
 Query starts needed index work automatically. Use these commands to inspect, explicitly build, force a rebuild, or recover the current context.
 
-All commands accept `--store-root <path>`, `--cache-root <path>`, and `--log-level <level>`. The Store supplies base data and user-level cache holds derived artifacts; Backend and model settings also remain user-level. A directory with `.lorelum/` uses ProjectContext by default; `--no-project` uses only the Store.
+Status, build, and rebuild accept `--store-root <path>`, `--cache-root <path>`, and `--log-level <level>`. Operation observes accepted work by its ID and does not accept `--cache-root`. The Store supplies base data and user-level cache holds derived artifacts; Backend and model settings also remain user-level. A directory with `.lorelum/` uses ProjectContext by default; `--no-project` uses only the Store.
 
 ```sh
 lore index status

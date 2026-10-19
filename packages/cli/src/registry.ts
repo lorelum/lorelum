@@ -1,3 +1,4 @@
+import type { ConfigReader } from "@lorelum/config";
 import {
   protocolVersion,
   toolVersion,
@@ -108,6 +109,8 @@ export interface CommandInvocation {
   readonly log?: import("@lorelum/log").Logger;
   /** Managed local log root; production defaults to the user-level Lorelum root. */
   readonly logDirectory?: string;
+  /** Optional invocation-owned document reader; consumers validate their own sections. */
+  readonly readConfig?: ConfigReader;
 }
 
 export type DescribeCommand = (command?: string) => JsonValue | undefined;
@@ -382,7 +385,7 @@ export const commandRegistry = snapshotCommandDefinitions([
     createClient: createProcessSemanticRuntimeClient,
     storageRoot: sharedStorageRoot,
     resolveProjectContext: sharedProjectContextResolver,
-    loadSettings: loadQuerySettings,
+    loadSettings: (readConfig) => loadQuerySettings({}, readConfig),
   }),
   createListCommand({ list: sharedListService, storageRoot: sharedStorageRoot }),
   ...createBackendCommands({ createSupervisor: createProcessBackendSupervisor }),

@@ -1,4 +1,11 @@
-import { defaultLogDirectory, loadLoggingSettings, resolveLorelumPaths } from "@lorelum/config";
+import {
+  defaultLogDirectory,
+  loadConfig,
+  loadLoggingSettings,
+  resolveLorelumPaths,
+  type ConfigDocument,
+  type ConfigReader,
+} from "@lorelum/config";
 import {
   createLogger,
   FanoutLogSink,
@@ -21,6 +28,7 @@ export interface ProcessLogRuntime {
   readonly log: LocalLogger;
   readonly diagnostics: LogEmitter;
   readonly logDirectory: string;
+  readonly readConfig: ConfigReader;
   flush(): Promise<void>;
 }
 
@@ -34,10 +42,13 @@ function logFile(root: string, source: "cli" | "hook", traceId: TraceId, host?: 
     : join(root, "cli", daySegment(), `${traceId}.jsonl`);
 }
 
-async function configuredLevel(debug: boolean): Promise<"error" | "warn" | "info" | "debug"> {
+async function configuredLevel(
+  debug: boolean,
+  readConfig: ConfigReader,
+): Promise<"error" | "warn" | "info" | "debug"> {
   if (debug) return "debug";
   try {
-    return (await loadLoggingSettings()).level;
+    return (await loadLoggingSettings({}, readConfig)).level;
   } catch {
     // A malformed optional logging section must not prevent normal CLI recovery.
     return "info";
@@ -73,7 +84,9 @@ export async function createProcessLogRuntime(
   },
 ): Promise<ProcessLogRuntime> {
   const source = options.source ?? "cli";
-  const level = await configuredLevel(options.debug);
+  let document: Promise<ConfigDocument> | undefined;
+  const readConfig: ConfigReader = () => (document ??= loadConfig());
+  const level = await configuredLevel(options.debug, readConfig);
   const rootDirectory = options.rootDirectory ?? defaultLogDirectory();
   const trustedDirectory =
     options.rootDirectory === undefined ? resolveLorelumPaths().rootDirectory : rootDirectory;
@@ -107,6 +120,7 @@ export async function createProcessLogRuntime(
     log,
     diagnostics,
     logDirectory: rootDirectory,
+    readConfig,
     flush: async () => {
       await fileSink?.close();
       const failure = fileSink?.failure;

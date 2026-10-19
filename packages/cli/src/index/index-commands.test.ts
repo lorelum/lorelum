@@ -9,8 +9,11 @@ import {
   type IndexStatus,
 } from "@lorelum/backend/protocol";
 import { expect, test } from "bun:test";
+import { loadConfig } from "@lorelum/config";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { run as runCli } from "../main";
 import { protocolResponseSchema, type OutputWriter } from "../output/protocol";
@@ -22,6 +25,7 @@ import {
   type SemanticRetrievalSettings,
 } from "../query/settings";
 import { CliError } from "../runtime/errors";
+import { Logger } from "../runtime/logger";
 
 const run = (arguments_: readonly string[], options?: Parameters<typeof runCli>[1]) =>
   runCli(["--json", ...arguments_], options);
@@ -391,3 +395,42 @@ test("operation lookup does not read a subsequently invalid method configuration
   expect(result.exitCode).toBe(0);
   expect(result.response.data).toEqual({ operationId, state: "building" });
 });
+
+test.each(["status", "build", "rebuild"])(
+  "index %s validates its invocation document rather than rereading user configuration",
+  async (command) => {
+    const directory = await mkdtemp(join(tmpdir(), "lorelum-index-config-"));
+    try {
+      const filePath = join(directory, "config.yaml");
+      await writeFile(filePath, "query:\n  retrievalMethod: invalid\n");
+      const snapshot = await loadConfig({ filePath });
+      await writeFile(filePath, "query:\n  retrievalMethod: single-vector\n");
+      const stdout = new MemoryWriter();
+      const definitions = createIndexCommands({
+        storageRoot: { rootPath: join(directory, "store") },
+        createClient: async () => {
+          throw new Error("invalid method must fail before connecting");
+        },
+        createRuntimeClient: async () => {
+          throw new Error("invalid method must fail before building");
+        },
+      });
+      expect(
+        await run(["index", command], {
+          registry: definitions,
+          stdout,
+          runtime: {
+            logger: new Logger(new MemoryWriter()),
+            readConfig: async () => snapshot,
+          },
+        }),
+      ).toBe(2);
+      expect(JSON.parse(stdout.value)).toMatchObject({
+        ok: false,
+        error: { code: "query.config-invalid" },
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);

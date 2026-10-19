@@ -18,6 +18,8 @@ lore logs --trace-id <traceId> --limit 100
 
 This reads only Lorelum-managed records already associated with that call. It does not start a Backend or model, download anything, rerun the query, or inspect another invocation. Treat `missingEvidence` as a limit on what was retained: a missing, rotated, damaged, or non-debug log is not proof of a different cause.
 
+At an enabled collection level, an ordinary command has one start and one completion record. Trace collection keeps its direct records independently of the recent shared-lifecycle window, so unrelated calls do not displace older evidence that still fits the trace's own limit.
+
 If the records do not explain the problem and you control a safe minimal reproduction, rerun that reproduction with `--debug`:
 
 ```sh

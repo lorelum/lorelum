@@ -67,22 +67,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
+/** Registry maps and their source nodes are frozen at their construction boundaries. */
 function freezeCatalog(
   defaultAlias: string | undefined,
   registries: Readonly<Record<string, RegistryCatalogSource>>,
 ): RegistryCatalog {
   return Object.freeze({
     ...(defaultAlias === undefined ? {} : { defaultAlias }),
-    registries: Object.freeze(
-      Object.fromEntries(
-        Object.entries(registries).map(([alias, source]) => [alias, Object.freeze({ ...source })]),
-      ),
-    ),
+    registries,
   });
 }
 
 function emptyCatalog(): RegistryCatalog {
-  return freezeCatalog(undefined, {});
+  return freezeCatalog(undefined, Object.freeze({}));
 }
 
 function isMissing(error: unknown): boolean {
@@ -261,7 +258,7 @@ function parseCatalog(value: unknown): RegistryCatalog {
   }
   if (defaultAlias !== undefined && registries[defaultAlias] === undefined)
     throw new RegistryCatalogError();
-  return freezeCatalog(defaultAlias, registries);
+  return freezeCatalog(defaultAlias, Object.freeze(registries));
 }
 
 async function inspectParent(directory: string, create: boolean): Promise<void> {
@@ -478,14 +475,18 @@ export async function addRegistryCatalogSource(
   options: RegistryCatalogOptions = {},
 ): Promise<AddRegistryCatalogSourceResult> {
   validateAlias(alias);
-  validateSource(source);
+  const snapshot = Object.freeze({ ...source });
+  validateSource(snapshot);
   return mutateCatalog<AddRegistryCatalogSourceResult>(options, (catalog) => {
     const current = catalog.registries[alias];
     if (current !== undefined) {
-      if (!sourcesEqual(current, source)) throw new RegistryCatalogConflictError();
+      if (!sourcesEqual(current, snapshot)) throw new RegistryCatalogConflictError();
       return Object.freeze({ catalog, result: Object.freeze({ catalog, idempotent: true }) });
     }
-    const next = freezeCatalog(catalog.defaultAlias, { ...catalog.registries, [alias]: source });
+    const next = freezeCatalog(
+      catalog.defaultAlias,
+      Object.freeze({ ...catalog.registries, [alias]: snapshot }),
+    );
     return Object.freeze({
       catalog: next,
       result: Object.freeze({ catalog: next, idempotent: false }),
@@ -504,7 +505,7 @@ export async function removeRegistryCatalogSource(
     delete registries[alias];
     const next = freezeCatalog(
       catalog.defaultAlias === alias ? undefined : catalog.defaultAlias,
-      registries,
+      Object.freeze(registries),
     );
     return Object.freeze({ catalog: next, result: next });
   });

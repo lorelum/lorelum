@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { loadConfig } from "@lorelum/config";
 import {
   createLocalStore,
   decodePackDirectory,
@@ -17,6 +18,7 @@ import { run as runCli } from "../main.js";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper.js";
 import { snapshotCommandDefinitions } from "../registry.js";
 import { CliError, cliErrorCodes } from "../runtime/errors.js";
+import { Logger } from "../runtime/logger.js";
 import {
   createInstallCommand,
   createUpdateCommand,
@@ -930,3 +932,67 @@ test("invalid method configuration only fails indexSync after the canonical inst
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test.each(["registry", "directory"] as const)(
+  "%s install keeps its invocation method snapshot after the source changes configuration",
+  async (source) => {
+    const directory = await mkdtemp(join(tmpdir(), "lorelum-install-snapshot-"));
+    try {
+      const storageRoot = join(directory, "store");
+      const packDirectory = await createPack(directory);
+      const fixture = createServices(packDirectory, storageRoot);
+      const filePath = join(directory, "config.yaml");
+      await writeFile(filePath, "query:\n  retrievalMethod: multi-view-vector\n");
+      const definition = createInstallCommand({
+        ...fixture.services,
+        loadSemanticSettings: (readConfig) =>
+          loadSemanticRetrievalSettings({ filePath }, readConfig),
+        async decodePackDirectory(path) {
+          const decoded = await decodePackDirectory(path);
+          await writeFile(filePath, "query:\n  retrievalMethod: invalid\n");
+          return decoded;
+        },
+      });
+      const args =
+        source === "registry"
+          ? ["pack", "install", "agentic-coding"]
+          : ["pack", "install", "--path", packDirectory];
+      const firstSnapshot = await loadConfig({ filePath });
+      const first = new MemoryWriter();
+      expect(
+        await run(args, {
+          registry: [definition],
+          stdout: first,
+          runtime: {
+            logger: new Logger(new MemoryWriter()),
+            readConfig: async () => firstSnapshot,
+          },
+        }),
+      ).toBe(0);
+      expect(JSON.parse(first.value)).toMatchObject({
+        ok: true,
+        data: { indexSync: { state: "ready" } },
+      });
+
+      const nextSnapshot = await loadConfig({ filePath });
+      const next = new MemoryWriter();
+      expect(
+        await run(args, {
+          registry: [definition],
+          stdout: next,
+          runtime: {
+            logger: new Logger(new MemoryWriter()),
+            readConfig: async () => nextSnapshot,
+          },
+        }),
+      ).toBe(0);
+      expect(JSON.parse(next.value)).toMatchObject({
+        ok: true,
+        data: { indexSync: { state: "failed", error: { code: "query.config-invalid" } } },
+      });
+      expect(await fixture.store.readEffectivePractices({ rootPath: storageRoot })).toHaveLength(1);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);

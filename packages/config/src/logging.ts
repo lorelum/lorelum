@@ -1,4 +1,9 @@
-import { ConfigError, loadConfig, type LoadConfigOptions } from "./document/load.js";
+import {
+  ConfigError,
+  loadConfig,
+  type ConfigReader,
+  type LoadConfigOptions,
+} from "./document/load.js";
 
 export const loggingLevels = ["error", "warn", "info", "debug"] as const;
 export type LoggingLevel = (typeof loggingLevels)[number];
@@ -20,8 +25,9 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 /** Reads only the logging section; other consumer-owned sections remain untouched. */
 export async function loadLoggingSettings(
   options: LoadConfigOptions = {},
+  readConfig?: ConfigReader,
 ): Promise<LoggingSettings> {
-  const document = await loadConfig(options);
+  const document = await (readConfig === undefined ? loadConfig(options) : readConfig());
   if (document.logging === undefined) return DEFAULT_LOGGING_SETTINGS;
   if (!isRecord(document.logging)) invalid();
   const level = document.logging.level;

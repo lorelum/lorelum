@@ -4,12 +4,7 @@ import { randomUUID } from "node:crypto";
 import { waitForSettlement } from "../../lifecycle/deadline";
 import { noopEmitter, type LogEmitter } from "@lorelum/log";
 import type { BackendSettings } from "../../config/model";
-import {
-  embeddingRequestSchema,
-  type ModelPreparation,
-  type ModelProgress,
-  type ModelStatus,
-} from "./dto";
+import type { ModelPreparation, ModelProgress, ModelStatus } from "./dto";
 import {
   EmbeddingError,
   embeddingFailure,
@@ -227,8 +222,6 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     return unloading;
   }
   async function embed(kind: "query" | "document", inputs: readonly string[]) {
-    if (!embeddingRequestSchema.safeParse({ kind, inputs }).success)
-      throw new EmbeddingError("embedding.input-invalid");
     if (state === "loading" || state === "unloading" || inflight)
       throw new EmbeddingError("embedding.busy");
     if (state !== "ready" || !runtime) throw new EmbeddingError("embedding.not-loaded");
