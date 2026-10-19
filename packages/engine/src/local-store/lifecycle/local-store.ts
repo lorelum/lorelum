@@ -62,7 +62,7 @@ export interface LocalStore {
     root: StorageRoot,
     practiceId: string,
   ): Promise<EffectivePractice | undefined>;
-  /** Point read with source-scoped locators from verified Pack artifacts. */
+  /** Point read with source-scoped current locators from the same committed snapshot. */
   getEffectivePracticeWithPackRoots(
     root: StorageRoot,
     practiceId: string,

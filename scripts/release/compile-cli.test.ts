@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { resolveEmbeddingNativeArtifact } from "../../packages/backend/src/runtime/native/embedding/catalog";
 import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/native/embedding/manifest";
-import { compileReleaseCli, windowsCompileMetadataArguments } from "./compile-cli";
+import { compileCli, compileReleaseCli, windowsCompileMetadataArguments } from "./compile-cli";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const repositoryRoot = resolve(import.meta.dir, "../..");
@@ -38,6 +38,47 @@ const compileTimeoutMs = 30_000;
 function compileTest(name: string, fn: () => Promise<void>): void {
   test(name, fn, compileTimeoutMs);
 }
+
+compileTest(
+  "compiled identity survives process restarts and copies but separates builds",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "lore-build-identity-"));
+    try {
+      const entrypoint = join(directory, "entry.ts");
+      await writeFile(
+        entrypoint,
+        [
+          `import { currentBuildIdentity } from ${JSON.stringify(
+            join(repositoryRoot, "packages/backend/src/runtime/build-identity.ts"),
+          )};`,
+          "console.log(await currentBuildIdentity(import.meta.path));",
+        ].join("\n"),
+      );
+      const first = await compileCli({ entrypoint, outfile: join(directory, "first") });
+      const copied = join(directory, process.platform === "win32" ? "copied.exe" : "copied");
+      await copyFile(first.output, copied);
+      const second = await compileReleaseCli({
+        entrypoint,
+        outfile: join(directory, "second"),
+        artifact,
+        nativeManifest: manifest,
+        useBunCommand: true,
+      });
+      const identities = [first.output, first.output, copied, second.output].map((executable) => {
+        const child = Bun.spawnSync([executable], { stdout: "pipe", stderr: "pipe" });
+        expect(child.exitCode).toBe(0);
+        expect(child.stderr.toString()).toBe("");
+        return child.stdout.toString().trim();
+      });
+      expect(identities[0]).toMatch(/^[a-f0-9]{64}$/);
+      expect(identities[1]).toBe(identities[0]);
+      expect(identities[2]).toBe(identities[0]);
+      expect(identities[3]).not.toBe(identities[0]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
 
 test("Windows release compiler uses the checked-in Lorelum icon and product metadata", () => {
   const compileArguments = windowsCompileMetadataArguments();

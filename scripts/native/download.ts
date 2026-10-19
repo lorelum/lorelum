@@ -11,14 +11,15 @@ export interface PinnedDownload {
 
 /** Download a pinned build input only when no verified local copy is available. */
 export async function ensurePinnedDownload(input: PinnedDownload): Promise<void> {
-  if (!existsSync(input.destination) || sha256File(input.destination) !== input.sha256) {
+  let actualSha256 = existsSync(input.destination) ? sha256File(input.destination) : undefined;
+  if (actualSha256 === undefined || actualSha256 !== input.sha256) {
     rmSync(input.destination, { force: true });
     console.log(`Downloading ${basename(input.destination)}...`);
     const response = await fetch(input.url, { redirect: "follow" });
     if (!response.ok) throw new Error(`download failed (${response.status}) for ${input.url}`);
     await Bun.write(input.destination, await response.arrayBuffer());
+    actualSha256 = sha256File(input.destination);
   }
-  const actualSha256 = sha256File(input.destination);
   const actualBytes = statSync(input.destination).size;
   if (actualSha256 !== input.sha256 || (input.bytes !== undefined && actualBytes !== input.bytes)) {
     throw new Error(

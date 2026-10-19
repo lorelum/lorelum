@@ -1,8 +1,14 @@
 import { expect, test } from "bun:test";
 import { DEFAULT_BACKEND_SETTINGS } from "../../config/model";
 import { EmbeddingError } from "./errors";
-import type { EmbeddingRuntime } from "./model";
+import type { EmbeddingRuntime, PreparedEmbeddingResources } from "./model";
 import { createEmbeddingService } from "./service";
+
+const prepared: PreparedEmbeddingResources = {
+  modelPath: "fixture-model",
+  executable: "fixture-native",
+  buildIdentity: "fixture-build",
+};
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -60,7 +66,7 @@ test("passes the input batch to the runtime unchanged and preserves order", asyn
 });
 
 test("automatic and explicit configured preparation share a stable daemon-owned task", async () => {
-  const pending = deferred<string>();
+  const pending = deferred<PreparedEmbeddingResources>();
   const f = fixture();
   let prepares = 0;
   let starts = 0;
@@ -91,7 +97,7 @@ test("automatic and explicit configured preparation share a stable daemon-owned 
   await expect(service.embedQuery(["query"])).rejects.toMatchObject({
     code: "embedding.not-loaded",
   });
-  pending.resolve("fixture");
+  pending.resolve(prepared);
   await explicit;
   expect((await continuation).state).toBe("ready");
   expect(service.beginModelPreparation().preparationId).toBe(first.preparationId);
@@ -110,7 +116,7 @@ test("automatic failed preparation is observable and requires explicit load to r
     settings: DEFAULT_BACKEND_SETTINGS,
     prepareModel: async () => {
       if (++prepares === 1) throw new EmbeddingError("embedding.download-failed");
-      return "fixture";
+      return prepared;
     },
     createRuntime: () => ({
       start: async () => {},
@@ -376,6 +382,32 @@ test("file preparation shares one task, reports progress, and cancels before nat
   expect(preparations).toBe(1);
   expect((await service.unload()).state).toBe("unloaded");
   expect(service.status().progress).toBeUndefined();
+});
+
+test("unload rejects a completed preparation before it can create a native runtime", async () => {
+  const entered = deferred<void>();
+  const pending = deferred<PreparedEmbeddingResources>();
+  const service = createEmbeddingService({
+    settings: DEFAULT_BACKEND_SETTINGS,
+    prepareModel: async () => {
+      entered.resolve();
+      return pending.promise;
+    },
+    createRuntime: () => {
+      throw new EmbeddingError("embedding.not-configured");
+    },
+  });
+  const loading = service.load();
+  const settled = loading.then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+  await entered.promise;
+  const unloading = service.unload();
+  pending.resolve(prepared);
+  await expect(unloading).resolves.toMatchObject({ state: "unloaded" });
+  expect(await settled).toMatchObject({ code: "embedding.failed" });
+  expect(service.status().state).toBe("unloaded");
 });
 
 test("thread setting does not affect encoding identity", async () => {

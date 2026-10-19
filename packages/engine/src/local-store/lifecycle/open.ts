@@ -68,7 +68,7 @@ interface VerifiedPackArtifact {
   readonly packRoot: string;
 }
 
-/** A source locator bound to the verified Pack artifact that supplied it. */
+/** A source locator bound to the same committed Store snapshot as its Practice. */
 export interface EffectivePracticeSourceLocator {
   readonly packName: string;
   readonly sourcePath: string;
@@ -164,7 +164,7 @@ async function verifyArtifactsAndSources(
   manifest: InstalledPacksManifest,
   effectivePractices: readonly EffectivePractice[],
 ): Promise<readonly VerifiedPackArtifact[]> {
-  const expectedSources = new Map<string, { digest: string }>();
+  const expectedSources = new Map<string, { digest: string; canonicalContent: string }>();
   const packDetails = await Promise.all(
     manifest.packs.map(async (entry) => {
       const artifactDir = artifactPath(rootPath, entry.storageKey, entry.artifactDigest);
@@ -184,6 +184,7 @@ async function verifyArtifactsAndSources(
       for (const practice of projection.practices) {
         expectedSources.set(`${entry.packName}/${practice.sourcePath}`, {
           digest: practice.contentDigest,
+          canonicalContent: practice.canonicalContent,
         });
       }
       return Object.freeze({
@@ -197,7 +198,11 @@ async function verifyArtifactsAndSources(
     for (const source of practice.sources) {
       const key = `${source.packName}/${source.sourcePath}`;
       const expected = expectedSources.get(key);
-      if (expected === undefined || expected.digest !== source.contentDigest) {
+      if (
+        expected === undefined ||
+        expected.digest !== source.contentDigest ||
+        expected.canonicalContent !== practice.canonicalContent
+      ) {
         throw new StoreRecoveryRequiredError(
           `source ${key} does not reconcile with any sealed projection`,
         );
@@ -211,83 +216,31 @@ async function verifyArtifactsAndSources(
   return Object.freeze(packDetails);
 }
 
-async function verifyEffectivePracticeSources(
+async function resolveEffectivePracticeSources(
   rootPath: string,
   manifest: InstalledPacksManifest,
   effectivePractice: EffectivePractice,
 ): Promise<readonly EffectivePracticeSourceLocator[]> {
   const entriesByName = new Map(manifest.packs.map((entry) => [entry.packName, entry]));
-  const artifactChecks = new Map<
-    string,
-    Promise<{ readonly packRoot: string; readonly projection: SnapshotProjection }>
-  >();
-
-  async function readVerifiedArtifact(packName: string): Promise<{
-    readonly packRoot: string;
-    readonly projection: SnapshotProjection;
-  }> {
-    const existing = artifactChecks.get(packName);
-    if (existing !== undefined) return existing;
-    const entry = entriesByName.get(packName);
-    if (entry === undefined) {
-      throw new StoreRecoveryRequiredError(`source references inactive Pack ${packName}`);
-    }
-    const check = (async () => {
-      try {
-        const artifactRoot = artifactPath(rootPath, entry.storageKey, entry.artifactDigest);
-        if ((await calculateArtifactDigest(artifactRoot)) !== entry.artifactDigest) {
-          throw new StoreRecoveryRequiredError(`artifact digest mismatch for ${entry.storageKey}`);
-        }
-        const projection = await readSealedProjection(artifactRoot);
-        if (
-          projection.pack.name !== entry.packName ||
-          projection.pack.version !== entry.packVersion
-        ) {
-          throw new StoreRecoveryRequiredError(
-            `projection metadata differs from the manifest for ${entry.storageKey}`,
-          );
-        }
-        return Object.freeze({
-          packRoot: await verifiedCurrentPackRoot(rootPath, entry),
-          projection,
-        });
-      } catch (error) {
-        if (
-          error instanceof StoreRecoveryRequiredError ||
-          error instanceof CurrentPackLocatorRepairNeededError
-        ) {
-          throw error;
-        }
-        throw new StoreRecoveryRequiredError(
-          `cannot verify sealed artifact for ${entry.storageKey}`,
-        );
-      }
-    })();
-    artifactChecks.set(packName, check);
-    return check;
-  }
-
+  const packRoots = new Map<string, Promise<string>>();
   return Object.freeze(
     await Promise.all(
       effectivePractice.sources.map(async (source) => {
-        const artifact = await readVerifiedArtifact(source.packName);
-        const projectionSource = artifact.projection.practices.find(
-          (practice) => practice.sourcePath === source.sourcePath,
-        );
-        if (
-          projectionSource === undefined ||
-          projectionSource.id !== source.practiceId ||
-          projectionSource.contentDigest !== source.contentDigest ||
-          projectionSource.canonicalContent !== source.canonicalPractice.canonicalContent
-        ) {
+        const entry = entriesByName.get(source.packName);
+        if (entry === undefined) {
           throw new StoreRecoveryRequiredError(
-            `source ${source.packName}/${source.sourcePath} does not reconcile with its sealed projection`,
+            `source references inactive Pack ${source.packName}`,
           );
+        }
+        let packRoot = packRoots.get(source.packName);
+        if (packRoot === undefined) {
+          packRoot = verifiedCurrentPackRoot(rootPath, entry);
+          packRoots.set(source.packName, packRoot);
         }
         return Object.freeze({
           packName: source.packName,
           sourcePath: source.sourcePath,
-          packRoot: artifact.packRoot,
+          packRoot: await packRoot,
         });
       }),
     ),
@@ -775,9 +728,8 @@ export async function getEffectivePractice(
 
 /**
  * Read one Practice and source-scoped Pack roots from one consistent Store
- * snapshot. Unlike the metadata-only point read, this validates every active
- * Pack artifact that supplied the returned Practice before exposing a local
- * locator; it deliberately does not audit unrelated Pack artifacts.
+ * snapshot. The committed canonical rows own the content; locator resolution
+ * verifies current views against the active manifest without auditing Pack bytes.
  */
 export async function getEffectivePracticeWithPackRoots(
   rootPath: string,
@@ -802,7 +754,11 @@ export async function getEffectivePracticeWithPackRoots(
       let sources: readonly EffectivePracticeSourceLocator[];
       try {
         // eslint-disable-next-line no-await-in-loop -- each locator must be bound to its snapshot
-        sources = await verifyEffectivePracticeSources(rootPath, snapshot.manifest, snapshot.value);
+        sources = await resolveEffectivePracticeSources(
+          rootPath,
+          snapshot.manifest,
+          snapshot.value,
+        );
       } catch (error) {
         // A completed upgrade may collect the old artifact while this command
         // is verifying it. Retry only when the Store has actually advanced;

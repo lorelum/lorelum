@@ -3,21 +3,26 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-/** Source identity binds checkout + production source; compiled identity binds executable bytes. */
+declare const LORELUM_BUILD_IDENTITY: string | undefined;
+
+/** Source identity binds checkout + production source; compiled identity is assigned once per build. */
 export async function currentBuildIdentity(entrypoint: string): Promise<string> {
-  const hash = createHash("sha256");
   if (isCompiledEntrypoint(entrypoint)) {
-    hash.update(await readFile(process.execPath));
-  } else {
-    const root = await realpath(resolve(dirname(entrypoint), "../../.."));
-    hash.update(root);
-    for (const name of ["backend", "cli", "config", "engine", "format"]) {
-      hash.update(await readFile(join(root, "packages", name, "package.json")));
-      await includeDirectory(join(root, "packages", name, "src"), hash);
-    }
-    hash.update(await readFile(join(root, "bun.lock")));
-    await includeDirectory(join(root, "native", "embedding"), hash);
+    if (typeof LORELUM_BUILD_IDENTITY !== "string")
+      throw new Error(
+        "CLI build identity is missing; build with bun run build:cli-only or build:cli.",
+      );
+    return LORELUM_BUILD_IDENTITY;
   }
+  const hash = createHash("sha256");
+  const root = await realpath(resolve(dirname(entrypoint), "../../.."));
+  hash.update(root);
+  for (const name of ["backend", "cli", "config", "engine", "format", "log"]) {
+    hash.update(await readFile(join(root, "packages", name, "package.json")));
+    await includeDirectory(join(root, "packages", name, "src"), hash);
+  }
+  hash.update(await readFile(join(root, "bun.lock")));
+  await includeDirectory(join(root, "native", "embedding"), hash);
   return hash.digest("hex");
 }
 async function includeDirectory(path: string, hash: ReturnType<typeof createHash>): Promise<void> {

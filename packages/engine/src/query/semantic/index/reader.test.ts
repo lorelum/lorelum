@@ -15,6 +15,7 @@ import {
   semanticVectors,
 } from "../../../persistence/schemas/semantic-index";
 import {
+  SemanticIndexError,
   SemanticIndexIncompatibleError,
   SemanticIndexNotReadyError,
   SemanticIndexQueryError,
@@ -22,10 +23,11 @@ import {
 import { resolveVectorRetrievalMethod } from "../methods/catalog";
 import { createVectorExecution } from "../profile";
 import type { DocumentVector, PracticeVectorProjection } from "../representation";
-import { initializeSemanticIndex } from "./database";
+import { initializeSemanticIndex, verifySemanticIndexIntegrity } from "./database";
 import { metadataFor } from "./metadata";
 import type { SemanticIndexPaths } from "./paths";
 import { openSemanticIndexReaderAt, type SemanticIndexReader } from "./reader";
+import { dotProduct } from "../vector";
 
 const profile = createVectorExecution(
   { encodingId: "a".repeat(64), dimensions: 2 },
@@ -345,5 +347,56 @@ test.each([
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  },
+);
+
+test.each([
+  { name: "truncated vector", vector: Buffer.from(new Float32Array([1]).buffer) },
+  { name: "non-finite vector", vector: Buffer.from(new Float32Array([NaN, 0]).buffer) },
+])("opens metadata but rejects an actual corrupt vector read: $name", async ({ vector }) => {
+  await withIndex([document("a")], async (paths) => {
+    const connection = openSqliteConnection(paths.active, semanticIndexDatabaseDefinition.schema);
+    try {
+      connection.orm.update(semanticVectors).set({ vector }).run();
+      expect(() => verifySemanticIndexIntegrity(connection)).toThrow(SemanticIndexError);
+    } finally {
+      connection.close();
+    }
+    await withReader(paths, (reader) => {
+      expect(reader.metadata.vectorCount).toBe(1);
+      expect(() =>
+        reader.search(
+          { score: (vectors) => dotProduct(vectors[0]!.embedding, new Float32Array([1, 0])) },
+          new Set(),
+        ),
+      ).toThrow(SemanticIndexQueryError);
+    });
+  });
+});
+
+test.each(["normalization", "input identity", "practice count"] as const)(
+  "full audit rejects invalid persisted %s without making metadata an audit",
+  async (invalid) => {
+    await withIndex([document("a")], async (paths) => {
+      const connection = openSqliteConnection(paths.active, semanticIndexDatabaseDefinition.schema);
+      try {
+        if (invalid === "normalization") {
+          connection.orm
+            .update(semanticVectors)
+            .set({ vector: Buffer.from(new Float32Array([2, 0]).buffer) })
+            .run();
+        } else if (invalid === "input identity") {
+          connection.orm.update(semanticVectors).set({ inputDigest: "invalid" }).run();
+        } else {
+          connection.orm.update(semanticIndexMetadata).set({ vectorCount: 2 }).run();
+        }
+        expect(() => verifySemanticIndexIntegrity(connection)).toThrow(SemanticIndexError);
+      } finally {
+        connection.close();
+      }
+      await withReader(paths, (reader) => {
+        expect(reader.metadata.vectorCount).toBe(invalid === "practice count" ? 2 : 1);
+      });
+    });
   },
 );

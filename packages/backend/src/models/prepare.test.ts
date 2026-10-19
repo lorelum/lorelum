@@ -1,6 +1,17 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtemp, realpath, rm, writeFile, readFile, stat } from "node:fs/promises";
+import {
+  chmod,
+  link,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  writeFile,
+  readFile,
+  stat,
+  symlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveEmbeddingConfig } from "../config/embedding";
@@ -172,4 +183,124 @@ test("missing source configuration downloads the fixed model from the default UR
     expect(requestedUrl).toBe(config.download.url);
     expect(requestedUrl).toContain("huggingface.co/Lorelum/");
     expect(path).toBe(join(root, artifact.sha256, "model.gguf"));
+  }));
+
+test("public explicit and cached models accept readable hardlinks without private file modes", () =>
+  fixture(async (root) => {
+    const source = join(root, "public.gguf");
+    await writeFile(source, content, { mode: 0o644 });
+    await chmod(source, 0o644);
+    const explicit = join(root, "explicit.gguf");
+    await link(source, explicit);
+    const directory = join(root, artifact.sha256);
+    await mkdir(directory, { mode: 0o755 });
+    const cached = join(directory, "model.gguf");
+    await link(source, cached);
+    const deps = {
+      artifact,
+      download: async () => {
+        throw new Error("a readable model must not download");
+      },
+    };
+    await expect(
+      prepareModel(
+        resolveEmbeddingConfig({ modelPath: explicit }),
+        new AbortController().signal,
+        () => {},
+        deps,
+      ),
+    ).resolves.toBe(explicit);
+    await expect(
+      prepareModel(
+        resolveEmbeddingConfig({ cacheDirectory: root }),
+        new AbortController().signal,
+        () => {},
+        deps,
+      ),
+    ).resolves.toBe(cached);
+  }));
+
+test("readable model symlinks are verified as ordinary files", () =>
+  fixture(async (root) => {
+    const source = join(root, "source.gguf");
+    const path = join(root, "linked.gguf");
+    await writeFile(source, content);
+    try {
+      await symlink(source, path);
+    } catch (error) {
+      if (
+        process.platform === "win32" &&
+        error instanceof Error &&
+        "code" in error &&
+        (error.code === "EPERM" || error.code === "EACCES")
+      )
+        return;
+      throw error;
+    }
+    const config = resolveEmbeddingConfig({ modelPath: path });
+    await expect(
+      prepareModel(config, new AbortController().signal, () => {}, { artifact }),
+    ).resolves.toBe(path);
+    const directory = join(root, artifact.sha256);
+    await mkdir(directory);
+    const cached = join(directory, "model.gguf");
+    await symlink(source, cached);
+    await expect(
+      prepareModel(
+        resolveEmbeddingConfig({ cacheDirectory: root }),
+        new AbortController().signal,
+        () => {},
+        { artifact },
+      ),
+    ).resolves.toBe(cached);
+    await writeFile(source, "incomplete");
+    await expect(
+      prepareModel(config, new AbortController().signal, () => {}, { artifact }),
+    ).rejects.toMatchObject({
+      code: "embedding.resource-invalid",
+      resource: { kind: "model", file: "embedding.modelPath", check: "size-mismatch" },
+    });
+  }));
+
+test("cancelling a transfer preserves its partial bytes without publishing a model", () =>
+  fixture(async (root) => {
+    const config = resolveEmbeddingConfig({ cacheDirectory: root });
+    const controller = new AbortController();
+    await expect(
+      prepareModel(config, controller.signal, () => {}, {
+        artifact,
+        download: async (options) => {
+          await writeFile(options.destination, "model");
+          controller.abort();
+        },
+      }),
+    ).rejects.toThrow();
+    const destination = join(root, artifact.sha256, "model.gguf");
+    expect(await readFile(`${destination}.part`, "utf8")).toBe("model");
+    await expect(stat(destination)).rejects.toMatchObject({ code: "ENOENT" });
+  }));
+
+test("partial download hardlinks cannot overwrite a public model", () =>
+  fixture(async (root) => {
+    const source = join(root, "public.gguf");
+    await writeFile(source, "model", { mode: 0o600 });
+    const directory = join(root, artifact.sha256);
+    await mkdir(directory, { mode: 0o700 });
+    const partial = join(directory, "model.gguf.part");
+    await link(source, partial);
+    await expect(
+      prepareModel(
+        resolveEmbeddingConfig({ cacheDirectory: root }),
+        new AbortController().signal,
+        () => {},
+        {
+          artifact,
+          download: async () => {
+            throw new Error("unsafe partial must never be written");
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ code: "backend.state-invalid" });
+    expect(await readFile(source, "utf8")).toBe("model");
+    expect(await readFile(partial, "utf8")).toBe("model");
   }));

@@ -13,8 +13,12 @@ import {
 import type { EffectivePractice } from "../../local-store";
 import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { openSqliteConnection } from "../../persistence/database/connection";
-import { semanticProgressIndexDatabaseDefinition } from "../../persistence/definitions";
+import {
+  semanticProgressIndexDatabaseDefinition,
+  semanticVectorCacheDatabaseDefinition,
+} from "../../persistence/definitions";
 import { semanticIndexMetadata, semanticVectors } from "../../persistence/schemas/semantic-index";
+import { embeddingVectors } from "../../persistence/schemas/semantic-vector-cache";
 import { resolveProjectContext } from "../../project-context/resolver";
 import { ContentAddressedSemanticProgressService } from "./semantic-progress";
 import { createContentAddressedSemanticServices } from "./semantic";
@@ -23,6 +27,7 @@ import {
   contentSemanticArtifactId,
   contentSemanticIndexPaths,
 } from "./cache";
+import { readSharedEmbeddingVectors } from "./vector-cache";
 
 const encodingId = "b".repeat(64);
 const methodIds = [...VECTOR_RETRIEVAL_METHOD_IDS];
@@ -589,6 +594,196 @@ test.each(
       ).resolves.toMatchObject({
         results: [{ practiceId: "platform.first" }, { practiceId: "platform.third" }],
       });
+    } finally {
+      await Promise.all([
+        rm(root, { recursive: true, force: true }),
+        rm(cache, { recursive: true, force: true }),
+      ]);
+    }
+  },
+);
+
+test.each(methodIds)(
+  "rejects invalid replacement vectors without replacing the ready artifact (%s)",
+  async (methodId) => {
+    const { root, cache } = await setup();
+    try {
+      const snapshot = await currentSnapshot(root);
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      let invalid = false;
+      const embedding = {
+        maxBatchSize: 8,
+        async embed(inputs: readonly string[]) {
+          return { encodingId, vectors: inputs.map(() => (invalid ? [2, 0] : [1, 0])) };
+        },
+      };
+      const service = new ContentAddressedSemanticProgressService(
+        snapshot,
+        cache,
+        execution,
+        embedding,
+      );
+      await expect(service.build()).resolves.toMatchObject({ state: "ready" });
+      // Force a fresh encode instead of reusing the separately persisted cache.
+      await rm(contentArtifactVectorCachePaths(cache).database, { force: true });
+      invalid = true;
+      await expect(service.build({ force: true })).rejects.toThrow("L2-normalized");
+      await expect(service.status()).resolves.toMatchObject({
+        state: "ready",
+        indexedPracticeCount: snapshot.practices.length,
+      });
+      const services = createContentAddressedSemanticServices(snapshot, cache, execution, {
+        maxBatchSize: 8,
+        async embed(inputs) {
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        },
+      });
+      await expect(
+        services.query.query(services.root, { text: "guidance" }),
+      ).resolves.toMatchObject({ coverage: "complete" });
+    } finally {
+      await Promise.all([
+        rm(root, { recursive: true, force: true }),
+        rm(cache, { recursive: true, force: true }),
+      ]);
+    }
+  },
+);
+
+test.each(methodIds)(
+  "ready status leaves corrupt payload errors to query and rebuild restores it (%s)",
+  async (methodId) => {
+    const { root, cache } = await setup();
+    try {
+      const snapshot = await currentSnapshot(root);
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      const embedding = {
+        maxBatchSize: 8,
+        async embed(inputs: readonly string[]) {
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        },
+      };
+      const progress = new ContentAddressedSemanticProgressService(
+        snapshot,
+        cache,
+        execution,
+        embedding,
+      );
+      await progress.build();
+      const connection = openSqliteConnection(
+        contentSemanticIndexPaths(cache, snapshot, execution.profile.profileId).active,
+        semanticProgressIndexDatabaseDefinition.schema,
+      );
+      try {
+        connection.orm
+          .update(semanticVectors)
+          .set({ vector: Buffer.from([0]) })
+          .run();
+      } finally {
+        connection.close();
+      }
+      await expect(progress.status()).resolves.toMatchObject({
+        state: "ready",
+        indexedPracticeCount: snapshot.practices.length,
+      });
+      const services = createContentAddressedSemanticServices(
+        snapshot,
+        cache,
+        execution,
+        embedding,
+      );
+      await expect(services.query.query(services.root, { text: "guidance" })).rejects.toThrow();
+      await expect(progress.build({ force: true })).resolves.toMatchObject({ state: "ready" });
+      await expect(
+        services.query.query(services.root, { text: "guidance" }),
+      ).resolves.toMatchObject({ coverage: "complete" });
+    } finally {
+      await Promise.all([
+        rm(root, { recursive: true, force: true }),
+        rm(cache, { recursive: true, force: true }),
+      ]);
+    }
+  },
+);
+
+test.each(
+  methodIds.flatMap((methodId) => [
+    { methodId, damage: "non-finite", vector: [Number.NaN, 0] },
+    { methodId, damage: "non-unit", vector: [2, 0] },
+  ]),
+)(
+  "forced rebuild repairs numerically invalid shared cache vectors ($methodId, $damage)",
+  async ({ methodId, vector }) => {
+    const { root, cache } = await setup();
+    try {
+      const snapshot = await resolveProjectContext({
+        startDirectory: root,
+        storageRoot: { rootPath: join(root, "store") },
+        store: {
+          async readEffectivePracticeSnapshot() {
+            return { practices: [] };
+          },
+        },
+      });
+      if (snapshot === undefined) throw new Error("Expected ProjectContext");
+      const execution = createVectorExecution(
+        { encodingId, dimensions: 2 },
+        resolveVectorRetrievalMethod(methodId),
+      );
+      const embedding = {
+        maxBatchSize: 8,
+        async embed(inputs: readonly string[]) {
+          return { encodingId, vectors: inputs.map(() => [1, 0]) };
+        },
+      };
+      const progress = new ContentAddressedSemanticProgressService(
+        snapshot,
+        cache,
+        execution,
+        embedding,
+      );
+      await progress.build();
+      const input = execution.method.projectDocument(snapshot.practices[0]!).inputs[0]!;
+      const connection = openSqliteConnection(
+        contentArtifactVectorCachePaths(cache).database,
+        semanticVectorCacheDatabaseDefinition.schema,
+      );
+      try {
+        connection.orm
+          .update(embeddingVectors)
+          .set({ vector: Buffer.from(new Float32Array(vector).buffer) })
+          .where(
+            and(
+              eq(embeddingVectors.profileId, execution.profile.profileId),
+              eq(embeddingVectors.inputDigest, input.inputDigest),
+            ),
+          )
+          .run();
+      } finally {
+        connection.close();
+      }
+
+      await expect(progress.build({ force: true })).resolves.toMatchObject({ state: "ready" });
+      const services = createContentAddressedSemanticServices(
+        snapshot,
+        cache,
+        execution,
+        embedding,
+      );
+      const result = await services.query.query(services.root, { text: "guidance" });
+      expect(result.coverage).toBe("complete");
+      expect(result.results.map((practice) => practice.practiceId).sort()).toEqual([
+        "platform.first",
+        "platform.second",
+      ]);
+      const repaired = await readSharedEmbeddingVectors(cache, execution.profile, [input]);
+      expect(repaired.get(input.inputDigest)).toEqual(new Float32Array([1, 0]));
     } finally {
       await Promise.all([
         rm(root, { recursive: true, force: true }),

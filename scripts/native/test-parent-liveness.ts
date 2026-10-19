@@ -9,7 +9,7 @@ import { win32NativeToolchain } from "./win32-toolchain";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { materializePatchedLlamaSource } from "./source-tree";
+import { materializePatchedLlamaSource, VerifiedNativePatch } from "./source-tree";
 
 type TestMode = "startup" | "encoding" | "stalled-main" | "direct-version";
 
@@ -51,7 +51,7 @@ async function reserveEphemeralPort(): Promise<number> {
 }
 
 async function ensureHarness(): Promise<void> {
-  const sourceRoot = await materializePatchedLlamaSource(repositoryRoot);
+  const sourceRoot = await materializePatchedLlamaSource(VerifiedNativePatch.read(repositoryRoot));
   const patchedMain = join(sourceRoot, "tools/server/main.cpp");
   mkdirSync(join(repositoryRoot, ".cache/native-liveness"), { recursive: true });
   // The liveness harness links against the same patched server entrypoint it probes.

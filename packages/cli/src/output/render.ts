@@ -1,5 +1,4 @@
 import {
-  assertJsonValue,
   createFailureEnvelope,
   createSuccessEnvelope,
   type JsonValue,
@@ -39,7 +38,6 @@ export function renderResult(
   result: RenderableResult,
 ): void {
   if (result.kind === "success") {
-    assertJsonValue(result.data);
     if (format === "json") {
       writeLine(
         writer,

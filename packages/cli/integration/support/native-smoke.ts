@@ -17,7 +17,7 @@ import { createInterruptedDownloadServer } from "../../../backend/integration/su
 import { waitUntil } from "../../../backend/integration/support/process.js";
 import { createBackendApp } from "../../../backend/src/app.js";
 import { downloadFile } from "../../../backend/src/download/file.js";
-import { prepareModel } from "../../../backend/src/models/prepare.js";
+import { prepareEmbeddingResources } from "../../../backend/src/runtime/embedding-resources.js";
 import { createBackendService } from "../../../backend/src/modules/backend/service.js";
 import {
   createEmbeddingService,
@@ -137,12 +137,14 @@ export async function createNativeSmokeEnvironment(
       },
       threads: 4,
       prepareModel: (signal, progress) =>
-        prepareModel(config, signal, progress, {
-          download: (options) =>
-            downloadFile({ ...options, url: source.url }, { protocols: "=http,https" }),
+        prepareEmbeddingResources(config, signal, progress, {
+          model: {
+            download: (options) =>
+              downloadFile({ ...options, url: source.url }, { protocols: "=http,https" }),
+          },
         }),
-      createRuntime(path) {
-        const native = createEmbeddingProcess({ modelPath: path, threads: 4 });
+      createRuntime(prepared) {
+        const native = createEmbeddingProcess({ ...prepared!, threads: 4 });
         return {
           ...native,
           async encodeBatch(inputs, signal) {

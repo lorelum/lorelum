@@ -47,6 +47,8 @@ bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf retrieval-metho
 
 HTTP 场景用可区分的 singleton 参考向量检查置换和重复输入的关联，并检查固定语义检索结果。`nativeBatch.minCosine` 与 `maxComponentDelta` 是数值偏差观测，不是质量无损证明。量化 CPU repack kernel 并非 batch-invariant；评估性能调整时，应另外使用冻结语料与评分规则比较检索结果，不能放宽已有冻结参考的验收阈值来掩盖回归。
 
+模型和 native 验证由准备阶段一次完成，runtime 消费同一次准备结果；正常 batch 编码不巡检磁盘 artifact。资源准备失败在启动前验收，ready 后的 batch 验收关注响应关联、取消、超时和进程退出，不再要求通过运行中修改磁盘文件使编码失败。
+
 ## 冻结参考回归
 
 HTTP 脚本可额外接收参考目录，包含 `q4-reference.json`、`fixtures.json`、`fp32-reference.json`：

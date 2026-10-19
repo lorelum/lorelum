@@ -21,6 +21,8 @@ lore get example.practice-id
 
 同一 Practice 有多个 source 时，应保持各自的 root，不能静默选中一个或合并多个 Pack 的资源。后续 Pack mutation 可能让相同的 current 路径解析到新 bytes，或随着 Pack 被移除而消失；应重新调用 `get`，或用 `lore pack list <pack-name>` 明确选择 Pack 后再使用，不能依赖 Store 内部实现推导新路径。reference 的读取、asset 的复制和 script 的显式运行规则见 [Pack 格式](./pack-format)。
 
+Store 指导来自 Pack 安装或更新时提交的 canonical 内容。`get` 核对所选快照与当前来源 locator，但不会每次重新哈希 Pack 或审计全部资源。直接修改已安装 Pack 文件不是更新流程，也不保证被逐次检测；应修改源 Pack，再使用 [Pack 命令](./packs)更新。可编辑的 ProjectContext 文件仍按项目来源读取。
+
 将 query 返回的 `practiceId` 原样作为精确 `practice-id`。无效 ID 返回 `usage.invalid`；当前 query context 中不存在时返回 `practice.not-found`。Store 忙或需要恢复时分别返回 `store.busy`、`store.recovery-required`。
 
 成功退出 `0`，声明的失败退出 `2`。精确结果 schema 见 `lore describe get`。

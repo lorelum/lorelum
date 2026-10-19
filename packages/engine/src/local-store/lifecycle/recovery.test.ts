@@ -176,6 +176,28 @@ test("cold open rejects a tampered artifact digest", async () => {
   });
 });
 
+test("full audit detects canonical content drift and reindex restores it from sealed data", async () => {
+  await withRoot(async (root) => {
+    const store = createLocalStore();
+    await store.install(root, candidate("platform", platform));
+    const original = (await store.getEffectivePractice(root, "platform.api"))!;
+    const stored = JSON.parse(original.canonicalContent) as Record<string, unknown>;
+    const database = await openStoreDatabase(root.rootPath);
+    try {
+      database
+        .query("UPDATE effective_practices SET canonical_content = ? WHERE practice_id = ?")
+        .run(JSON.stringify({ ...stored, body: "Changed outside LocalStore." }), "platform.api");
+    } finally {
+      database.close(true);
+    }
+    await expect(store.open(root)).rejects.toBeInstanceOf(StoreRecoveryRequiredError);
+    await store.reindex(root);
+    expect((await store.getEffectivePractice(root, "platform.api"))?.practice.body).toBe(
+      original.practice.body,
+    );
+  });
+});
+
 test("reindex rebuilds a store whose SQLite was deleted", async () => {
   await withRoot(async (root) => {
     const store = createLocalStore();

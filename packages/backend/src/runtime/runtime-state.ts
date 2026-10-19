@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import { lstat, mkdir, open, rename, unlink } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { z } from "zod";
 import { backendSettingsSchema } from "../config/model";
 import { embeddingConfigSchema } from "../config/embedding";
@@ -37,17 +37,11 @@ export function hasCode(error: unknown, code: string): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
 
-/** Parent components may be public, but none may redirect through a symlink. */
+/** Trust normal parent paths while keeping the runtime directory itself private. */
 export async function checkDirectory(directory: string, create = false): Promise<boolean> {
   const absolute = resolve(directory);
-  const parent = dirname(absolute);
-  if (parent !== absolute) {
-    const present = await checkPath(parent);
-    if (!present && !create) return false;
-    if (!present) await mkdir(parent, { recursive: true, mode: 0o700 });
-  }
   try {
-    if (create) await mkdir(absolute, { mode: 0o700 });
+    if (create) await mkdir(absolute, { recursive: true, mode: 0o700 });
   } catch (error) {
     if (!hasCode(error, "EEXIST")) throw error;
   }
@@ -61,19 +55,6 @@ export async function checkDirectory(directory: string, create = false): Promise
       (process.platform !== "win32" &&
         (info.uid !== process.getuid?.() || (info.mode & 0o077) !== 0))
     )
-      throw new BackendError("backend.state-invalid");
-    return true;
-  } catch (error) {
-    if (hasCode(error, "ENOENT")) return false;
-    throw error;
-  }
-}
-async function checkPath(path: string): Promise<boolean> {
-  const parent = dirname(path);
-  if (parent !== path && !(await checkPath(parent))) return false;
-  try {
-    const info = await lstat(path);
-    if (!info.isDirectory() || info.isSymbolicLink())
       throw new BackendError("backend.state-invalid");
     return true;
   } catch (error) {

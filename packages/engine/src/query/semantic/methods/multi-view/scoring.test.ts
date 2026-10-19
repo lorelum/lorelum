@@ -78,6 +78,9 @@ test("unsupported channels, a whole-document full input and malformed query vect
     [query([1, 0, 0])],
     [query([1, 0], 0)],
     [query([Number.NaN, 0])],
+    [query([0, Number.NaN])],
+    [query([Number.POSITIVE_INFINITY, 0])],
+    [query([0, Number.NEGATIVE_INFINITY])],
     [query([1, 0]), query([0, 1])],
   ]) {
     expect(() => prepareMultiViewScorer(queries, 2)).toThrow(SemanticIndexQueryError);

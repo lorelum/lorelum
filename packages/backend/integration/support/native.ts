@@ -5,6 +5,8 @@ import { createEmbeddingService } from "../../src/modules/embedding/service";
 import type { EmbeddingRuntime } from "../../src/modules/embedding/model";
 import type { ProcessIdentity } from "../../src/runtime/process-identity";
 import { createEmbeddingProcess } from "../../src/runtime/embedding-process";
+import { resolveEmbeddingConfig } from "../../src/config/embedding";
+import { prepareEmbeddingResources } from "../../src/runtime/embedding-resources";
 
 /**
  * Native acceptance observes full-batch throughput instead of gating machine speed;
@@ -38,10 +40,15 @@ export function createNativeFixture(
       requestTimeoutMs: HARNESS_ENCODE_BUDGET_MS,
     },
     ...runtimeSettings,
-    createRuntime() {
-      const native = createEmbeddingProcess({ modelPath, ...runtimeSettings }, async (identity) => {
-        process = identity;
-      });
+    prepareModel: (signal, progress) =>
+      prepareEmbeddingResources(resolveEmbeddingConfig({ modelPath }), signal, progress),
+    createRuntime(prepared) {
+      const native = createEmbeddingProcess(
+        { ...prepared!, ...runtimeSettings },
+        async (identity) => {
+          process = identity;
+        },
+      );
       runtime = {
         ...native,
         async encodeBatch(inputs, signal) {

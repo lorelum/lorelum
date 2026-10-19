@@ -54,6 +54,35 @@ test("private state rejects malformed, permissive and redirected files", async (
       });
     }
   }));
+test.skipIf(process.platform === "win32")(
+  "runtime state accepts a linked ancestor but still rejects insecure credential leaves",
+  async () =>
+    fixture(async (directory) => {
+      const parent = join(directory, "linked-parent");
+      await symlink(directory, parent, "dir");
+      const runtime = join(parent, "nested", "runtime");
+      expect(await readRecord(runtime)).toBeUndefined();
+      expect(await checkDirectory(runtime, true)).toBe(true);
+      const value = await record();
+      await writeRecord(runtime, value);
+      expect(await readRecord(runtime)).toEqual(value);
+      const credential = join(runtime, "instance.json");
+      await chmod(credential, 0o644);
+      await expect(readRecord(runtime)).rejects.toMatchObject({ code: "backend.state-invalid" });
+      await chmod(credential, 0o600);
+      await rm(credential);
+      const target = join(directory, "redirected-credential");
+      await writeFile(target, JSON.stringify(value), { mode: 0o600 });
+      await symlink(target, credential);
+      await expect(readRecord(runtime)).rejects.toMatchObject({ code: "backend.state-invalid" });
+      const alias = join(directory, "runtime-alias");
+      await symlink(runtime, alias, "dir");
+      await expect(checkDirectory(alias, true)).rejects.toMatchObject({
+        code: "backend.state-invalid",
+      });
+    }),
+);
+
 test("cleanup cannot delete a replacement instance record", async () =>
   fixture(async (directory) => {
     const previous = await record();
@@ -96,18 +125,15 @@ test.skipIf(process.platform === "win32")(
       });
     }),
 );
-test.skipIf(process.platform !== "win32")(
-  "private state rejects a hard-linked instance record on Windows",
-  async () =>
-    fixture(async (directory) => {
-      const value = await record();
-      await writeRecord(directory, value);
-      await link(join(directory, "instance.json"), join(directory, "alias.json"));
-      await expect(readRecord(directory)).rejects.toMatchObject({
-        code: "backend.state-invalid",
-      });
-    }),
-);
+test("private state rejects a hard-linked instance record", async () =>
+  fixture(async (directory) => {
+    const value = await record();
+    await writeRecord(directory, value);
+    await link(join(directory, "instance.json"), join(directory, "alias.json"));
+    await expect(readRecord(directory)).rejects.toMatchObject({
+      code: "backend.state-invalid",
+    });
+  }));
 test("private diagnostic lifecycle log rotates at a bounded size", async () =>
   fixture(async (directory) => {
     await writeFile(join(directory, "backend.log"), "x".repeat(65_536), { mode: 0o600 });
