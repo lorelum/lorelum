@@ -1,7 +1,8 @@
 import { DEFAULT_EMBEDDING_SETTINGS } from "../config/embedding";
 import { BACKEND_HOST } from "../protocol/constants";
 
-const DEFAULT_CONTEXT_TOKENS = "2048";
+const CONTEXT_TOKENS_PER_SLOT = 2048;
+const NATIVE_BATCH_SLOTS = 2;
 
 /** Production and explicit native tests use the same fixed CPU encoding recipe. */
 export function llamaArguments(
@@ -35,13 +36,13 @@ export function llamaArguments(
     "-tb",
     threads,
     "-c",
-    DEFAULT_CONTEXT_TOKENS,
+    String(CONTEXT_TOKENS_PER_SLOT * NATIVE_BATCH_SLOTS),
     "-b",
-    DEFAULT_CONTEXT_TOKENS,
+    String(CONTEXT_TOKENS_PER_SLOT),
     "-ub",
-    DEFAULT_CONTEXT_TOKENS,
+    String(CONTEXT_TOKENS_PER_SLOT),
     "-np",
-    "1",
+    String(NATIVE_BATCH_SLOTS),
     "--no-warmup",
   ];
 }

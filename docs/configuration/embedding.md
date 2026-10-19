@@ -47,7 +47,7 @@ https://huggingface.co/Lorelum/granite-embedding-97m-multilingual-r2-GGUF/resolv
 
 不支持 Range、远端偏移不匹配、来源变更或摘要失败都要明确报错，不自动删除 `.part` 并从零重试。只有确认数据损坏或决定放弃不兼容的续传时，先执行 `model unload`，再手动删除对应 `${cacheDirectory}/${sha256}/model.gguf.part`，不要清理 cache directory 下其他文件。权限、磁盘空间和永久 HTTP 错误不循环重试。下载使用随 CLI 打包的 got npm 包，无需安装 curl。下载没有总超时；DNS、TCP、TLS 各连接阶段默认上限 30 秒，连续无文件字节进展默认上限 60 秒。取消会等待文件流关闭，再允许下次续传。
 
-native 固定以 2048 context 初始化；该参数不暴露为 config 字段，也不作为 Lorelum 的输入 token 上限。
+native 使用两个独立 sequence slot，每槽以 2048 context 初始化，总 context 为 4096；这些参数不暴露为 config 字段，也不作为 Lorelum 的输入 token 上限。
 
 ## 生效与隐私
 

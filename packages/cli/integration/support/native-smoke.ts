@@ -34,6 +34,7 @@ import { createEmbeddingProcess } from "../../../backend/src/runtime/embedding-p
 import { createCacheCommands } from "../../src/cache/commands.js";
 import { createGetCommand } from "../../src/get/get-command.js";
 import { createIndexCommands } from "../../src/index/index-commands.js";
+import { createInstallCommand } from "../../src/install/install-command.js";
 import { run } from "../../src/main.js";
 import { createModelCommands } from "../../src/model/commands.js";
 import type { OutputWriter } from "../../src/output/protocol.js";
@@ -66,6 +67,7 @@ export interface NativeEncodingStats {
   readonly batches: number;
   readonly documentCount: number;
   readonly elapsedMs: number;
+  readonly nativeBatchSizes: readonly number[];
 }
 
 export interface NativeSmokeSession {
@@ -103,6 +105,7 @@ export async function createNativeSmokeEnvironment(
   let completedDocumentBatches = 0;
   let documentCount = 0;
   let documentEncodingMs = 0;
+  const nativeBatchSizes: number[] = [];
 
   async function dispose(): Promise<void> {
     releaseBatch?.();
@@ -138,7 +141,22 @@ export async function createNativeSmokeEnvironment(
           download: (options) =>
             downloadFile({ ...options, url: source.url }, { protocols: "=http,https" }),
         }),
-      createRuntime: (path) => createEmbeddingProcess({ modelPath: path, threads: 4 }),
+      createRuntime(path) {
+        const native = createEmbeddingProcess({ modelPath: path, threads: 4 });
+        return {
+          ...native,
+          async encodeBatch(inputs, signal) {
+            const vectors = await native.encodeBatch(inputs, signal);
+            assert.equal(
+              vectors.length,
+              inputs.length,
+              "Real native batch must return every sequence",
+            );
+            nativeBatchSizes.push(inputs.length);
+            return vectors;
+          },
+        };
+      },
     });
     embedding = service;
     const store = createLocalStore();
@@ -204,6 +222,7 @@ export async function createNativeSmokeEnvironment(
       batches: documentBatches,
       documentCount,
       elapsedMs: documentEncodingMs,
+      nativeBatchSizes: [...nativeBatchSizes],
     });
 
     return {
@@ -240,6 +259,22 @@ export async function createNativeSmokeEnvironment(
         const loadSemanticSettings = () =>
           loadSemanticRetrievalSettings({ homeDirectory: configHome });
         const definitions = snapshotCommandDefinitions([
+          createInstallCommand({
+            store,
+            storageRoot,
+            createIndexRuntimeClient: async () => {
+              const indexClient = createIndexRuntimeClient(coordinator);
+              return {
+                ...indexClient,
+                // Install has no cache-root argument in its synchronization call.
+                // Keep that real Backend submission inside this session's owned cache.
+                build: (targetRoot, options) =>
+                  indexClient.build(targetRoot, { ...options, cacheRoot }),
+              };
+            },
+            loadSemanticSettings,
+            progressWriter: new MemoryWriter(),
+          }),
           ...createProjectContextCommands({ storageRoot, resolveProjectContext: resolver }),
           createGetCommand({ store, storageRoot, resolveProjectContext: resolver }),
           createQueryCommand({

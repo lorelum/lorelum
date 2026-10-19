@@ -43,6 +43,13 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
       EMBEDDING_MODEL.maxInputs,
     "The multi-view native path must cover a document batch boundary",
   );
+  const multiNativeBatchSizes = environment
+    .encodingStats()
+    .nativeBatchSizes.slice(beforeMulti.nativeBatchSizes.length);
+  assert(
+    multiNativeBatchSizes.includes(EMBEDDING_MODEL.maxInputs),
+    "Multi-view index construction must complete a real native batch, not a singleton forwarding loop",
+  );
   await assert.rejects(readFile(session.configFile), { code: "ENOENT" });
   const defaultAfterTemporary = expectOk(
     "ordinary query restores default after temporary mode",
@@ -59,6 +66,7 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
   assert.equal(multiStatus.profileId, temporaryQuery.profileId);
   expectOk("multi-view-vector build", await invoke(["index", "build"]));
   await environment.waitForIdle();
+  const beforeMultiQuery = environment.encodingStats();
   const multiQuery = expectOk(
     "multi-view-vector complete query",
     await invoke([
@@ -72,6 +80,19 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
   assert.equal(multiQuery.coverage, "complete");
   assert.equal(multiQuery.retrievalMethod, "multi-view-vector");
   assert.equal(multiQuery.profileId, multiStatus.profileId);
+  const afterMultiQuery = environment.encodingStats();
+  assert.equal(
+    afterMultiQuery.documentCount,
+    beforeMultiQuery.documentCount,
+    "A ready query must not hide a document rebuild",
+  );
+  const multiQueryNativeBatchSizes = afterMultiQuery.nativeBatchSizes.slice(
+    beforeMultiQuery.nativeBatchSizes.length,
+  );
+  assert(
+    multiQueryNativeBatchSizes.some((size) => size > 1),
+    "Multiple query clauses must complete together in a real native request",
+  );
   const multiConfig = await readFile(session.configFile, "utf8");
   const temporarySingle = expectOk(
     "temporary single-vector mode overrides a multi-view-vector config",
@@ -125,6 +146,8 @@ export async function verifyRetrievalMethodsNativeScenario(environment: NativeSm
       configurationUnchanged: true,
       methodDocumentBatches: after.batches - before.batches,
       methodDocumentInputs: after.documentCount - before.documentCount,
+      multiNativeBatchSizes,
+      multiQueryNativeBatchSizes,
     },
   };
 }

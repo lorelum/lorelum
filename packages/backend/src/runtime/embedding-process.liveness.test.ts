@@ -118,7 +118,7 @@ test("a native integrity failure during the readiness probe retains its resource
           throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
       },
     }),
-    createClient: () => ({ encode: async () => [] }),
+    createClient: () => ({ encodeBatch: async () => [] }),
   });
   try {
     await expect(
@@ -131,4 +131,49 @@ test("a native integrity failure during the readiness probe retains its resource
   } finally {
     await runtime.stop(Date.now() + 1_000);
   }
+});
+
+test("resource changes during native batch encoding reject the whole result", async () => {
+  onFakeChild = () => {};
+  const resource = {
+    kind: "native",
+    file: "native/darwin-arm64/llama-server",
+    check: "invalid",
+  } as const;
+  let changed = false;
+  let duringEncoding: (() => void) | undefined;
+  const runtime = createEmbeddingProcess({ modelPath: "stub-model", threads: 1 }, undefined, {
+    ...deps(),
+    resolveResources: async () => ({
+      executable: "stub-llama-server",
+      buildIdentity: "test-build-identity",
+      assertUnchanged: async () => {
+        if (changed)
+          throw new EmbeddingError("embedding.native-resource-invalid", undefined, resource);
+      },
+    }),
+    createClient: () => ({
+      encodeBatch: async (inputs) => {
+        duringEncoding?.();
+        return inputs.map(() => [1, ...Array<number>(383).fill(0)]);
+      },
+    }),
+  });
+  try {
+    await runtime.start(new AbortController().signal, Date.now() + 1_000);
+    duringEncoding = () => {
+      changed = true;
+    };
+    await expect(
+      runtime.encodeBatch(["first", "second"], new AbortController().signal),
+    ).rejects.toMatchObject({
+      code: "embedding.native-resource-invalid",
+      resource,
+    });
+  } finally {
+    await runtime.stop(Date.now() + 1_000);
+  }
+  await expect(
+    runtime.encodeBatch(["after stop"], new AbortController().signal),
+  ).rejects.toMatchObject({ code: "embedding.not-loaded" });
 });

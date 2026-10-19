@@ -72,6 +72,10 @@ export async function verifyProjectContextNativeScenario(environment: NativeSmok
   pause.release();
   await environment.waitForIdle();
   const initialDocumentEmbedding = environment.encodingStats();
+  assert(
+    initialDocumentEmbedding.nativeBatchSizes.includes(EMBEDDING_MODEL.maxInputs),
+    "Full index build must complete a real native batch of eight independent sequences",
+  );
   assert.equal((await stat(environment.modelFile)).size, EMBEDDING_MODEL.bytes);
 
   const completeQuery = await invoke([...initialQueryArgs, "--require-complete"]);
@@ -126,9 +130,24 @@ export async function verifyProjectContextNativeScenario(environment: NativeSmok
       "--require-complete",
     ]),
   );
+  // Rebuild normally reuses the shared vector cache. Change all source texts so
+  // this acceptance also proves a full native batch, rather than only artifact reuse.
+  await Promise.all(
+    Array.from({ length: totalPractices }, (_, index) =>
+      writeNativePractice(parent, index, `rebuild-marker-${index}`),
+    ),
+  );
+  const beforeRebuild = environment.encodingStats();
   const rebuild = await invoke([...parentArgs, "index", "rebuild"]);
   expectOk("index rebuild", rebuild);
   await environment.waitForIdle();
+  const rebuildNativeBatchSizes = environment
+    .encodingStats()
+    .nativeBatchSizes.slice(beforeRebuild.nativeBatchSizes.length);
+  assert(
+    rebuildNativeBatchSizes.includes(EMBEDDING_MODEL.maxInputs),
+    "Index rebuild must reach the real native batch port",
+  );
 
   expectOk("cache status", await invoke(["--cache-root", cacheRoot, "cache", "status"]));
   expectOk("cache prune", await invoke(["--cache-root", cacheRoot, "cache", "prune"]));
@@ -155,6 +174,7 @@ export async function verifyProjectContextNativeScenario(environment: NativeSmok
       incrementalBuildSubmitMs: incrementalBuild.elapsedMs,
       rebuildSubmitMs: rebuild.elapsedMs,
       projectContextDocumentBatches: environment.encodingStats().batches,
+      rebuildNativeBatchSizes,
       initialDocumentEmbedding: summarizeThroughput(initialDocumentEmbedding),
       incrementalDocumentEmbedding: summarizeThroughput({
         documentCount: afterIncremental.documentCount - beforeIncremental.documentCount,

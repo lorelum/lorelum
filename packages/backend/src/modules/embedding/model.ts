@@ -22,7 +22,7 @@ export interface EmbeddingResult {
 /** The service owns admission/state; this handle owns one native process lifetime. */
 export interface EmbeddingRuntime {
   start(signal: AbortSignal, deadline: number): Promise<void>;
-  encode(text: string, signal: AbortSignal): Promise<number[]>;
+  encodeBatch(inputs: readonly string[], signal: AbortSignal): Promise<number[][]>;
   stop(deadline: number): Promise<void>;
   readonly exited: Promise<void>;
 }

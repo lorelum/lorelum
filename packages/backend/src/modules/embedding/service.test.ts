@@ -11,18 +11,18 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-function fixture(overrides: Partial<EmbeddingRuntime> = {}) {
+function fixture(overrides: Partial<EmbeddingRuntime> = {}, settings = DEFAULT_BACKEND_SETTINGS) {
   const end = deferred<void>();
   let starts = 0;
   let stops = 0;
-  const encoded: string[] = [];
+  const encoded: (readonly string[])[] = [];
   const runtime: EmbeddingRuntime = {
     async start() {
       starts++;
     },
-    async encode(text) {
-      encoded.push(text);
-      return [1, ...Array<number>(383).fill(0)];
+    async encodeBatch(inputs) {
+      encoded.push(inputs);
+      return inputs.map(() => [1, ...Array<number>(383).fill(0)]);
     },
     async stop() {
       stops++;
@@ -33,7 +33,7 @@ function fixture(overrides: Partial<EmbeddingRuntime> = {}) {
   };
   const service = createEmbeddingService({
     createRuntime: () => runtime,
-    settings: DEFAULT_BACKEND_SETTINGS,
+    settings,
   });
   return { service, encoded, end, starts: () => starts, stops: () => stops };
 }
@@ -49,12 +49,12 @@ test("concurrent load shares one task and ready load reuses the process", async 
   expect(f.service.status().state).toBe("unloaded");
 });
 
-test("passes input to the runtime unchanged and preserves order", async () => {
+test("passes the input batch to the runtime unchanged and preserves order", async () => {
   const f = fixture();
   const longInput = "token ".repeat(3_000);
   await f.service.load();
   const result = await f.service.embed("document", ["  source\n", longInput]);
-  expect(f.encoded).toEqual(["  source\n", longInput]);
+  expect(f.encoded).toEqual([["  source\n", longInput]]);
   expect(result.vectors).toHaveLength(2);
   await f.service.unload();
 });
@@ -75,7 +75,7 @@ test("automatic and explicit configured preparation share a stable daemon-owned 
       start: async () => {
         starts++;
       },
-      encode: async () => [],
+      encodeBatch: async () => [],
       stop: async () => {},
       exited: f.end.promise,
     }),
@@ -115,7 +115,7 @@ test("automatic failed preparation is observable and requires explicit load to r
     createRuntime: () => ({
       start: async () => {},
       stop: async () => {},
-      encode: async () => [],
+      encodeBatch: async () => [],
       exited: f.end.promise,
     }),
   });
@@ -155,7 +155,7 @@ test("retains structured resource failure in model status and preparation errors
     createRuntime: () => ({
       start: async () => {},
       stop: async () => {},
-      encode: async () => [],
+      encodeBatch: async () => [],
       exited: f.end.promise,
     }),
   });
@@ -179,13 +179,16 @@ test("retains structured resource failure in model status and preparation errors
 });
 
 test("one inflight request, responsive status, excess admission rejected", async () => {
-  const pending = deferred<number[]>();
-  const f = fixture({ encode: () => pending.promise });
+  const pending = deferred<number[][]>();
+  const f = fixture({ encodeBatch: () => pending.promise });
   await f.service.load();
-  const request = f.service.embed("query", ["one"]);
+  const request = f.service.embed("query", ["one", "two"]);
   expect(f.service.status().state).toBe("ready");
   await expect(f.service.embed("query", ["two"])).rejects.toMatchObject({ code: "embedding.busy" });
-  pending.resolve([1, ...Array<number>(383).fill(0)]);
+  pending.resolve([
+    [1, ...Array<number>(383).fill(0)],
+    [1, ...Array<number>(383).fill(0)],
+  ]);
   await request;
   await f.service.unload();
 });
@@ -210,14 +213,39 @@ test("unload during loading cancels startup without stale ready state", async ()
 
 test("native failure recycles owned process before allowing explicit load", async () => {
   const f = fixture({
-    encode: async () => {
+    encodeBatch: async () => {
       throw new EmbeddingError("embedding.deadline-exceeded");
     },
   });
   await f.service.load();
-  await expect(f.service.embed("document", ["text"])).rejects.toMatchObject({
+  await expect(f.service.embed("document", ["first", "second"])).rejects.toMatchObject({
     code: "embedding.deadline-exceeded",
   });
+  expect(f.stops()).toBe(1);
+  expect(f.service.status()).toMatchObject({
+    state: "failed",
+    error: "embedding.deadline-exceeded",
+  });
+});
+
+test("the request deadline cancels the entire batch and recycles its runtime", async () => {
+  let activeSignal: AbortSignal | undefined;
+  const f = fixture(
+    {
+      encodeBatch: (_inputs, signal) => {
+        activeSignal = signal;
+        const { promise, reject } = Promise.withResolvers<number[][]>();
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+        return promise;
+      },
+    },
+    { ...DEFAULT_BACKEND_SETTINGS, requestTimeoutMs: 10 },
+  );
+  await f.service.load();
+  await expect(f.service.embed("document", ["first", "second"])).rejects.toMatchObject({
+    code: "embedding.deadline-exceeded",
+  });
+  expect(activeSignal?.aborted).toBe(true);
   expect(f.stops()).toBe(1);
   expect(f.service.status()).toMatchObject({
     state: "failed",
@@ -263,15 +291,18 @@ test("blank and empty input rejected at service boundary", async () => {
 });
 
 test("a crash cannot admit a replacement while the previous request is settling", async () => {
-  const pending = deferred<number[]>();
-  const f = fixture({ encode: () => pending.promise });
+  const pending = deferred<number[][]>();
+  const f = fixture({ encodeBatch: () => pending.promise });
   await f.service.load();
-  const request = f.service.embed("query", ["one"]);
+  const request = f.service.embed("query", ["one", "two"]);
   f.end.resolve();
   await Promise.resolve();
   expect(f.service.status().state).toBe("failed");
   await expect(f.service.load()).rejects.toMatchObject({ code: "embedding.busy" });
-  pending.resolve([1, ...Array<number>(383).fill(0)]);
+  pending.resolve([
+    [1, ...Array<number>(383).fill(0)],
+    [1, ...Array<number>(383).fill(0)],
+  ]);
   await expect(request).rejects.toMatchObject({ code: "embedding.not-loaded" });
   await f.service.unload();
 });
@@ -297,16 +328,19 @@ test("cleanup failure preserves the original error and blocks a replacement", as
 });
 
 test("unload cannot report success while an old request can still return a vector", async () => {
-  const pending = deferred<number[]>();
-  const f = fixture({ encode: () => pending.promise });
+  const pending = deferred<number[][]>();
+  const f = fixture({ encodeBatch: () => pending.promise });
   await f.service.load();
-  const request = f.service.embed("query", ["pending"]);
+  const request = f.service.embed("query", ["first pending", "second pending"]);
   await expect(f.service.unload(Date.now() + 30)).rejects.toMatchObject({
     code: "embedding.deadline-exceeded",
   });
   expect(f.service.status().state).toBe("failed");
   await expect(f.service.load()).rejects.toMatchObject({ code: "embedding.busy" });
-  pending.resolve([1, ...Array<number>(383).fill(0)]);
+  pending.resolve([
+    [1, ...Array<number>(383).fill(0)],
+    [1, ...Array<number>(383).fill(0)],
+  ]);
   await expect(request).rejects.toMatchObject({ code: "embedding.not-loaded" });
   expect((await f.service.unload()).state).toBe("unloaded");
 });
@@ -353,7 +387,7 @@ test("thread setting does not affect encoding identity", async () => {
         start: async () => {},
         stop: async () => {},
         exited: new Promise(() => {}),
-        encode: async () => [1, ...Array<number>(383).fill(0)],
+        encodeBatch: async (inputs) => inputs.map(() => [1, ...Array<number>(383).fill(0)]),
       }),
     });
   const service = make(2);
