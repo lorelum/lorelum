@@ -6,9 +6,9 @@ import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:net";
+import type { EmbeddingConfig } from "../config/embedding";
 import { noopEmitter, type LogEmitter, type LogEventInput } from "@lorelum/log";
 import { platformEnvironment } from "../config/launch";
-import type { EmbeddingConfig } from "../config/embedding";
 import { EmbeddingError } from "../modules/embedding/errors";
 import type { EmbeddingRuntime, PreparedEmbeddingResources } from "../modules/embedding/model";
 import { processIdentity, type ProcessIdentity } from "./process-identity";
@@ -202,7 +202,7 @@ export function createEmbeddingProcess(
           const probeSignal = AbortSignal.any([signal, probeTimeout.signal]);
           // Native /health is unauthenticated; it cannot establish this process's readiness.
           try {
-            await candidate.encode("hello", probeSignal);
+            await candidate.encodeBatch(["hello"], probeSignal);
             signal.throwIfAborted();
             if (owned.exitCode !== null || owned.signalCode !== null) break;
             client = candidate;
@@ -264,9 +264,9 @@ export function createEmbeddingProcess(
     start,
     stop,
     exited,
-    encode: async (text, signal) => {
+    encodeBatch: async (inputs, signal) => {
       if (!client || lifetime.signal.aborted) throw new EmbeddingError("embedding.not-loaded");
-      return client.encode(text, signal);
+      return client.encodeBatch(inputs, signal);
     },
   };
 }

@@ -84,8 +84,17 @@ async function nativeIdentity(): Promise<ProcessIdentity> {
 async function verifyResidentReuse(client: BackendClient) {
   await client.loadModel();
   const first = await nativeIdentity();
-  await client.embed("query", ["first"]);
-  await client.embed("query", ["second"]);
+  await client.embed("query", [
+    "first",
+    "second",
+    "third",
+    "fourth",
+    "fifth",
+    "sixth",
+    "seventh",
+    "eighth",
+  ]);
+  await client.embed("query", ["next", "native", "batch"]);
   assert.deepEqual(
     await nativeIdentity(),
     first,
@@ -96,9 +105,15 @@ async function verifyUnresponsiveNativeRecovery(client: BackendClient) {
   const blocked = await nativeIdentity();
   // A stopped process cannot answer: the timeout no longer depends on CPU speed or batch size.
   await suspendProcess(blocked.pid);
-  await assert.rejects(client.embed("query", ["blocked native request"]), {
-    code: "embedding.deadline-exceeded",
-  });
+  await assert.rejects(
+    client.embed(
+      "query",
+      Array.from({ length: 8 }, (_, index) => `blocked native request ${index}`),
+    ),
+    {
+      code: "embedding.deadline-exceeded",
+    },
+  );
   await waitForProcessExit(blocked);
   assert.equal((await client.statusModel()).state, "failed", "Native timeout must fail the model");
   assert.equal(

@@ -97,15 +97,17 @@ test("a successful readiness probe allows encoding until its owned process is st
   const vector = [1, ...Array<number>(383).fill(0)];
   const runtime = createEmbeddingProcess(prepared, undefined, {
     ...deps(),
-    createClient: () => ({ encode: async () => vector }),
+    createClient: () => ({ encodeBatch: async (inputs) => inputs.map(() => vector) }),
   });
   try {
     await runtime.start(new AbortController().signal, Date.now() + 1_000);
-    await expect(runtime.encode("query", new AbortController().signal)).resolves.toEqual(vector);
+    await expect(
+      runtime.encodeBatch(["query", "document"], new AbortController().signal),
+    ).resolves.toEqual([vector, vector]);
   } finally {
     await runtime.stop(Date.now() + 1_000);
   }
-  await expect(runtime.encode("query", new AbortController().signal)).rejects.toMatchObject({
+  await expect(runtime.encodeBatch(["query"], new AbortController().signal)).rejects.toMatchObject({
     code: "embedding.not-loaded",
   });
 });

@@ -9,8 +9,8 @@ import { resolveEmbeddingConfig } from "../../src/config/embedding";
 import { prepareEmbeddingResources } from "../../src/runtime/embedding-resources";
 
 /**
- * Baseline CPU targets encode full batches sequentially and can exceed the 5 s product
- * default for one request; the harness observes throughput instead of gating machine speed.
+ * Native acceptance observes full-batch throughput instead of gating machine speed;
+ * allow slower CPU targets more than the 5 s product default for one request.
  */
 export const HARNESS_ENCODE_BUDGET_MS = 60_000;
 
@@ -25,7 +25,7 @@ export function createNativeFixture(
   modelPath: string,
   options: {
     threads?: number;
-    beforeEncode?: () => Promise<void> | void;
+    beforeEncode?: (inputs: readonly string[], signal: AbortSignal) => Promise<void> | void;
   } = {},
 ) {
   let runtime: EmbeddingRuntime | undefined;
@@ -51,9 +51,9 @@ export function createNativeFixture(
       );
       runtime = {
         ...native,
-        async encode(text, signal) {
-          await options.beforeEncode?.();
-          return native.encode(text, signal);
+        async encodeBatch(inputs, signal) {
+          await options.beforeEncode?.(inputs, signal);
+          return native.encodeBatch(inputs, signal);
         },
       };
       return runtime;

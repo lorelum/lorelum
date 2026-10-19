@@ -14,10 +14,10 @@ bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf
 
 | 入口 | Review 时关注的场景 |
 | --- | --- |
-| `embedding.integration.ts` | HTTP 认证调用、占用编码槽时的控制响应与 busy 拒绝、重复加载/卸载 |
-| `daemon-embedding.integration.ts` | 常驻进程复用、native 无响应回收、native 崩溃、daemon 崩溃后的子进程回收和重启，以及 current CLI 对 protocol-mismatched daemon/native child 的 graceful 与 force 回收 |
+| `embedding.integration.ts` | HTTP 认证调用；真实八输入 batch 的混合长度、置换、重复输入、独立语义及简单检索；超过 aggregate token budget 的分轮调度；占用编码槽时的控制响应与 busy 拒绝；重复加载/卸载 |
+| `daemon-embedding.integration.ts` | batch 编码的常驻进程复用、整批 native 无响应回收、native 崩溃、daemon 崩溃后的子进程回收和重启，以及 current CLI 对 protocol-mismatched daemon/native child 的 graceful 与 force 回收 |
 | `model-download.integration.ts` | 本地传输在 1 MiB 后断开，按真实落盘偏移续传，校验后编码并复用缓存 |
-| `project-context-native-smoke.integration.ts` | 通过 CLI command registry、真实 HTTP Backend 和 native 模型验证两个独立场景：ProjectContext 的冷启动、partial/strict/complete、目录复用、单条增量、rebuild、cache prune、model unload/reload 和坏 Practice fallback；检索方法的默认/实验往返、临时 mode、配置不写回及 operation 身份 |
+| `project-context-native-smoke.integration.ts` | 通过 CLI command registry、真实 HTTP Backend 和 native 模型验证三个独立场景：ProjectContext 的冷启动、partial/strict/complete、目录复用、单条增量、真实 batch build/rebuild、cache prune、model unload/reload 和坏 Practice fallback；检索方法的默认/实验往返、多片段 query batch、临时 mode、配置不写回及 operation 身份；install 自身驱动索引，且在首次 query 前已 ready |
 
 每个入口先组装环境，再调用命名场景，最后清理自己拥有的资源。`integration/support/` 只放重复的 native fixture、进程等待/RSS 采样、断流服务器和冻结参考比较，不包含业务实现。
 
@@ -25,20 +25,29 @@ bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf
 
 busy 场景通过编码入口的显式同步点占住请求，不依靠 sleep 猜测推理耗时；daemon 无响应场景暂停本次启动的 native 进程，让请求确定超时，再确认实际进程退出。这些是故障注入，不是性能测量。daemon 端口仍由现有 supervisor 合同决定，端口竞争会明确失败，不会改绑未知服务。
 
+崩溃恢复测试需分别确认已拥有的进程身份失效和监听端口释放；前者不能作为后者的同步信号。测试在有界观察期内等待实际进程与 TCP 事件，不用固定 sleep 猜测退出完成；只有连接明确被拒绝才认为端口关闭，其它连接错误仍使测试失败。生产 supervisor 对未知监听者的拒绝保持不变。
+
 ## CLI 原生 smoke 的场景边界
 
-- [入口](../../packages/cli/integration/project-context-native-smoke.integration.ts)只选择场景、汇总结果，并在 finally 释放环境；默认依次运行两个场景。
+- [入口](../../packages/cli/integration/project-context-native-smoke.integration.ts)只选择场景、汇总结果，并在 finally 释放环境；默认依次运行三个场景。
 - [原生环境](../../packages/cli/integration/support/native-smoke.ts)拥有临时目录、本地断流下载源、一个真实模型/runtime 和 HTTP Backend。每个场景的会话有独立的 Store、derived cache 和配置目录；只复用原生资源与调度，不共享语料或配置状态。
 - [ProjectContext 场景](../../packages/cli/integration/scenarios/project-context-native.ts)使用足够发布多个批次的语料，显式阻塞第一批成功编码后的下一批，验证 partial/strict/complete 和单条增量；初次模型准备导致的失败尝试不计作已发布批次。
 - [检索方法场景](../../packages/cli/integration/scenarios/retrieval-methods-native.ts)从自己的新语料开始，覆盖真实编码的跨批次路径，不依赖 ProjectContext 场景的下载、继承或增量编辑结果。临时方法返回后与配置切回后的查询使用零等待，避免后台重建掩盖 artifact 复用回归。
+- [Install 场景](../../packages/cli/integration/scenarios/install-native.ts)向新 Store 安装超过一个 batch 的本地 Pack；先确认 install 提交的索引已 ready，再执行 query，避免 query 自动建索引掩盖 install 路径缺失。install 的 cache root 通过测试依赖注入隔离，不给不支持该参数的 CLI 命令添加 `--cache-root`。
 
-第三个参数可选 `all`、`project-context` 或 `retrieval-methods`。例如只运行检索方法场景：
+第三个参数可选 `all`、`project-context`、`retrieval-methods` 或 `install`。例如只运行检索方法场景：
 
 ```sh
 bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf retrieval-methods
 ```
 
 观测值按场景区分：`projectContextDocumentBatches` 和 `methodDocumentBatches` 分别记录各自的文档编码调用次数；`documentBatches` 是整个运行的总调用次数，包括模型尚未就绪时的失败尝试。`initialDocumentEmbedding` 与 `incrementalDocumentEmbedding` 只统计 ProjectContext 的对应阶段，不混入多视角编码。
+
+`nativeBatchSizes` 只记录真实 native 调用成功返回后的输入数，不把外部 HTTP 数组或失败尝试当成 native batch 证据。`rebuildNativeBatchSizes`、`multiNativeBatchSizes`、`multiQueryNativeBatchSizes` 和 `installNativeBatchSizes` 分别隔离 rebuild、多视角构建、多片段 query 和 install 阶段；多片段 query 的观测不包含文档重建。它们证明完整数组进入真实 native 路径；是否在同一次底层计算中合并序列，还需结合 native 调度日志，不能只看调用次数。
+
+HTTP 场景用可区分的 singleton 参考向量检查置换和重复输入的关联，并检查固定语义检索结果。`nativeBatch.minCosine` 与 `maxComponentDelta` 是数值偏差观测，不是质量无损证明。量化 CPU repack kernel 并非 batch-invariant；评估性能调整时，应另外使用冻结语料与评分规则比较检索结果，不能放宽已有冻结参考的验收阈值来掩盖回归。
+
+模型和 native 验证由准备阶段一次完成，runtime 消费同一次准备结果；正常 batch 编码不巡检磁盘 artifact。资源准备失败在启动前验收，ready 后的 batch 验收关注响应关联、取消、超时和进程退出，不再要求通过运行中修改磁盘文件使编码失败。
 
 ## 冻结参考回归
 

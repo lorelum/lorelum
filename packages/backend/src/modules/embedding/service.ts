@@ -1,4 +1,3 @@
-/* eslint-disable no-await-in-loop -- Native single-slot encoding is intentionally sequential. */
 import { DEFAULT_EMBEDDING_SETTINGS } from "../../config/embedding";
 import { createTimeoutSignal } from "../../lifecycle/timeout";
 import { randomUUID } from "node:crypto";
@@ -238,8 +237,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
     const signal = timeout.signal;
     const work = async () => {
       try {
-        const vectors: number[][] = [];
-        for (const text of inputs) vectors.push(await handle.encode(text, signal));
+        const vectors = await handle.encodeBatch(inputs, signal);
         signal.throwIfAborted();
         if (runtime !== handle) throw new EmbeddingError("embedding.not-loaded");
         return { encodingId, vectors };

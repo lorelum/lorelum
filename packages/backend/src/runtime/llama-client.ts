@@ -6,7 +6,7 @@ import { EmbeddingError } from "../modules/embedding/errors";
 
 const resultSchema = z.object({
   model: z.string(),
-  data: z.array(z.object({ index: z.literal(0), embedding: embeddingVectorSchema })).length(1),
+  data: z.array(z.object({ index: z.int().nonnegative(), embedding: embeddingVectorSchema })),
 });
 
 /** Only a spawned runtime supplies this endpoint and credential; never user config. */
@@ -45,13 +45,23 @@ export function createLlamaClient(port: number, secret: string, expectedAlias: s
     }
   }
   return {
-    async encode(text: string, signal: AbortSignal): Promise<number[]> {
+    async encodeBatch(inputs: readonly string[], signal: AbortSignal): Promise<number[][]> {
       const result = resultSchema.safeParse(
-        await send("/v1/embeddings", { input: [text], encoding_format: "float" }, signal),
+        await send("/v1/embeddings", { input: inputs, encoding_format: "float" }, signal),
       );
-      if (!result.success || result.data.model !== expectedAlias)
+      if (
+        !result.success ||
+        result.data.model !== expectedAlias ||
+        result.data.data.length !== inputs.length
+      )
         throw new EmbeddingError("embedding.failed");
-      return result.data.data[0]!.embedding;
+      const vectors = new Array<number[]>(inputs.length);
+      for (const { index, embedding } of result.data.data) {
+        if (index >= inputs.length || vectors[index] !== undefined)
+          throw new EmbeddingError("embedding.failed");
+        vectors[index] = embedding;
+      }
+      return vectors;
     },
   };
 }

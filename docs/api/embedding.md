@@ -24,7 +24,7 @@
 }
 ```
 
-`state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`。`device` 固定为 `cpu`，`dimensions` 固定为 `384`。`threads` 是实际 native 配置；native 以固定的 2048 context 初始化，但 Lorelum 不把它作为用户可配置或输入准入上限。
+`state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`。`device` 固定为 `cpu`，`dimensions` 固定为 `384`。`threads` 是实际 native 配置；native 使用两个独立 sequence slot，每个以 2048 context 初始化，总 context 为 4096。Lorelum 不把这些初始化参数作为用户可配置或新的输入准入上限。
 
 `progress` 只在加载期间出现，`phase` 为 `resolving`、`downloading`、`verifying` 或 `starting`。字节字段是数值；未知总大小时可以省略 `totalBytes`。状态响应不包含 URL、凭据、缓存路径或私有端口。`encodingId` 绑定模型身份、实现、pooling、normalization 和特殊 token 规则；threads、native 初始化参数与下载策略不改变它。
 
@@ -101,6 +101,10 @@ HTTP 客户端断开、CLI 停止等待不会取消共享加载任务；显式�
 ```
 
 向量必须与输入数量一致、维度 384、有限且 L2 范数接近 1。模型未 ready 返回 `embedding.not-loaded`；已有编码请求时返回 `embedding.busy`。
+
+Backend 将整组 inputs 交给一次 native array request，而不是逐条调用。native 在同一计算批次内合并可容纳的独立序列；2048-token 的 aggregate batch 放不下时分轮调度，不拼接原文、不跨输入共享 attention，也不静默截断。返回行按 native `index` 恢复输入顺序；数量不符、重复或越界 index、错误模型 alias、非法向量都会使整次请求失败，不返回部分结果。两个 native slot 不增加外部并发准入，仍只有一个编码请求可以在途。
+
+量化 CPU kernel 的结果可能随 batch 形状出现小幅数值差异；相同 `encodingId` 不承诺跨 batch 或线程配置逐位相同。验证必须区分输入关联、独立语义、数值偏差和实际检索质量，不能只凭维度与归一化正确就宣称检索结果无损。
 
 ## Download errors
 

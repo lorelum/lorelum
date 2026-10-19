@@ -348,7 +348,7 @@ describe("createBackendClient", () => {
       createRuntime: () => ({
         start: async () => {},
         stop: async () => {},
-        encode: async () => [],
+        encodeBatch: async () => [],
         exited: new Promise<void>(() => {}),
       }),
     });
