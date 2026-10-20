@@ -16,12 +16,12 @@
 
 ---
 
-> **Public alpha · `0.1.0-alpha.5`。** 提供 macOS Apple Silicon、Linux x64 和 Windows x64 的预编译发行包。macOS 是 Lorelum 优先适配、验证更充分的发布平台；Linux 和 Windows 提供尽力支持，不保证在所有发行版、系统构建、硬件和本地安全策略下的兼容性与性能。CLI 合同、Pack 格式和索引可能随版本变化，暂不保证自动迁移。
+> **Public alpha · `0.1.0-alpha.6`。** 提供 macOS Apple Silicon、Linux x64 和 Windows x64 的预编译发行包。macOS 是 Lorelum 优先适配、验证更充分的发布平台；Linux 和 Windows 提供尽力支持，不保证在所有发行版、系统构建、硬件和本地安全策略下的兼容性与性能。CLI 合同、Pack 格式和索引可能随版本变化，暂不保证自动迁移。
 
 > **将下面提示交给 Agent。**
 >
 > ```text
-> 请根据 https://lorelum.com/zh/docs/agents.md 为当前项目配置 Lorelum v0.1.0-alpha.5。
+> 请根据 https://lorelum.com/zh/docs/agents.md 为当前项目配置 Lorelum v0.1.0-alpha.6。
 > 安装 CLI 和 agentic-coding Pack，为当前宿主接入 Lorelum Skill；开始实际工作前，
 > 完成一次自然语言检索和 Practice 全文读取来验证配置。
 > ```
@@ -99,13 +99,13 @@ Agent 判断何时查询、哪些 Practice 适用。Lorelum 提供检索到的�
 #### macOS Apple Silicon 和 Linux x64
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.5
+curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version 0.1.0-alpha.6
 ```
 
 #### Windows x64
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.5
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version 0.1.0-alpha.6
 ```
 
 macOS/Linux 安装器会校验发行包，并创建 `~/.local/bin/lore`；Windows 安装器校验 ZIP，并创建 `$env:LOCALAPPDATA\Lorelum\bin\lore.cmd`。请保留完整发行目录，semantic retrieval 需要随可执行文件分发的原生库和运行时资源。Windows 不要运行 `install.sh`，也不要双击安装脚本；请在已打开的 PowerShell 中运行上面的命令，保留错误输出。

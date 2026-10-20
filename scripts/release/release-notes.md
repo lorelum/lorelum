@@ -1,98 +1,118 @@
 ## Lorelum __RELEASE_TAG__
 
+This release adds an opt-in multi-view semantic retrieval method, a native omp Plugin, and a bilingual developer blog. It also reduces repeated local validation work and makes Backend recovery instructions actionable. **The default semantic method remains `single-vector`.** Integrations that consume CLI failures must stop reading the removed `error.recovery` field; see the upgrade notes below.
+
 ## New capabilities
 
-### Check and apply CLI updates explicitly
+### Compare semantic retrieval methods without changing configuration
 
-`lore update` checks published releases for the current channel and platform, shows the available version and release notes, and leaves the installation unchanged. Prerelease builds select the prerelease channel by default. For a CLI installed by the official installer at its default location, `lore update --apply` rechecks the release, downloads and verifies the selected archive, switches the command entry, and verifies the new version. Archive downloads now show received bytes and speed, plus the total and percentage when available; finishing a download is not reported as a completed install. Other installation methods can check but are not overwritten by `--apply`. `lore --version` and ordinary Agent Hooks do not check for updates in the background. [#256](https://github.com/lorelum/lorelum/pull/256)
+Try the experimental method for one query:
 
-### Choose a Pack source
+```sh
+lore query "the engineering decision you are making" --mode multi-view-vector
+```
 
-`lore registry add`, `list`, `set-default`, and `remove` manage named Registry sources, including other HTTPS/SSH Git hosts and local Git worktrees. Pack install and update use the selected source, with the official Registry as the default when no other default is saved. A `--registry` argument overrides it for one command. `lore pack install --path <directory>` and `lore pack update --path <directory>` also accept one local Pack directory without registering it or requiring Git. Lorelum does not silently try another Registry if the selected one fails. [#240](https://github.com/lorelum/lorelum/pull/240)
+`--mode single-vector` selects the default method for one invocation, including when your configured default is multi-view. Neither override writes configuration. Ordinary semantic queries and index operations use `query.retrievalMethod` when configured, otherwise `single-vector`; `--mode keyword` remains the explicit offline lexical path. Semantic JSON results now report the actual `retrievalMethod`, including preparing, indexing, partial, and complete results. [#279](https://github.com/lorelum/lorelum/pull/279)
 
-### Claude Code Plugin
+Multi-view represents a Practice through a task card and bounded body sections, and represents a query through its complete text and clauses. It is vector-only: the intermediate keyword/BM25 reranking experiment was removed. Each method has its own Profile and derived index, so comparing methods does not mix their vectors or overwrite the other method's target. The shared Store, model lifecycle, and index scheduling remain in use. See the [query guide](https://lorelum.com/en/docs/reference/query) and [configuration guide](https://lorelum.com/en/docs/configuration).
 
-Claude Code joins the official Plugin hosts. Its native Plugin provides the Lorelum Skill and a session-start Pack Catalog; install it from the Lorelum marketplace and start a new session. [#252](https://github.com/lorelum/lorelum/pull/252)
+**This is an experiment, not a generally better ranking default.** Local evaluations improved some target rankings but also lost useful supporting Practices and some wider-pool recall. The [bilingual retrieval article](https://lorelum.com/en/blog/task-aware-retrieval) explains the trade-offs and discarded approaches. Candidate recall, ranking, and applicability limitations remain tracked in [#236](https://github.com/lorelum/lorelum/issues/236). [#287](https://github.com/lorelum/lorelum/pull/287)
 
-### Session read hints
+### Native omp Plugin with scoped context
 
-The Codex, Claude Code, ZCode, WorkBuddy, and Cursor Plugins can associate successful `lore get` reads with a session when a Backend and usable session identity are available. Codex and Claude Code can show bounded read-candidate metadata to new subagents; Cursor, WorkBuddy, and ZCode cannot deliver those hints through their host Hook contracts. The shared `agent.shellSessionInjection` setting controls eligible shell commands. Hints are possibly relevant and incomplete, not a record of everything the session read. See the [host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities). [#250](https://github.com/lorelum/lorelum/pull/250) [#257](https://github.com/lorelum/lorelum/pull/257) [#260](https://github.com/lorelum/lorelum/pull/260)
+omp joins Codex, Claude Code, Cursor, WorkBuddy, and ZCode as an official Plugin host. Install the CLI and a Pack separately, ensure `lore` is on omp's inherited `PATH`, then run:
 
-## Performance
+```sh
+omp plugin marketplace add https://github.com/lorelum/lorelum.git
+omp plugin install lorelum@lorelum-plugins
+```
 
-On Linux and Windows x64, native document embedding now uses the optimized x64 build instead of the previous scalar path. In the same-machine, same-model 97-Practice comparison recorded in [#244](https://github.com/lorelum/lorelum/pull/244), throughput rose from **0.43 to 3.6–3.9 Practices/s**, and a complete index build fell from about **225 seconds to 25 seconds**. These are measurements for that workload, not a cross-machine performance guarantee; macOS was not changed by this optimization.
+The Plugin provides the Lorelum Skill and a temporary Pack Catalog for the main Agent. Eligible successful `lore get` reads can supply child Agents with bounded candidate metadata from the originating main session; child reads remain separately scoped. Hints are possibly relevant, incomplete metadata, not Practice bodies or trusted instructions. The omp-specific `agent.subagentPackCatalog` option defaults to `false`; enabling it adds child Catalog metadata without disabling main Catalog or read hints when it is off. [#276](https://github.com/lorelum/lorelum/pull/276)
 
-## Agent-facing output
+The extension selects POSIX shell association on macOS/Linux and PowerShell association on native Windows. Real-host acceptance covered **omp on macOS arm64**; Linux and Windows omp host flows were not verified. This release does not add pi integration. See the [omp guide](https://lorelum.com/en/docs/omp) and [host capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities). [#277](https://github.com/lorelum/lorelum/pull/277)
 
-Default text for `lore pack list`, `lore query`, and `lore get` now emphasizes the fields an Agent needs to decide what to read. Use `--verbose` for full text or `--json` for the complete machine envelope. The machine-readable result remains available to integrations. [#258](https://github.com/lorelum/lorelum/pull/258)
+## Performance and local validation
 
-## Agent guidance
+Normal ready-path operations no longer repeatedly hash the CLI executable and model, scan complete Packs, or audit every SQLite vector merely to read a result. Full verification belongs to input, preparation, publication, and recovery boundaries; snapshot consistency, actual read failures, authentication, process ownership, and damaged shared-vector-cache recovery remain protected. [#285](https://github.com/lorelum/lorelum/pull/285)
 
-The generic Lorelum Skill and the host-native copies now focus on when to query, how to recover from a failed semantic query, and how to locate linked Pack resources after `get`. Their retrieval example describes a concrete task decision rather than a generic keyword prompt. [#258](https://github.com/lorelum/lorelum/pull/258)
+The compiled-CLI comparison in #285 measured these **historical baseline-to-change** mean latencies, not an alpha.5-to-alpha.6 benchmark:
+
+| Ready operation | Baseline | Change | Mean reduction |
+| --- | ---: | ---: | ---: |
+| Single-vector query | 254.89 ms | 176.85 ms | 30.6% |
+| Multi-view query | 303.73 ms | 194.32 ms | 36.0% |
+| Practice `get` | 238.14 ms | 185.24 ms | 22.2% |
+| Backend status | 217.28 ms | 170.29 ms | 21.6% |
+
+Workload: macOS arm64, Bun 1.4.2, CPU/4 threads, the fixed Granite Q4_0 model, 4 Packs/97 Practices, resident Backend/model, and fresh compiled CLI processes. An ABBA comparison against `724389e` collected 40 samples per version and metric, including process startup and output collection. The PR records the method, spread, and limits; the exact five query texts were not retained, so it is not a replayable benchmark suite. **These numbers are not cross-platform, inference-throughput, cold-build, or final-release guarantees.** Preparing the baseline's cold index required a temporary timeout increase; the default-timeout limitation was not fixed by that measurement.
+
+Native embedding now submits document and multi-part query inputs as batches and restores results to input order. This changes the previous serial-per-input path without adding a new CLI option. Its limited direct-native measurements are separate from the compiled-CLI table above; batching can increase memory use and introduce small floating-point/ranking differences. [#286](https://github.com/lorelum/lorelum/pull/286)
+
+Logging now normalizes records once at their producer, and settings consumers share one configuration document per invocation. Enabled lifecycle logs contain one ordinary command-start and command-complete record rather than duplicates; trace isolation, bounded records, credential exclusion, and failure diagnostics remain. The separate 48-synthetic-Practice comparison in #288 showed only small, noisy query changes and **no evidence of overall index-build acceleration**; its results are not additive to the table above. [#288](https://github.com/lorelum/lorelum/pull/288)
 
 ## Bug fixes
 
-- Invalid CLI arguments and configuration now produce a more specific, actionable error message, including valid choices or a repair target when known. Error codes, exit codes, and the JSON error shape remain unchanged; programs should continue to use those fields rather than parse message prose. [#237](https://github.com/lorelum/lorelum/pull/237)
-- A user-owned `~/.lorelum` directory with ordinary permissions no longer silently prevents diagnostic logs from being recorded. Lorelum repairs safe managed log paths; if logging still cannot persist, it reports the failure on stderr without changing the command's business result or exit code. It does not change permissions on the user's home directory. [#255](https://github.com/lorelum/lorelum/pull/255)
-- A missing, mismatched, or damaged native runtime is now checked before model download and reported as `embedding.native-resource-invalid`, with the failed resource check and an instruction to reinstall the complete release directory. Model-file failures retain `embedding.resource-invalid` and point to the model cache or configured `embedding.modelPath`. `model status`, `model load`, and semantic query preserve this distinction; a startup integrity failure is no longer presented as a timeout. [#266](https://github.com/lorelum/lorelum/pull/266) (refs [#261](https://github.com/lorelum/lorelum/issues/261))
+- Concurrent Registry catalog changes within one process no longer contend with themselves before taking the existing cross-process lock. Mutations to the same catalog are serialized; atomic writes, external-lock protection, and busy errors remain. A genuinely held external lock can still time out. [#267](https://github.com/lorelum/lorelum/pull/267)
+- Backend build/protocol mismatch failures now provide the complete safe stop/start/retry sequence instead of incomplete recovery-policy fragments. A deferred guarded stop preserves other active work; ordinary queries do not automatically stop the Backend. [#271](https://github.com/lorelum/lorelum/pull/271), closes [#227](https://github.com/lorelum/lorelum/issues/227)
+- Semantic embedding respects the Backend's eight-input limit when a Practice produces many views or a query contains many clauses. Body-view splitting also budgets heading context, preventing long headings from pushing a view over its token budget. These fixes are part of the opt-in method delivery. [#279](https://github.com/lorelum/lorelum/pull/279)
+- The internal retrieval benchmark harness now opens the same content-addressed derived cache as a Store-only index build instead of incorrectly reporting `index_unavailable` when Store and cache roots differ. This does not change public `lore query` routing. [#279](https://github.com/lorelum/lorelum/pull/279)
 
-## Contributor workflow
+## Developer blog and contributor workflow
 
-CI now runs lifecycle tests in parallel and checks the workspace with native TypeScript 7; the site build remains part of verification. [#220](https://github.com/lorelum/lorelum/pull/220) [#222](https://github.com/lorelum/lorelum/pull/222)
+The [English](https://lorelum.com/en/blog) and [Chinese](https://lorelum.com/zh/blog) developer blog adds localized articles, category discovery, search, and URL pagination. Its first articles explain [Practice-injection measurements](https://lorelum.com/en/blog/practice-injection-measurement) and [task-aware retrieval experiments](https://lorelum.com/en/blog/task-aware-retrieval). The injection study uses three tasks and hand-selected Practices: it is directional evidence, not proof of universal quality gains or retrieval effectiveness. [#210](https://github.com/lorelum/lorelum/pull/210) [#287](https://github.com/lorelum/lorelum/pull/287)
 
-For local development, `bun run build:cli` now builds a runnable CLI with its matching native runtime in `dist/release/<target>/`. `bun run build:cli-only` produces only `dist/lore` for uses such as benchmarks. The release-archive path is unchanged. [#266](https://github.com/lorelum/lorelum/pull/266)
-
-Issue and PR guidance now asks for evidence a contributor or reviewer can use without the original conversation. [#239](https://github.com/lorelum/lorelum/pull/239) [#248](https://github.com/lorelum/lorelum/pull/248)
-
-## Documentation
-
-The [Agent integration guide](https://lorelum.com/en/docs/agent-setup#host-capabilities) compares the five hosts' Catalog, read-recording, and subagent-hint support. The [maintainer release runbook](https://github.com/lorelum/lorelum/blob/main/docs/development/release.md) documents CI-owned draft creation and recovery. [#219](https://github.com/lorelum/lorelum/pull/219)
+For repository contributors, host Hook protocols and shared services have clearer internal boundaries; unused private `shared`/`mcp` placeholder packages and their unused dependencies were removed. No local MCP product surface is introduced or removed. Current OpenSpec capabilities were synchronized with implemented changes, and the PR template allows optional harness/model disclosure for aggregate statistics, not merge decisions. [#278](https://github.com/lorelum/lorelum/pull/278) [#281](https://github.com/lorelum/lorelum/pull/281) [#282](https://github.com/lorelum/lorelum/pull/282) [#283](https://github.com/lorelum/lorelum/pull/283)
 
 ## Upgrade notes
 
-### Upgrade the CLI
+### CLI and host Plugins
 
-The alpha.4 CLI has no `lore update` command: use the exact-version installer below, or the method that manages your current installation, to reach alpha.5. From a default-location official installer-managed alpha.5 installation, later releases can be checked with `lore update` and applied explicitly with `lore update --apply`; other installation methods remain read-only.
+From an alpha.5 CLI installed by the official installer at its default location, run `lore update` to review the available prerelease and `lore update --apply` to apply it explicitly. Other installation methods can check but must update through their managing method or the exact-version installer below. Alpha.4 and earlier do not provide `lore update`.
 
-### Update host Plugins
+Update existing host Plugins through their host-native flows and start a new session. Plugin installation/update does not upgrade the CLI, Packs, or model. Pack versions remain independent. If an older Backend is still running, follow the error's guarded recovery sequence:
 
-Install the Claude Code Plugin from its marketplace. Update the other host Plugins through their respective host flows, then start a new session to load the Hooks. Pack versions remain independent of the CLI and Plugins.
+```sh
+lore backend stop --if-idle
+```
 
-### If you consume CLI text output
+Only if the stop reports `stopped`, run `lore backend start`, then retry the original command. If stopping is deferred, finish or resolve the active work first; do not replace the guarded stop with an unconditional stop. See [troubleshooting](https://lorelum.com/en/docs/troubleshooting).
 
-The default human-readable output of `pack list`, `query`, and `get`, and the fields shown in the session-start Pack Catalog, are intentionally shorter. If you relied on the previous full text, use `--verbose`; scripts should consume `--json`, whose envelope and data fields are unchanged. `get` still exposes the source roots needed to open linked Pack resources. [#258](https://github.com/lorelum/lorelum/pull/258)
+### JSON failure consumers: remove `error.recovery`
 
-### Development builds
+`error.recovery` is removed, without a compatibility alias. Branch on `error.code` and display the complete `error.message`; do not parse message prose as a machine protocol. Error codes, exit codes, applicable `resource` details, and `diagnostics.traceId` remain. Semantic success data adds `retrievalMethod`, which strict result decoders must accept. The process envelope still reports protocol version 2: check the installed `toolVersion` and `describe` schema when updating an integration. [#271](https://github.com/lorelum/lorelum/pull/271) [#279](https://github.com/lorelum/lorelum/pull/279)
 
-Scripts that expect `bun run build:cli` to leave a single `dist/lore` executable should switch to `build:cli-only`. The regular `build:cli` output is now the complete `dist/release/<target>/` directory; keep its native files with the CLI when copying it. [#266](https://github.com/lorelum/lorelum/pull/266)
+### Derived semantic indexes rebuild; canonical Packs do not change
 
-### Resource-error consumers
+The semantic-index format and Profile identity change. Old derived vectors are not reused as though they matched the new input identities: the normal automatic build/rebuild path regenerates incompatible artifacts from canonical content. The first semantic query may therefore be preparing/indexing rather than immediately ready. No Pack reinstall, model redownload, or manual index-directory deletion is required. Methods keep separate derived artifacts; a failed rebuild does not roll back an installed Pack. [#279](https://github.com/lorelum/lorelum/pull/279)
 
-The CLI/Backend error protocol adds `embedding.native-resource-invalid` and an optional `resource` detail. Consumers that match resource errors should handle the new code; the existing model-file error code is unchanged. This change does not migrate Store, Pack, or model-cache data. [#266](https://github.com/lorelum/lorelum/pull/266)
+### Integrity-check timing and configuration
 
-### Existing semantic vectors
+Normal committed Store reads and resident encoding **no longer promise to detect arbitrary same-user file/database changes made outside Lorelum APIs on every call**. Use Pack source/update workflows to change installed content; full open/reindex, model preparation, publication, and recovery retain their checks. This validation change alone requires no data migration or cache clearing. Configuration edits made during an invocation take effect on the next invocation rather than mixing two document versions. [#285](https://github.com/lorelum/lorelum/pull/285) [#288](https://github.com/lorelum/lorelum/pull/288)
 
-The x64 embedding optimization keeps the encoding identity, so that change alone does not require rebuilding existing semantic vectors.
+Compiled developer builds must use the repository build scripts, which inject the Backend build identity; bare `bun build --compile` is not a supported Backend build. Keep the matching native runtime beside the CLI.
 
-### Pack and Store data
-
-Pack formats, LocalStore data, indexes, and retrieval behavior remain alpha-stage contracts; an automatic migration is not promised. Keep a backup or use an isolated `--store-root` when evaluating this release against a shared Store.
+Pack formats, LocalStore data, indexes, and retrieval remain alpha-stage contracts. Keep a backup or use an isolated `--store-root` when evaluating a release against shared knowledge data.
 
 ## Known limitations
 
-- The x64 speedup does not change the deadline shared by all inputs in an embedding batch. A timeout can still fail the model and make subsequent semantic queries unavailable until `lore model load` recovers it. That timeout behavior is tracked separately in [#243](https://github.com/lorelum/lorelum/issues/243).
-- Read candidates are associated with a session, not proven to have come only from the main Agent. A subagent's own successful `lore get` may appear in that session's list. [#215](https://github.com/lorelum/lorelum/issues/215)
-- Cursor, WorkBuddy, and ZCode record eligible reads but cannot pass candidate hints to new subagents. See the [host comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities).
+- Experimental multi-view retrieval does not resolve all task-ranking, recall, or scope/applicability errors. Single-vector remains the default and retains the model's complete-input length limits. [#236](https://github.com/lorelum/lorelum/issues/236)
+- Native batching does not establish that all embedding batch deadline/readiness problems are fixed. The recorded 97-Practice cold-build timeout is outside the ready-path performance table; [#243](https://github.com/lorelum/lorelum/issues/243) remains open. Follow the reported timeout and model recovery guidance rather than interpreting a failed build as an empty knowledge result.
+- omp host-level validation covers macOS arm64, not Linux or Windows. Cursor, WorkBuddy, and ZCode cannot deliver child read-candidate hints through their host Hook contracts. Session read candidates are not proof of main-Agent-only reads. [#215](https://github.com/lorelum/lorelum/issues/215)
+- Blog experiment results are local, finite evaluations; neither article establishes universal retrieval quality or Agent outcome gains.
 
 ## Install __RELEASE_TAG__
 
 ### macOS on Apple Silicon and Linux x64
 
-    curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version __RELEASE_VERSION__
+```sh
+curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/install.sh | sh -s -- --version __RELEASE_VERSION__
+```
 
 ### Windows x64
 
-    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version __RELEASE_VERSION__
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lorelum/lorelum/main/install.ps1))) -Version __RELEASE_VERSION__
+```
 
 The installers download the matching archive and `SHA256SUMS`, verify the archive checksum, and install the complete release directory. On Windows, run the PowerShell command from an already-open session so any installer error remains visible.
 
@@ -112,8 +132,8 @@ macOS on Apple Silicon is Lorelum's priority platform and the most thoroughly va
 
 ## Full changelog
 
-[Compare v0.1.0-alpha.4 to __RELEASE_TAG__](https://github.com/lorelum/lorelum/compare/v0.1.0-alpha.4...__RELEASE_TAG__)
+[Compare v0.1.0-alpha.5 to __RELEASE_TAG__](https://github.com/lorelum/lorelum/compare/v0.1.0-alpha.5...__RELEASE_TAG__)
 
-## Verification
+## Verification boundary
 
-The release workflow builds on macOS, Linux, and Windows; verifies every checksum; unpacks each archive; checks the CLI and native-runtime version commands; and exercises the packaged Backend start and status lifecycle on the matching runner.
+The release workflow builds on macOS, Linux, and Windows, verifies archive and metadata checksums, unpacks each archive, checks CLI/native version commands, and exercises packaged Backend start/status on its matching runner. Those checks establish package integrity and basic lifecycle behavior, not cross-platform semantic quality or the performance claims above. Public installer smoke and exact workflow/commit results are recorded in the release-preparation PR.
