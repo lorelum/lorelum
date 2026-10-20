@@ -6,7 +6,7 @@ import { isLogLevel, isTraceId, type LogLevel, type TraceId } from "./context.js
 import type { LogRecord } from "./record.js";
 
 const MAX_FILE_BYTES = 1_048_576;
-const DEFAULT_MAX_RECORDS = 100;
+export const DEFAULT_MAX_RECORDS = 100;
 const DEFAULT_RETENTION_DAYS = 14;
 const DEFAULT_RETENTION_FILES = 1_000;
 const DEFAULT_RETENTION_BYTES = 20 * 1_024 * 1_024;
@@ -17,6 +17,8 @@ export interface ReadManagedLogsOptions {
   readonly traceId?: TraceId;
   readonly level?: LogLevel;
   readonly limit?: number;
+  /** Synchronously observes each valid record before result filtering/windowing. */
+  readonly onRecord?: (record: LogRecord) => void;
 }
 
 export interface ManagedLogReadResult {
@@ -127,6 +129,7 @@ export async function readManagedLogs(
           missing.push(`log-record-invalid:${file.relativePath}`);
           continue;
         }
+        options.onRecord?.(parsed);
         if (options.source !== undefined && parsed.source !== options.source) continue;
         if (options.traceId !== undefined && parsed.traceId !== options.traceId) continue;
         if (options.level !== undefined && parsed.level !== options.level) continue;

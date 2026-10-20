@@ -99,15 +99,20 @@ test("model failure status and HTTP errors retain structured resource details", 
   });
 });
 
-test("unknown load fields and blank embedding inputs are rejected", async () => {
+test("unknown model load fields are rejected", async () => {
   const f = fixture();
   expect((await f.request("/model/load", "POST", { endpoint: "http://example.test" })).status).toBe(
     400,
   );
-  expect((await f.request("/embeddings", "POST", { kind: "query", inputs: ["  "] })).status).toBe(
-    400,
-  );
 });
+
+test.each([{ inputs: [] }, { inputs: ["  \n"] }, { inputs: Array<string>(9).fill("text") }])(
+  "invalid embedding input is rejected at HTTP ingress: %p",
+  async ({ inputs }) => {
+    const f = fixture();
+    expect((await f.request("/embeddings", "POST", { kind: "query", inputs })).status).toBe(400);
+  },
+);
 
 test("only configured preparation routes are exposed", async () => {
   const f = fixture();

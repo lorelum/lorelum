@@ -37,10 +37,10 @@ export function loadBlogPost({ slug, lang }: LoadBlogPostInput): BlogPostData | 
   // does not exist in a production build. Returning `undefined` here is what the
   // routes already turn into `notFound()`, so the reader gets the blog's own
   // 404 rather than an empty article.
-  const data = pickFrontmatter(page.data);
-  if (!isPostVisible({ draft: data.draft, isDevelopment: import.meta.env.DEV })) {
+  if (!isPostVisible({ draft: page.data.draft, isDevelopment: import.meta.env.DEV })) {
     return undefined;
   }
+  const data = pickFrontmatter(page.data);
 
   const locale = page.locale ?? i18n.defaultLanguage;
   const alternateLocale = pickAlternateLocale(locale, i18n.languages, (candidate) => {
@@ -50,7 +50,7 @@ export function loadBlogPost({ slug, lang }: LoadBlogPostInput): BlogPostData | 
     // link to a URL that answers 404, which is how the prerenderer's crawl
     // learned to fail a build (it followed exactly that link).
     return isPostVisible({
-      draft: pickFrontmatter(candidatePage.data).draft,
+      draft: candidatePage.data.draft,
       isDevelopment: import.meta.env.DEV,
     });
   });

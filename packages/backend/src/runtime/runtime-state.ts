@@ -8,27 +8,26 @@ import { BackendError } from "../protocol/errors";
 
 const MAX_RUNTIME_RECORD_BYTES = 4_096;
 
-export const runtimeRecordSchema = z
-  .strictObject({
-    instanceId: z.string().regex(/^[a-f0-9-]{36}$/),
-    secret: z.string().regex(/^[a-f0-9]{64}$/),
-    buildIdentity: z.string().min(1).max(128),
-    protocolVersion: z.number().int(),
-    pid: z.number().int().min(1),
-    startedAt: z.string().min(1),
-    settings: backendSettingsSchema.optional(),
-    modelProcess: z
-      .strictObject({
-        pid: z.int().positive(),
-        startedAt: z.string().min(1),
-        nativeBuild: z.string().regex(/^[a-f0-9]{64}$/),
-      })
-      .optional(),
-    embedding: embeddingConfigSchema.optional(),
-  })
-  .refine(
-    (record) => Buffer.byteLength(JSON.stringify(record), "utf8") <= MAX_RUNTIME_RECORD_BYTES,
-  );
+const runtimeRecordStructureSchema = z.strictObject({
+  instanceId: z.string().regex(/^[a-f0-9-]{36}$/),
+  secret: z.string().regex(/^[a-f0-9]{64}$/),
+  buildIdentity: z.string().min(1).max(128),
+  protocolVersion: z.number().int(),
+  pid: z.number().int().min(1),
+  startedAt: z.string().min(1),
+  settings: backendSettingsSchema.optional(),
+  modelProcess: z
+    .strictObject({
+      pid: z.int().positive(),
+      startedAt: z.string().min(1),
+      nativeBuild: z.string().regex(/^[a-f0-9]{64}$/),
+    })
+    .optional(),
+  embedding: embeddingConfigSchema.optional(),
+});
+export const runtimeRecordSchema = runtimeRecordStructureSchema.refine(
+  (record) => Buffer.byteLength(JSON.stringify(record), "utf8") <= MAX_RUNTIME_RECORD_BYTES,
+);
 export type RuntimeRecord = z.infer<typeof runtimeRecordSchema>;
 export function statePath(directory: string): string {
   return join(directory, "instance.json");
@@ -114,8 +113,10 @@ export async function writeRecord(
   directory: string,
   record: z.input<typeof runtimeRecordSchema>,
 ): Promise<void> {
-  const serialized = JSON.stringify(record);
-  if (!runtimeRecordSchema.safeParse(record).success)
+  const parsed = runtimeRecordStructureSchema.safeParse(record);
+  if (!parsed.success) throw new BackendError("backend.state-invalid");
+  const serialized = JSON.stringify(parsed.data);
+  if (Buffer.byteLength(serialized, "utf8") > MAX_RUNTIME_RECORD_BYTES)
     throw new BackendError("backend.state-invalid");
   const temporary = join(directory, `${record.instanceId}.tmp`);
   const file = await open(temporary, "wx", 0o600);

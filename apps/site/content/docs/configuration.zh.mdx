@@ -60,6 +60,8 @@ query:
 
 下一次 semantic query、`index status`、`index build`、`index rebuild` 或安装后的 index synchronization 都会读取当前选择，无需重启 Backend。每种方法的 index 与 progress 状态独立；切回时可以复用兼容的缓存工作。详见 [Index 命令](./reference/indexing)。
 
+同一次 query 或 index 命令（包括安装后的 index synchronization）中，logging 与检索设置共享该次调用首次读取的配置文档。读取后发生的编辑从下一次调用生效，不会在当前命令中途混用新值；各消费者仍只校验自己使用的设置。
+
 读取该配置的命令遇到非法值会返回 `query.config-invalid`；修正或删除该字段即可。`--mode single-vector` 与 `--mode multi-view-vector` 可为一次 query 覆盖该方法值，但不会绕过其他配置错误；配置为 `multi-view-vector` 时，`--mode single-vector` 可为一次 query 与默认方法对比。`lore query "<text>" --mode keyword` 仍是离线路径，不读取或校验 semantic 方法。不需要独立的方法 flag 或环境变量。
 
 ## Query cache 与等待策略

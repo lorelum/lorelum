@@ -1,3 +1,4 @@
+import type { ConfigReader } from "@lorelum/config";
 import {
   BackendError,
   BackendRemoteError,
@@ -82,8 +83,8 @@ export interface QueryCommandServices {
   readonly storageRoot: StorageRoot;
   /** The registry wires this to Engine; tests can keep an isolated Store-only route. */
   readonly resolveProjectContext?: ProjectContextResolver;
-  readonly loadSettings?: () => Promise<QuerySettings>;
-  readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
+  readonly loadSettings?: (readConfig?: ConfigReader) => Promise<QuerySettings>;
+  readonly loadSemanticSettings?: (readConfig?: ConfigReader) => Promise<SemanticRetrievalSettings>;
 }
 
 /** Vector method IDs double as one-query overrides of `query.retrievalMethod`. */
@@ -358,9 +359,8 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
           services.storageRoot,
         );
         const projectOptions = resolveProjectInvocationOptions(invocation.options);
-        const settings = await (
-          services.loadSettings ?? (() => Promise.resolve(DEFAULT_QUERY_SETTINGS))
-        )();
+        const settings =
+          (await services.loadSettings?.(invocation.readConfig)) ?? DEFAULT_QUERY_SETTINGS;
         const maxWaitMs = maxWaitOverride ?? settings.maxWaitMs;
         const minCoveragePercent =
           invocation.options.requireComplete === true
@@ -372,8 +372,11 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
             ? undefined
             : isVectorRetrievalMethodId(mode)
               ? mode
-              : (await (services.loadSemanticSettings ?? loadSemanticRetrievalSettings)())
-                  .retrievalMethod;
+              : (
+                  await (services.loadSemanticSettings === undefined
+                    ? loadSemanticRetrievalSettings({}, invocation.readConfig)
+                    : services.loadSemanticSettings(invocation.readConfig))
+                ).retrievalMethod;
         const project =
           mode !== "keyword" || services.resolveProjectContext === undefined
             ? undefined

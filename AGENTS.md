@@ -46,6 +46,16 @@ For visual or component work, read [DESIGN.md](./DESIGN.md) first. Reusable Web 
 - An error is appropriate only for invalid input, an unsafe action, a genuinely ambiguous intent with no safe default, or a failure that cannot be recovered automatically. It must preserve canonical user data, avoid partial or hidden leftovers, explain the outcome plainly, and give one actionable next step.
 - Never silently guess when doing so could lose data, weaken security, or change a public contract. In those cases, surface the decision early and make the trade-off understandable.
 
+### 验证所有权与简化原则
+
+- **调用方默认信任受控内部被调用方已保证的后置条件。** 跨函数、package、进程或本机 HTTP 不自动构成新的不可信边界；Engine、Backend、CLI 不得仅为接住上游结果，重复检查相同字段、范围、完整性或业务不变量。
+- 完整验证放在明确负责的输入、准备、提交、发布或恢复边界。新增响应校验前，先核对上游契约和实际生产路径：只有独立的不可信来源、表示转换引入的新失败，或本层特有的请求—响应关联约束，才需要额外检查。HTTP 解码、身份认证和协议匹配不等于每层都要重新执行完整业务 schema。
+- 不把“防止另一层内部代码写错”默认变成生产路径的防护职责。受类型和上游契约约束的实现错误，优先用类型、契约测试和必要的开发期断言发现；不能靠 mock 破坏上游保证，再用这类测试证明下游防御必不可少。外部输入或真实损坏能够触发的错误与恢复覆盖必须保留。
+- 正常读取、状态查询和编码不得仅为防御上游已排除的情况，附加整包、全库、模型或 executable 扫描、重复哈希、深拷贝、递归 JSON/schema 验证或身份往返。对已完成 JSON 解码和结构验证、且未引入新值的结果，不再检查不可能由该来源产生的循环引用、Symbol 或对象原型。
+- 优先删除重复职责、无效分支和纯转发层，不用校验缓存、有效性标记、新状态、锁或通用包装层掩盖本不该重复的工作。确有转换或生命周期责任的适配层保留；不要把多个真实边界合并成一个万能抽象。
+- 简化必须保留外部输入验证、模型/native 接入质量检查、发布完整性、事务与快照一致性、认证及进程归属，以及损坏派生缓存的重新生成能力。现有契约要求的检查先按变更流程调整契约，不能以本节为由静默删除。
+- 验证只补新增风险和证据缺口，复用对当前状态仍有效的检查结果。热路径新增额外工作时核对实际成本；不为每个修改增加全套重跑、强制 benchmark、形式化风险报告或脱离真实入口的防御分支测试。代码和检查更多，不代表质量更高。
+
 ### Product-first change planning
 
 - A proposal for user-visible behavior is incomplete without a detailed product document in the active change. Start with the normal user's end-to-end path: their starting situation, the command or action they take, what they see, what they decide (if anything), how they reach a usable result, and what remains unchanged. Show concrete text/JSON examples where the interface is a CLI. Do not make a reader reconstruct the workflow from technical requirements, API types, or a task list.

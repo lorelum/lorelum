@@ -20,6 +20,10 @@ log.error("query.failed", { route: "query", status: 503 }, error);
 
 logger 会自动排除明确的 credential key 和 Bearer-like 值：Authorization、Cookie、token、private key、probe credential 等不能由 logger 自动写入。不要扫描环境、config、完整 HTTP header/body 或仓库来补日志。除此之外，调用方明确写入的 query、Practice、路径、模型路径、native 输出或 Error 会作为本机调试内容保留；不要把“本机记录”误称为“已适合公开”。
 
+日志入口创建并限制 `LogRecord`；受控 sink 的 `write` 与 `serializeLogRecord` 消费规范记录，不再重新脱敏、规范化或做完整 schema 检查。直接向 sink 写事件的调用者先使用 `createLogRecord(input)`；普通业务优先使用上面的 logger。保留入口的 transport byte bound 与 sink 的私有路径、编码、I/O 责任，不为减少编码增加持久标记或另一套事件类型。
+
+普通 CLI 只保留一套 `cli.command.started/completed` 生命周期证据；失败的 error/stack 是独立证据，不用完成摘要取代。`collectTraceLogs` 单次扫描受管文件，分别保存 direct 与全局 relation 有界窗口，沿匿名原子关系收集 shared lifecycle；不得先截断全局窗口再寻找 direct，或穿越另一 trace 的 context。
+
 ## 文件、等级与查看
 
 用户级根目录是 `~/.lorelum/logs/`：

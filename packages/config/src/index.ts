@@ -1,4 +1,11 @@
-export { loadConfig, ConfigError, MAX_CONFIG_BYTES, type LoadConfigOptions } from "./document/load";
+export {
+  loadConfig,
+  ConfigError,
+  MAX_CONFIG_BYTES,
+  type ConfigDocument,
+  type ConfigReader,
+  type LoadConfigOptions,
+} from "./document/load";
 export { initializeConfig, type InitializeConfigResult } from "./document/initialize";
 export {
   defaultFeedbackDirectory,

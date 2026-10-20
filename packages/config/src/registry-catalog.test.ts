@@ -99,6 +99,47 @@ test("removing the default atomically restores the built-in official selection",
     expect(await readRegistryCatalog({ homeDirectory })).toEqual({ registries: {} });
   }));
 
+test("catalog mutations preserve independent immutable source snapshots", () =>
+  fixture(async (homeDirectory) => {
+    const source = {
+      kind: "remote-git" as const,
+      locator: "https://git.example.com/team/packs.git",
+    };
+    const adding = addRegistryCatalogSource("team", source, { homeDirectory });
+    source.locator = "https://git.example.com/changed/packs.git";
+    const first = (await adding).catalog;
+    expect(first.registries.team).toEqual({
+      kind: "remote-git",
+      locator: "https://git.example.com/team/packs.git",
+    });
+    expect(Object.isFrozen(source)).toBe(false);
+    expect(() => {
+      Object.assign(first.registries.team!, { locator: source.locator });
+    }).toThrow(TypeError);
+
+    await addRegistryCatalogSource(
+      "other",
+      { kind: "local-git", worktree: join(homeDirectory, "other") },
+      { homeDirectory },
+    );
+    const selected = await setRegistryCatalogDefault("team", { homeDirectory });
+    const removed = await removeRegistryCatalogSource("other", { homeDirectory });
+    expect(first).toEqual({
+      registries: {
+        team: { kind: "remote-git", locator: "https://git.example.com/team/packs.git" },
+      },
+    });
+    expect(removed).toEqual({
+      defaultAlias: "team",
+      registries: first.registries,
+    });
+    expect(selected.registries.other).toEqual({
+      kind: "local-git",
+      worktree: join(homeDirectory, "other"),
+    });
+    expect(await readRegistryCatalog({ homeDirectory })).toEqual(removed);
+  }));
+
 test("rejects malformed and symlinked catalog files without following them", () =>
   fixture(async (homeDirectory) => {
     const paths = resolveLorelumPaths(homeDirectory);

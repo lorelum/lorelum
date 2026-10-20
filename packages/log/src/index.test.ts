@@ -97,3 +97,27 @@ test("keeps request-scoped debug on its trace and anonymous shared lifecycle onl
   ]);
   expect(JSON.stringify(sink.records)).not.toContain("another request");
 });
+
+test("captures logger context independently and normalizes each message context", () => {
+  const sink = new MemoryLogSink();
+  const context = { nested: { path: "/original" }, cookie: "must-not-serialize" };
+  const logger = createLogger({ source: "cli", sinks: [sink], context });
+  const childContext = { requestId: "request-original", nested: { path: "/child" } };
+  const child = logger.with(childContext);
+  context.nested.path = "/mutated";
+  childContext.requestId = "request-mutated";
+  childContext.nested.path = "/mutated-child";
+  const messageContext = { nested: { path: "/message", token: "must-not-serialize" } };
+  child.info("child-message", messageContext);
+  messageContext.nested.path = "/mutated-message";
+  child.info("child-captured");
+  logger.info("parent-captured");
+
+  expect(sink.records[0]).toMatchObject({
+    requestId: "request-original",
+    context: { nested: { path: "/message" } },
+  });
+  expect(sink.records[1]?.context?.nested).toEqual({ path: "/child" });
+  expect(sink.records[2]?.context?.nested).toEqual({ path: "/original" });
+  expect(JSON.stringify(sink.records)).not.toContain("must-not-serialize");
+});

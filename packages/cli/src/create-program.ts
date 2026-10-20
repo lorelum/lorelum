@@ -1,3 +1,4 @@
+import type { ConfigReader } from "@lorelum/config";
 import { Argument, Command, Option } from "commander";
 
 import { renderHelpText } from "./output/presentation.js";
@@ -34,6 +35,8 @@ export interface CliRuntime {
   readonly log?: LocalLogger;
   readonly diagnostics?: LogEmitter;
   readonly logDirectory?: string;
+  /** Shared lazy document snapshot for this invocation's config consumers. */
+  readonly readConfig?: ConfigReader;
 }
 
 /** Internal callbacks that let `run` own selected-command and process-exit state. */
@@ -79,6 +82,7 @@ export function createProgram(
         runtime.diagnostics,
         runtime.log,
         runtime.logDirectory,
+        runtime.readConfig,
       ),
     );
 
@@ -127,6 +131,7 @@ export function createProgram(
         runtime.diagnostics,
         runtime.log,
         runtime.logDirectory,
+        runtime.readConfig,
       );
     });
   }
@@ -147,6 +152,7 @@ async function executeCommand(
   diagnostics: LogEmitter | undefined,
   log: LocalLogger | undefined,
   logDirectory: string | undefined,
+  readConfig: ConfigReader | undefined,
 ): Promise<void> {
   lifecycle.selectCommand(definition);
   const helpOption = enabledFrameworkOption(command, definition, "help");
@@ -194,6 +200,7 @@ async function executeCommand(
     ...(diagnostics === undefined ? {} : { diagnostics }),
     ...(log === undefined ? {} : { log }),
     ...(logDirectory === undefined ? {} : { logDirectory }),
+    ...(readConfig === undefined ? {} : { readConfig }),
   });
   const exitCode = result.exitCode ?? 0;
   if (!definition.exitCodes.includes(exitCode)) {

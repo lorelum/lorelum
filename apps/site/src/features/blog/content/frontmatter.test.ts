@@ -73,6 +73,10 @@ describe("blogFrontmatterSchema", () => {
     }
   });
 
+  test.each(["yes", 1, null])("rejects a non-boolean authored draft flag: %p", (draft) => {
+    expect(blogFrontmatterSchema.safeParse({ ...valid, draft }).success).toBe(false);
+  });
+
   test("accepts an optional cover image as a site-public path", () => {
     const withImage = blogFrontmatterSchema.safeParse({
       ...valid,

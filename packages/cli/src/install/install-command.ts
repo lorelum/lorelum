@@ -1,3 +1,4 @@
+import type { ConfigReader } from "@lorelum/config";
 import {
   InvalidSourcePathError,
   PackNotInstalledError,
@@ -54,7 +55,7 @@ export interface InstallCommandServices {
   /** Install submits derived-index synchronization after its canonical commit. */
   readonly createIndexRuntimeClient: () => Promise<IndexRuntimeClient>;
   readonly progressWriter?: OutputWriter;
-  readonly loadSemanticSettings?: () => Promise<SemanticRetrievalSettings>;
+  readonly loadSemanticSettings?: (readConfig?: ConfigReader) => Promise<SemanticRetrievalSettings>;
   /** Ancillary dependencies default to the production implementations. */
   readonly loadRegistry?: (locator?: string) => Promise<LoadedRegistry>;
   readonly loadLocalRegistry?: (directory: string) => Promise<LoadedLocalRegistry>;
@@ -325,6 +326,7 @@ async function mutateRegistryPack(
   requestedVersion?: string,
   registryLocator?: string,
   operation: RegistryMutationOperation = "install",
+  readConfig?: ConfigReader,
 ): Promise<JsonValue> {
   const selection = await services.selectRegistry(registryLocator);
   let resolved: ReturnType<typeof resolveRegistryRelease>;
@@ -391,7 +393,7 @@ async function mutateRegistryPack(
       artifactDigest: result.artifactDigest,
       packRoot: result.packRoot,
     };
-    return appendInstallIndexSync(services, storageRoot, operation, data);
+    return appendInstallIndexSync(services, storageRoot, operation, data, readConfig);
   } finally {
     await materialized.cleanup().catch(() => undefined);
   }
@@ -402,6 +404,7 @@ async function mutateDirectoryPack(
   storageRoot: StorageRoot,
   sourceDirectory: string,
   operation: RegistryMutationOperation,
+  readConfig?: ConfigReader,
 ): Promise<JsonValue> {
   const directory = await services.resolveLocalPackDirectory(sourceDirectory);
   const decoded = await services.decodePackDirectory(directory);
@@ -419,7 +422,7 @@ async function mutateDirectoryPack(
     artifactDigest: result.artifactDigest,
     packRoot: result.packRoot,
   };
-  return appendInstallIndexSync(services, storageRoot, operation, data);
+  return appendInstallIndexSync(services, storageRoot, operation, data, readConfig);
 }
 
 async function appendInstallIndexSync(
@@ -427,9 +430,10 @@ async function appendInstallIndexSync(
   root: StorageRoot,
   operation: RegistryMutationOperation,
   data: Readonly<Record<string, JsonValue>>,
+  readConfig?: ConfigReader,
 ): Promise<JsonValue> {
   if (operation !== "install") return data;
-  const indexSync = await synchronizeIndex(services, root);
+  const indexSync = await synchronizeIndex(services, root, readConfig);
   if (indexSync.state === "failed") {
     try {
       services.progressWriter.write("index: sync failed; run lore index build for this Store\n");
@@ -443,9 +447,10 @@ async function appendInstallIndexSync(
 async function synchronizeIndex(
   services: ResolvedInstallCommandServices,
   root: StorageRoot,
+  readConfig?: ConfigReader,
 ): Promise<InstallIndexSync> {
   try {
-    const settings = await services.loadSemanticSettings();
+    const settings = await services.loadSemanticSettings(readConfig);
     return await syncSemanticIndexAfterInstall(
       root,
       await services.createIndexRuntimeClient(),
@@ -469,7 +474,9 @@ function createRegistryMutationCommand(
     decodePackDirectory: services.decodePackDirectory ?? decodePackDirectory,
     resolveLocalPackDirectory: services.resolveLocalPackDirectory ?? resolveLocalPackDirectory,
     createIndexRuntimeClient: services.createIndexRuntimeClient,
-    loadSemanticSettings: services.loadSemanticSettings ?? loadSemanticRetrievalSettings,
+    loadSemanticSettings:
+      services.loadSemanticSettings ??
+      ((readConfig?: ConfigReader) => loadSemanticRetrievalSettings({}, readConfig)),
     progressWriter: services.progressWriter ?? process.stderr,
     store: services.store,
     storageRoot: services.storageRoot,
@@ -517,6 +524,7 @@ function createRegistryMutationCommand(
               storageRoot,
               sourceDirectory,
               operation,
+              invocation.readConfig,
             ),
           };
         }
@@ -533,6 +541,7 @@ function createRegistryMutationCommand(
             specifier.requestedVersion,
             registry,
             operation,
+            invocation.readConfig,
           ),
         };
       } catch (error) {

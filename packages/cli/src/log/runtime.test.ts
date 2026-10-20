@@ -106,3 +106,62 @@ test("flush reports an unusable managed location once on stderr", async () =>
     expect(notice).toContain(`wrong-type at ${join(directory, "logs")}`);
     expect(notice?.endsWith("\n")).toBe(true);
   }));
+
+test("logging and settings share one invocation snapshot, while debug stays lazy", async () =>
+  fixture(async (home) => {
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        "--eval",
+        `
+          import { mkdir, writeFile } from "node:fs/promises";
+          import { join } from "node:path";
+          import { createTraceId } from "@lorelum/log";
+          import { resolveLorelumPaths } from "@lorelum/config";
+          import { createProcessLogRuntime } from ${JSON.stringify(join(import.meta.dir, "runtime.ts"))};
+          import { loadQuerySettings, loadSemanticRetrievalSettings } from ${JSON.stringify(join(import.meta.dir, "../query/settings.ts"))};
+
+          const paths = resolveLorelumPaths();
+          await mkdir(paths.rootDirectory, { recursive: true });
+          const oldConfig = "logging:\\n  level: info\\nquery:\\n  maxWaitMs: 100\\n  retrievalMethod: single-vector\\n";
+          const newConfig = "logging:\\n  level: warn\\nquery:\\n  maxWaitMs: 200\\n  retrievalMethod: multi-view-vector\\n";
+          await writeFile(paths.configFile, oldConfig);
+          const stderr = { write() {} };
+          const first = await createProcessLogRuntime(stderr, createTraceId(), { debug: false, persist: false });
+          await writeFile(paths.configFile, newConfig);
+          const firstSettings = await loadQuerySettings({}, first.readConfig);
+          const firstMethod = await loadSemanticRetrievalSettings({}, first.readConfig);
+          await first.flush();
+          const second = await createProcessLogRuntime(stderr, createTraceId(), { debug: false, persist: false });
+          const secondSettings = await loadQuerySettings({}, second.readConfig);
+          const secondMethod = await loadSemanticRetrievalSettings({}, second.readConfig);
+          await second.flush();
+          const debug = await createProcessLogRuntime(stderr, createTraceId(), { debug: true, persist: false });
+          await writeFile(paths.configFile, oldConfig);
+          const debugSettings = await loadQuerySettings({}, debug.readConfig);
+          await debug.flush();
+          console.log(JSON.stringify({ firstSettings, firstMethod, secondSettings, secondMethod, debugSettings }));
+        `,
+      ],
+      {
+        cwd: import.meta.dir,
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      firstSettings: { maxWaitMs: 100, minCoveragePercent: 0 },
+      firstMethod: { retrievalMethod: "single-vector" },
+      secondSettings: { maxWaitMs: 200, minCoveragePercent: 0 },
+      secondMethod: { retrievalMethod: "multi-view-vector" },
+      debugSettings: { maxWaitMs: 100, minCoveragePercent: 0 },
+    });
+  }));

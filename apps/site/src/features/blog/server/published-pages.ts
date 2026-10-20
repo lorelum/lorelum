@@ -1,6 +1,5 @@
 import { isPostVisible } from "../model/post-visibility";
 import { blogSource } from "./source";
-import { pickFrontmatter } from "./pick-frontmatter";
 
 /**
  * The blog pages that may be listed publicly, in both locales.
@@ -15,7 +14,5 @@ import { pickFrontmatter } from "./pick-frontmatter";
 export function getPublishedBlogPages() {
   return blogSource
     .getPages()
-    .filter((page) =>
-      isPostVisible({ draft: pickFrontmatter(page.data).draft, isDevelopment: false }),
-    );
+    .filter((page) => isPostVisible({ draft: page.data.draft, isDevelopment: false }));
 }

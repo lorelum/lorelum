@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { readManagedLogs } from "@lorelum/log";
 import { isInternalBackendDaemonLaunch, isInternalBackendServeInvocation, run } from "./main.js";
 import { protocolResponseSchema, toolVersion, type JsonSchema } from "./output/protocol.js";
 import {
@@ -29,7 +30,10 @@ interface CliProcessResult {
   readonly stderr: string;
 }
 
-async function runCliProcess(arguments_: string[], home: string): Promise<CliProcessResult> {
+async function runCliProcess(
+  arguments_: readonly string[],
+  home: string,
+): Promise<CliProcessResult> {
   const child = Bun.spawn([process.execPath, join(import.meta.dir, "main.ts"), ...arguments_], {
     env: { ...process.env, HOME: home, USERPROFILE: home },
     stdout: "pipe",
@@ -554,6 +558,133 @@ test("returns a configuration repair target in one message in both formats", asy
     expect(text.stderr).toContain(
       "  message: query.maxWaitMs must be an integer from 0 through 120000. Fix or remove it in ~/.lorelum/config.yaml.\n",
     );
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("query keeps its method snapshot until the next run when config changes between consumers", async () => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-invocation-config-"));
+  try {
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        "--eval",
+        `
+          import { mkdir, writeFile } from "node:fs/promises";
+          import { resolveLorelumPaths } from "@lorelum/config";
+          import { run } from ${JSON.stringify(join(import.meta.dir, "main.ts"))};
+          import { createQueryCommand } from ${JSON.stringify(join(import.meta.dir, "query/query-command.ts"))};
+          import { loadQuerySettings } from ${JSON.stringify(join(import.meta.dir, "query/settings.ts"))};
+
+          const paths = resolveLorelumPaths();
+          await mkdir(paths.rootDirectory, { recursive: true });
+          await writeFile(paths.configFile, "query:\\n  maxWaitMs: 100\\n  retrievalMethod: single-vector\\n");
+          const definition = createQueryCommand({
+            storageRoot: { rootPath: ${JSON.stringify(join(home, "store"))} },
+            queryService: { async query() { throw new Error("semantic query must use Backend"); } },
+            createClient: async () => ({
+              query: async () => ({
+                mode: "semantic", profileId: "a".repeat(64), coverage: "complete", results: [],
+              }),
+            }),
+            loadSettings: async (readConfig) => {
+              const settings = await loadQuerySettings({}, readConfig);
+              await writeFile(paths.configFile, "query:\\n  maxWaitMs: invalid\\n  retrievalMethod: multi-view-vector\\n");
+              return settings;
+            },
+          });
+          const responses = [];
+          for (let invocation = 0; invocation < 2; invocation++) {
+            let output = "";
+            const exitCode = await run(["--json", "query", "snapshot"], {
+              registry: [definition],
+              stdout: { write(message) { output += message; } },
+              stderr: { write(message) { throw new Error(message); } },
+            });
+            responses.push({ exitCode, response: JSON.parse(output) });
+          }
+          console.log(JSON.stringify(responses));
+        `,
+      ],
+      {
+        cwd: import.meta.dir,
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+    const [first, second] = JSON.parse(stdout);
+    expect(first).toMatchObject({
+      exitCode: 0,
+      response: { ok: true, data: { mode: "semantic", retrievalMethod: "single-vector" } },
+    });
+    expect(second).toMatchObject({
+      exitCode: 2,
+      response: { ok: false, error: { code: "query.config-invalid" } },
+    });
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test.each([
+  { args: ["--json", "describe"], failed: false },
+  { args: ["--json", "query", "--help"], failed: false },
+  { args: ["--json", "query", "text", "--top-k", "bad"], failed: true },
+])("persists one lifecycle path for $args and retains failure stacks", async ({ args, failed }) => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-command-lifecycle-"));
+  try {
+    const result = await runCliProcess(args, home);
+    expect(result.exitCode).toBe(failed ? 2 : 0);
+    const response = JSON.parse(result.stdout);
+    const logs = await readManagedLogs({
+      rootDirectory: join(home, ".lorelum", "logs"),
+      traceId: response.diagnostics.traceId,
+    });
+    expect(logs.missing).toEqual([]);
+    expect(logs.records.map((record) => record.message)).toEqual(
+      failed
+        ? ["cli.command.started", "cli.command.completed", "command.failed"]
+        : ["cli.command.started", "cli.command.completed"],
+    );
+    if (failed) {
+      expect(
+        logs.records.find((record) => record.message === "command.failed")?.error,
+      ).toMatchObject({
+        stack: expect.any(String),
+      });
+    }
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test.each([
+  { args: ["query", "text", "--top-k", "invalid"] },
+  { args: ["query", "text", "--max-wait-ms", "-1"] },
+  { args: ["query", "", "--mode", "keyword"] },
+])("invalid CLI input retains priority over an unreadable document for $args", async ({ args }) => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-input-config-priority-"));
+  try {
+    await mkdir(join(home, ".lorelum"));
+    await writeFile(join(home, ".lorelum", "config.yaml"), "query: [broken\n");
+    const result = await runCliProcess(
+      ["--json", "--store-root", join(home, "store"), ...args],
+      home,
+    );
+    expect(result.exitCode).toBe(2);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      error: { code: "usage.invalid" },
+    });
   } finally {
     await rm(home, { recursive: true, force: true });
   }

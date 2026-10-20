@@ -286,16 +286,6 @@ test("unconfigured load fails explicitly and status remains read-only", async ()
   expect((await service.unload()).state).toBe("unloaded");
 });
 
-test("blank and empty input rejected at service boundary", async () => {
-  const f = fixture();
-  for (const input of [[], ["  \n"]]) {
-    // eslint-disable-next-line no-await-in-loop
-    await expect(f.service.embed("query", input)).rejects.toMatchObject({
-      code: "embedding.input-invalid",
-    });
-  }
-});
-
 test("a crash cannot admit a replacement while the previous request is settling", async () => {
   const pending = deferred<number[][]>();
   const f = fixture({ encodeBatch: () => pending.promise });

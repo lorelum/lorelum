@@ -3,13 +3,7 @@ import { constants } from "node:fs";
 import { open, readdir, rename, stat, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
 
-import {
-  serializeLogRecord,
-  createLogRecord,
-  type LogEventInput,
-  type LogRecord,
-  type LogSink,
-} from "@lorelum/log";
+import { serializeLogRecord, type LogRecord, type LogSink } from "@lorelum/log";
 
 import { BackendError } from "../protocol/errors";
 import { assertPrivateFile, checkDirectory, hasCode } from "./runtime-state";
@@ -107,12 +101,12 @@ export class PrivateJsonlSink implements LogSink {
    * Queue writes so concurrent lifecycle events each occupy one complete JSON
    * line and rotation cannot interleave with another writer.
    */
-  write(record: LogEventInput | LogRecord): Promise<void> {
+  write(record: LogRecord): Promise<void> {
     const operation = this.queue.then(async () => {
       await this.preflight();
       if (this.state === "disabled") return;
       try {
-        const serialized = serializeLogRecord(createLogRecord(record));
+        const serialized = serializeLogRecord(record);
         const bytes = Buffer.byteLength(serialized, "utf8");
         // Declared events are expected to be bounded by their owner.  Refuse
         // an oversized line rather than violating the sink's hard byte bound.

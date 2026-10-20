@@ -16,10 +16,11 @@ export interface LoadConfigOptions {
   readonly filePath?: string;
 }
 
+export type ConfigDocument = Readonly<Record<string, unknown>>;
+export type ConfigReader = () => Promise<ConfigDocument>;
+
 /** Reads the shared document; consumers validate the sections they own. No writes. */
-export async function loadConfig(
-  options: LoadConfigOptions = {},
-): Promise<Readonly<Record<string, unknown>>> {
+export async function loadConfig(options: LoadConfigOptions = {}): Promise<ConfigDocument> {
   const path = options.filePath ?? resolveLorelumPaths(options.homeDirectory).configFile;
   let file: FileHandle;
   try {

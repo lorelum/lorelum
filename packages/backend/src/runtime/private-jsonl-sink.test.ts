@@ -1,4 +1,5 @@
 /* eslint-disable no-await-in-loop -- Rotation fixtures write and inspect one file at a time. */
+import { createLogRecord } from "@lorelum/log";
 import { expect, test } from "bun:test";
 import {
   chmod,
@@ -26,13 +27,13 @@ async function fixture(run: (directory: string) => Promise<void>) {
 }
 
 function event(sequence: number) {
-  return {
+  return createLogRecord({
     time: new Date(0).toISOString(),
     level: "info" as const,
     component: "backend" as const,
     event: "backend.daemon.ready" as const,
     code: `event-${sequence}-${"x".repeat(64)}`,
-  };
+  });
 }
 
 test("preflight creates a private target and writes one JSON line per event", async () =>
@@ -151,19 +152,21 @@ test("retains only declared bounded local evidence in private JSONL", async () =
       authorization: "Bearer must-not-serialize",
       cookie: "session=must-not-serialize",
     };
-    await sink.write(requestEvent);
-    await sink.write({
-      time: new Date(0).toISOString(),
-      level: "error",
-      component: "backend",
-      event: "native.exited-before-ready",
-      nativeRunId: "native-run-1",
-      readiness: "failed",
-      stdoutBytes: 12,
-      stderrBytes: 0,
-      modelPath: "/absolute/model.gguf",
-      nativeOutput: "raw native output",
-    });
+    await sink.write(createLogRecord(requestEvent));
+    await sink.write(
+      createLogRecord({
+        time: new Date(0).toISOString(),
+        level: "error",
+        component: "backend",
+        event: "native.exited-before-ready",
+        nativeRunId: "native-run-1",
+        readiness: "failed",
+        stdoutBytes: 12,
+        stderrBytes: 0,
+        modelPath: "/absolute/model.gguf",
+        nativeOutput: "raw native output",
+      }),
+    );
     await sink.close();
     const serialized = await readFile(join(directory, "backend.log"), "utf8");
     expect(serialized).toContain("Practice input");

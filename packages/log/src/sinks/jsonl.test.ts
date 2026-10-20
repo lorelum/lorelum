@@ -13,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { createLogRecord } from "../record.js";
 import { JsonlFileSink } from "./jsonl.js";
 
 async function fixture(run: (root: string) => Promise<void>) {
@@ -40,7 +41,7 @@ test("creates a private process-owned segment and keeps concurrent records whole
     const sink = new JsonlFileSink(path, join(root, "logs"));
     await Promise.all(
       Array.from({ length: 8 }, (_, sequence) =>
-        sink.write({ level: "info", source: "cli", message: `event-${sequence}` }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: `event-${sequence}` })),
       ),
     );
     await sink.close();
@@ -65,7 +66,7 @@ test.skipIf(process.platform === "win32")(
       const before = posixMode((await lstat(root)).mode);
 
       const sink = new JsonlFileSink(path, join(root, "logs"), root);
-      await sink.write({ level: "info", source: "cli", message: "kept" });
+      await sink.write(createLogRecord({ level: "info", source: "cli", message: "kept" }));
       await sink.close();
 
       const record = JSON.parse(await readFile(path, "utf8"));
@@ -95,7 +96,7 @@ test.skipIf(process.platform === "win32")(
       await chmod(join(logRoot, "cli"), 0o755);
 
       const sink = new JsonlFileSink(path, logRoot, root);
-      await sink.write({ level: "info", source: "cli", message: "tightened" });
+      await sink.write(createLogRecord({ level: "info", source: "cli", message: "tightened" }));
       await sink.close();
 
       const record = JSON.parse((await readFile(path, "utf8")).trimEnd());
@@ -115,13 +116,13 @@ test.skipIf(process.platform === "win32")(
       const redirected = join(root, "redirected");
       const path = join(root, "logs", "cli", "trace.jsonl");
       const sink = new JsonlFileSink(path, join(root, "logs"));
-      await sink.write({ level: "info", source: "cli", message: "before" });
+      await sink.write(createLogRecord({ level: "info", source: "cli", message: "before" }));
       await writeFile(redirected, "preserve me", "utf8");
       await rm(join(root, "logs", "cli"), { recursive: true });
       await symlink(redirected, join(root, "logs", "cli"));
 
       await expect(
-        sink.write({ level: "info", source: "cli", message: "after" }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: "after" })),
       ).resolves.toBeUndefined();
       await sink.close();
       expect(await readFile(redirected, "utf8")).toBe("preserve me");
@@ -139,7 +140,7 @@ test.skipIf(process.platform === "win32")(
       const sink = new JsonlFileSink(join(logRoot, "cli", "trace.jsonl"), logRoot, root);
 
       await expect(
-        sink.write({ level: "info", source: "cli", message: "blocked" }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: "blocked" })),
       ).resolves.toBeUndefined();
       expect(await readFile(redirected, "utf8")).toBe("preserve me");
     }),
@@ -157,7 +158,7 @@ test.skipIf(process.platform === "win32")(
 
       const sink = new JsonlFileSink(path, join(root, "logs"), root);
       await expect(
-        sink.write({ level: "info", source: "cli", message: "blocked" }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: "blocked" })),
       ).resolves.toBeUndefined();
       await sink.close();
       expect(await readFile(redirected, "utf8")).toBe("preserve me");
@@ -175,7 +176,7 @@ test.skipIf(process.platform === "win32")(
 
       const sink = new JsonlFileSink(path, join(root, "logs"), root);
       await expect(
-        sink.write({ level: "info", source: "cli", message: "blocked" }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: "blocked" })),
       ).resolves.toBeUndefined();
       await sink.close();
       expect(await readFile(path, "utf8")).toBe("preserve me");
@@ -194,7 +195,7 @@ test.skipIf(process.platform === "win32")(
 
       const sink = new JsonlFileSink(path, logRoot, root);
       await expect(
-        sink.write({ level: "info", source: "cli", message: "blocked" }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: "blocked" })),
       ).resolves.toBeUndefined();
       await sink.close();
       expect(posixMode((await lstat(logRoot)).mode) & 0o7777).toBe(0o505);
@@ -213,10 +214,10 @@ test.skipIf(process.platform === "win32")(
       const sink = new JsonlFileSink(join(logRoot, "cli", "trace.jsonl"), logRoot, root);
 
       await expect(
-        sink.write({ level: "info", source: "cli", message: "first" }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: "first" })),
       ).resolves.toBeUndefined();
       await expect(
-        sink.write({ level: "info", source: "cli", message: "second" }),
+        sink.write(createLogRecord({ level: "info", source: "cli", message: "second" })),
       ).resolves.toBeUndefined();
       await sink.close();
 

@@ -73,7 +73,7 @@ class LocalLogger implements Logger {
       level,
       source: this.source,
       message,
-      context: { ...this.context, ...sanitizeLogContext(context) },
+      context: { ...this.context, ...context },
       error,
     });
     for (const sink of this.sinks) {

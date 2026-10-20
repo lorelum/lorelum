@@ -1,3 +1,4 @@
+import { createLogRecord } from "@lorelum/log";
 import { expect, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
 import { chmod, link, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
@@ -7,6 +8,7 @@ import {
   checkDirectory,
   readRecord,
   removeRecord,
+  runtimeRecordSchema,
   writeRecord,
   type RuntimeRecord,
 } from "./runtime-state";
@@ -102,10 +104,77 @@ test("runtime records carry the optional embedding snapshot", async () =>
 
 test("runtime record writes reject serialized records over 4096 UTF-8 bytes", async () =>
   fixture(async (directory) => {
-    const value = { ...(await record()), embedding: { modelPath: `/${"模型".repeat(1_000)}` } };
+    const value = { ...(await record()), startedAt: "模型".repeat(1_000) };
     await expect(writeRecord(directory, value)).rejects.toMatchObject({
       code: "backend.state-invalid",
     });
+  }));
+
+test("runtime record schema and writes enforce the exact UTF-8 size boundary", async () =>
+  fixture(async (directory) => {
+    const value = { ...(await record()), startedAt: "" };
+    const remaining = 4_096 - Buffer.byteLength(JSON.stringify(value), "utf8");
+    value.startedAt = `${"模".repeat(Math.floor(remaining / 3))}${"x".repeat(remaining % 3)}`;
+    expect(runtimeRecordSchema.safeParse(value).success).toBe(true);
+    await writeRecord(directory, value);
+    expect(await readRecord(directory)).toEqual(value);
+    const oversized = { ...value, startedAt: `${value.startedAt}x` };
+    expect(runtimeRecordSchema.safeParse(oversized).success).toBe(false);
+    await expect(writeRecord(directory, oversized)).rejects.toMatchObject({
+      code: "backend.state-invalid",
+    });
+    expect(await readRecord(directory)).toEqual(value);
+    await writeFile(join(directory, "instance.json"), JSON.stringify(oversized));
+    await expect(readRecord(directory)).rejects.toMatchObject({
+      code: "backend.state-invalid",
+    });
+  }));
+
+test("runtime updates reject partial embedding defaults that expand beyond the record limit", async () =>
+  fixture(async (directory) => {
+    const current = await record();
+    await writeRecord(directory, current);
+    const value = { ...current, startedAt: "", embedding: { modelPath: "/models/test.gguf" } };
+    value.startedAt = "x".repeat(4_096 - Buffer.byteLength(JSON.stringify(value), "utf8"));
+    expect(runtimeRecordSchema.safeParse(value).success).toBe(false);
+    await expect(writeRecord(directory, value)).rejects.toMatchObject({
+      code: "backend.state-invalid",
+    });
+    expect(await readRecord(directory)).toEqual(current);
+  }));
+
+test.each([{ pid: 0 }, { secret: "invalid" }, { unknownField: true }])(
+  "invalid runtime update %j preserves the existing private record",
+  async (invalid) =>
+    fixture(async (directory) => {
+      const current = await record();
+      await writeRecord(directory, current);
+      await expect(writeRecord(directory, { ...current, ...invalid })).rejects.toMatchObject({
+        code: "backend.state-invalid",
+      });
+      expect(await readRecord(directory)).toEqual(current);
+    }),
+);
+
+test("runtime reads reject structurally invalid JSON records", async () =>
+  fixture(async (directory) => {
+    const value = { ...(await record()), pid: 0 };
+    await writeFile(join(directory, "instance.json"), JSON.stringify(value), { mode: 0o600 });
+    await expect(readRecord(directory)).rejects.toMatchObject({
+      code: "backend.state-invalid",
+    });
+  }));
+
+test("runtime updates leave the current record intact when the temporary file exists", async () =>
+  fixture(async (directory) => {
+    const current = await record();
+    const replacement = await record();
+    await writeRecord(directory, current);
+    const temporary = join(directory, `${replacement.instanceId}.tmp`);
+    await writeFile(temporary, "occupied", { mode: 0o600 });
+    await expect(writeRecord(directory, replacement)).rejects.toMatchObject({ code: "EEXIST" });
+    expect(await readRecord(directory)).toEqual(current);
+    expect(await readFile(temporary, "utf8")).toBe("occupied");
   }));
 
 test("runtime record rejects embedding snapshots over 2048 UTF-8 bytes", async () =>
@@ -138,12 +207,14 @@ test("private diagnostic lifecycle log rotates at a bounded size", async () =>
   fixture(async (directory) => {
     await writeFile(join(directory, "backend.log"), "x".repeat(65_536), { mode: 0o600 });
     const sink = await createPrivateJsonlSink({ directory });
-    await sink.write({
-      time: new Date().toISOString(),
-      level: "info",
-      component: "backend",
-      event: "backend.daemon.ready",
-    });
+    await sink.write(
+      createLogRecord({
+        time: new Date().toISOString(),
+        level: "info",
+        component: "backend",
+        event: "backend.daemon.ready",
+      }),
+    );
     await sink.close();
     const current = await readFile(join(directory, "backend.log"), "utf8");
     expect(JSON.parse(current).message).toBe("backend.daemon.ready");

@@ -20,8 +20,12 @@ export class Logger {
     this.level = level;
   }
 
+  isEnabled(level: LogLevel): boolean {
+    return priorities[level] <= priorities[this.level];
+  }
+
   log(level: LogLevel, message: string): void {
-    if (priorities[level] <= priorities[this.level]) {
+    if (this.isEnabled(level)) {
       this.writer.write(`[${level}] ${message}\n`);
     }
   }
