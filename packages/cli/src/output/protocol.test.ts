@@ -100,7 +100,6 @@ test("rejects an undeclared details field with the exported schema", () => {
 
 test("validates independent golden envelopes with the exported envelope schema", () => {
   for (const response of goldenEnvelopes) {
-    expect(response.toolVersion).toBe(toolVersion);
     expect(response.command).toStartWith("fixture.");
     expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
   }

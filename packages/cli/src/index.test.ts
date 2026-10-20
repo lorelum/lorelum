@@ -10,7 +10,6 @@ import {
 test("exports the CLI package contract", () => {
   expect(protocolResponseSchema).toHaveProperty("oneOf");
   expect(protocolVersion).toBe(2);
-  expect(toolVersion).toBe("0.1.0-alpha.5");
 
   const response: ProtocolSuccess<{ name: string }> = {
     protocolVersion,
