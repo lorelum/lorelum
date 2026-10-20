@@ -44,7 +44,7 @@ Windows 安装器会在需要时将 `$env:LOCALAPPDATA\Lorelum\bin` 加入用户
 lore --version
 ```
 
-结果是包含工具版本的 JSON。桌面启动的编辑器或 Agent 可能需要重启，才能继承更新后的 `PATH`。
+结果默认是包含工具版本和协议版本的可读文本；自动化需要 JSON envelope 时，使用 `lore --version --json`。桌面启动的编辑器或 Agent 可能需要重启，才能继承更新后的 `PATH`。
 
 ## 手动安装发行包
 
