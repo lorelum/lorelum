@@ -21,6 +21,7 @@
     "build:cli": "bun scripts/release/build.ts",
     "build:cli-only": "bun scripts/release/build-cli.ts",
     "build:release-staging": "bun scripts/release/build.ts",
+    "release:version": "bun scripts/release/versions.ts",
     "build:release": "bun scripts/release/package.ts",
     "build:site": "bun run --filter @lorelum/site build",
     "deploy:site": "cd apps/site && npx wrangler deploy",
