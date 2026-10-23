@@ -48,9 +48,7 @@ export function createBackendApp(options: CreateBackendAppOptions) {
     })
     .use(backendController(backend))
     .use(
-      options.embedding
-        ? embeddingController(options.embedding, backend.available, diagnostics)
-        : new Elysia(),
+      options.embedding ? embeddingController(options.embedding, backend.available) : new Elysia(),
     )
     .use(indexController(options.semanticRuntime, backend.available, diagnostics))
     .use(

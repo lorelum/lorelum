@@ -10,6 +10,7 @@ import {
   verifyNativeEmbeddingResources,
 } from "./embedding-resources";
 import { verifyResource } from "./resource-integrity";
+import { MemoryLogSink, SinkLogEmitter } from "@lorelum/log";
 import { resolveEmbeddingNativeArtifact } from "./native/embedding/catalog";
 import { verifyNativeArtifact } from "./native/embedding/manifest";
 
@@ -107,6 +108,7 @@ test("preparation rejects wrong model size and digest with safe logical resource
 test("missing compiled native resources fail before any model transfer or cache creation", async () => {
   const root = await mkdtemp(join(tmpdir(), "lore-missing-native-"));
   const cacheDirectory = join(root, "cache");
+  const sink = new MemoryLogSink();
   try {
     await expect(
       prepareEmbeddingResources(
@@ -115,6 +117,7 @@ test("missing compiled native resources fail before any model transfer or cache 
         () => {},
         {
           compiledRoot: root,
+          diagnostics: new SinkLogEmitter(sink),
           model: {
             download: async () => {
               throw new Error("missing native must fail before transfer");
@@ -131,6 +134,27 @@ test("missing compiled native resources fail before any model transfer or cache 
       },
     });
     await expect(lstat(cacheDirectory)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(sink.records).toEqual([
+      expect.objectContaining({
+        level: "debug",
+        message: "backend.native.manifest.verifying",
+        context: expect.objectContaining({
+          path: join(root, "native", `${process.platform}-${process.arch}`, "manifest.json"),
+        }),
+      }),
+      expect.objectContaining({
+        level: "debug",
+        message: "backend.native.failed",
+        context: expect.objectContaining({
+          resource: {
+            kind: "native",
+            file: `native/${process.platform}-${process.arch}/manifest.json`,
+            check: "missing",
+          },
+        }),
+        error: expect.objectContaining({ message: expect.any(String) }),
+      }),
+    ]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

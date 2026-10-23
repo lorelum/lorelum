@@ -2,6 +2,7 @@ import { defaultLogDirectory } from "@lorelum/config";
 import {
   isLogLevel,
   isTraceId,
+  collectTraceLogs,
   pruneManagedLogs,
   readManagedLogs,
   type LogLevel,
@@ -10,6 +11,8 @@ import {
 import type { JsonSchema, JsonValue } from "../output/protocol.js";
 import type { CommandDefinition } from "../registry.js";
 import { frameworkErrorCodes, invalidInvocationError } from "../runtime/errors.js";
+
+const DEFAULT_LOG_LIMIT = 100;
 
 const recordsSchema: JsonSchema = {
   type: "object",
@@ -104,10 +107,29 @@ export function createLogCommands(): readonly CommandDefinition[] {
         if (action !== undefined)
           throw invalidInvocationError("Only logs prune is a valid action.");
         const parsedLimit = limit(invocation.options.limit);
+        const rootDirectory = invocation.logDirectory ?? defaultLogDirectory();
+        if (traceId !== undefined) {
+          const collection = await collectTraceLogs({ rootDirectory, traceId, limit: 1_000 });
+          const matching = [...collection.directRecords, ...collection.sharedRecords]
+            .filter(
+              (record) =>
+                (source === undefined || record.source === source) &&
+                (level === undefined || record.level === level),
+            )
+            .sort((left, right) => left.time.localeCompare(right.time));
+          const outputLimit = parsedLimit ?? DEFAULT_LOG_LIMIT;
+          const truncated = collection.truncated || matching.length > outputLimit;
+          return {
+            data: {
+              records: matching.slice(-outputLimit) as unknown as JsonValue,
+              missingEvidence: collection.missing,
+              truncated,
+            },
+          };
+        }
         const result = await readManagedLogs({
-          rootDirectory: invocation.logDirectory ?? defaultLogDirectory(),
+          rootDirectory,
           ...(source === undefined ? {} : { source }),
-          ...(traceId === undefined ? {} : { traceId }),
           ...(level === undefined ? {} : { level: level as LogLevel }),
           ...(parsedLimit === undefined ? {} : { limit: parsedLimit }),
         });

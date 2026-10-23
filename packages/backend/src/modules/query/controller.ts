@@ -54,10 +54,8 @@ export function queryController(
       BACKEND_ROUTES.query,
       async ({ body, request }) => {
         const traceId = requestTraceId(request);
-        const requestDiagnostics = withDiagnosticLevel(
-          diagnostics,
-          requestDiagnosticLevel(request),
-        );
+        const diagnosticLevel = requestDiagnosticLevel(request);
+        const requestDiagnostics = withDiagnosticLevel(diagnostics, diagnosticLevel);
         const requestId = randomUUID();
         const startedAt = Date.now();
         if (traceId !== undefined) {
@@ -100,6 +98,7 @@ export function queryController(
                     maxWaitMs: body.query.maxWaitMs ?? 3_000,
                     minCoveragePercent: body.query.minCoveragePercent ?? 0,
                   },
+                  { traceId, requestId, diagnosticLevel },
                 );
           const response = toResponse(result);
           if (traceId !== undefined) {
@@ -114,17 +113,6 @@ export function queryController(
                 traceId,
                 requestId,
                 operationId,
-              });
-            }
-            if (preparationId !== undefined) {
-              requestDiagnostics.emit({
-                time: new Date().toISOString(),
-                level: "info",
-                component: "backend",
-                event: "trace.preparation.accepted",
-                traceId,
-                requestId,
-                preparationId,
               });
             }
             requestDiagnostics.emit({
