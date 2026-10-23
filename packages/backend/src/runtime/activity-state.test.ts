@@ -7,6 +7,7 @@ import { BackendError } from "../protocol/errors";
 import {
   activityPath,
   assessRuntimeActivity,
+  assessRuntimeActivityV4,
   grantTaskLease,
   initializeActivityRecord,
   readActivityRecord,
@@ -69,6 +70,52 @@ test("valid leases protect activity, while expired leases defer automatic recove
     expect(assessRuntimeActivity(await readActivityRecord(directory), instanceId, 2_100)).toEqual({
       state: "idle",
       reason: "idle",
+    });
+  }));
+
+test("v4 ignores expired leases and a new lease write prunes expired entries", async () =>
+  fixture(async (directory) => {
+    await initializeActivityRecord(directory, instanceId);
+    await setRuntimeActivity(directory, instanceId, "daemon-startup", false);
+    await grantTaskLease(directory, instanceId, owner, 1_000, 1_000);
+
+    const expired = await readActivityRecord(directory);
+    expect(assessRuntimeActivity(expired, instanceId, 2_000)).toEqual({
+      state: "unknown",
+      reason: "unknown-activity",
+    });
+    expect(assessRuntimeActivityV4(expired, instanceId, 2_000)).toEqual({
+      state: "idle",
+      reason: "idle",
+    });
+
+    const activeLease = await grantTaskLease(directory, instanceId, owner, 1_000, 2_000);
+    const withActiveLease = await readActivityRecord(directory);
+    expect(withActiveLease?.leases.map((lease) => lease.leaseId)).toEqual([activeLease.leaseId]);
+    expect(assessRuntimeActivityV4(withActiveLease, instanceId, 2_500)).toEqual({
+      state: "active",
+      reason: "active-long-task",
+    });
+    expect(assessRuntimeActivityV4(withActiveLease, instanceId, 3_000)).toEqual({
+      state: "idle",
+      reason: "idle",
+    });
+  }));
+
+test("v3 lease writes preserve the old expired-lease guard", async () =>
+  fixture(async (directory) => {
+    await initializeActivityRecord(directory, instanceId);
+    await setRuntimeActivity(directory, instanceId, "daemon-startup", false);
+    const expired = await grantTaskLease(directory, instanceId, owner, 1_000, 1_000, 3);
+    const fresh = await grantTaskLease(directory, instanceId, owner, 1_000, 2_000, 3);
+    await renewTaskLease(directory, instanceId, fresh.leaseId, owner, 1_000, 2_500, 3);
+    expect((await readActivityRecord(directory))?.leases.map((lease) => lease.leaseId)).toContain(
+      expired.leaseId,
+    );
+    await releaseTaskLease(directory, instanceId, fresh.leaseId);
+    expect(assessRuntimeActivity(await readActivityRecord(directory), instanceId, 2_500)).toEqual({
+      state: "unknown",
+      reason: "unknown-activity",
     });
   }));
 

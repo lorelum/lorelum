@@ -5,6 +5,7 @@ import {
   BackendRemoteError,
   EMBEDDING_MODEL,
   ENCODING_ID,
+  PROTOCOL_VERSION,
   type IndexOperation,
   type IndexStatus,
 } from "@lorelum/backend/protocol";
@@ -52,8 +53,16 @@ function backend(
       protocolVersion: 2,
       proof: "a".repeat(64),
     }),
-    status: async () => ({ state: "ready", model: "unloaded" }),
+    status: async () => ({
+      state: "ready",
+      model: "unloaded",
+      instanceId: "instance",
+      buildIdentity: "build",
+      backendProtocolVersion: PROTOCOL_VERSION,
+      build: { toolVersion: "0.1.0-test", revision: null, dirty: null, buildKind: "source" },
+    }),
     stop: async () => ({ state: "stopped", model: "unloaded" }),
+    stopIfIdle: async () => ({ state: "stopped", model: "unloaded" }),
     loadModel: async () => ({
       state: "ready",
       encodingId: ENCODING_ID,

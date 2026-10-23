@@ -3,14 +3,17 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+import { readBuildProvenance } from "../../packages/backend/src/runtime/build-info";
 import type { EmbeddingNativeArtifact } from "../../packages/backend/src/runtime/native/embedding/catalog";
 import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/native/embedding/manifest";
+import { toolVersion } from "../../packages/cli/src/output/protocol";
 
 const repositoryRoot = resolve(import.meta.dir, "../..");
 const defaultEntrypoint = join(repositoryRoot, "packages/cli/src/main.ts");
 const migrationAssetsDirectory = "packages/engine/src/persistence/migrations";
 const windowsIcon = join(repositoryRoot, "scripts/release/lorelum.ico");
 const compiledManifestDefinitionKey = "LORELUM_RELEASE_NATIVE_MANIFEST";
+const compiledProvenanceDefinitionKey = "LORELUM_BUILD_PROVENANCE";
 
 export function windowsCompileMetadataArguments(): readonly string[] {
   if (!existsSync(windowsIcon)) throw new Error(`Windows release icon is missing: ${windowsIcon}`);
@@ -82,13 +85,17 @@ export async function compileReleaseCli(
 
 async function createCompileJob(options: CompileCliOptions): Promise<CompileCliJob> {
   await mkdir(dirname(options.outfile), { recursive: true });
+  const provenance = await readBuildProvenance(repositoryRoot, toolVersion, "compiled");
   return {
     outfile: options.outfile,
     entrypoint: options.entrypoint ?? defaultEntrypoint,
     compileTarget:
       options.target ?? (`bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget),
     // One identity per compilation, shared by all processes launched from that binary.
-    define: { LORELUM_BUILD_IDENTITY: JSON.stringify(randomBytes(32).toString("hex")) },
+    define: {
+      LORELUM_BUILD_IDENTITY: JSON.stringify(randomBytes(32).toString("hex")),
+      [compiledProvenanceDefinitionKey]: JSON.stringify(provenance),
+    },
   };
 }
 

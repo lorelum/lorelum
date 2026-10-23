@@ -10,7 +10,7 @@ import type { ContentAddressedSemanticRuntimePort } from "./modules/query/conten
 import { practiceHintController } from "./modules/practice-hints/controller";
 import type { PracticeHintService } from "./modules/practice-hints/service";
 import { localBoundary, reject } from "./plugins/local-auth";
-import { BACKEND_HOST, BACKEND_PORT } from "./protocol/constants";
+import { BACKEND_HOST, BACKEND_PORT, BACKEND_ROUTES } from "./protocol/constants";
 import { noopEmitter, type LogEmitter } from "@lorelum/log";
 
 export interface CreateBackendAppOptions {
@@ -38,9 +38,24 @@ export function createBackendApp(options: CreateBackendAppOptions) {
   }
   const { backend } = options;
   const diagnostics = options.diagnostics ?? noopEmitter;
+  const admittedRequests = new WeakMap<Request, () => void>();
+  const releaseAdmission = (request: Request) => {
+    const release = admittedRequests.get(request);
+    if (release === undefined) return;
+    admittedRequests.delete(request);
+    release();
+  };
   return new Elysia({ normalize: false })
     .use(localBoundary(port, backend.authenticate))
-    .onError(({ code, error }) => {
+    .onBeforeHandle(({ request }) => {
+      if (!isBusinessRequest(request)) return;
+      const release = backend.admitBusinessRequest();
+      if (release === undefined) return reject(503, "backend.busy");
+      admittedRequests.set(request, release);
+    })
+    .onAfterHandle(({ request }) => releaseAdmission(request))
+    .onError(({ code, error, request }) => {
+      releaseAdmission(request);
       const responseFailure = "type" in error && error.type === "response";
       return (code === "VALIDATION" && !responseFailure) || code === "PARSE" || code === "NOT_FOUND"
         ? reject(400, "backend.invalid-request")
@@ -66,4 +81,13 @@ export function createBackendApp(options: CreateBackendAppOptions) {
         diagnostics,
       ),
     );
+}
+
+function isBusinessRequest(request: Request): boolean {
+  const path = new URL(request.url).pathname;
+  return (
+    path !== BACKEND_ROUTES.identity &&
+    path !== BACKEND_ROUTES.status &&
+    path !== BACKEND_ROUTES.stop
+  );
 }

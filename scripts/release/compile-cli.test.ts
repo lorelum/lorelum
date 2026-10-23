@@ -1,9 +1,12 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { PROTOCOL_VERSION } from "../../packages/backend/src/protocol/constants";
+import { protocolVersion, toolVersion } from "../../packages/cli/src/output/protocol";
+import { readBuildProvenance } from "../../packages/backend/src/runtime/build-info";
 import { resolveEmbeddingNativeArtifact } from "../../packages/backend/src/runtime/native/embedding/catalog";
 import type { NativeArtifactManifest } from "../../packages/backend/src/runtime/native/embedding/manifest";
 import { compileCli, compileReleaseCli, windowsCompileMetadataArguments } from "./compile-cli";
@@ -40,20 +43,23 @@ function compileTest(name: string, fn: () => Promise<void>): void {
 }
 
 compileTest(
-  "compiled identity survives process restarts and copies but separates builds",
+  "compiled build info survives copies and separates rebuilds without Git at runtime",
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "lore-build-identity-"));
     try {
+      const emptyPath = join(directory, "empty-path");
+      await mkdir(emptyPath);
       const entrypoint = join(directory, "entry.ts");
       await writeFile(
         entrypoint,
         [
-          `import { currentBuildIdentity } from ${JSON.stringify(
-            join(repositoryRoot, "packages/backend/src/runtime/build-identity.ts"),
+          `import { createVersionData } from ${JSON.stringify(
+            join(repositoryRoot, "packages/cli/src/version.ts"),
           )};`,
-          "console.log(await currentBuildIdentity(import.meta.path));",
+          "console.log(JSON.stringify(await createVersionData(import.meta.path)));",
         ].join("\n"),
       );
+      const expectedProvenance = await readBuildProvenance(repositoryRoot, toolVersion, "compiled");
       const first = await compileCli({ entrypoint, outfile: join(directory, "first") });
       const copied = join(directory, process.platform === "win32" ? "copied.exe" : "copied");
       await copyFile(first.output, copied);
@@ -64,16 +70,30 @@ compileTest(
         nativeManifest: manifest,
         useBunCommand: true,
       });
-      const identities = [first.output, first.output, copied, second.output].map((executable) => {
-        const child = Bun.spawnSync([executable], { stdout: "pipe", stderr: "pipe" });
+      const buildInfos = [first.output, first.output, copied, second.output].map((executable) => {
+        const child = Bun.spawnSync([executable], {
+          cwd: directory,
+          env: { ...process.env, PATH: emptyPath },
+          stdout: "pipe",
+          stderr: "pipe",
+        });
         expect(child.exitCode).toBe(0);
         expect(child.stderr.toString()).toBe("");
-        return child.stdout.toString().trim();
+        return JSON.parse(child.stdout.toString()) as Record<string, unknown>;
       });
-      expect(identities[0]).toMatch(/^[a-f0-9]{64}$/);
-      expect(identities[1]).toBe(identities[0]);
-      expect(identities[2]).toBe(identities[0]);
-      expect(identities[3]).not.toBe(identities[0]);
+      expect(buildInfos[0]).toMatchObject({
+        ...expectedProvenance,
+        protocolVersion,
+        backendProtocolVersion: PROTOCOL_VERSION,
+        toolVersion,
+        buildKind: "compiled",
+      });
+      expect(buildInfos[0]?.buildIdentity).toMatch(/^[a-f0-9]{64}$/);
+      expect(buildInfos[1]).toEqual(buildInfos[0]);
+      expect(buildInfos[2]).toEqual(buildInfos[0]);
+      expect(buildInfos[3]).toMatchObject(expectedProvenance);
+      expect(buildInfos[3]?.buildIdentity).toMatch(/^[a-f0-9]{64}$/);
+      expect(buildInfos[3]?.buildIdentity).not.toBe(buildInfos[0]?.buildIdentity);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

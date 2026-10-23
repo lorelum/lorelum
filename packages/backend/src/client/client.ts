@@ -33,8 +33,10 @@ import {
 import {
   identitySchema,
   statusSchema,
+  stopResponseSchema,
   type BackendIdentity,
   type BackendStatus,
+  type StopResponse,
 } from "../modules/backend/model";
 import {
   embeddingRequestSchema,
@@ -98,7 +100,6 @@ export interface CreateBackendClientOptions {
   readonly secret: string;
   /** Test-only alternate loopback HTTP address. */
   readonly baseUrl?: string;
-  readonly buildIdentity: string;
   /** Timeout for ordinary control and embedding requests. */
   readonly timeoutMs?: number;
   /** Timeout budget for local file verification and native model startup. */
@@ -117,6 +118,7 @@ export interface BackendClient {
   identity(options?: BackendRequestOptions): Promise<BackendIdentity>;
   status(): Promise<BackendStatus>;
   stop(): Promise<BackendStatus>;
+  stopIfIdle(): Promise<StopResponse>;
   loadModel(options?: { onProgress?: (status: ModelStatus) => void }): Promise<ModelStatus>;
   statusModel(): Promise<ModelStatus>;
   beginModelPreparation(options?: BackendRequestOptions): Promise<ModelPreparation>;
@@ -190,10 +192,22 @@ function remoteError(body: unknown): Error | undefined {
   return new BackendError("backend.failed");
 }
 
+function protocolMismatchMessage(
+  identity: InstanceIdentity,
+  currentProtocolVersion: number,
+): string {
+  return [
+    "The local backend uses an incompatible Lorelum protocol.",
+    `CLI Backend protocol: ${currentProtocolVersion}.`,
+    `Backend: version unknown, build ${identity.buildIdentity}, Backend protocol ${identity.protocolVersion}.`,
+    "Run `lore backend stop --if-idle`; only if stopped, run `lore backend start`, then retry this command.",
+    "If deferred, leave it running; do not retry in the background or run `lore backend stop` without explicit user approval.",
+  ].join(" ");
+}
+
 /** A fetch-only client boundary; it has no runtime dependency on Engine or Elysia. */
 export function createBackendClient(options: CreateBackendClientOptions): BackendClient {
   if (options.secret.length === 0) throw new TypeError("Backend secret must not be empty");
-  if (options.buildIdentity.length === 0) throw new TypeError("Build identity must not be empty");
   const timeoutMs = options.timeoutMs ?? DEFAULT_BACKEND_SETTINGS.requestTimeoutMs;
   const startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_BACKEND_SETTINGS.startupTimeoutMs;
   const shutdownTimeoutMs = options.shutdownTimeoutMs ?? DEFAULT_BACKEND_SETTINGS.shutdownTimeoutMs;
@@ -251,10 +265,7 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     }
   };
 
-  const identify = async (
-    requestOptions: BackendRequestOptions = {},
-    allowCurrentBuildMismatch = false,
-  ): Promise<BackendIdentity> => {
+  const identify = async (requestOptions: BackendRequestOptions = {}): Promise<BackendIdentity> => {
     const nonce = randomBytes(32).toString("hex");
     const body = await send(
       `${BACKEND_ROUTES.identity}?nonce=${nonce}`,
@@ -269,13 +280,16 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     }
     if (
       identity.instanceId !== options.identity.instanceId ||
-      identity.buildIdentity !== options.identity.buildIdentity
+      identity.buildIdentity !== options.identity.buildIdentity ||
+      identity.protocolVersion !== options.identity.protocolVersion
     )
       throw new BackendError("backend.state-invalid");
     if (identity.protocolVersion !== protocolVersion)
-      throw new BackendError("backend.protocol-mismatch");
-    if (!allowCurrentBuildMismatch && identity.buildIdentity !== options.buildIdentity)
-      throw new BackendError("backend.build-mismatch");
+      throw new BackendError(
+        "backend.protocol-mismatch",
+        undefined,
+        protocolMismatchMessage(identity, protocolVersion),
+      );
     verifiedIdentity = identity;
     return parsed.data;
   };
@@ -292,7 +306,6 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       deadline,
       traceId: requestTraceId,
       diagnosticLevel: requestDiagnosticLevel,
-      allowCurrentBuildMismatch = false,
     }: {
       payload?: unknown;
       method?: "GET" | "POST";
@@ -301,13 +314,10 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
       deadline?: number | undefined;
       traceId?: TraceId | undefined;
       diagnosticLevel?: "debug" | undefined;
-      allowCurrentBuildMismatch?: boolean;
     } = {},
   ): Promise<T> => {
     const budget = { signal, deadline: deadline ?? Date.now() + timeout };
-    if (verifiedIdentity === undefined) await identify(budget, allowCurrentBuildMismatch);
-    else if (!allowCurrentBuildMismatch && verifiedIdentity.buildIdentity !== options.buildIdentity)
-      throw new BackendError("backend.build-mismatch");
+    if (verifiedIdentity === undefined) await identify(budget);
     const traceId = requestTraceId ?? options.traceId;
     const diagnosticLevel = requestDiagnosticLevel ?? options.diagnosticLevel;
     const headers: Record<string, string> = {
@@ -333,21 +343,20 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
     return Math.max(1, Math.ceil(value));
   }
 
-  const control = async (
-    path: string,
-    method: "GET" | "POST" = "GET",
-    allowCurrentBuildMismatch = false,
-  ): Promise<BackendStatus> => {
+  const assertOwnedStatus = (result: BackendStatus): BackendStatus => {
+    if (
+      result.state !== "stopped" &&
+      (result.instanceId !== options.identity.instanceId ||
+        result.buildIdentity !== options.identity.buildIdentity)
+    )
+      throw new BackendError("backend.state-invalid");
+    return result;
+  };
+  const control = async (path: string, method: "GET" | "POST" = "GET"): Promise<BackendStatus> => {
     const result = await request(path, statusSchema, {
       method,
-      allowCurrentBuildMismatch,
     });
-    if (
-      result.instanceId !== options.identity.instanceId ||
-      result.buildIdentity !== options.identity.buildIdentity
-    )
-      throw new BackendError("backend.failed");
-    return result;
+    return assertOwnedStatus(result);
   };
 
   async function modelRequest(
@@ -372,7 +381,13 @@ export function createBackendClient(options: CreateBackendClientOptions): Backen
   return Object.freeze({
     identity: identify,
     status: () => control(BACKEND_ROUTES.status),
-    stop: () => control(BACKEND_ROUTES.stop, "POST", true),
+    stop: () => control(BACKEND_ROUTES.stop, "POST"),
+    async stopIfIdle() {
+      const result = await request(BACKEND_ROUTES.stop, stopResponseSchema, {
+        payload: { ifIdle: true },
+      });
+      return result.state === "deferred" ? result : assertOwnedStatus(result);
+    },
     async loadModel({ onProgress } = {}) {
       let result = await modelRequest(BACKEND_ROUTES.modelLoad, { payload: {} });
       // Explicit load admits retries; automatic admission only joins/starts a nonfailed task.

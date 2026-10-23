@@ -44,7 +44,9 @@ Use the installed schema when automating against a particular release. Alpha ver
 | `--log-level <level>` | Set stderr diagnostic verbosity; default `error`. |
 | `--json` | Return the complete one-line JSON protocol envelope. |
 | `--help`, `-h` | Show readable Help; add `--json` for capability data. |
-| `--version`, `-V` | Show tool/protocol version; add `--json` for its envelope. |
+| `--version`, `-V` | Show tool version, both protocol versions, and build provenance; add `--json` for the complete envelope. |
+
+`lore --version` does not connect to a Backend or open a Store. Its text separates the CLI envelope protocol (`2`) from the Backend internal protocol (`4`) and shows a short build ID, source/compiled kind, revision, and clean/dirty/unknown state. `lore --version --json` includes the full `buildIdentity` and revision; unavailable Git values are `null`, not inferred as clean. For explicit Backend build selection, `--current-build` is an option of `lore backend start` only; see the [Backend command reference](./reference/backend).
 
 Relative Store paths resolve from the current working directory. Use the same root across related commands:
 

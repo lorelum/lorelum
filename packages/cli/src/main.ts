@@ -26,6 +26,7 @@ import {
 import { toVisibleCliError } from "./runtime/errors.js";
 import { createProcessLogRuntime } from "./log/runtime.js";
 import { createTraceId, noopEmitter, type TraceId } from "@lorelum/log";
+import { toolVersion } from "./output/protocol.js";
 import {
   createAutoUpdateService,
   runAutoUpdateWorker,
@@ -247,9 +248,9 @@ if (import.meta.main) {
   if (await runAutoUpdateWorker(args)) {
     // The private, finite worker owns its own network deadline and has no output.
   } else if (isInternalBackendDaemonLaunch(args)) {
-    const { currentBuildIdentity } = await import("@lorelum/backend/control");
+    const { currentBuildInfo } = await import("@lorelum/backend/control");
     const { runBackendDaemon } = await import("@lorelum/backend/daemon");
-    await runBackendDaemon({ buildIdentity: await currentBuildIdentity(import.meta.path) });
+    await runBackendDaemon({ build: await currentBuildInfo(import.meta.path, toolVersion) });
   } else {
     process.exitCode = await run(args);
   }

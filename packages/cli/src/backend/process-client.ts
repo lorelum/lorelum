@@ -13,7 +13,7 @@ export async function createProcessBackendClient(
     import("@lorelum/backend/control"),
   ]);
   const { createBackendClient } = clientModule;
-  const { currentBuildIdentity, isSameProcess, readRecord } = controlModule;
+  const { isSameProcess, readRecord } = controlModule;
   const record = await readRecord(defaultRuntimeDirectory());
   if (record === undefined || !(await isSameProcess(record)))
     throw new BackendError("backend.unavailable");
@@ -21,7 +21,6 @@ export async function createProcessBackendClient(
   return createBackendClient({
     identity: record,
     secret: record.secret,
-    buildIdentity: await currentBuildIdentity(Bun.main),
     baseUrl: BACKEND_URL,
     timeoutMs: settings.requestTimeoutMs,
     startupTimeoutMs: settings.startupTimeoutMs,

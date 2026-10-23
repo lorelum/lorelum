@@ -4,17 +4,26 @@ import type { BackendSupervisor } from "@lorelum/backend/control";
 import {
   BackendError,
   backendErrorCodes,
-  statusSchema,
+  backendStatusStates,
+  modelStates,
+  PROTOCOL_VERSION,
   type BackendStatus,
+  type BuildInfo,
 } from "@lorelum/backend/protocol";
 
 import { initializeApplicationConfig } from "../config/initialize";
 import type { JsonSchema, JsonValue } from "../output/protocol";
 import type { CommandDefinition } from "../registry";
-import { CliError, frameworkErrorCodes, invalidInvocationError } from "../runtime/errors";
+import { frameworkErrorCodes, invalidInvocationError } from "../runtime/errors";
+import type { TextRenderer } from "../output/render";
+import { backendCliError } from "./error";
 
 export interface BackendCommandServices {
-  readonly createSupervisor: (options?: { initialize?: boolean }) => Promise<BackendSupervisor>;
+  readonly createSupervisor: (options?: {
+    initialize?: boolean;
+    buildIdentity?: string;
+  }) => Promise<BackendSupervisor>;
+  readonly currentBuildInfo: () => Promise<BuildInfo>;
 }
 
 const DEFAULT_LEASE_TTL_MS = 60_000;
@@ -22,18 +31,49 @@ const DEFAULT_LEASE_TTL_MS = 60_000;
 // Translate the Zod status contract into the smaller JSON schema dialect used
 // by CLI discovery. The adapter stays local because CLI output is not an HTTP
 // schema and does not need a general Zod-to-JSON-Schema converter.
-const statusShape = statusSchema.shape;
+const provenanceProperties: Readonly<Record<string, JsonSchema>> = {
+  toolVersion: { type: "string" },
+  revision: { oneOf: [{ type: "string" }, { const: null }] },
+  dirty: { oneOf: [{ type: "boolean" }, { const: null }] },
+  buildKind: { enum: ["source", "compiled"] },
+};
+const provenanceSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: Object.keys(provenanceProperties),
+  properties: provenanceProperties,
+};
+const cliBuildSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [...Object.keys(provenanceProperties), "buildIdentity", "backendProtocolVersion"],
+  properties: {
+    ...provenanceProperties,
+    buildIdentity: { type: "string" },
+    backendProtocolVersion: { const: PROTOCOL_VERSION },
+  },
+};
 const backendStatusResultSchema: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: Object.entries(statusShape)
-    .filter(([, schema]) => !schema.isOptional())
-    .map(([name]) => name),
+  required: ["state", "model"],
   properties: {
-    state: { enum: statusShape.state.options },
-    model: { enum: statusShape.model.options },
+    state: { enum: backendStatusStates },
+    model: { enum: modelStates },
     instanceId: { type: "string" },
     buildIdentity: { type: "string" },
+    backendProtocolVersion: { type: "integer" },
+    build: provenanceSchema,
+  },
+};
+const observedStatusResultSchema: JsonSchema = {
+  ...backendStatusResultSchema,
+  required: [...(backendStatusResultSchema.required ?? []), "cli"],
+  properties: {
+    ...backendStatusResultSchema.properties,
+    cli: cliBuildSchema,
+    sameBuild: { type: "boolean" },
+    protocolCompatible: { const: true },
   },
 };
 const stopIfIdleResultSchema: JsonSchema = {
@@ -47,6 +87,19 @@ const stopIfIdleResultSchema: JsonSchema = {
 };
 const stopResultSchema: JsonSchema = {
   oneOf: [backendStatusResultSchema, stopIfIdleResultSchema],
+};
+const startResultSchema: JsonSchema = {
+  oneOf: [
+    observedStatusResultSchema,
+    {
+      ...stopIfIdleResultSchema,
+      required: ["state", "reason"],
+      properties: {
+        ...stopIfIdleResultSchema.properties,
+        state: { const: "deferred" },
+      },
+    },
+  ],
 };
 const leaseResultSchema: JsonSchema = {
   type: "object",
@@ -69,7 +122,7 @@ const releasedLeaseResultSchema: JsonSchema = {
  * The lifecycle module owns process spawning and never loads on ordinary metadata reads.
  */
 export async function createProcessBackendSupervisor(
-  options: { initialize?: boolean } = {},
+  options: { initialize?: boolean; buildIdentity?: string } = {},
 ): Promise<BackendSupervisor> {
   const { createBackendSupervisor, currentBuildIdentity, isCompiledEntrypoint } =
     await import("@lorelum/backend/control");
@@ -87,25 +140,38 @@ export async function createProcessBackendSupervisor(
   }
   return createBackendSupervisor({
     config: await loadBackendConfig(),
-    buildIdentity: await currentBuildIdentity(entrypoint),
+    buildIdentity: options.buildIdentity ?? (await currentBuildIdentity(entrypoint)),
     command,
     daemonArgv0: "lore-backend",
   });
 }
 
-function toResult(status: BackendStatus): JsonValue {
+function toResult(status: BackendStatus, cli?: BuildInfo): JsonValue {
   return {
     state: status.state,
     model: status.model,
-    ...(status.instanceId === undefined ? {} : { instanceId: status.instanceId }),
-    ...(status.buildIdentity === undefined ? {} : { buildIdentity: status.buildIdentity }),
+    ...(status.state === "stopped"
+      ? {}
+      : {
+          instanceId: status.instanceId,
+          buildIdentity: status.buildIdentity,
+          backendProtocolVersion: status.backendProtocolVersion,
+          build: status.build,
+        }),
+    ...(cli === undefined ? {} : { cli: { ...cli, backendProtocolVersion: PROTOCOL_VERSION } }),
+    ...(cli === undefined || status.state === "stopped"
+      ? {}
+      : {
+          sameBuild: cli.buildIdentity === status.buildIdentity,
+          protocolCompatible: true,
+        }),
   };
 }
 
 function toHandoffResult(result: Awaited<ReturnType<BackendSupervisor["stopIfIdle"]>>): JsonValue {
   return {
     state: result.state,
-    ...(result.reason === undefined ? {} : { reason: result.reason }),
+    ...(result.state === "deferred" ? { reason: result.reason } : {}),
   };
 }
 
@@ -125,9 +191,40 @@ function parseLeaseTtl(value: unknown): number {
   return ttlMs;
 }
 
-function lifecycleError(error: unknown): never {
-  if (error instanceof BackendError) throw new CliError(error.code, error.message);
+async function lifecycleError(error: unknown, build?: BuildInfo): Promise<never> {
+  if (error instanceof BackendError) throw await backendCliError(error, build);
   throw error;
+}
+
+const renderBackendStatus: TextRenderer = (data, fallback) => {
+  if (!isJsonObject(data)) return fallback(data);
+  if (data.state === "deferred")
+    return `Backend switch deferred: ${data.reason}. Leave the current backend running; retry this command after the active work finishes or its activity is resolved.`;
+  const cli = data.cli;
+  if (!isJsonObject(cli)) return fallback(data);
+  const lines = [`Backend: ${data.state}; model: ${data.model}`];
+  const build = data.build;
+  if (isJsonObject(build))
+    lines.push(
+      `Backend build: ${buildLabel(build)}; id ${String(data.buildIdentity).slice(0, 12)}; protocol ${data.backendProtocolVersion}`,
+    );
+  lines.push(
+    `CLI build: ${buildLabel(cli)}; id ${String(cli.buildIdentity).slice(0, 12)}; protocol ${cli.backendProtocolVersion}`,
+  );
+  if (data.sameBuild !== undefined)
+    lines.push(`Same build: ${data.sameBuild ? "yes" : "no"}; protocol compatible: yes`);
+  return lines.join("\n");
+};
+
+function isJsonObject(value: JsonValue | undefined): value is Readonly<Record<string, JsonValue>> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function buildLabel(build: Readonly<Record<string, JsonValue>>): string {
+  const revision =
+    typeof build.revision === "string" ? build.revision.slice(0, 8) : "revision unknown";
+  const dirty = build.dirty === true ? " dirty" : build.dirty === null ? " (dirty unknown)" : "";
+  return `${build.toolVersion} ${build.buildKind} ${revision}${dirty}`;
 }
 
 const leaseTtlOption = {
@@ -142,24 +239,48 @@ const leaseTtlOption = {
 export function createBackendCommands(
   services: BackendCommandServices,
 ): readonly CommandDefinition[] {
-  const startAndStatus = (
-    [
-      ["start", "Start the local backend and wait for it to become ready."],
-      ["status", "Report the current local backend status without starting it."],
-    ] as const
-  ).map(([operation, summary]) =>
-    lifecycleDefinition({
-      name: `backend.${operation}`,
-      summary,
-      resultSchema: backendStatusResultSchema,
-      execute: async () =>
-        toResult(
-          await (
-            await services.createSupervisor({ initialize: operation === "start" })
-          )[operation](),
-        ),
-    }),
-  );
+  const startAndStatus: CommandDefinition[] = (["start", "status"] as const).map((operation) => ({
+    name: `backend.${operation}`,
+    summary:
+      operation === "start"
+        ? "Start or reuse the local backend; optionally require this exact build."
+        : "Report the current local backend status without starting it.",
+    positionals: [],
+    options:
+      operation === "start"
+        ? [
+            {
+              longFlag: "--current-build",
+              description:
+                "Ensure this exact build is running; switch another build only when the backend is idle.",
+              optionRequired: false,
+            },
+          ]
+        : [],
+    resultSchema: operation === "start" ? startResultSchema : observedStatusResultSchema,
+    textRenderer: renderBackendStatus,
+    errorCodes: [...frameworkErrorCodes, ...backendErrorCodes],
+    exitCodes: operation === "start" ? [0, 1, 2] : [0, 2],
+    async handler(invocation) {
+      const build = await services.currentBuildInfo();
+      try {
+        const supervisor = await services.createSupervisor({
+          initialize: operation === "start",
+          buildIdentity: build.buildIdentity,
+        });
+        const result =
+          operation === "status"
+            ? await supervisor.status()
+            : invocation.options.currentBuild === true
+              ? await supervisor.start({ requireCurrentBuild: true })
+              : await supervisor.start();
+        if (result.state === "deferred") return { data: toHandoffResult(result), exitCode: 1 };
+        return { data: toResult(result, build) };
+      } catch (error) {
+        return lifecycleError(error, build);
+      }
+    },
+  }));
 
   const stop: CommandDefinition = {
     name: "backend.stop",
@@ -182,7 +303,7 @@ export function createBackendCommands(
           return { data: toHandoffResult(await supervisor.stopIfIdle()) };
         return { data: toResult(await supervisor.stop()) };
       } catch (error) {
-        lifecycleError(error);
+        return lifecycleError(error);
       }
     },
   };
@@ -206,7 +327,7 @@ export function createBackendCommands(
             ),
           };
         } catch (error) {
-          lifecycleError(error);
+          return lifecycleError(error);
         }
       },
     },
@@ -230,7 +351,7 @@ export function createBackendCommands(
             ),
           };
         } catch (error) {
-          lifecycleError(error);
+          return lifecycleError(error);
         }
       },
     },
@@ -249,35 +370,11 @@ export function createBackendCommands(
           await (await services.createSupervisor({ initialize: false })).releaseTaskLease(leaseId);
           return { data: { released: true } };
         } catch (error) {
-          lifecycleError(error);
+          return lifecycleError(error);
         }
       },
     },
   ];
 
   return [...startAndStatus, stop, ...leases];
-}
-
-function lifecycleDefinition(input: {
-  readonly name: string;
-  readonly summary: string;
-  readonly resultSchema: JsonSchema;
-  readonly execute: () => Promise<JsonValue>;
-}): CommandDefinition {
-  return {
-    name: input.name,
-    summary: input.summary,
-    positionals: [],
-    options: [],
-    resultSchema: input.resultSchema,
-    errorCodes: [...frameworkErrorCodes, ...backendErrorCodes],
-    exitCodes: [0, 2],
-    async handler() {
-      try {
-        return { data: await input.execute() };
-      } catch (error) {
-        lifecycleError(error);
-      }
-    },
-  };
 }

@@ -14,6 +14,7 @@ The CLI is the composition and protocol boundary. It parses commands, resolves g
 ## Current-worktree verification
 
 - Run source-level CLI checks from this worktree with `bun packages/cli/src/main.ts ...`. Do not validate source changes with global `lore`, a binary from another worktree, or by editing a developer's shell configuration to recover `lore-dev`.
+- When a CLI acceptance check against the shared Backend must exercise this worktree's changed code, first run `bun packages/cli/src/main.ts backend start --current-build` from the worktree root (or the same subcommand from this worktree's complete compiled bundle). Continue only after exit `0` and `state: ready`; deferred exits `1` and leaves the shared instance running, so do not continue the acceptance commands, force-stop it, or retry in the background. See the [normal worktree workflow](../../docs/development/README.md#normal-development-workflow).
 - Pass an explicitly isolated `--store-root` for any worktree validation that can open a Store, including reads and queries. Omit it only when the task explicitly requires the developer's shared Store.
 - `backend start/status/stop` and keyword checks do not require a native candidate. Before source validation that can embed, run `bun run build:native`.
 - Choose compiled checks by purpose: `bun run build:cli-only` for non-embedding behavior, `bun run build:cli` for a runnable embedding candidate, and `bun run build:release` only for final archive validation. `build:release-staging` remains a compatibility alias for `build:cli`.

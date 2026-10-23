@@ -1,6 +1,7 @@
 export * from "./constants";
 export * from "./errors";
 export * from "./identity";
+export * from "./build-provenance";
 export * from "../modules/backend/model";
 export * from "../modules/query/model";
 export * from "../modules/index/model";

@@ -43,7 +43,6 @@ async function backendClient(traceId?: TraceId, debug = false) {
   return createBackendClient({
     identity,
     secret: identity.secret,
-    buildIdentity,
     baseUrl,
     ...(traceId === undefined ? {} : { traceId }),
     ...(debug ? { diagnosticLevel: "debug" as const } : {}),

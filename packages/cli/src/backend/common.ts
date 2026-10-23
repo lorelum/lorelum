@@ -1,7 +1,8 @@
 import { BackendError, EmbeddingError } from "@lorelum/backend/protocol";
 import type { JsonValue } from "../output/protocol";
 import type { CommandDefinition, CommandInvocation } from "../registry";
-import { CliError, frameworkErrorCodes } from "../runtime/errors";
+import { frameworkErrorCodes } from "../runtime/errors";
+import { backendCliError } from "./error";
 
 /** Defaults and error translation shared by backend/model lifecycle commands. */
 export function lifecycleCommand(
@@ -21,11 +22,7 @@ export function lifecycleCommand(
         return { data: await execute(invocation) };
       } catch (error) {
         if (error instanceof BackendError || error instanceof EmbeddingError)
-          throw new CliError(
-            error.code,
-            error.message,
-            error instanceof EmbeddingError ? error.resource : undefined,
-          );
+          throw await backendCliError(error);
         throw error;
       }
     },

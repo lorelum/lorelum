@@ -3,6 +3,7 @@ import {
   EMBEDDING_MODEL,
   ENCODING_ID,
   EmbeddingError,
+  PROTOCOL_VERSION,
   type ModelStatus,
 } from "@lorelum/backend/protocol";
 import { expect, test } from "bun:test";
@@ -38,8 +39,16 @@ function fakeClient(calls: string[]): BackendClient {
       protocolVersion: 1,
       proof: "a".repeat(64),
     }),
-    status: async () => ({ state: "ready", model: "unloaded" }),
+    status: async () => ({
+      state: "ready",
+      model: "unloaded",
+      instanceId: "instance",
+      buildIdentity: "build",
+      backendProtocolVersion: PROTOCOL_VERSION,
+      build: { toolVersion: "0.1.0-test", revision: null, dirty: null, buildKind: "source" },
+    }),
     stop: async () => ({ state: "stopped", model: "unloaded" }),
+    stopIfIdle: async () => ({ state: "stopped", model: "unloaded" }),
     loadModel: async () => {
       calls.push("load");
       return ready;

@@ -5,6 +5,8 @@ description: 为 AI coding task 和 moment 找到合适的已安装 Practice。
 
 `query` 搜索当前 query context，返回按相关性排序的 Practice 摘要。默认使用 semantic relevance；`keyword` 是明确指定的离线路径。当前目录或父目录中的有效项目 `.lorelum/` 会按父到子继承并合并；选中的 Store root 永远不是项目 layer。没有有效项目 layer（包括整条路径没有 `.lorelum/` 的普通目录）时，query 只使用 selected Store；`--no-project` 可强制该 Store-only 行为。
 
+Backend 是用户级共享服务。只要 Backend internal protocol 兼容，query 就可以复用由另一个 build 启动的实例；仅仅 build ID 不同不会拒绝 query、重启 Backend 或重载模型。CLI envelope protocol 为 `2`，Backend protocol 为 `4`；只有 protocol 不兼容才会阻止请求。若开发验证必须使用某个 worktree 的 Backend build，使用 [`backend start --current-build`](./backend)。
+
 ```sh
 lore query <text> [--mode semantic|keyword|single-vector|multi-view-vector] [--top-k <n>] [--store-root <path>] [--project-root <path>] [--no-project] [--cache-root <path>] [--verbose] [--json]
 ```
@@ -49,7 +51,7 @@ Ready 查询未返回 Practice 时仍是成功结果（退出码 `0`），data �
 | `embedding.native-resource-invalid` | 重新安装包含 `native/<target>/` 的匹配完整 CLI 包；重新下载模型无效。 |
 | `embedding.resource-invalid` | 查看 `lore model status --json`，修正所报告的缓存或配置模型文件，再重试 `lore model load`。 |
 | `semantic.embedding-failed` 或其他 `embedding.*` | 查看 `lore model status` 和具体错误指引，再决定是否重试。 |
-| `backend.build-mismatch` / `backend.protocol-mismatch` | 按完整错误消息执行 `lore backend stop --if-idle`；只有返回 `state: "stopped"` 才运行 `lore backend start`，启动成功后以相同参数重试原命令。若 stop 返回 `deferred`，保留实例与任务，说明安全拒绝，不后台重试，也不在未经用户明确同意时使用普通 stop。 |
+| `backend.protocol-mismatch` | 按完整错误消息执行 `lore backend stop --if-idle`；只有返回 `state: "stopped"` 才运行 `lore backend start`，启动成功后以相同参数重试原命令。若 stop 返回 `deferred`，保留实例与任务，说明安全拒绝，不后台重试，也不在未经用户明确同意时使用普通 stop。build ID 不同本身不是错误。 |
 | `query.unavailable` / `query.failed` | 检查 keyword index 与 Store 状态。 |
 | `store.busy` / `store.recovery-required` | 等待 Store 操作完成或按文档执行恢复。 |
 | `usage.invalid` | 修正查询文本或选项值。 |

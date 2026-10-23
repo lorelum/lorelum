@@ -103,7 +103,9 @@ test.concurrent(
       };
       const controllers = Array.from({ length: 3 }, () => createBackendSupervisor(options));
       const results = await Promise.all(controllers.map((c) => c.start()));
-      expect(new Set(results.map((r) => r.instanceId)).size).toBe(1);
+      expect(
+        new Set(results.map((r) => (r.state === "stopped" ? undefined : r.instanceId))).size,
+      ).toBe(1);
       expect(results[0]?.state).toBe("ready");
       const record = (await readRecord(directory))!;
       expect(record.pid).not.toBe(process.pid);
@@ -116,13 +118,44 @@ test.concurrent(
         expect((await stat(join(directory, "instance.json"))).mode & 0o777).toBe(0o600);
       }
       const mismatched = createBackendSupervisor({ ...options, buildIdentity: "different-build" });
-      await expect(mismatched.status()).rejects.toMatchObject({ code: "backend.build-mismatch" });
-      await expect(mismatched.start()).rejects.toMatchObject({ code: "backend.build-mismatch" });
+      expect(await mismatched.status()).toMatchObject({ instanceId: record.instanceId });
+      expect(await mismatched.start()).toMatchObject({ instanceId: record.instanceId });
+      expect(await isSameProcess(record)).toBe(true);
       expect(await mismatched.stop()).toEqual({ state: "stopped", model: "unloaded" });
       expect(await isSameProcess(record)).toBe(false);
       expect(await readRecord(directory)).toBeUndefined();
       const log = await readFile(join(directory, "logs", "backend", "current.jsonl"), "utf8");
       expect(log).not.toContain(record.secret);
+    }),
+  20_000,
+);
+
+test.concurrent(
+  "current-build start changes only an idle owner and is idempotent",
+  async () =>
+    fixture(async (directory, port, command) => {
+      const options = { command, runtimeDirectory: directory, baseUrl: `http://127.0.0.1:${port}` };
+      const original = createBackendSupervisor({ ...options, buildIdentity: "integration-build" });
+      await original.start();
+      const firstRecord = (await readRecord(directory))!;
+      const current = createBackendSupervisor({
+        ...options,
+        command: [...command, "different-build"],
+        buildIdentity: "different-build",
+      });
+      const lease = await original.acquireTaskLease(60_000);
+      expect(await current.start({ requireCurrentBuild: true })).toEqual({
+        state: "deferred",
+        reason: "active-long-task",
+      });
+      expect(await isSameProcess(firstRecord)).toBe(true);
+      await original.releaseTaskLease(lease.leaseId);
+      const switched = await current.start({ requireCurrentBuild: true });
+      expect(switched.state).toBe("ready");
+      expect("buildIdentity" in switched && switched.buildIdentity).toBe("different-build");
+      expect("instanceId" in switched && switched.instanceId).not.toBe(firstRecord.instanceId);
+      expect(await isSameProcess(firstRecord)).toBe(false);
+      expect(await current.start({ requireCurrentBuild: true })).toEqual(switched);
     }),
   20_000,
 );
@@ -159,6 +192,71 @@ test.concurrent(
       expect(await recovery.stop()).toEqual({ state: "stopped", model: "unloaded" });
       expect(await isSameProcess(record)).toBe(false);
       expect(await readRecord(directory)).toBeUndefined();
+    }),
+  20_000,
+);
+
+test.concurrent(
+  "current-build start reports replacement launch failure after stopping the old owner",
+  async () =>
+    fixture(async (directory, port, command) => {
+      const options = { runtimeDirectory: directory, baseUrl: `http://127.0.0.1:${port}` };
+      const original = createBackendSupervisor({
+        ...options,
+        command,
+        buildIdentity: "integration-build",
+      });
+      await original.start();
+      const old = (await readRecord(directory))!;
+      const replacement = createBackendSupervisor({
+        ...options,
+        command: ["/nonexistent/lorelum-daemon"],
+        buildIdentity: "replacement-build",
+      });
+      await expect(replacement.start({ requireCurrentBuild: true })).rejects.toMatchObject({
+        code: "backend.failed",
+      });
+      expect(await isSameProcess(old)).toBe(false);
+      expect(await replacement.status()).toEqual({ state: "stopped", model: "unloaded" });
+      expect(await readRecord(directory)).toBeUndefined();
+    }),
+  20_000,
+);
+
+test.concurrent(
+  "default and current-build starts serialize a protocol handoff",
+  async () =>
+    fixture(async (directory, port, command) => {
+      const options = { runtimeDirectory: directory, baseUrl: `http://127.0.0.1:${port}` };
+      await createBackendSupervisor({
+        ...options,
+        command,
+        buildIdentity: "integration-build",
+        protocolVersion: PROTOCOL_VERSION - 1,
+      }).start();
+      const old = (await readRecord(directory))!;
+      const current = createBackendSupervisor({
+        ...options,
+        command: [...command, "current-build"],
+        buildIdentity: "current-build",
+      });
+      const [explicit, ordinary] = await Promise.allSettled([
+        current.start({ requireCurrentBuild: true }),
+        current.start(),
+      ]);
+      if (explicit.status !== "fulfilled") throw explicit.reason;
+      if (explicit.value.state !== "ready")
+        throw new Error("Explicit handoff did not become ready");
+      expect(explicit.value).toMatchObject({ state: "ready", buildIdentity: "current-build" });
+      // The default start may win the lock before the explicit handoff. It must
+      // report the old protocol, not independently replace the old owner.
+      if (ordinary.status === "fulfilled") expect(ordinary.value).toEqual(explicit.value);
+      else expect(ordinary.reason).toMatchObject({ code: "backend.protocol-mismatch" });
+      expect(await readRecord(directory)).toMatchObject({
+        buildIdentity: "current-build",
+        protocolVersion: PROTOCOL_VERSION,
+      });
+      expect(await isSameProcess(old)).toBe(false);
     }),
   20_000,
 );
@@ -288,7 +386,7 @@ test.concurrent(
         runtimeDirectory: directory,
         baseUrl: `http://127.0.0.1:${port}`,
       });
-      const first = await controller.start();
+      await controller.start();
       const record = (await readRecord(directory))!;
       process.kill(record.pid, "SIGKILL");
       // A dead process identity can precede release of its listening socket.
@@ -301,7 +399,7 @@ test.concurrent(
       expect(await listenerHasClosed(port)).toBe(true);
       expect((await controller.status()).state).toBe("stopped");
       const second = await controller.start();
-      expect(second.instanceId).not.toBe(first.instanceId);
+      expect(second).not.toMatchObject({ instanceId: record.instanceId });
       expect(second.state).toBe("ready");
     }),
   20_000,

@@ -44,7 +44,9 @@ lore --version --json
 | `--log-level <level>` | 设置 stderr 诊断级别，默认 `error`。               |
 | `--json`              | 返回完整、单行的 JSON protocol envelope。          |
 | `--help`、`-h`        | 显示可读 Help；需要能力数据时追加 `--json`。       |
-| `--version`、`-V`     | 显示工具/协议版本；需要 envelope 时追加 `--json`。 |
+| `--version`、`-V`     | 显示工具版本、两种协议版本和 build provenance；需要完整 envelope 时追加 `--json`。 |
+
+`lore --version` 不会连接 Backend 或打开 Store。文本会区分 CLI envelope protocol（`2`）与 Backend internal protocol（`4`），并显示短 build ID、source/compiled 类型、revision 和 clean/dirty/unknown 状态。`lore --version --json` 包含完整 `buildIdentity` 与 revision；Git 信息不可用时相应值为 `null`，不会推断为 clean。显式选择 Backend build 的 `--current-build` 仅属于 `lore backend start`；详见 [Backend 命令参考](./reference/backend)。
 
 相对 Store 路径基于当前工作目录解析。相关命令应使用同一个 root：
 

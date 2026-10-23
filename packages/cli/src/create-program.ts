@@ -170,10 +170,11 @@ async function executeCommand(
   if (versionOption !== undefined) {
     const response = versionOption.response;
     if (response === undefined) throw new Error("The version registry response is missing.");
+    const { createVersionData } = await import("./version.js");
     renderResult(output, outputFormat, {
       kind: "success",
       command: response.command,
-      data: response.data,
+      data: await createVersionData(import.meta.path),
       ...(response.textRenderer === undefined ? {} : { textRenderer: response.textRenderer }),
       diagnostics: { traceId },
     });

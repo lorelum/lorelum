@@ -4,6 +4,8 @@
 
 `lore query <text>` 在当前 query context 中检索 Practice 并返回小型 summary。默认使用本地 semantic retrieval；`--mode keyword` 保留离线 FTS5 路径。有效项目目录或其父目录中的 `.lorelum/` 会按父到子合并为 ProjectContext；选中的 LocalStore 根目录不是项目 layer。没有有效项目 layer（包括整条路径没有 `.lorelum/`）或传入 `--no-project` 时，query 使用纯 LocalStore。
 
+Backend 是用户级共享服务。只要内部 Backend protocol 兼容，query 可以复用由另一个 build 启动的实例，不会因为 build ID 不同而报错、重启 Backend 或重载模型。CLI envelope protocol `2` 与 Backend protocol `4` 是不同协议；只有 Backend protocol 不兼容时才按 `backend.protocol-mismatch` 处理。若需要验证当前 worktree 的 Backend 代码，使用 [backend start --current-build](backend.md)，不要用普通 query 强制切换 build。
+
 ```sh
 # Semantic is the default. A normal query starts the Backend and automatically prepares the fixed local model when needed.
 lore query "React 登录页接入现有认证接口"
@@ -106,7 +108,7 @@ Follow the complete error message: run `lore backend stop --if-idle`; only after
 | --- | --- |
 | `usage.invalid` | Missing or invalid text, `--top-k`, or `--mode` (including an unknown mode). Validation happens before a semantic query connects to the Backend. |
 | `query.config-invalid` | Invalid consumed `query` configuration, including an unknown semantic retrieval method. `simple` and `multi-view` are not accepted aliases; keyword does not validate the semantic method. |
-| `backend.build-mismatch` / `backend.protocol-mismatch` | A verified Backend belongs to another build or protocol. Follow the message: `lore backend stop --if-idle`, only after stopped run `lore backend start`, then retry the original query. On deferred, leave the task running; no background retry or ordinary stop without explicit user consent. |
+| `backend.protocol-mismatch` | Backend internal protocol differs from the CLI's supported protocol. Follow the complete message: run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original query with the same arguments. On deferred, leave the instance and task running; do not retry in the background or use ordinary stop without explicit user consent. A build ID difference by itself is not an error. |
 | other `backend.*` | The automatic Backend start could not safely complete because of a port conflict, busy state, or deadline. Inspect the reported condition. |
 | `embedding.*` | Automatic preparation was disabled, failed, or cannot safely continue. A failed accepted operation returns this code rather than `indexing`; check `lore model status`, fix configuration/resources, then use `lore model load` to retry and wait. |
 | `semantic.index-not-ready` | Compatibility-only Backend callers omitted the derived cache route. Normal CLI semantic query starts or joins its operation automatically. |

@@ -8,28 +8,25 @@
 
 ```sh
 lore backend start
+lore backend start --current-build
 ```
 
-首次 start 由 CLI 应用组装层调用独立 config 包创建缺失的共享配置文件；已有配置不会覆盖。等待兼容且经过认证的 backend 报告 ready 后退出 `0`。重复启动复用已有实例；启动不会下载或加载模型。随后可执行 [model load](model.md)。
+首次 start 由 CLI 应用组装层调用独立 config 包创建缺失的共享配置文件；已有配置不会覆盖。普通 `start` 等待内部 Backend protocol 兼容且经过认证的实例报告 ready 后退出 `0`。它会复用其他 build 的兼容实例，不因 `buildIdentity` 不同而重启或重载模型；启动本身不会下载或加载模型。随后可执行 [model load](model.md)。
 
-成功输出是单行 JSON，展开后例如：
+`--current-build` 只属于 `backend start`，不适用于 `status` 或其他命令。它要求运行本次 CLI 对应的精确 Backend build：没有实例时直接启动；已是当前 build 时复用；其他已验证实例只有在可安全 handoff 时才停止并启动当前 build。活动或无法确认时返回 `state: deferred` 和 `reason`，退出码为 `1`；成功 ready 退出 `0`，真正失败退出 `2`。这不是普通 `start` 的默认行为。
 
-```json
-{
-  "protocolVersion": 1,
-  "toolVersion": "0.0.0",
-  "command": "backend.start",
-  "ok": true,
-  "data": {
-    "state": "ready",
-    "model": "unloaded",
-    "instanceId": "<本次实例 ID>",
-    "buildIdentity": "<构建身份>"
-  }
-}
+`lore --version` 可在不连接 Backend 的情况下显示 CLI 版本、CLI envelope protocol、Backend protocol 与 build provenance。两个协议号各有用途：CLI envelope 为 `2`，Backend 内部协议为 `4`。文本使用短 ID/revision；`--version --json` 保留完整 `buildIdentity`、`revision`、`dirty` 和 `buildKind`。Git 信息不可用时，revision/dirty 显示为 unknown，而不是推断为 clean。
+
+运行中的 Backend status 输出也会显示双方 build。文本示意：
+
+```text
+Backend: ready; model: ready
+Backend build: <版本> <source|compiled> <revision>; id <短 ID>; protocol 4
+CLI build:     <版本> <source|compiled> <revision>; id <短 ID>; protocol 4
+Same build: no; protocol compatible: yes
 ```
 
-版本和身份值以实际输出为准。CLI envelope version 1 与内部 control/business version 3 是独立版本。
+对应的 JSON data 同时保留两边的完整信息：Backend status 含 `backendProtocolVersion` 与启动时冻结的 `build` provenance；CLI status 命令额外含本地 `cli` provenance、`sameBuild` 和 `protocolCompatible`。没有 Backend 时只返回 `state: stopped`、`model: unloaded` 和本地 `cli`，不虚构远端 build 或比较结果。
 
 ## 状态
 
@@ -37,7 +34,7 @@ lore backend start
 lore backend status
 ```
 
-只读，不启动后台进程、不加载或扫描模型。没有服务时成功 data 为 `{"state":"stopped","model":"unloaded"}`；运行时给出 backend state、model state、instanceId 和 buildIdentity。模型失败时 backend 仍可 ready，详细原因看 `lore model status`。
+只读，不启动后台进程、不加载或扫描模型。没有服务时成功 data 为 `{"state":"stopped","model":"unloaded","cli":{...}}`；协议兼容的运行实例会展示 backend 与 CLI 的 build provenance、协议号和是否同 build。遇到 protocol mismatch 时返回具体错误，而不是伪造兼容 status。模型失败时 Backend 仍可 ready，详细原因看 `lore model status`。
 
 ## 停止
 
@@ -49,7 +46,9 @@ lore backend stop --if-idle
 
 不带参数的 `backend stop` 是明确运维动作：它请求经过身份验证的实例停止，取消下载或卸载模型并等待 daemon 退出。对于 protocol-compatible 的旧 build，它继续使用 authenticated stop；对于 protocol 不兼容但 ownership 仍可由私有 runtime record、PID 和启动时间精确验证的旧 daemon，当前 CLI 会先发本地 graceful termination，超时后只终止同一已验证 lifecycle。它不依赖已经被升级删除的旧 CLI，也绝不按端口或名称终止陌生进程。
 
-`backend stop --if-idle` 是按错误消息使用的受限安全恢复动作。它在 lifecycle lock 内二次检查私有 activity record 和 task lease：只有明确 idle 时才停止，成功 data 为 `{ "state": "stopped" }`；模型准备、index operation、有效 Agent lease 或无法验证 activity 时返回 `{ "state": "deferred", "reason": "active-long-task" | "unknown-activity" }`，不发 signal、不删除 record、不打断工作。只有 stopped 才运行 `lore backend start`，启动成功后以相同参数重试原命令。若返回 deferred，说明安全拒绝，不后台重试，也不在未经用户明确同意时使用普通 stop。
+`backend stop --if-idle` 是按错误消息使用的受限安全恢复动作。Backend protocol 4 会先同步关闭新业务请求准入；已有已准入请求会返回 `deferred` / `active-long-task`，不会在请求后再写 handoff marker。没有在途请求时，它在 activity lock 内检查模型准备、index operation 和有效 task lease，再原子写入 handoff marker。Lease 仅在 `expiresAt > now` 时有效；过期 lease 不再阻止停止，也不需要扫描持有人进程。模型仅仅已加载、另一个 Agent/聊天正在工作，都不算 Backend 活动。损坏或归属不明的 activity 仍返回 `deferred` / `unknown-activity`。
+
+Backend protocol 3 没有在途业务请求 admission 保护，仍按旧 activity/lease 规则判断；旧规则下过期 lease 可能被视为 unknown 并 defer，因此不要把 v3 handoff 描述成覆盖所有普通请求的原子保护。无论版本，若返回 `deferred`，都不打断现有任务、不后台重试；只有成功停止后才继续启动或重试原命令。
 
 支持的 host Agent 通过 `backend lease acquire`、`renew`、`release` 管理不含任务内容的短期 opaque lease。它们是机器集成控制面，不要求普通用户手动维护。
 
@@ -62,8 +61,7 @@ lore backend stop --if-idle
 | code | 处理 |
 | --- | --- |
 | `backend.port-conflict` | 固定端口属于未验证的服务，检查占用 |
-| `backend.build-mismatch` | 已验证 Backend 属于另一 build；按消息执行 `lore backend stop --if-idle`，仅 stopped 后 `lore backend start`，再重试原命令；deferred 不后台重试、不未经明确同意强停 |
-| `backend.protocol-mismatch` | 已验证 Backend 的内部 protocol 不同；使用同样的 guarded stop→start→原命令重试步骤，不要求找回旧 CLI |
+| `backend.protocol-mismatch` | Backend 内部 protocol 与 CLI 不兼容；同 protocol 的跨 build 本身不构成错误。按完整 message 安全停止旧 Backend 后再 start，并重试原命令；deferred 时保留实例与任务 |
 | `backend.incompatible` | 非 lifecycle 的兼容性问题，例如 encoding/profile 不匹配；它不是自动 handoff 信号 |
 | `backend.config-invalid` | 修正 YAML、未知字段或越界值 |
 | `backend.state-invalid` | 私有运行记录或权限无法安全使用 |

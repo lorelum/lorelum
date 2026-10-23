@@ -3,22 +3,27 @@ title: Backend 命令
 description: 启动、查看和停止 Lorelum 本地服务。
 ---
 
-Backend 是承载 embedding 和 semantic index 操作的长期本地服务。start、status、stop 与 Store 选择相互独立。
+Backend 是承载 embedding 和 semantic index 操作的长期本地服务，按用户共享；start、status、stop 与 Store 选择相互独立。CLI envelope 协议 `2` 与 Backend 内部协议 `4` 是不同版本。
 
 ```sh
 lore backend start
+lore backend start --current-build
 lore backend status
 lore backend stop
 # 仅供 Agent 自动恢复使用
 lore backend stop --if-idle
 ```
 
-`start` 会初始化缺失的默认配置，启动或复用兼容的本地实例，并等待其 ready；不会加载模型。`status` 返回 `state`、`model`，以及可用时的 `instanceId`、`buildIdentity`，不会启动进程。显式 `stop` 等待服务退出，服务已停止时重复调用也安全。
+`start` 初始化缺失的默认配置，启动或复用协议兼容的 Backend，并等待其 ready；不会加载模型。仅 `buildIdentity` 不同不算版本冲突：普通 start 和业务命令可以复用同协议的 Backend，不重启服务，也不重载模型。
 
-升级后，当前 CLI 可以显式停止另一 build 的、已经验证为同一实例的本地 Backend。protocol 兼容时走 authenticated shutdown；protocol 不兼容时，当前 CLI 使用私有 runtime record 与精确进程身份，在 graceful deadline 后只终止同一 owned lifecycle。它不要求旧 CLI 仍存在，也不会因为某个进程占用了本地端口就终止它。
+`start --current-build` 是开发选项，用于要求运行与当前 CLI 完全匹配的 Backend build；只能用于 `backend start`，不能用于 `status`。若另一个已验证的 Backend 正在运行，CLI 会先尝试安全切换，确认旧实例可以停止后再启动当前 build。若 Backend 正在处理请求、准备模型、执行索引任务、持有有效 task lease，或无法确认其状态，命令返回 `state: deferred` 和原因，退出码为 `1`，旧实例保持运行。成功退出 `0`，其他失败退出 `2`。
 
-`stop --if-idle` 在 lifecycle lock 内重新检查私有 activity 与 task lease，仅停止可证明 idle 的 Backend。模型准备、semantic indexing、有效 lease 或未知 activity 返回 `deferred`，不打断另一任务。按完整错误消息执行 `lore backend stop --if-idle`；只有返回 `state: "stopped"` 才运行 `lore backend start`，启动成功后以相同参数重试原命令。若 stop 返回 `deferred`，保留实例与任务，说明安全拒绝，不后台重试，也不在未经用户明确同意时使用普通 stop。
+`status` 只读，不会启动进程。与 CLI 协议兼容的 Backend 会返回 `state`、`model`、Backend 的 `buildIdentity` 和构建来源信息，并与本地 CLI build、`sameBuild` 和 `protocolCompatible` 一起显示。同协议但 `sameBuild: false` 只是信息，不是错误；Backend 内部协议不兼容时返回 `backend.protocol-mismatch`。Backend 已停止时只显示本地 CLI 信息，不会虚构远端 build。`lore --version` 不连接 Backend，也会显示 CLI envelope 协议、Backend 协议和可读的构建来源信息。
+
+显式 `stop` 会请求服务停止并等待其退出；服务已停止时重复调用也安全。`stop --if-idle` 是有限制的安全恢复操作。Backend protocol 4 会在检查期间暂停接收新的业务请求，并检查是否有请求正在处理；有在途请求时返回 `active-long-task`，不停止服务。没有在途请求时，再检查后台模型准备、索引任务和仍有效的 task lease；确认这些工作都已结束后才停止服务。Lease 仅在 `expiresAt > now` 时有效。模型只是已加载、或另一个 Agent/聊天正在工作，都不算 Backend 活动。活动记录损坏或无法确认归属时返回 `unknown-activity`，不会当作空闲处理。
+
+Backend protocol 3 没有 protocol 4 的在途请求保护，仍按旧的活动记录和 task lease 判断；过期 lease 也可能导致 `unknown-activity`。因此，不能保证 protocol 3 会在业务请求处理期间 defer。若 `stop --if-idle` 返回 `deferred`，保留原实例和任务，不要后台重试；未经用户明确同意，也不要改用普通 `stop` 强制停止。
 
 默认服务地址为 loopback（`127.0.0.1:26186`）。全局 `--store-root` 只影响 Store 数据；`--log-level` 控制 stderr 的进度与诊断日志。
 
-常见错误包括 `backend.unavailable`、`backend.port-conflict`、`backend.build-mismatch`、`backend.protocol-mismatch`、`backend.incompatible`、`backend.config-invalid`、`backend.busy`、`backend.failed` 和 `backend.deadline-exceeded`。跨 query/model/index/backend 的 build/protocol mismatch 使用完整 message 指导安全恢复，不携带策略对象；unavailable 指示 `lore backend start` 后重试。ownership、listener 与认证问题返回具体修正方向。query 和状态读取不会因 mismatch 自动停止进程。成功退出 `0`，失败退出 `2`。各子命令 schema 见 `lore describe backend.start` 等。
+常见错误包括 `backend.unavailable`、`backend.port-conflict`、`backend.protocol-mismatch`、`backend.incompatible`、`backend.config-invalid`、`backend.busy`、`backend.failed` 和 `backend.deadline-exceeded`。同协议下 build 不同本身不会产生 `backend.build-mismatch`。Backend 内部协议不兼容时，完整错误信息会给出恢复步骤；`backend.unavailable` 会提示运行 `lore backend start` 后重试。归属、监听地址和认证问题会给出具体修正方向。query 和 status 不会因版本不兼容而自动停止进程。成功退出 `0`，失败退出 `2`。各子命令 schema 见 `lore describe backend.start` 等。

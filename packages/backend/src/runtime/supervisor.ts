@@ -56,13 +56,19 @@ export interface BackendSupervisorOptions {
   readonly protocolVersion?: number;
 }
 
-export interface BackendHandoffResult {
-  readonly state: "stopped" | "deferred";
-  readonly reason?: Exclude<RuntimeActivityReason, "idle">;
-}
+export type BackendHandoffResult =
+  | { readonly state: "stopped" }
+  | {
+      readonly state: "deferred";
+      readonly reason: Exclude<RuntimeActivityReason, "idle">;
+    };
+export type BackendStartResult =
+  | BackendStatus
+  | Extract<BackendHandoffResult, { state: "deferred" }>;
 
 export interface BackendSupervisor {
   start(): Promise<BackendStatus>;
+  start(options: { readonly requireCurrentBuild: true }): Promise<BackendStartResult>;
   status(): Promise<BackendStatus>;
   /** Explicit operator action. It may stop a verified protocol-mismatched lifecycle. */
   stop(): Promise<BackendStatus>;
@@ -102,7 +108,6 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
     createBackendClient({
       identity: record,
       secret: record.secret,
-      buildIdentity: options.buildIdentity,
       baseUrl,
       timeoutMs: Math.max(
         1,
@@ -152,25 +157,7 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
 
   return {
     status,
-    async start() {
-      const deadline = Date.now() + timeoutMs;
-      return withStartupLock(directory, timeoutMs, async () => {
-        const previous = await readRecord(directory);
-        if (previous !== undefined && (await isSameProcess(previous))) {
-          if (Date.now() >= deadline) throw new BackendError("backend.deadline-exceeded");
-          const current = await client(previous, deadline).status();
-          if (current.state !== "ready") throw new BackendError("backend.busy");
-          return current;
-        }
-        if (await isListening(address)) throw new BackendError("backend.port-conflict");
-        if (previous !== undefined) {
-          await removeRecord(directory, previous.instanceId);
-          await removeActivityRecord(directory, previous.instanceId);
-        }
-        if (Date.now() >= deadline) throw new BackendError("backend.deadline-exceeded");
-        return launch(deadline);
-      });
-    },
+    start,
     async stop() {
       // Read-only stopped fast path: status/stop never create a runtime directory.
       if ((await readRecord(directory)) === undefined) return status();
@@ -178,47 +165,35 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
     },
     async stopIfIdle() {
       if ((await readRecord(directory)) === undefined) return { state: "stopped" };
-      return withStartupLock(directory, timeoutMs, async () => {
-        const record = await readRecord(directory);
-        if (record === undefined) return { state: "stopped" };
-        if (!(await isSameProcess(record))) {
-          if (await isListening(address)) return { state: "deferred", reason: "unknown-activity" };
-          await removeRecord(directory, record.instanceId);
-          await removeActivityRecord(directory, record.instanceId);
-          return { state: "stopped" };
-        }
-        const assessment = await withActivityLock(directory, timeoutMs, async () => {
-          const current = await inspectActivity(record);
-          if (current.state !== "idle") return current;
-          await setRuntimeActivity(directory, record.instanceId, "handoff-stop", true);
-          return current;
-        });
-        if (assessment.state !== "idle") return { state: "deferred", reason: assessment.reason };
-        try {
-          await stopVerified(record);
-          return { state: "stopped" };
-        } catch (error) {
-          await withActivityLock(directory, timeoutMs, async () => {
-            await setRuntimeActivity(directory, record.instanceId, "handoff-stop", false).catch(
-              () => undefined,
-            );
-          });
-          throw error;
-        }
-      });
+      return withStartupLock(directory, timeoutMs, () => stopIfIdleLocked());
     },
     acquireTaskLease: (ttlMs) =>
       withVerifiedRecord(async (record) => {
         const owner = await currentProcessIdentity();
         return withActivityLock(directory, timeoutMs, () =>
-          grantTaskLease(directory, record.instanceId, owner, ttlMs),
+          grantTaskLease(
+            directory,
+            record.instanceId,
+            owner,
+            ttlMs,
+            Date.now(),
+            record.protocolVersion,
+          ),
         );
       }),
     renewTaskLease: (leaseId, ttlMs) =>
       withVerifiedRecord(async (record) => {
         const owner = await currentProcessIdentity();
         return withActivityLock(directory, timeoutMs, () =>
-          renewTaskLease(directory, record.instanceId, leaseId, owner, ttlMs),
+          renewTaskLease(
+            directory,
+            record.instanceId,
+            leaseId,
+            owner,
+            ttlMs,
+            Date.now(),
+            record.protocolVersion,
+          ),
         );
       }),
     releaseTaskLease: (leaseId) =>
@@ -228,6 +203,80 @@ export function createBackendSupervisor(options: BackendSupervisorOptions): Back
         ),
       ),
   };
+
+  function start(): Promise<BackendStatus>;
+  function start(startOptions: { readonly requireCurrentBuild: true }): Promise<BackendStartResult>;
+  async function start(startOptions?: {
+    readonly requireCurrentBuild: true;
+  }): Promise<BackendStartResult> {
+    const deadline = Date.now() + timeoutMs;
+    return withStartupLock(directory, timeoutMs, async () => {
+      const previous = await readRecord(directory);
+      if (previous !== undefined && (await isSameProcess(previous))) {
+        if (
+          startOptions?.requireCurrentBuild &&
+          (previous.buildIdentity !== options.buildIdentity ||
+            previous.protocolVersion !== (options.protocolVersion ?? PROTOCOL_VERSION))
+        ) {
+          const handoff = await stopIfIdleLocked(previous);
+          if (handoff.state === "deferred") return handoff;
+          return launch(Date.now() + timeoutMs);
+        }
+        if (Date.now() >= deadline) throw new BackendError("backend.deadline-exceeded");
+        const current = await client(previous, deadline).status();
+        if (current.state !== "ready") throw new BackendError("backend.busy");
+        return current;
+      }
+      if (await isListening(address)) throw new BackendError("backend.port-conflict");
+      if (previous !== undefined) {
+        await removeRecord(directory, previous.instanceId);
+        await removeActivityRecord(directory, previous.instanceId);
+      }
+      if (Date.now() >= deadline) throw new BackendError("backend.deadline-exceeded");
+      return launch(deadline);
+    });
+  }
+
+  async function stopIfIdleLocked(knownRecord?: RuntimeRecord): Promise<BackendHandoffResult> {
+    const record = knownRecord ?? (await readRecord(directory));
+    if (record === undefined) return { state: "stopped" };
+    if (!(await isSameProcess(record))) {
+      if (await isListening(address)) return { state: "deferred", reason: "unknown-activity" };
+      await removeRecord(directory, record.instanceId);
+      await removeActivityRecord(directory, record.instanceId);
+      return { state: "stopped" };
+    }
+    if (record.protocolVersion === PROTOCOL_VERSION) {
+      const lifecycle = await verifiedLifecycle(record);
+      const deadline = shutdownDeadline(record);
+      const result = await client(record).stopIfIdle();
+      if (result.state === "deferred") return result;
+      if (!(await waitForExit(lifecycle.targets, deadline)))
+        throw new BackendError("backend.deadline-exceeded");
+      await removeRecord(directory, record.instanceId);
+      await removeActivityRecord(directory, record.instanceId);
+      return { state: "stopped" };
+    }
+    // Older protocols only expose their existing durable long-task/lease guard.
+    const assessment = await withActivityLock(directory, timeoutMs, async () => {
+      const current = await inspectActivity(record);
+      if (current.state !== "idle") return current;
+      await setRuntimeActivity(directory, record.instanceId, "handoff-stop", true);
+      return current;
+    });
+    if (assessment.state !== "idle") return { state: "deferred", reason: assessment.reason };
+    try {
+      await stopVerified(record);
+      return { state: "stopped" };
+    } catch (error) {
+      await withActivityLock(directory, timeoutMs, async () => {
+        await setRuntimeActivity(directory, record.instanceId, "handoff-stop", false).catch(
+          () => undefined,
+        );
+      });
+      throw error;
+    }
+  }
 
   async function stopLocked(): Promise<BackendStatus> {
     const record = await readRecord(directory);

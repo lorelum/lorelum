@@ -1,4 +1,5 @@
 import type { ConfigReader } from "@lorelum/config";
+import { backendCliError } from "../backend/error";
 import type { BackendClient } from "@lorelum/backend/client";
 import type { IndexRuntimeClient } from "@lorelum/backend/coordination";
 import {
@@ -203,7 +204,7 @@ function command(
         };
       } catch (error) {
         if (error instanceof BackendError || error instanceof EmbeddingError)
-          throw new CliError(error.code, error.message);
+          throw await backendCliError(error);
         if (
           error instanceof BackendRemoteError &&
           indexOperationStoreErrorCodes.includes(

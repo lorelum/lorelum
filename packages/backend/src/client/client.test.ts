@@ -35,6 +35,12 @@ const identity = Object.freeze({
   buildIdentity: "test-build",
   protocolVersion: PROTOCOL_VERSION,
 });
+const buildProvenance = {
+  toolVersion: "test-version",
+  revision: null,
+  dirty: null,
+  buildKind: "source" as const,
+};
 const secret = "a secret used only by tests";
 const apps: Array<ReturnType<typeof createBackendApp>> = [];
 
@@ -59,7 +65,12 @@ function runningApp(
     },
   };
   const app = createBackendApp({
-    backend: createBackendService({ identity: backendIdentity, secret, onStop: () => undefined }),
+    backend: createBackendService({
+      identity: backendIdentity,
+      build: { ...buildProvenance, buildIdentity: backendIdentity.buildIdentity },
+      secret,
+      onStop: () => undefined,
+    }),
     ...(embedding === undefined ? {} : { embedding }),
     keywordQueryService: keywordService,
     semanticRuntime,
@@ -108,7 +119,6 @@ describe("verified backend client sessions", () => {
         const client = createBackendClient({
           identity,
           secret,
-          buildIdentity: identity.buildIdentity,
           baseUrl: url,
         });
         const root = { rootPath: "/tmp/client-session" };
@@ -128,7 +138,6 @@ describe("verified backend client sessions", () => {
         const freshClient = createBackendClient({
           identity,
           secret,
-          buildIdentity: identity.buildIdentity,
           baseUrl: url,
         });
         await expect(freshClient.query(root, query)).rejects.toMatchObject({
@@ -155,13 +164,14 @@ describe("verified backend client sessions", () => {
           model: "unloaded",
           instanceId: identity.instanceId,
           buildIdentity: identity.buildIdentity,
+          backendProtocolVersion: identity.protocolVersion,
+          build: buildProvenance,
         });
       },
       async (url) => {
         const client = createBackendClient({
           identity,
           secret,
-          buildIdentity: identity.buildIdentity,
           baseUrl: url,
         });
         const verified = await client.identity();
@@ -181,21 +191,23 @@ describe("verified backend client sessions", () => {
   test.each([
     [{ ...identity, instanceId: "replacement-instance" }, "backend.state-invalid"],
     [{ ...identity, buildIdentity: "replacement-build" }, "backend.state-invalid"],
-    [{ ...identity, protocolVersion: PROTOCOL_VERSION + 1 }, "backend.protocol-mismatch"],
-  ] as const)("rejects an incompatible first identity %j", async (presented, code) => {
-    await withLoopbackServer(
-      (request) => identityResponse(request, presented),
-      async (url) => {
-        const client = createBackendClient({
-          identity,
-          secret,
-          buildIdentity: identity.buildIdentity,
-          baseUrl: url,
-        });
-        await expect(client.status()).rejects.toMatchObject({ code });
-      },
-    );
-  });
+    [{ ...identity, protocolVersion: PROTOCOL_VERSION + 1 }, "backend.state-invalid"],
+  ] as const)(
+    "rejects identity data that differs from the owned runtime record %j",
+    async (presented, code) => {
+      await withLoopbackServer(
+        (request) => identityResponse(request, presented),
+        async (url) => {
+          const client = createBackendClient({
+            identity,
+            secret,
+            baseUrl: url,
+          });
+          await expect(client.status()).rejects.toMatchObject({ code });
+        },
+      );
+    },
+  );
 
   test("rejects a valid-shaped identity with an invalid nonce proof", async () => {
     await withLoopbackServer(
@@ -204,7 +216,6 @@ describe("verified backend client sessions", () => {
         const client = createBackendClient({
           identity,
           secret,
-          buildIdentity: identity.buildIdentity,
           baseUrl: url,
         });
         await expect(client.stop()).rejects.toMatchObject({ code: "backend.port-conflict" });
@@ -254,7 +265,6 @@ describe("verified backend client sessions", () => {
             const client = createBackendClient({
               identity,
               secret,
-              buildIdentity: identity.buildIdentity,
               baseUrl: url,
               timeoutMs: 1_000,
             });
@@ -314,13 +324,14 @@ describe("verified backend client sessions", () => {
           model: "unloaded",
           instanceId: identity.instanceId,
           buildIdentity: identity.buildIdentity,
+          backendProtocolVersion: identity.protocolVersion,
+          build: buildProvenance,
         });
       },
       async (url) => {
         const client = createBackendClient({
           identity,
           secret,
-          buildIdentity: identity.buildIdentity,
           baseUrl: url,
         });
         await expect(client.status()).resolves.toMatchObject({ state: "ready" });
@@ -356,7 +367,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
     });
     const accepted = await client.beginModelPreparation();
@@ -405,14 +415,13 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
     });
     await expect(client.modelPreparation(expectedId)).rejects.toMatchObject({
       code: "embedding.preparation-expired",
     });
   });
-  test("authenticates the service before making a strict-build query", async () => {
+  test("authenticates the service before making an ordinary query", async () => {
     const calls: unknown[] = [];
     const { url } = runningApp({
       async query(root, request) {
@@ -423,7 +432,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: "test-build",
       baseUrl: url,
     });
 
@@ -463,7 +471,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
     });
 
@@ -505,7 +512,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
       traceId,
     });
@@ -551,7 +557,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
       traceId,
       diagnosticLevel: "debug",
@@ -572,42 +577,39 @@ describe("createBackendClient", () => {
     );
   });
 
-  test("does not send ordinary requests to a service with a different build", async () => {
-    const { url } = runningApp();
-    const client = createBackendClient({
-      identity,
-      secret,
-      buildIdentity: "different-build",
-      baseUrl: url,
-    });
-
-    await expect(
-      client.query({ rootPath: "/tmp/lorelum-client-test" }, { text: "search", mode: "keyword" }),
-    ).rejects.toEqual(expect.objectContaining({ code: "backend.build-mismatch" }));
-    await expect(client.statusModel()).rejects.toEqual(
-      expect.objectContaining({ code: "backend.build-mismatch" }),
-    );
-  });
-
-  test("cross-build stop access does not authorize subsequent strict requests", async () => {
-    const { url } = runningApp();
-    const client = createBackendClient({
-      identity,
-      secret,
-      buildIdentity: "different-build",
-      baseUrl: url,
-    });
-
-    await expect(client.stop()).resolves.toMatchObject({
-      state: "stopping",
+  test("regular stop stays unconditional and stopIfIdle sends the guarded request", async () => {
+    const stopBodies: string[] = [];
+    const status = {
+      state: "stopping" as const,
+      model: "unloaded" as const,
       instanceId: identity.instanceId,
       buildIdentity: identity.buildIdentity,
-    });
-    await expect(client.status()).rejects.toMatchObject({ code: "backend.build-mismatch" });
-    await expect(
-      client.query({ rootPath: "/tmp/client-cross-build" }, { text: "search", mode: "keyword" }),
-    ).rejects.toMatchObject({ code: "backend.build-mismatch" });
-    await expect(client.identity()).rejects.toMatchObject({ code: "backend.build-mismatch" });
+      backendProtocolVersion: PROTOCOL_VERSION,
+      build: buildProvenance,
+    };
+    await withLoopbackServer(
+      async (request) => {
+        if (new URL(request.url).pathname === BACKEND_ROUTES.identity)
+          return identityResponse(request);
+        if (new URL(request.url).pathname === BACKEND_ROUTES.stop) {
+          const body = await request.text();
+          stopBodies.push(body);
+          return body === ""
+            ? Response.json(status)
+            : Response.json({ state: "deferred", reason: "active-long-task" });
+        }
+        return Response.json(backendErrorBody("backend.unavailable"), { status: 503 });
+      },
+      async (url) => {
+        const client = createBackendClient({ identity, secret, baseUrl: url });
+        await expect(client.stop()).resolves.toMatchObject({ state: "stopping" });
+        await expect(client.stopIfIdle()).resolves.toEqual({
+          state: "deferred",
+          reason: "active-long-task",
+        });
+        expect(stopBodies).toEqual(["", JSON.stringify({ ifIdle: true })]);
+      },
+    );
   });
 
   test("preserves the established domain error code from a query response", async () => {
@@ -619,7 +621,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: "test-build",
       baseUrl: url,
     });
 
@@ -633,7 +634,6 @@ describe("createBackendClient", () => {
       createBackendClient({
         identity,
         secret,
-        buildIdentity: "test-build",
         baseUrl: "http://example.test",
       }),
     ).toThrow(TypeError);
@@ -641,7 +641,6 @@ describe("createBackendClient", () => {
       createBackendClient({
         identity,
         secret,
-        buildIdentity: "test-build",
         baseUrl: "http://localhost:26186/query",
       }),
     ).toThrow(TypeError);
@@ -688,7 +687,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
     });
 
@@ -723,7 +721,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
       timeoutMs: 1000,
     });
@@ -778,7 +775,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
       timeoutMs: 1_000,
       shutdownTimeoutMs: 10,
@@ -829,7 +825,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
     });
     await expect(client.embed("query", ["hello", "world"])).rejects.toMatchObject({
@@ -868,7 +863,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
       traceId,
     });
@@ -911,7 +905,6 @@ describe("createBackendClient", () => {
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: url,
     });
 
@@ -937,7 +930,6 @@ describe("createBackendClient", () => {
       const client = createBackendClient({
         identity,
         secret,
-        buildIdentity: identity.buildIdentity,
         baseUrl: url,
       });
       const cwd = join(root, "workspace");
@@ -1029,15 +1021,48 @@ test("rejects a mismatched protocol before sending control or model requests", a
   const client = createBackendClient({
     identity: mismatchedIdentity,
     secret,
-    buildIdentity: "test-build",
     baseUrl: url,
   });
-  await expect(client.status()).rejects.toMatchObject({ code: "backend.protocol-mismatch" });
+  await expect(client.status()).rejects.toMatchObject({
+    code: "backend.protocol-mismatch",
+    message: expect.stringContaining(
+      `Backend: version unknown, build ${mismatchedIdentity.buildIdentity}, Backend protocol ${mismatchedIdentity.protocolVersion}.`,
+    ),
+  });
+  await expect(client.status()).rejects.toMatchObject({
+    message: expect.stringContaining(`CLI Backend protocol: ${PROTOCOL_VERSION}.`),
+  });
+  await expect(client.status()).rejects.toMatchObject({
+    message: expect.stringContaining("Run `lore backend stop --if-idle`; only if stopped"),
+  });
   await expect(client.stop()).rejects.toMatchObject({ code: "backend.protocol-mismatch" });
   await expect(client.loadModel()).rejects.toMatchObject({ code: "backend.protocol-mismatch" });
   await expect(client.beginModelPreparation()).rejects.toMatchObject({
     code: "backend.protocol-mismatch",
   });
+});
+
+test("recognizes a v3 identity before reading its legacy status response", async () => {
+  const legacyIdentity = { ...identity, protocolVersion: PROTOCOL_VERSION - 1 };
+  let statusRequests = 0;
+  await withLoopbackServer(
+    (request) => {
+      if (new URL(request.url).pathname === BACKEND_ROUTES.identity)
+        return identityResponse(request, legacyIdentity);
+      statusRequests++;
+      return Response.json({ state: "ready", model: "unloaded" });
+    },
+    async (url) => {
+      const client = createBackendClient({ identity: legacyIdentity, secret, baseUrl: url });
+      await expect(client.status()).rejects.toMatchObject({
+        code: "backend.protocol-mismatch",
+        message: expect.stringContaining(
+          `Backend: version unknown, build ${legacyIdentity.buildIdentity}, Backend protocol ${legacyIdentity.protocolVersion}.`,
+        ),
+      });
+      expect(statusRequests).toBe(0);
+    },
+  );
 });
 
 test("round-trips semantic query metadata", async () => {
@@ -1061,7 +1086,6 @@ test("round-trips semantic query metadata", async () => {
   const client = createBackendClient({
     identity,
     secret,
-    buildIdentity: identity.buildIdentity,
     baseUrl: url,
   });
 
@@ -1090,7 +1114,6 @@ test("preserves semantic index errors through the client boundary", async () => 
   const client = createBackendClient({
     identity,
     secret,
-    buildIdentity: identity.buildIdentity,
     baseUrl: url,
   });
 
@@ -1127,7 +1150,6 @@ test("round-trips per-request retrieval methods for queries and every index targ
   const client = createBackendClient({
     identity,
     secret,
-    buildIdentity: identity.buildIdentity,
     baseUrl: url,
   });
   const root = { rootPath: "/tmp/lorelum-client-methods" };
