@@ -1,10 +1,19 @@
 import { sessionRefSchema } from "@lorelum/backend/client";
 import type { Logger } from "@lorelum/log";
-import type { CatalogReader, HookEndpoint, ReadHintReader, ShellAssociator } from "../types.js";
+import type {
+  AutoUpdatePoller,
+  CatalogReader,
+  HookEndpoint,
+  ReadHintReader,
+  ShellAssociator,
+} from "../types.js";
+import { readCatalogWithUpdateNotice } from "../services/catalog.js";
 import { optionalEventFallback, readPayload } from "./validation.js";
 
 interface ClaudeSessionStartInput {
   readonly hook_event_name: "SessionStart";
+  readonly session_id?: unknown;
+  readonly source?: unknown;
 }
 
 interface ClaudePreToolUseInput {
@@ -36,19 +45,28 @@ type ClaudeResponse = {
 };
 
 export function createClaudeEndpoint(
-  services: CatalogReader & ShellAssociator & ReadHintReader,
+  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator &
+    ReadHintReader,
   _platform: NodeJS.Platform,
   log?: Logger,
 ): HookEndpoint {
   async function respond(input: ClaudeInput): Promise<ClaudeResponse> {
     switch (input.hook_event_name) {
-      case "SessionStart":
+      case "SessionStart": {
+        const session = sessionRefSchema.safeParse({
+          hostKey: "claude",
+          sessionId: input.session_id,
+        });
         return {
           hookSpecificOutput: {
             hookEventName: "SessionStart",
-            additionalContext: await services.readCatalog(),
+            additionalContext: await readCatalogWithUpdateNotice(
+              services,
+              session.success && (input.source === "startup" || input.source === "resume"),
+            ),
           },
         };
+      }
       case "SubagentStart":
       case "subagentStart": {
         if (typeof input.session_id !== "string" || !input.session_id) return {};

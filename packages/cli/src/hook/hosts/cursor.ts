@@ -1,10 +1,13 @@
 import { sessionRefSchema } from "@lorelum/backend/client";
 import type { Logger } from "@lorelum/log";
-import type { CatalogReader, HookEndpoint, ShellAssociator } from "../types.js";
+import type { AutoUpdatePoller, CatalogReader, HookEndpoint, ShellAssociator } from "../types.js";
+import { readCatalogWithUpdateNotice } from "../services/catalog.js";
 import { optionalEventFallback, readPayload } from "./validation.js";
 
 interface CursorSessionStartInput {
   readonly hook_event_name: "sessionStart";
+  readonly session_id?: unknown;
+  readonly conversation_id?: unknown;
 }
 
 interface CursorPreToolUseInput {
@@ -29,14 +32,27 @@ type CursorResponse = {
 };
 
 export function createCursorEndpoint(
-  services: CatalogReader & ShellAssociator,
+  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator,
   _platform: NodeJS.Platform,
   log?: Logger,
 ): HookEndpoint {
   async function respond(input: CursorInput): Promise<CursorResponse> {
     switch (input.hook_event_name) {
-      case "sessionStart":
-        return { additional_context: await services.readCatalog() };
+      case "sessionStart": {
+        const primarySession = sessionRefSchema.safeParse({
+          hostKey: "cursor",
+          sessionId: input.session_id,
+        });
+        const conversation = primarySession.success
+          ? primarySession
+          : sessionRefSchema.safeParse({
+              hostKey: "cursor",
+              sessionId: input.conversation_id,
+            });
+        return {
+          additional_context: await readCatalogWithUpdateNotice(services, conversation.success),
+        };
+      }
       case "SubagentStart":
       case "subagentStart":
       case "PostToolUse":

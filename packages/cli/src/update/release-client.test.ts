@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- Independent failure fixtures are checked sequentially. */
 import { expect, test } from "bun:test";
 import { listReleases } from "./release-client.js";
 
@@ -78,4 +79,32 @@ test("never treats failed or malformed later pages as a complete check", async (
         new Response("[]", { headers: { link: '<https://invalid.example/page2>; rel="next"' } }),
     ),
   ).rejects.toThrow("invalid release pagination URL");
+});
+
+test("uses one caller signal for every page and cancels a stalled response body without a partial list", async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  let signalSecondRequest: (() => void) | undefined;
+  const secondRequestStarted = new Promise<void>((resolve) => {
+    signalSecondRequest = resolve;
+  });
+  const request = async (_url: string, init: RequestInit) => {
+    expect(init.signal).toBe(controller.signal);
+    calls++;
+    if (calls === 1)
+      return new Response(JSON.stringify([release("v0.1.0-alpha.3")]), {
+        headers: { link: '<https://api.github.com/page2>; rel="next"' },
+      });
+    signalSecondRequest?.();
+    const response = new Response("[]");
+    Object.defineProperty(response, "json", { value: () => new Promise(() => {}) });
+    return response;
+  };
+  const pending = listReleases("prerelease", target, request, undefined, {
+    signal: controller.signal,
+  });
+  await secondRequestStarted;
+  controller.abort(new DOMException("test deadline", "TimeoutError"));
+  await expect(pending).rejects.toMatchObject({ name: "TimeoutError" });
+  expect(calls).toBe(2);
 });

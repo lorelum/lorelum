@@ -58,7 +58,7 @@ lore --version
 
 按[快速开始](./quickstart)安装 Pack 并执行查询。[配置](./configuration)说明模型路径和下载选项，也适用于提前准备模型文件的环境。
 
-## 更新 Lore
+## 更新 Lorelum
 
 只有包含此命令的 CLI 发行版才能运行更新检查。如果 `lore update` 提示命令无法识别，请先安装一个包含该命令的发行版：从 [GitHub Releases](https://github.com/lorelum/lorelum/releases) 选择准确版本，替换上方安装命令中的版本号后运行，再按本节更新。
 
@@ -71,7 +71,7 @@ lore update
 命令会检查适用于当前频道和平台的发行版，并显示本机版本、新版、release notes 和下一步；它不会下载或安装文件、停止 Backend 或修改 CLI。例如，默认安装器管理的安装如果发现新版，会显示：
 
 ```text
-Lore CLI: <current-version>
+Lorelum: <current-version>
 Channel: prerelease
 Latest available: <newer-version>
 Installation: default Lorelum installer
@@ -80,7 +80,21 @@ Release notes: <release-notes-page>
 Review them, then run: lore update --apply
 ```
 
-预发布版本默认检查 prerelease 频道，稳定版本默认检查 stable 频道。可用 `--channel stable` 或 `--channel prerelease` 为本次检查选择频道。每次运行都会重新检查公开发行版；Lore 不会在后台检查或安装更新。`lore --version` 仍只读取本机版本，`lore pack update` 仍只更新 Pack。
+预发布版本默认检查 prerelease 频道，稳定版本默认检查 stable 频道。可用 `--channel stable` 或 `--channel prerelease` 为本次检查选择频道。每次显式运行都会重新查询公开发行版，不使用自动检查缓存回答。`lore --version` 仍只读取本机版本，`lore pack update` 仍只更新 Pack。
+
+### Agent 会话中的自动更新提示
+
+使用支持的 Plugin 时，会话新建／恢复，以及带宿主会话身份的成功 semantic `query`、`get`、`list`、`pack list` 调用，可以启动一个短生命周期的后台检查。显式 `query --mode keyword` 保持离线，不参与自动检查或提示。正常命令不等待发行查询；后续 Agent 可读文本响应或合格会话 Hook 可附带已就绪的提醒。Agent 应先完成你的任务，再在最终总结中顺带告知，不能仅因收到提示就执行检查或安装。
+
+成功检查的滚动间隔为 1 小时；失败后至少冷却 15 分钟，等后续合格调用再重试。同一运行版本、频道和平台的间隔在本机用户的所有项目与宿主间共享，没有调用时不定时轮询。首次运行不同的安装版本会获得新的检查资格，不继承旧版本的冷却。
+
+提示按 **当前运行版本 → 目标版本** 去重，每个组合在本机同一用户下最多自动投递一次。忽略后换对话不会重复；出现更新的目标版本可以再提示。用户从 `0.1.0` 升到 `0.1.1`，仍可再次收到 `0.1.2` 的建议，即使以前提过 `0.1.2`。一次只建议最新匹配候选，不逐个补播错过的版本。
+
+JSON 保持既有 schema，不拼接 prompt；带会话身份的 JSON 调用可启动检查，但不消耗提醒记录。没有受支持宿主会话身份的普通终端／CI、Help、version 和管理命令不参与。离线或本地更新状态不可用不影响检索结果。自动投递不代表宿主或人类必定看到，且永远不会自动安装。
+
+如需关闭，在[用户配置](./configuration#自动更新检查)中设 `updates.autoCheck: false`。显式 `lore update` 和 `--apply` 不受该开关或冷却限制。
+
+### 显式应用更新
 
 阅读 release notes 后，如果 CLI 是由 Lorelum 官方安装器安装在默认位置，可运行：
 
@@ -88,7 +102,7 @@ Review them, then run: lore update --apply
 lore update --apply
 ```
 
-`--apply` 本身就是明确的安装指令，不会再弹一次确认。Lore 会重新检查新版，调用当前发行包中附带的安装器并校验发行包；必要时安全停止正在运行的 Backend，再切换默认命令入口并核对新版本。没有新版时不会安装，也不会降级。命令报告成功后，在终端确认：
+`--apply` 本身就是明确的安装指令，不会再弹一次确认。Lorelum 会重新检查新版，调用当前发行包中附带的安装器并校验发行包；必要时安全停止正在运行的 Backend，再切换默认命令入口并核对新版本。没有新版时不会安装，也不会降级。命令报告成功后，在终端确认：
 
 运行 `--apply` 时，发行包的已下载量、速度、可用时的百分比和下载完成提示显示在 stderr。即使带 `--json`，stdout 仍只有最后一条结果；下载完成不代表更新已经成功。
 

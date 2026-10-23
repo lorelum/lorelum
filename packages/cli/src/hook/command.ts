@@ -12,6 +12,7 @@ import {
   type AgentHookSettings,
 } from "./agent-settings.js";
 import { createOptionalPracticeHints } from "../practice-hints/backend.js";
+import { createAutoUpdateService } from "../update/auto-check.js";
 import { createCatalogReader } from "./services/catalog.js";
 import { createShellAssociator } from "./services/shell-association.js";
 import { createReadHintReader } from "./services/read-hints.js";
@@ -21,7 +22,7 @@ import { createCursorEndpoint } from "./hosts/cursor.js";
 import { createWorkbuddyEndpoint } from "./hosts/workbuddy.js";
 import { createZcodeEndpoint } from "./hosts/zcode.js";
 import { createOmpEndpoint } from "./hosts/omp.js";
-import type { HookEndpoint, HookHost } from "./types.js";
+import type { AutoUpdatePoller, HookEndpoint, HookHost } from "./types.js";
 
 /** Injection belongs to the composition boundary, not to individual host protocols. */
 export interface HookServiceOverrides {
@@ -32,6 +33,7 @@ export interface HookServiceOverrides {
   };
   readonly agentHookSettings?: () => Promise<AgentHookSettings>;
   readonly subagentPackCatalog?: () => Promise<boolean>;
+  readonly autoUpdate?: AutoUpdatePoller;
   readonly platform?: NodeJS.Platform;
 }
 
@@ -126,6 +128,7 @@ export function createHookEndpoint(
     ),
     ...createShellAssociator(overrides.agentHookSettings ?? loadAgentHookSettings),
     ...createReadHintReader(hints),
+    autoUpdate: overrides.autoUpdate ?? createAutoUpdateService(),
     isSubagentCatalogEnabled: overrides.subagentPackCatalog ?? loadSubagentPackCatalogSetting,
   };
   return endpointFactories[host](services, overrides.platform ?? process.platform, log);

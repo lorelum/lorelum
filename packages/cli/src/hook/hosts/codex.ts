@@ -1,10 +1,19 @@
 import { sessionRefSchema } from "@lorelum/backend/client";
 import type { Logger } from "@lorelum/log";
-import type { CatalogReader, HookEndpoint, ReadHintReader, ShellAssociator } from "../types.js";
+import type {
+  AutoUpdatePoller,
+  CatalogReader,
+  HookEndpoint,
+  ReadHintReader,
+  ShellAssociator,
+} from "../types.js";
+import { readCatalogWithUpdateNotice } from "../services/catalog.js";
 import { optionalEventFallback, readPayload } from "./validation.js";
 
 interface CodexSessionStartInput {
   readonly hook_event_name: "SessionStart";
+  readonly session_id?: unknown;
+  readonly source?: unknown;
 }
 
 interface CodexPreToolUseInput {
@@ -40,19 +49,28 @@ type CodexResponse = {
 };
 
 export function createCodexEndpoint(
-  services: CatalogReader & ShellAssociator & ReadHintReader,
+  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator &
+    ReadHintReader,
   platform: NodeJS.Platform,
   log?: Logger,
 ): HookEndpoint {
   async function respond(input: CodexInput): Promise<CodexResponse> {
     switch (input.hook_event_name) {
-      case "SessionStart":
+      case "SessionStart": {
+        const session = sessionRefSchema.safeParse({
+          hostKey: "codex",
+          sessionId: input.session_id,
+        });
         return {
           hookSpecificOutput: {
             hookEventName: "SessionStart",
-            additionalContext: await services.readCatalog(),
+            additionalContext: await readCatalogWithUpdateNotice(
+              services,
+              session.success && (input.source === "startup" || input.source === "resume"),
+            ),
           },
         };
+      }
       case "SubagentStart":
       case "subagentStart": {
         if (typeof input.session_id !== "string" || !input.session_id) return {};

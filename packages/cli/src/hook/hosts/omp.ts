@@ -1,13 +1,28 @@
 import { sessionRefSchema } from "@lorelum/backend/client";
 import type { Logger } from "@lorelum/log";
-import type { CatalogReader, HookEndpoint, ReadHintReader, ShellAssociator } from "../types.js";
+import type {
+  AutoUpdatePoller,
+  CatalogReader,
+  HookEndpoint,
+  ReadHintReader,
+  ShellAssociator,
+} from "../types.js";
 
 type OmpBridgeRequest =
-  | { readonly event: "catalog"; readonly agentKind?: "main" | "sub" }
+  | {
+      readonly event: "catalog";
+      readonly agentKind?: "main" | "sub";
+      readonly sessionId?: unknown;
+      readonly checkUpdates?: unknown;
+    }
   | { readonly event: "shell"; readonly sessionId: string; readonly command: string }
   | { readonly event: "read-hints"; readonly sessionId: string };
 
-type OmpBridgeResponse = { readonly additionalContext?: string; readonly command?: string };
+type OmpBridgeResponse = {
+  readonly additionalContext?: string;
+  readonly updateNotice?: string;
+  readonly command?: string;
+};
 
 function isOmpBridgeRequest(value: unknown): value is OmpBridgeRequest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -15,7 +30,10 @@ function isOmpBridgeRequest(value: unknown): value is OmpBridgeRequest {
   const keys = Object.keys(input);
   if (input.event === "catalog") {
     return (
-      keys.every((key) => key === "event" || key === "agentKind") &&
+      keys.every(
+        (key) =>
+          key === "event" || key === "agentKind" || key === "sessionId" || key === "checkUpdates",
+      ) &&
       (!Object.hasOwn(input, "agentKind") ||
         input.agentKind === "main" ||
         input.agentKind === "sub")
@@ -36,8 +54,7 @@ function isOmpBridgeRequest(value: unknown): value is OmpBridgeRequest {
 
 /** The extension bridge retains its own request contract, not a native Hook payload. */
 export function createOmpEndpoint(
-  services: CatalogReader &
-    ShellAssociator &
+  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator &
     ReadHintReader & {
       isSubagentCatalogEnabled(): Promise<boolean>;
     },
@@ -58,6 +75,18 @@ export function createOmpEndpoint(
         case "catalog":
           if (payload.agentKind !== "sub" || (await services.isSubagentCatalogEnabled())) {
             response = { additionalContext: await services.readCatalog() };
+            const session = sessionRefSchema.safeParse({
+              hostKey: "omp",
+              sessionId: payload.sessionId,
+            });
+            if (payload.agentKind === "main" && payload.checkUpdates === true && session.success) {
+              try {
+                const updateNotice = await services.autoUpdate.poll(true);
+                if (updateNotice) response = { ...response, updateNotice };
+              } catch {
+                // Update discovery cannot degrade the ordinary Catalog bridge.
+              }
+            }
           }
           break;
         case "shell": {

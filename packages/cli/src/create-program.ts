@@ -2,7 +2,7 @@ import type { ConfigReader } from "@lorelum/config";
 import { Argument, Command, Option } from "commander";
 
 import { renderHelpText } from "./output/presentation.js";
-import { renderResult, type OutputFormat } from "./output/render.js";
+import { renderResult, type OutputFormat, type TextRenderer } from "./output/render.js";
 import type { OutputWriter } from "./output/protocol.js";
 import {
   commandOptionAppliesTo,
@@ -43,6 +43,12 @@ export interface CliRuntime {
 export interface ProgramLifecycle {
   selectCommand(definition: CommandDefinition): void;
   setExitCode(code: 1): void;
+  /** Optional local sidecar; it must never wait for release-network work. */
+  updateNotice?(
+    command: string,
+    format: OutputFormat,
+    options: Readonly<Record<string, unknown>>,
+  ): Promise<string | undefined>;
 }
 
 /** Builds a parser from one complete registry snapshot; `run` owns failure rendering. */
@@ -207,11 +213,20 @@ async function executeCommand(
     throw new Error(`Command "${definition.name}" returned undeclared exit code ${exitCode}.`);
   }
   const textRenderer = result.textRenderer ?? definition.textRenderer;
+  const notice =
+    exitCode === 0
+      ? await lifecycle.updateNotice?.(definition.name, outputFormat, command.optsWithGlobals())
+      : undefined;
+  const noticeRenderer =
+    outputFormat === "text" && notice !== undefined
+      ? (data: Parameters<TextRenderer>[0], fallback: Parameters<TextRenderer>[1]) =>
+          `${(textRenderer ?? fallback)(data, fallback).trimEnd()}\n\n${notice}`
+      : textRenderer;
   renderResult(output, outputFormat, {
     kind: "success",
     command: responseCommand,
     data: result.data,
-    ...(textRenderer === undefined ? {} : { textRenderer }),
+    ...(noticeRenderer === undefined ? {} : { textRenderer: noticeRenderer }),
     diagnostics: { traceId },
   });
   if (exitCode === 1) lifecycle.setExitCode(1);

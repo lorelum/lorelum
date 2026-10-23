@@ -6,6 +6,19 @@ icon: Settings
 
 Lorelum runs with defaults. User-level settings live in `~/.lorelum/config.yaml` and apply to every Store.
 
+## Automatic update checks
+
+Automatic Lorelum release discovery is enabled for supported Agent session integrations. It runs in a separate, finite background process; normal commands never wait for release-network results. Successful checks are reused for one hour, failures cool down for fifteen minutes, and a changed running CLI version gets independent check eligibility. A ready suggestion is delivered once per running-version/target-version pair, not on every call. See [automatic update notices](./installation#automatic-update-notices-in-agent-sessions) for the interaction and supported entry points.
+
+To disable both automatic checks and notices:
+
+```yaml
+updates:
+  autoCheck: false
+```
+
+This is a boolean, defaulting to `true`. Remove it or set it to `true` to re-enable; doing so does not erase notice history. The next eligible call reads the setting, without a Backend restart. An invalid or unreadable setting skips automatic update work rather than blocking the original command. Explicit `lore update` and `lore update --apply` remain available and always check releases afresh.
+
 ## Agent shell session identity
 
 The shared `agent.shellSessionInjection` setting controls when an Agent integration that supports shell session binding passes a conversation identity to its shell commands. The default, `lore-only`, checks whether the outer command text contains `lore` as a separate word. Direct calls, pipelines, and command substitutions containing `lore` match; the Hook does not parse the command or read script files. For example, `sh script.sh` does not match even if that script calls `lore get`, so the read may not be associated with the conversation. Merely mentioning `lore` in the outer text may match without executing it.
