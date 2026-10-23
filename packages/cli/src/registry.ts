@@ -1,4 +1,5 @@
 import type { ConfigReader } from "@lorelum/config";
+import { PROTOCOL_VERSION } from "@lorelum/backend/protocol";
 import {
   protocolVersion,
   toolVersion,
@@ -64,10 +65,9 @@ export interface CommandOption {
   readonly scope?: "global" | "root";
   /** Optional command allowlist for a framework global option. */
   readonly appliesTo?: readonly string[];
-  /** Static framework response metadata, including its discoverable data contract. */
+  /** Framework response metadata with a discoverable data contract. */
   readonly response?: Readonly<{
     command: string;
-    data: JsonValue;
     resultSchema: JsonSchema;
     textRenderer?: TextRenderer;
   }>;
@@ -131,13 +131,30 @@ export type CommandHandler = (
 const frameworkExitCodes = [0, 2] as const;
 export const discoveryCommandName = "describe";
 const stringSchema: JsonSchema = { type: "string" };
+const nullableStringSchema: JsonSchema = { oneOf: [stringSchema, { const: null }] };
+const nullableBooleanSchema: JsonSchema = {
+  oneOf: [{ type: "boolean" }, { const: null }],
+};
 const versionResultSchema: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["protocolVersion", "toolVersion"],
+  required: [
+    "protocolVersion",
+    "backendProtocolVersion",
+    "toolVersion",
+    "buildIdentity",
+    "revision",
+    "dirty",
+    "buildKind",
+  ],
   properties: {
     protocolVersion: { const: protocolVersion },
+    backendProtocolVersion: { const: PROTOCOL_VERSION },
     toolVersion: stringSchema,
+    buildIdentity: stringSchema,
+    revision: nullableStringSchema,
+    dirty: nullableBooleanSchema,
+    buildKind: { enum: ["compiled", "source"] },
   },
 };
 
@@ -160,13 +177,12 @@ const globalOptions: readonly CommandOption[] = [
   {
     longFlag: "--version",
     shortFlag: "-V",
-    description: "Return protocol and tool versions.",
+    description: "Return build info and CLI/Backend protocol versions.",
     optionRequired: false,
     behavior: "version",
     scope: "root",
     response: {
       command: "version",
-      data: { protocolVersion, toolVersion },
       resultSchema: versionResultSchema,
       textRenderer: renderVersionText,
     },
@@ -388,7 +404,13 @@ export const commandRegistry = snapshotCommandDefinitions([
     loadSettings: (readConfig) => loadQuerySettings({}, readConfig),
   }),
   createListCommand({ list: sharedListService, storageRoot: sharedStorageRoot }),
-  ...createBackendCommands({ createSupervisor: createProcessBackendSupervisor }),
+  ...createBackendCommands({
+    createSupervisor: createProcessBackendSupervisor,
+    currentBuildInfo: async () => {
+      const { currentBuildInfo } = await import("@lorelum/backend/control");
+      return currentBuildInfo(Bun.main, toolVersion);
+    },
+  }),
   ...createModelCommands({ createClient: createProcessBackendClient }),
   ...createIndexCommands({
     createClient: createProcessBackendClient,
@@ -546,7 +568,6 @@ function snapshotCommandDefinition(definition: CommandDefinition): CommandDefini
             : {
                 response: deepFreeze({
                   command: option.response.command,
-                  data: structuredClone(option.response.data),
                   resultSchema: structuredClone(option.response.resultSchema),
                   ...(option.response.textRenderer === undefined
                     ? {}

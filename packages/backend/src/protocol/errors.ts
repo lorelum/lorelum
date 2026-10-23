@@ -23,9 +23,9 @@ const messages: Record<BackendErrorCode, string> = {
     "The local backend is not running. Run `lore backend start`, then retry this command.",
   "backend.port-conflict":
     "The local backend address is occupied by an unverified service. Free 127.0.0.1:26186, then retry this command. Do not terminate an unverified process.",
-  "backend.incompatible": "The backend does not match this client build or protocol.",
+  "backend.incompatible": "The backend does not match this client's protocol.",
   "backend.build-mismatch":
-    "A different Lorelum build owns the local backend. Run `lore backend stop --if-idle`; if stopped, run `lore backend start`, then retry this command. If deferred, leave it running and obtain explicit user approval before running `lore backend stop`; do not retry in the background.",
+    "The local backend reported a build mismatch. Inspect the runtime identity and retry this command.",
   "backend.protocol-mismatch":
     "The local backend uses an incompatible Lorelum protocol. Run `lore backend stop --if-idle`; if stopped, run `lore backend start`, then retry this command. If deferred, leave it running and obtain explicit user approval before running `lore backend stop`; do not retry in the background.",
   "backend.unauthorized":

@@ -1,4 +1,5 @@
 import type { ConfigReader } from "@lorelum/config";
+import { backendCliError } from "../backend/error";
 import {
   BackendError,
   BackendRemoteError,
@@ -219,18 +220,14 @@ function projectContextData(project: ProjectContextSnapshot): JsonValue {
   };
 }
 
-function throwVisibleQueryError(error: unknown): never {
+async function throwVisibleQueryError(error: unknown): Promise<never> {
   if (error instanceof CliError) throw error;
   if (error instanceof InvalidQueryRequestError)
     throw invalidInvocationError(
       "The query or its options are invalid. Check the query text, --top-k and --mode.",
     );
   if (error instanceof BackendError || error instanceof EmbeddingError) {
-    throw new CliError(
-      error.code,
-      error.message,
-      error instanceof EmbeddingError ? error.resource : undefined,
-    );
+    throw await backendCliError(error);
   }
   if (error instanceof BackendRemoteError) {
     throw new CliError(error.code, queryRemoteErrorMessage(error.code));
@@ -409,7 +406,7 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
           ...(invocation.options.verbose === true ? {} : { textRenderer: renderQueryDecisionText }),
         };
       } catch (error) {
-        throwVisibleQueryError(error);
+        return throwVisibleQueryError(error);
       }
     },
   };

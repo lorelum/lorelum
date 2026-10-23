@@ -3,22 +3,27 @@ title: Backend commands
 description: Start, inspect, and stop Lorelum's local service.
 ---
 
-The Backend is the long-lived local host for embedding and semantic index operations. Start, status, and stop are independent of Store selection.
+The Backend is the long-lived local host for embedding and semantic index operations. It is shared at the user level; start, status, and stop are independent of Store selection. CLI envelope protocol `2` and Backend internal protocol `4` are separate versions.
 
 ```sh
 lore backend start
+lore backend start --current-build
 lore backend status
 lore backend stop
 # Agent-only safe handoff
 lore backend stop --if-idle
 ```
 
-`start` initializes missing default configuration, starts or reuses a compatible local instance, and waits until it is ready. It does not load the model. `status` reports `state`, `model`, and, when available, `instanceId` and `buildIdentity`; it never starts a process. Explicit `stop` waits for the service to exit and is safe when it is already stopped.
+`start` initializes missing default configuration, starts or reuses an instance with a compatible Backend protocol, and waits until it is ready. A different `buildIdentity` alone is not a mismatch: ordinary start and business commands may reuse a same-protocol Backend without restarting it or reloading its model. Start does not load the model.
 
-After an upgrade, the current CLI can explicitly stop a verified local Backend from another build. With a compatible protocol it uses authenticated shutdown; with an incompatible protocol it uses the private runtime record plus exact process identity to terminate only that owned lifecycle after a graceful deadline. It never requires the old CLI to still be installed, and never stops an arbitrary process that happens to use the local port.
+`start --current-build` is the explicit development option for requiring this CLI's exact build. It is accepted only on `backend start`, not `status`. If another owned Backend is running, the CLI uses a guarded handoff before starting this build. A safe handoff returns ready; active or unknown activity returns `state: deferred` with a reason and exit code `1`, leaving the existing instance running. Success exits `0`; other failures exit `2`.
 
-`stop --if-idle` rechecks private activity and task leases under the lifecycle lock and stops only a proven idle Backend. Model preparation, semantic indexing, a valid lease, or unknown activity returns `deferred` without interrupting the other task. Follow the complete error message: run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent.
+`status` is read-only and never starts a process. For a Backend with a compatible protocol it reports `state`, `model`, remote `buildIdentity` and provenance, plus the local CLI build, `sameBuild`, and `protocolCompatible`. `sameBuild: false` with protocol compatibility is informational, not an error; an incompatible protocol returns `backend.protocol-mismatch`. A stopped result contains local CLI information only; it does not invent remote build fields. `lore --version` shows the CLI envelope protocol, Backend protocol, and readable build provenance without connecting to a Backend.
+
+Explicit `stop` requests shutdown and waits for the owned service to exit; it is safe when already stopped. `stop --if-idle` is the guarded recovery action. Under Backend protocol 4, an already admitted business request defers with `active-long-task`; if none are in flight, the Backend closes admission and checks model preparation, index operations, and valid task leases before writing its handoff marker. A lease is valid only while `expiresAt > now`. A model that is merely loaded, or another Agent/chat that is working, does not count as Backend activity. Corrupt or unowned activity remains `unknown-activity` and is not treated as idle.
+
+Protocol 3 lacks v4's in-flight request admission guard and retains the older activity/lease check; an expired lease may still be treated as unknown. Do not claim the v4 request-safety guarantee for a protocol 3 handoff. For either stop mode, follow a complete error message; if a guarded stop is deferred, leave the instance and task running, do not retry in the background, and do not replace it with ordinary stop without explicit user consent.
 
 The default service address is loopback (`127.0.0.1:26186`). Global `--store-root` affects Store data only. `--log-level` controls stderr progress and diagnostics.
 
-Backend errors include `backend.unavailable`, `backend.port-conflict`, `backend.build-mismatch`, `backend.protocol-mismatch`, `backend.incompatible`, `backend.config-invalid`, `backend.busy`, `backend.failed`, and `backend.deadline-exceeded`. Build/protocol mismatch across query/model/index/backend commands uses a complete actionable message, not a policy object; unavailable instructs `lore backend start` and retry. Ownership, listener, and authentication problems retain specific corrective guidance. Query and status reads never stop a process because of mismatch. Success exits `0`; failures exit `2`. Use `lore describe backend.start` (or the other subcommand) for the installed schema.
+Backend errors include `backend.unavailable`, `backend.port-conflict`, `backend.protocol-mismatch`, `backend.incompatible`, `backend.config-invalid`, `backend.busy`, `backend.failed`, and `backend.deadline-exceeded`. Same-protocol build differences do not produce `backend.build-mismatch`. An internal protocol mismatch uses a complete actionable message; unavailable instructs `lore backend start` and retry. Ownership, listener, and authentication problems retain specific corrective guidance. Query and status reads never stop a process because of mismatch. Success exits `0`; failures exit `2`. Use `lore describe backend.start` (or the other subcommand) for the installed schema.

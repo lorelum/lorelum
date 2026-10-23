@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { BackendError } from "../protocol/errors";
+import { PROTOCOL_VERSION } from "../protocol/constants";
 import { sqliteExclusiveLock } from "./coordination/sqlite-exclusive-lock";
 import { assertPrivateFile, checkDirectory, hasCode } from "./runtime-state";
 import type { ProcessIdentity } from "./process-identity";
@@ -171,6 +172,7 @@ export async function grantTaskLease(
   owner: ProcessIdentity,
   ttlMs: number,
   now = Date.now(),
+  protocolVersion = PROTOCOL_VERSION,
 ): Promise<LeaseGrant> {
   const current = await requiredActivityRecord(directory, instanceId);
   const leaseId = randomUUID();
@@ -178,7 +180,7 @@ export async function grantTaskLease(
   const next: RuntimeActivityRecord = {
     ...current,
     leases: [
-      ...current.leases,
+      ...current.leases.filter((lease) => protocolVersion < 4 || Date.parse(lease.expiresAt) > now),
       {
         leaseId,
         owner,
@@ -198,6 +200,7 @@ export async function renewTaskLease(
   owner: ProcessIdentity,
   ttlMs: number,
   now = Date.now(),
+  protocolVersion = PROTOCOL_VERSION,
 ): Promise<LeaseGrant> {
   if (!z.string().uuid().safeParse(leaseId).success)
     throw new BackendError("backend.invalid-request");
@@ -207,11 +210,16 @@ export async function renewTaskLease(
   const expiresAt = new Date(now + validateLeaseDuration(ttlMs)).toISOString();
   const next: RuntimeActivityRecord = {
     ...current,
-    leases: current.leases.map((lease) =>
-      lease.leaseId === leaseId
-        ? { ...lease, owner, heartbeatAt: new Date(now).toISOString(), expiresAt }
-        : lease,
-    ),
+    leases: current.leases
+      .filter(
+        (lease) =>
+          protocolVersion < 4 || lease.leaseId === leaseId || Date.parse(lease.expiresAt) > now,
+      )
+      .map((lease) =>
+        lease.leaseId === leaseId
+          ? { ...lease, owner, heartbeatAt: new Date(now).toISOString(), expiresAt }
+          : lease,
+      ),
   };
   await writeActivityRecord(directory, next);
   return { leaseId, expiresAt };
@@ -254,6 +262,20 @@ export function assessRuntimeActivity(
   if (record.leases.some((lease) => Date.parse(lease.expiresAt) <= now))
     return { state: "unknown", reason: "unknown-activity" };
   if (record.leases.length > 0) return { state: "active", reason: "active-long-task" };
+  return { state: "idle", reason: "idle" };
+}
+
+/** v4 lease semantics: expired leases no longer protect a daemon from an idle handoff. */
+export function assessRuntimeActivityV4(
+  record: RuntimeActivityRecord | undefined,
+  instanceId: string,
+  now = Date.now(),
+): RuntimeActivityAssessment {
+  if (record === undefined || record.instanceId !== instanceId)
+    return { state: "unknown", reason: "unknown-activity" };
+  if (record.activities.length > 0) return { state: "active", reason: "active-long-task" };
+  if (record.leases.some((lease) => Date.parse(lease.expiresAt) > now))
+    return { state: "active", reason: "active-long-task" };
   return { state: "idle", reason: "idle" };
 }
 

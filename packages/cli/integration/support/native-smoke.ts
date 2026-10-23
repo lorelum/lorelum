@@ -192,6 +192,13 @@ export async function createNativeSmokeEnvironment(
     const app = createBackendApp({
       backend: createBackendService({
         identity,
+        build: {
+          buildIdentity: identity.buildIdentity,
+          toolVersion: "integration",
+          revision: null,
+          dirty: null,
+          buildKind: "source",
+        },
         secret,
         isReady: () => true,
         modelState: () => service.status().state,
@@ -210,7 +217,6 @@ export async function createNativeSmokeEnvironment(
     const client = createBackendClient({
       identity,
       secret,
-      buildIdentity: identity.buildIdentity,
       baseUrl: `http://127.0.0.1:${app.server.port}`,
       timeoutMs: 70_000,
       startupTimeoutMs: 70_000,

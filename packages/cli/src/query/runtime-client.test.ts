@@ -27,7 +27,6 @@ function backend(overrides: Partial<BackendClient> = {}): BackendClient {
     ...createBackendClient({
       identity: { instanceId: "test", buildIdentity: "test", protocolVersion: PROTOCOL_VERSION },
       secret: "test",
-      buildIdentity: "test",
     }),
     identity: async () => ({
       instanceId: "test",

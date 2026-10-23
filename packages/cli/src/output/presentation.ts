@@ -31,8 +31,29 @@ export const renderVersionText: TextRenderer = (data, fallback) => {
   if (!isObject(data)) return fallback(data);
   const toolVersion = stringField(data, "toolVersion");
   const protocolVersion = data.protocolVersion;
-  if (toolVersion === undefined || typeof protocolVersion !== "number") return fallback(data);
-  return `Lorelum ${toolVersion} (protocol ${protocolVersion})`;
+  const backendProtocolVersion = data.backendProtocolVersion;
+  const buildIdentity = stringField(data, "buildIdentity");
+  const buildKind = stringField(data, "buildKind");
+  const revision = data.revision;
+  const dirty = data.dirty;
+  if (
+    toolVersion === undefined ||
+    typeof protocolVersion !== "number" ||
+    typeof backendProtocolVersion !== "number" ||
+    buildIdentity === undefined ||
+    buildKind === undefined ||
+    (revision !== null && typeof revision !== "string") ||
+    (dirty !== null && typeof dirty !== "boolean")
+  ) {
+    return fallback(data);
+  }
+  const revisionLabel = revision === null ? "unknown" : revision.slice(0, 12);
+  const dirtyLabel = dirty === null ? "dirty state unknown" : dirty ? "dirty" : "clean";
+  return [
+    `Lorelum ${toolVersion}`,
+    `CLI envelope protocol ${protocolVersion}; Backend internal protocol ${backendProtocolVersion}`,
+    `Build ${buildIdentity.slice(0, 12)} (${buildKind}), revision ${revisionLabel}, ${dirtyLabel}`,
+  ].join("\n");
 };
 
 function isObject(value: JsonValue): value is Readonly<Record<string, JsonValue>> {

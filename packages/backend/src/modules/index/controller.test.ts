@@ -65,7 +65,18 @@ function app(
       },
     });
   return createBackendApp({
-    backend: createBackendService({ identity, secret, onStop: () => undefined }),
+    backend: createBackendService({
+      identity,
+      build: {
+        toolVersion: "test-version",
+        revision: null,
+        dirty: null,
+        buildKind: "source",
+        buildIdentity: identity.buildIdentity,
+      },
+      secret,
+      onStop: () => undefined,
+    }),
     keywordQueryService,
     semanticRuntime: runtime,
     ...(diagnostics === undefined ? {} : { diagnostics }),

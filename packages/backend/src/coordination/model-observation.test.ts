@@ -22,7 +22,6 @@ test("preparation observation is bounded while daemon task remains loading", asy
     ...createBackendClient({
       identity: { instanceId: "test", buildIdentity: "test", protocolVersion: PROTOCOL_VERSION },
       secret: "test",
-      buildIdentity: "test",
     }),
     beginModelPreparation: async () => {
       admissions++;
@@ -57,7 +56,6 @@ test("cancelling an observer does not mutate the accepted model task", async () 
     ...createBackendClient({
       identity: { instanceId: "test", buildIdentity: "test", protocolVersion: PROTOCOL_VERSION },
       secret: "test",
-      buildIdentity: "test",
     }),
     modelPreparation: async () => preparation,
   };

@@ -19,11 +19,18 @@ import {
 import { ContentAddressedSemanticRuntime } from "../modules/query/content-addressed-semantic-runtime";
 import { SemanticOperationJournal } from "../modules/query/project-operation-journal";
 import { isSameProcess } from "./process-identity";
-import { removeActivityRecord, setRuntimeActivity, withActivityLock } from "./activity-state";
+import {
+  assessRuntimeActivityV4,
+  readActivityRecord,
+  removeActivityRecord,
+  setRuntimeActivity,
+  withActivityLock,
+} from "./activity-state";
 import { readRecord, removeRecord, writeRecord } from "./runtime-state";
 import { createPrivateJsonlSink, type PrivateJsonlSink } from "./private-jsonl-sink";
+import type { BuildInfo } from "../protocol/build-provenance";
 
-export async function runBackendDaemon(options: { readonly buildIdentity: string }): Promise<void> {
+export async function runBackendDaemon(options: { readonly build: BuildInfo }): Promise<void> {
   const { runtimeDirectory: directory, instanceId, port, logDirectory } = consumeDaemonLaunch();
   // Bounded stdin launch grant ensures a dead starter cannot leave an unpublished daemon.
   const grant = await readGrant();
@@ -33,7 +40,7 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     grant !== instanceId ||
     record.instanceId !== instanceId ||
     record.pid !== process.pid ||
-    record.buildIdentity !== options.buildIdentity ||
+    record.buildIdentity !== options.build.buildIdentity ||
     !(await isSameProcess(record))
   )
     throw new BackendError("backend.unauthorized");
@@ -86,6 +93,7 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
   });
   let ready = false;
   const backend = createBackendService({
+    build: options.build,
     identity: {
       instanceId: record.instanceId,
       buildIdentity: record.buildIdentity,
@@ -94,6 +102,14 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     secret: record.secret,
     isReady: () => ready,
     modelState: () => embedding.status().state,
+    onTryBeginIdleStop: () =>
+      withActivityLock(directory, settings.requestTimeoutMs, async () => {
+        const activity = await readActivityRecord(directory).catch(() => undefined);
+        const assessment = assessRuntimeActivityV4(activity, instanceId);
+        if (assessment.state === "idle")
+          await setRuntimeActivity(directory, instanceId, "handoff-stop", true);
+        return assessment;
+      }),
     onStop: shutdown,
     onStopFailure: () => {
       process.exitCode = 1;

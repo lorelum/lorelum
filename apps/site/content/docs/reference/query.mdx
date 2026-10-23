@@ -5,6 +5,8 @@ description: Find the right current Practices for an AI coding task and moment.
 
 `query` searches the current query context and returns ranked Practice summaries. Semantic relevance is the default; keyword mode is an explicit offline path. Valid project `.lorelum/` layers in the current directory or its ancestors are inherited and merged from parent to child; the selected Store root is never a project layer. When there is no valid project layer, including an ordinary path with no `.lorelum/`, query uses only the selected Store. Use `--no-project` to force that Store-only behavior.
 
+The Backend is a user-level shared service. A query may reuse an instance started by another build when the Backend internal protocol is compatible; a different build ID alone does not reject the query, restart the Backend, or reload its model. The CLI envelope protocol is `2`; the Backend protocol is `4`. Only a protocol mismatch blocks the request. Use [`backend start --current-build`](./backend) when a development check must run a specific worktree build.
+
 ```sh
 lore query <text> [--mode semantic|keyword|single-vector|multi-view-vector] [--top-k <n>] [--store-root <path>] [--project-root <path>] [--no-project] [--cache-root <path>] [--verbose] [--json]
 ```
@@ -37,7 +39,7 @@ If the semantic model is still preparing, data is `{ "state": "preparing", "prep
 | `embedding.native-resource-invalid` | Reinstall the matching complete CLI package, including `native/<target>/`; redownloading the model will not repair it. |
 | `embedding.resource-invalid` | Inspect `lore model status --json` and correct the reported cached or configured model file before retrying `lore model load`. |
 | `semantic.embedding-failed` or other `embedding.*` | Check `lore model status` and the specific error guidance before retrying. |
-| `backend.build-mismatch` / `backend.protocol-mismatch` | Follow the complete error message: run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent. |
+| `backend.protocol-mismatch` | Follow the complete error message: run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent. A build ID difference alone is not an error. |
 | `query.unavailable` / `query.failed` | Inspect the keyword index and Store state. |
 | `store.busy` / `store.recovery-required` | Wait for the active Store operation or perform the documented recovery. |
 | `usage.invalid` | Correct the query text or option values. |

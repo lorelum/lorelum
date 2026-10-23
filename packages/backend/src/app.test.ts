@@ -10,12 +10,18 @@ import { createPackCandidate } from "../../engine/src/local-store/model/candidat
 import { createBackendApp } from "./app";
 import { createBackendService } from "./modules/backend/service";
 import { createContentAddressedSemanticRuntimeStub } from "./modules/query/content-addressed-semantic-runtime.test-helper";
+import { PROTOCOL_VERSION } from "./protocol/constants";
 
 const identity = Object.freeze({
   instanceId: "test-instance",
   buildIdentity: "test-build",
   protocolVersion: 1,
 });
+type TestIdentity = Readonly<{
+  instanceId: string;
+  buildIdentity: string;
+  protocolVersion: number;
+}>;
 const secret = "a secret used only by tests";
 
 function candidate(version: string, text: string) {
@@ -46,12 +52,39 @@ function request(path: string, init: RequestInit = {}): Request {
   });
 }
 
+function jsonPost(path: string, body: unknown): Request {
+  return request(path, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${secret}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function queryRequest(rootPath = "/tmp/lorelum-test"): Request {
+  return jsonPost("/internal/v1/query", {
+    storageRoot: rootPath,
+    query: { text: "test", mode: "keyword" },
+  });
+}
+
+function guardedStopRequest(): Request {
+  return jsonPost("/internal/v1/stop", { ifIdle: true });
+}
+
 function app(
   keywordQueryService?: QueryService,
   onStop = () => undefined,
-  instanceIdentity: typeof identity = identity,
+  instanceIdentity: TestIdentity = identity,
   isReady: () => boolean = () => true,
   onStopFailure: (error: unknown) => void = () => undefined,
+  onTryBeginIdleStop?: () => Promise<
+    | { readonly state: "idle"; readonly reason: "idle" }
+    | { readonly state: "active"; readonly reason: "active-long-task" }
+    | { readonly state: "unknown"; readonly reason: "unknown-activity" }
+  >,
 ) {
   const keyword = keywordQueryService ?? {
     async query() {
@@ -61,9 +94,17 @@ function app(
   return createBackendApp({
     backend: createBackendService({
       identity: instanceIdentity,
+      build: {
+        toolVersion: "test-version",
+        revision: null,
+        dirty: null,
+        buildKind: "source",
+        buildIdentity: instanceIdentity.buildIdentity,
+      },
       secret,
       onStop,
       onStopFailure,
+      ...(onTryBeginIdleStop === undefined ? {} : { onTryBeginIdleStop }),
       isReady,
     }),
     keywordQueryService: keyword,
@@ -381,5 +422,155 @@ describe("createBackendApp", () => {
     expect(response.status).toBe(200);
     await new Promise((resolve) => setTimeout(resolve, 1));
     expect(failures).toEqual([expect.objectContaining({ message: "test lifecycle failure" })]);
+  });
+
+  test("v4 guarded stop defers for an accepted query and succeeds after query completion", async () => {
+    const v4Identity = { ...identity, protocolVersion: 4 };
+    const queryStarted = Promise.withResolvers<void>();
+    const queryFinished = Promise.withResolvers<void>();
+    let activityChecks = 0;
+    const queryService: QueryService = {
+      async query() {
+        queryStarted.resolve();
+        await queryFinished.promise;
+        return { mode: "keyword", results: [] };
+      },
+    };
+    const instance = app(
+      queryService,
+      undefined,
+      v4Identity,
+      () => true,
+      undefined,
+      async () => {
+        activityChecks++;
+        return { state: "idle", reason: "idle" };
+      },
+    );
+    const queryResponse = instance.handle(queryRequest());
+    await queryStarted.promise;
+
+    const deferred = await instance.handle(guardedStopRequest());
+    expect(await deferred.json()).toEqual({ state: "deferred", reason: "active-long-task" });
+    expect(activityChecks).toBe(0);
+
+    queryFinished.resolve();
+    expect((await queryResponse).status).toBe(200);
+    const accepted = await instance.handle(guardedStopRequest());
+    expect(await accepted.json()).toMatchObject({ state: "stopping" });
+    expect(activityChecks).toBe(1);
+  });
+
+  test("v4 guarded stop closes app admission during its activity check, then reopens on defer", async () => {
+    const v4Identity = { ...identity, protocolVersion: 4 };
+    const activityCheckStarted = Promise.withResolvers<void>();
+    const activityResult = Promise.withResolvers<{
+      readonly state: "unknown";
+      readonly reason: "unknown-activity";
+    }>();
+    const instance = app(
+      undefined,
+      undefined,
+      v4Identity,
+      () => true,
+      undefined,
+      () => {
+        activityCheckStarted.resolve();
+        return activityResult.promise;
+      },
+    );
+    const guardedStop = instance.handle(guardedStopRequest());
+    await activityCheckStarted.promise;
+
+    const rejectedDuringCheck = await instance.handle(queryRequest());
+    expect(rejectedDuringCheck.status).toBe(503);
+    const statusDuringCheck = await instance.handle(
+      request("/internal/v1/status", {
+        headers: { authorization: `Bearer ${secret}` },
+      }),
+    );
+    expect(statusDuringCheck.status).toBe(200);
+    expect(await statusDuringCheck.json()).toMatchObject({ state: "stopping" });
+
+    activityResult.resolve({ state: "unknown", reason: "unknown-activity" });
+    expect(await (await guardedStop).json()).toEqual({
+      state: "deferred",
+      reason: "unknown-activity",
+    });
+    const admittedAfterDefer = await instance.handle(queryRequest());
+    expect(admittedAfterDefer.status).toBe(200);
+  });
+
+  test("v4 guarded stop releases app admission after a query error", async () => {
+    const v4Identity = { ...identity, protocolVersion: 4 };
+    let activityChecks = 0;
+    const instance = app(
+      {
+        async query() {
+          throw new Error("test query failure");
+        },
+      },
+      undefined,
+      v4Identity,
+      () => true,
+      undefined,
+      async () => {
+        activityChecks++;
+        return { state: "idle", reason: "idle" };
+      },
+    );
+    const failedQuery = await instance.handle(queryRequest());
+    expect(failedQuery.status).toBe(500);
+
+    const stop = await instance.handle(guardedStopRequest());
+    expect(await stop.json()).toMatchObject({ state: "stopping" });
+    expect(activityChecks).toBe(1);
+  });
+
+  test("guarded stop also protects an asynchronous index status request", async () => {
+    const started = Promise.withResolvers<void>();
+    const finished = Promise.withResolvers<void>();
+    let stopped = false;
+    const instance = createBackendApp({
+      backend: createBackendService({
+        identity: { ...identity, protocolVersion: PROTOCOL_VERSION },
+        build: {
+          toolVersion: "test",
+          revision: null,
+          dirty: null,
+          buildKind: "source",
+          buildIdentity: identity.buildIdentity,
+        },
+        secret,
+        onStop: () => {
+          stopped = true;
+        },
+        onTryBeginIdleStop: async () => ({ state: "idle", reason: "idle" }),
+      }),
+      keywordQueryService: { query: async () => ({ mode: "keyword", results: [] }) },
+      semanticRuntime: createContentAddressedSemanticRuntimeStub({
+        async indexStatus() {
+          started.resolve();
+          await finished.promise;
+          return { state: "missing", profileId: "a".repeat(64) };
+        },
+      }),
+    });
+    const index = instance.handle(
+      request("/internal/v1/index/status?storageRoot=/tmp/index-controller", {
+        headers: { authorization: `Bearer ${secret}` },
+      }),
+    );
+    await started.promise;
+    expect(await (await instance.handle(guardedStopRequest())).json()).toEqual({
+      state: "deferred",
+      reason: "active-long-task",
+    });
+    expect(stopped).toBe(false);
+    finished.resolve();
+    expect((await index).status).toBe(200);
+    expect(await (await instance.handle(guardedStopRequest())).json()).toMatchObject({
+      state: "stopping",
+    });
   });
 });

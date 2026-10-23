@@ -37,7 +37,6 @@ try {
   const client = createBackendClient({
     identity: daemon,
     secret: daemon.secret,
-    buildIdentity,
     baseUrl,
     timeoutMs: 3000,
   });
@@ -171,7 +170,6 @@ async function oldProtocolClient(): Promise<BackendClient> {
   return createBackendClient({
     identity: daemon,
     secret: daemon.secret,
-    buildIdentity,
     baseUrl,
     timeoutMs: 3000,
     protocolVersion: PROTOCOL_VERSION - 1,

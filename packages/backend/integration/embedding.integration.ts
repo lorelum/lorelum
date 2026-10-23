@@ -32,6 +32,13 @@ const secret = "integration-only";
 const app = createBackendApp({
   backend: createBackendService({
     identity,
+    build: {
+      buildIdentity: identity.buildIdentity,
+      toolVersion: "integration",
+      revision: null,
+      dirty: null,
+      buildKind: "source",
+    },
     secret,
     modelState: () => fixture.service.status().state,
     onStop: () => fixture.service.unload().then(() => {}),
@@ -55,7 +62,6 @@ try {
   const client = createBackendClient({
     identity,
     secret,
-    buildIdentity: identity.buildIdentity,
     baseUrl: `http://127.0.0.1:${app.server.port}`,
     timeoutMs: HARNESS_ENCODE_BUDGET_MS,
   });

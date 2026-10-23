@@ -249,7 +249,8 @@ test("rejects registry definitions that would make parser metadata ambiguous", (
 });
 
 test("describes registered commands from a single registry", () => {
-  expect(describeCommand()).toMatchObject({
+  const rootDescription = describeCommand();
+  expect(rootDescription).toMatchObject({
     name: "lore",
     options: [
       { behavior: "help", name: "-h, --help", scope: "global" },
@@ -261,7 +262,15 @@ test("describes registered commands from a single registry", () => {
         response: {
           command: "version",
           resultSchema: {
-            required: ["protocolVersion", "toolVersion"],
+            required: [
+              "protocolVersion",
+              "backendProtocolVersion",
+              "toolVersion",
+              "buildIdentity",
+              "revision",
+              "dirty",
+              "buildKind",
+            ],
             type: "object",
           },
         },
@@ -414,6 +423,13 @@ test("describes registered commands from a single registry", () => {
     "--registry <source>",
     "--path <directory>",
   ]);
+  const versionResponse = (
+    rootDescription as {
+      options: readonly { behavior?: string; response?: Record<string, unknown> }[];
+    }
+  ).options.find((option) => option.behavior === "version")?.response;
+  expect(versionResponse).toBeDefined();
+  expect(versionResponse).not.toHaveProperty("data");
 });
 
 test("registers every command definition with an executable handler", () => {

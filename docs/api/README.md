@@ -2,7 +2,7 @@
 
 本目录描述 [backend runtime](../../openspec/specs/backend-runtime/spec.md) 的本地 HTTP adapter。接口只绑定 `127.0.0.1`，统一使用 `/internal/v1` 路由前缀；它是本机控制面，不是公开网络 API。默认模型的下载来源由 embedding 配置管理；首次实际需要 embedding 的请求可以自动开始或加入一次后台准备，显式 load 用于等待、重试和观察它。
 
-当前内部协议版本为 3。客户端必须先通过 unauthenticated identity challenge 验证实例，再对受保护接口发送 `Authorization: Bearer <runtime-secret>`。HTTP 请求不能带 `Origin`，`Host` 必须匹配实际 loopback authority。
+当前 Backend 内部协议版本为 4；CLI JSON envelope 的 `protocolVersion` 为 2，两者独立。客户端必须先通过 unauthenticated identity challenge 验证实例，再对受保护接口发送 `Authorization: Bearer <runtime-secret>`。HTTP 请求不能带 `Origin`，`Host` 必须匹配实际 loopback authority。
 
 所有 JSON body 都必须使用 `application/json`。错误 body 统一为：
 
@@ -43,13 +43,13 @@ const settings = resolveBackendSettings(record.settings);
 const client = createBackendClient({
   identity: record,
   secret: record.secret,
-  // 临时调试明确选择正在运行的构建；正式产品调用方应传入自己的构建身份。
-  buildIdentity: record.buildIdentity,
   timeoutMs: settings.requestTimeoutMs,
   shutdownTimeoutMs: settings.shutdownTimeoutMs,
 });
 console.log(await client.embed("query", ["responsibility boundary"]));
 ```
+
+client 根据自身支持的 Backend protocol 验证远端，不需要调用方传入本地 `buildIdentity`。协议兼容时可复用另一个 build 启动的 Backend；精确 build identity 仍用于 runtime record 归属和显式 `backend start --current-build`。
 
 `@lorelum/backend` 当前是仓库私有 workspace 包，没有独立发布的 SDK。其他语言调用方可按 [identity 合同](backend.md#identity) 实现握手，随后使用 Bearer credential。凭据来自当前用户私有 runtime record，不是配置中的固定 API key；不要记录到日志。
 

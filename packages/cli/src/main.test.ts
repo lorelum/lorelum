@@ -4,8 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { readManagedLogs } from "@lorelum/log";
+import { PROTOCOL_VERSION } from "@lorelum/backend/protocol";
 import { isInternalBackendDaemonLaunch, isInternalBackendServeInvocation, run } from "./main.js";
-import { protocolResponseSchema, toolVersion, type JsonSchema } from "./output/protocol.js";
+import {
+  protocolResponseSchema,
+  protocolVersion,
+  toolVersion,
+  type JsonSchema,
+} from "./output/protocol.js";
 import {
   validateJsonSchema,
   validateProtocolSchema,
@@ -299,7 +305,12 @@ test("uses readable Help and version by default while preserving explicit JSON",
   expect(validateProtocolSchema(JSON.parse(jsonHelp.value), protocolResponseSchema)).toEqual([]);
 
   expect(await run(["--version"], { stdout: version })).toBe(0);
-  expect(version.value).toBe(`Lorelum ${toolVersion} (protocol 2)\n`);
+  expect(version.value).toContain(`Lorelum ${toolVersion}`);
+  expect(version.value).toContain(`CLI envelope protocol ${protocolVersion}`);
+  expect(version.value).toContain(`Backend internal protocol ${PROTOCOL_VERSION}`);
+  expect(version.value).toMatch(
+    /Build [a-f0-9]{12} \(source\), revision (?:[a-f0-9]{12}|unknown), (?:clean|dirty|dirty state unknown)\n/,
+  );
 
   expect(
     await run(["--version", "--json"], {
@@ -308,18 +319,24 @@ test("uses readable Help and version by default while preserving explicit JSON",
     }),
   ).toBe(0);
   const versionResponse = JSON.parse(jsonVersion.value);
-  expect(versionResponse).toEqual({
-    protocolVersion: 2,
+  expect(versionResponse).toMatchObject({
+    protocolVersion,
     toolVersion,
     command: "version",
     diagnostics: { traceId: "00000000-0000-4000-8000-000000000001" },
     ok: true,
-    data: { protocolVersion: 2, toolVersion },
+    data: {
+      protocolVersion,
+      backendProtocolVersion: PROTOCOL_VERSION,
+      toolVersion,
+      buildKind: "source",
+    },
   });
+  expect(versionResponse.data.buildIdentity).toMatch(/^[a-f0-9]{64}$/);
   expect(validateProtocolSchema(versionResponse, protocolResponseSchema)).toEqual([]);
   const versionResultSchema = optionResultSchemaFor("lore", "version");
   expect(validateJsonSchema(versionResponse.data, versionResultSchema)).toEqual([]);
-  expect(validateJsonSchema({ protocolVersion: 2 }, versionResultSchema)).not.toEqual([]);
+  expect(validateJsonSchema({ protocolVersion, toolVersion }, versionResultSchema)).not.toEqual([]);
 });
 
 test("accepts the documented equals form of global options", async () => {
