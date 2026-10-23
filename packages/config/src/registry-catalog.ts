@@ -291,21 +291,12 @@ async function inspectParent(directory: string, create: boolean): Promise<void> 
         }
       });
       const created = await lstat(current).catch(() => undefined);
-      if (
-        created === undefined ||
-        !created.isDirectory() ||
-        created.isSymbolicLink() ||
-        (current === absolute && process.platform !== "win32" && (created.mode & 0o077) !== 0)
-      ) {
+      if (created === undefined || !created.isDirectory() || created.isSymbolicLink()) {
         throw new RegistryCatalogError();
       }
       continue;
     }
-    if (
-      !info.isDirectory() ||
-      info.isSymbolicLink() ||
-      (current === absolute && process.platform !== "win32" && (info.mode & 0o077) !== 0)
-    ) {
+    if (!info.isDirectory() || info.isSymbolicLink()) {
       throw new RegistryCatalogError();
     }
   }
@@ -321,7 +312,6 @@ async function openExistingCatalog(path: string): Promise<FileHandle | undefined
   if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_CONFIG_BYTES) {
     throw new RegistryCatalogError();
   }
-  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) throw new RegistryCatalogError();
   try {
     return await open(path, "r");
   } catch {

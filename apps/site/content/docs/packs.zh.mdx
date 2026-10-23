@@ -104,9 +104,14 @@ Pack。路径相对于命令执行时的 cwd 解析。`pack install --path` 保�
 `pack.yaml` 或 Pack 内容后重试（`pack.invalid`）。两种结果都不会包含本地 source 路径，且无效
 本地 source 不会改动已经安装的 Pack。
 
-如果 `lore registry` 返回 `registry.catalog-invalid`，请先私下备份
-`~/.lorelum/registries.yaml`，修复或移开损坏的 catalog，再重新运行 `lore registry list`。已经
-安装的 Pack 不受影响。临时的 `registry.catalog-busy` 可以直接重试。
+Registry 命令以文件系统实际允许的读写操作为准，不要求已有 catalog 或其父目录采用特定
+权限值，也不会修改目录权限。catalog 不存在时直接使用内置 `official`，不会为了读取默认源
+创建 catalog 文件。
+
+如果 `lore registry` 返回 `registry.catalog-invalid`，检查 catalog 是否可访问、是否为普通
+文件而非符号链接。内容损坏时，先私下备份 `~/.lorelum/registries.yaml`，修复或移开损坏的
+catalog，再重新运行 `lore registry list`。已经安装的 Pack 不受影响。临时的
+`registry.catalog-busy` 可以直接重试。
 
 ## 更新或移除 Pack
 
