@@ -1,10 +1,13 @@
 import { sessionRefSchema } from "@lorelum/backend/client";
 import type { Logger } from "@lorelum/log";
-import type { CatalogReader, HookEndpoint, ShellAssociator } from "../types.js";
+import type { AutoUpdatePoller, CatalogReader, HookEndpoint, ShellAssociator } from "../types.js";
+import { readCatalogWithUpdateNotice } from "../services/catalog.js";
 import { optionalEventFallback, readPayload } from "./validation.js";
 
 interface WorkbuddySessionStartInput {
   readonly hook_event_name: "SessionStart";
+  readonly session_id?: unknown;
+  readonly source?: unknown;
 }
 
 interface WorkbuddyPreToolUseInput {
@@ -29,19 +32,27 @@ type WorkbuddyResponse = {
 };
 
 export function createWorkbuddyEndpoint(
-  services: CatalogReader & ShellAssociator,
+  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator,
   _platform: NodeJS.Platform,
   log?: Logger,
 ): HookEndpoint {
   async function respond(input: WorkbuddyInput): Promise<WorkbuddyResponse> {
     switch (input.hook_event_name) {
-      case "SessionStart":
+      case "SessionStart": {
+        const session = sessionRefSchema.safeParse({
+          hostKey: "workbuddy",
+          sessionId: input.session_id,
+        });
         return {
           hookSpecificOutput: {
             hookEventName: "SessionStart",
-            additionalContext: await services.readCatalog(),
+            additionalContext: await readCatalogWithUpdateNotice(
+              services,
+              session.success && (input.source === "startup" || input.source === "resume"),
+            ),
           },
         };
+      }
       case "SubagentStart":
       case "subagentStart":
       case "PostToolUse":

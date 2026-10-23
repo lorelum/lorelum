@@ -2,6 +2,7 @@ import { DEFAULT_VECTOR_RETRIEVAL_METHOD_ID } from "@lorelum/engine";
 
 import type { JsonValue } from "../output/protocol.js";
 import { renderStructuredText } from "../output/structured-text.js";
+import type { EmptyQueryExplanation } from "./empty-result.js";
 
 interface QueryTextContext {
   readonly state: "ready" | "degraded";
@@ -33,6 +34,13 @@ interface QueryTextData {
   readonly message?: string;
   readonly results?: readonly QueryTextHit[];
   readonly context?: QueryTextContext;
+  readonly empty?: EmptyQueryExplanation;
+}
+
+export function renderQueryVerboseText(data: JsonValue): string {
+  const result = data as QueryTextData;
+  const text = renderStructuredText(data);
+  return result.empty === undefined ? text : `${result.empty.message}\n${text}`;
 }
 
 /** The command constructs complete query data before selecting this text view. */
@@ -68,7 +76,7 @@ export function renderQueryDecisionText(data: JsonValue): string {
       ...context,
     });
   }
-  return renderStructuredText({
+  const text = renderStructuredText({
     ...(result.mode === "keyword" ? { mode: result.mode } : {}),
     ...method,
     ...(result.coverage === "partial"
@@ -92,4 +100,5 @@ export function renderQueryDecisionText(data: JsonValue): string {
     })),
     ...context,
   });
+  return result.empty === undefined ? text : `${result.empty.message}\n${text}`;
 }

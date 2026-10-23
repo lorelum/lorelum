@@ -6,6 +6,19 @@ icon: Settings
 
 Lorelum 默认即可使用。用户级配置保存在 `~/.lorelum/config.yaml`，并由所有 Store 共享。
 
+## 自动更新检查
+
+支持的 Agent 会话集成默认启用 Lorelum 发行版发现。检查运行在独立、短生命周期的后台进程中，正常命令不等待发行网络结果。成功结果复用 1 小时，失败冷却 15 分钟；运行不同 CLI 版本时有独立检查资格。已就绪的提示按“当前运行版本／目标版本”组合投递一次，不在每次调用中重播。交互和支持入口见[自动更新提示](./installation#agent-会话中的自动更新提示)。
+
+同时关闭自动联网与提示：
+
+```yaml
+updates:
+  autoCheck: false
+```
+
+这是布尔项，默认 `true`。删除或设为 `true` 可重新启用，不会清除提示历史；下一次合格调用读取改动，无需重启 Backend。配置无效或无法读取时跳过自动更新工作，不阻塞原命令。显式 `lore update` 和 `lore update --apply` 始终可用，每次重新查询发行版。
+
 ## Agent shell 会话身份
 
 `agent.shellSessionInjection` 是支持 shell 会话绑定的 Agent 集成共用的配置，决定哪些 shell 命令会得到会话身份。默认 `lore-only`：只检查外层命令文本是否含独立的 `lore` 字样。直接调用、管道和命令替换中的 `lore` 都能匹配；Hook 不解析命令，也不读取脚本文件。例如外层只有 `sh script.sh` 时，即使脚本内部调用了 `lore get`，这次读取也可能无法关联到对话。反过来，外层文本只是提到 `lore` 也可能触发注入。

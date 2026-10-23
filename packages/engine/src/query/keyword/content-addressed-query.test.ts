@@ -42,12 +42,40 @@ test("queries a content-addressed keyword artifact outside the project source tr
       text: "content addressed cache",
     });
     expect(result.results.map((hit) => hit.practiceId)).toEqual(["platform.query"]);
+    await expect(
+      queryContentAddressedKeyword(snapshot, cache, { text: "zzznomatch" }),
+    ).resolves.toEqual({ mode: "keyword", results: [] });
     const paths = contentKeywordIndexPaths(cache, snapshot);
     await expect(access(paths.active)).resolves.toBeNull();
     await expect(access(join(root, ".lorelum", "cache"))).rejects.toThrow();
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(cache, { recursive: true, force: true });
+  }
+});
+
+test("reports a proven empty ProjectContext corpus on cold and warm keyword queries", async () => {
+  const root = await createIsolatedProjectSandbox("lorelum-project-keyword-empty-");
+  const cache = await mkdtemp(join(tmpdir(), "lorelum-project-cache-empty-"));
+  try {
+    await mkdir(join(root, ".lorelum"), { recursive: true });
+    await writeFile(join(root, ".lorelum", "config.yaml"), "base: none\n");
+    const snapshot = await resolve(root);
+    expect(snapshot.practices).toHaveLength(0);
+
+    for (const text of ["first query", "warm query"]) {
+      // eslint-disable-next-line no-await-in-loop -- verify the complete corpus remains available on both cache states.
+      await expect(queryContentAddressedKeyword(snapshot, cache, { text })).resolves.toEqual({
+        mode: "keyword",
+        results: [],
+        emptyReason: "corpus-empty",
+      });
+    }
+  } finally {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(cache, { recursive: true, force: true }),
+    ]);
   }
 });
 

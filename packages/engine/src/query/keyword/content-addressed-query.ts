@@ -162,13 +162,15 @@ export async function queryContentAddressedKeyword(
         verified: true,
       });
       const candidates = index.search(input.text, input.limit);
+      const results = assembleQueryHits(
+        corpus.practices,
+        candidates,
+        (message) => new KeywordIndexError(message),
+      );
       return Object.freeze({
         mode: "keyword",
-        results: assembleQueryHits(
-          corpus.practices,
-          candidates,
-          (message) => new KeywordIndexError(message),
-        ),
+        results,
+        ...(corpus.practices.length === 0 ? { emptyReason: "corpus-empty" } : {}),
       });
     } finally {
       index.close();

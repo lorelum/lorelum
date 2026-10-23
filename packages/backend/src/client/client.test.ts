@@ -446,6 +446,55 @@ describe("createBackendClient", () => {
     ]);
   });
 
+  test("preserves corpus-empty reasons received for keyword and semantic queries", async () => {
+    const semanticRuntime = createContentAddressedSemanticRuntimeStub({
+      async query() {
+        return {
+          mode: "semantic",
+          profileId: "a".repeat(64),
+          coverage: "complete",
+          results: [],
+          emptyReason: "corpus-empty",
+        };
+      },
+    });
+    const { url } = runningApp(
+      {
+        async query() {
+          return { mode: "keyword", results: [], emptyReason: "corpus-empty" };
+        },
+      },
+      identity,
+      undefined,
+      semanticRuntime,
+    );
+    const client = createBackendClient({
+      identity,
+      secret,
+      baseUrl: url,
+    });
+
+    await expect(
+      client.query(
+        { rootPath: "/tmp/lorelum-client-empty" },
+        { text: "anything", mode: "keyword" },
+      ),
+    ).resolves.toEqual({
+      mode: "keyword",
+      results: [],
+      emptyReason: "corpus-empty",
+    });
+    await expect(
+      client.query({ rootPath: "/tmp/lorelum-client-empty" }, { text: "anything" }),
+    ).resolves.toEqual({
+      mode: "semantic",
+      profileId: "a".repeat(64),
+      coverage: "complete",
+      results: [],
+      emptyReason: "corpus-empty",
+    });
+  });
+
   test("propagates the caller trace without treating it as an authentication credential", async () => {
     const sink = new MemoryLogSink();
     const traceId = "00000000-0000-4000-8000-000000000026" as never;

@@ -59,6 +59,14 @@ catalog 不等价于“没有 catalog”，因此 CLI 不会静默切回 `offici
 重试。`registry list` 只读取 catalog，不为了展示 source 访问远端；用户操作与恢复见站点
 [安装与管理 Pack](https://lorelum.com/zh/docs/packs)。
 
+## 自动更新状态
+
+CLI 的 `update/update-settings.ts` 独立读取用户级 `updates.autoCheck`，默认 true；无效配置或文档不可读只跳过自动 sidecar。关闭发生在更新状态 I/O 和 worker 调度之前；它不影响显式 `lore update`。用户设置与交互见[配置指南](https://lorelum.com/zh/docs/configuration#自动更新检查)。
+
+`~/.lorelum/updates.sqlite` 由 CLI update 模块所有，不属于 LocalStore、项目或 Backend，`--store-root` 不重定位它。检查状态按频道、平台和当前运行版本分区，成功间隔 1 小时，失败冷却 15 分钟；提醒记录按去除 build metadata 的当前版本／目标版本组合原子领取。新版本首次运行无需等待旧版本冷却，也不使用旧版本的缓存作为首次检查结果；不同版本进程不互相清空历史。
+
+调度只在短事务领取额度后启动 stdio 隔离的 detached worker，普通进程不等待网络。worker 使用总 deadline 读取完整发行列表，只提交本次 reservation 的成功结果；它不领取提醒、不安装、不产生宿主输出。后续可投递入口才读取有效结果、准备固定文本并领取提醒记录。数据库繁忙、损坏、未知 schema 或不可写时跳过，不通过删库重建恢复空提醒历史。显式版本命令与自动状态完全分离，始终现查。原生 Hook 和 extension 的输出边界见 [Hook ABI](../cli/hook.md#自动版本提醒)。
+
 ## 派生 query cache
 
 项目 `.lorelum/` 和 LocalStore 都是 canonical source；keyword artifact、semantic artifact、semantic progress 与共享 embedding vector 都只存在用户级 cache，默认位置为 `~/.lorelum/cache`。因此同一仓库开多个 worktree，或两个普通目录恰好解析出相同的 active Practice 语料时，可以复用同一个 artifact，而无需把 index 写进 Git 工作区或新增 `.gitignore`。

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import packageManifest from "../package.json";
 
 import {
   protocolResponseSchema,
@@ -10,6 +11,7 @@ import {
 test("exports the CLI package contract", () => {
   expect(protocolResponseSchema).toHaveProperty("oneOf");
   expect(protocolVersion).toBe(2);
+  expect(toolVersion).toBe(packageManifest.version);
 
   const response: ProtocolSuccess<{ name: string }> = {
     protocolVersion,

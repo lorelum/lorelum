@@ -25,6 +25,7 @@ const success = {
   stdout: JSON.stringify({ additionalContext: CATALOG }) + "\n",
   code: 0,
 };
+const NOTICE = "Lorelum update available: 1.2.0";
 
 const shutdowns: Array<() => unknown> = [];
 afterEach(() => {
@@ -67,7 +68,10 @@ function harness(
     persist,
     notify,
     ctx,
-    boundary: (name: string) => handlers.get(name)!({ type: name }, ctx),
+    boundary: (name: string, nextSessionId?: string) => {
+      if (nextSessionId !== undefined) sessionId = nextSessionId;
+      return handlers.get(name)!({ type: name }, ctx);
+    },
     switchSession: (next: string) => {
       sessionId = next;
       return handlers.get("session_switch")!({ type: "session_switch", reason: "resume" }, ctx);
@@ -115,8 +119,139 @@ describe("omp request-scoped Catalog", () => {
     expect(second[0]).toBe(first[0]);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute.mock.calls[0]![0].cwd).toBe("/workspace/one");
-    expect(execute.mock.calls[0]![0].request).toEqual({ event: "catalog", agentKind: "main" });
+    expect(execute.mock.calls[0]![0].request).toEqual({
+      event: "catalog",
+      agentKind: "main",
+      sessionId: "actual-main-session",
+      checkUpdates: true,
+    });
     expect(host.persist).toHaveBeenCalledTimes(0);
+  });
+
+  test("delivers a one-shot update notice separately from the reusable Catalog", async () => {
+    const execute = mock<BridgeExecutor>(async () => ({
+      stdout: JSON.stringify({ additionalContext: CATALOG, updateNotice: NOTICE }) + "\n",
+      code: 0,
+    }));
+    const host = harness(execute);
+    const user: Messages[number] = { role: "user", content: "Continue", timestamp: 1 };
+    const first = await host.context([user]);
+    expect(first).toHaveLength(3);
+    expect(text(first[0]!)).toBe(NOTICE);
+    expect(text(first[1]!)).toBe(CATALOG);
+    expect(first[2]).toBe(user);
+
+    const second = await host.context(first);
+    expect(second).toHaveLength(2);
+    expect(text(second[0]!)).toBe(CATALOG);
+    expect(second[1]).toBe(user);
+    expect(await host.context(second)).toEqual(second);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  test("concurrent context callbacks consume one notice only once", async () => {
+    const execute = mock<BridgeExecutor>(async () => ({
+      stdout: JSON.stringify({ additionalContext: CATALOG, updateNotice: NOTICE }) + "\n",
+      code: 0,
+    }));
+    const host = harness(execute);
+    const [first, second] = await Promise.all([host.context(), host.context()]);
+    const notices = [first, second].filter((messages) =>
+      messages.some((message) => text(message) === NOTICE),
+    );
+    expect(notices).toHaveLength(1);
+    expect(first.some((message) => text(message) === CATALOG)).toBe(true);
+    expect(second.some((message) => text(message) === CATALOG)).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  test("an exact legacy empty response retries only the unextended main Catalog request", async () => {
+    const requests: BridgeRequest[] = [];
+    const execute = mock<BridgeExecutor>(async ({ request }) => {
+      requests.push(request);
+      return requests.length === 1 ? { stdout: "{}\n", code: 0 } : success;
+    });
+    const host = harness(execute);
+    const messages = await host.context();
+    expect(text(messages[0]!)).toBe(CATALOG);
+    expect(requests).toEqual([
+      { event: "catalog", agentKind: "main", sessionId: "actual-main-session", checkUpdates: true },
+      { event: "catalog", agentKind: "main" },
+    ]);
+  });
+
+  test("a malformed enhanced response does not trigger legacy retry", async () => {
+    const execute = mock<BridgeExecutor>(async () => ({ stdout: "not-json", code: 0 }));
+    const host = harness(execute);
+    expect(await host.context()).toEqual([]);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(host.notify).toHaveBeenCalledTimes(1);
+  });
+
+  test("an invalid update notice is ignored without dropping the Catalog", async () => {
+    const execute = mock<BridgeExecutor>(async () => ({
+      stdout: JSON.stringify({ additionalContext: CATALOG, updateNotice: "x".repeat(401) }) + "\n",
+      code: 0,
+    }));
+    const host = harness(execute);
+    const messages = await host.context();
+    expect(messages).toHaveLength(1);
+    expect(text(messages[0]!)).toBe(CATALOG);
+    expect(host.notify).toHaveBeenCalledTimes(0);
+  });
+
+  test("update checks follow main-session lifecycle identity, excluding same-id compact", async () => {
+    const execute = mock<BridgeExecutor>(async () => success);
+    const host = harness(execute, true, { sessionId: "session-one" });
+    host.boundary("session_start");
+    await host.context();
+    expect(execute.mock.calls[0]![0].request).toEqual({
+      event: "catalog",
+      agentKind: "main",
+      sessionId: "session-one",
+      checkUpdates: true,
+    });
+
+    host.boundary("session_compact");
+    await host.context();
+    expect(execute.mock.calls[1]![0].request).toEqual({ event: "catalog", agentKind: "main" });
+
+    host.boundary("session_branch", "session-two");
+    await host.context();
+    expect(execute.mock.calls[2]![0].request).toEqual({
+      event: "catalog",
+      agentKind: "main",
+      sessionId: "session-two",
+      checkUpdates: true,
+    });
+
+    host.boundary("session_tree", "session-three");
+    await host.context();
+    expect(execute.mock.calls[3]![0].request).toEqual({
+      event: "catalog",
+      agentKind: "main",
+      sessionId: "session-three",
+      checkUpdates: true,
+    });
+
+    host.switchSession("session-four");
+    await host.context();
+    expect(execute.mock.calls[4]![0].request).toEqual({
+      event: "catalog",
+      agentKind: "main",
+      sessionId: "session-four",
+      checkUpdates: true,
+    });
+  });
+
+  test("subagent Catalog refreshes never request update checks", async () => {
+    const execute = mock<BridgeExecutor>(async () => success);
+    const host = harness(execute, true, {
+      agent: { kind: "sub", id: "child", name: "child", depth: 1 },
+    });
+    host.boundary("session_start");
+    await host.context();
+    expect(execute.mock.calls[0]![0].request).toEqual({ event: "catalog", agentKind: "sub" });
   });
 
   test("only removes its own message identities, retaining identical real user and other extension messages", async () => {
@@ -182,7 +317,7 @@ describe("omp request-scoped Catalog", () => {
     expect(b[1]).toBe(secondUser);
   });
 
-  test.each(["success", "failure"] as const)(
+  test.each(["success", "failure", "legacy-empty"] as const)(
     "a late old %s cannot inject into or overwrite the new session",
     async (outcome) => {
       const old = Promise.withResolvers<BridgeExecution>();
@@ -200,11 +335,13 @@ describe("omp request-scoped Catalog", () => {
       expect(oldSignal?.aborted).toBe(true);
       const current = await host.context();
       if (outcome === "success") old.resolve(success);
+      else if (outcome === "legacy-empty") old.resolve({ stdout: "{}\n", code: 0 });
       else old.reject(new Error("old read failed"));
       expect(await staleRequest).toEqual([]);
       expect(text(current[0]!)).toBe("New session Catalog");
       expect(text((await host.context())[0]!)).toBe("New session Catalog");
       expect(host.notify).toHaveBeenCalledTimes(0);
+      expect(call).toBe(2);
     },
   );
 

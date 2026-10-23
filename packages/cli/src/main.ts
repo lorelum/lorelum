@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { hasDaemonLaunchEnvironment } from "@lorelum/backend/config";
+import { sessionRefSchema } from "@lorelum/backend/client";
 import { createProgram, type CliRuntime } from "./create-program.js";
 import {
   createHookEndpoint,
@@ -26,6 +27,11 @@ import { toVisibleCliError } from "./runtime/errors.js";
 import { createProcessLogRuntime } from "./log/runtime.js";
 import { createTraceId, noopEmitter, type TraceId } from "@lorelum/log";
 import { toolVersion } from "./output/protocol.js";
+import {
+  createAutoUpdateService,
+  runAutoUpdateWorker,
+  type AutoUpdateService,
+} from "./update/auto-check.js";
 
 export interface RunOptions {
   /** Complete registry replacement; omit to use the immutable built-in `commandRegistry`. */
@@ -42,6 +48,10 @@ export interface RunOptions {
   traceId?: TraceId;
   /** Source-test override for a private, disposable managed log root. */
   logDirectory?: string;
+  /** Local update sidecar override; no network request runs in this process. */
+  autoUpdate?: AutoUpdateService;
+  /** Source-test override for command-local Agent session association. */
+  environment?: Readonly<Record<string, string | undefined>>;
 }
 
 /** Executes one argv invocation and owns its single protocol response and exit code. */
@@ -153,6 +163,23 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
         setExitCode(exitCode) {
           commandExitCode = exitCode;
         },
+        async updateNotice(name, format, commandOptions) {
+          if (!agentUpdateCommands.has(name)) return undefined;
+          // Use the parsed option so keyword never enters the automatic sidecar.
+          if (name === "query" && commandOptions.mode === "keyword") return undefined;
+          const environment = options.environment ?? process.env;
+          const session = sessionRefSchema.safeParse({
+            hostKey: environment.LORELUM_HOST_KEY,
+            sessionId: environment.LORELUM_HOST_SESSION_ID,
+          });
+          if (!session.success) return undefined;
+          return (
+            options.autoUpdate ??
+            createAutoUpdateService(
+              runtime.readConfig === undefined ? {} : { readConfig: runtime.readConfig },
+            )
+          ).poll(format === "text");
+        },
       },
       definitions,
       outputFormat,
@@ -214,9 +241,13 @@ const standardInput: TextInput = {
   text: () => Bun.stdin.text(),
 };
 
+const agentUpdateCommands: ReadonlySet<string> = new Set(["query", "get", "list", "pack.list"]);
+
 if (import.meta.main) {
   const args = process.argv.slice(2);
-  if (isInternalBackendDaemonLaunch(args)) {
+  if (await runAutoUpdateWorker(args)) {
+    // The private, finite worker owns its own network deadline and has no output.
+  } else if (isInternalBackendDaemonLaunch(args)) {
     const { currentBuildInfo } = await import("@lorelum/backend/control");
     const { runBackendDaemon } = await import("@lorelum/backend/daemon");
     await runBackendDaemon({ build: await currentBuildInfo(import.meta.path, toolVersion) });

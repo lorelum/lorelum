@@ -162,7 +162,7 @@ test("CLI update applies only a newer version and verifies the new default entry
     data: { status: "updated", currentVersion: toolVersion, installedVersion: nextCliVersion },
   });
   expect(calls).toBe(1);
-  expect(progress.value).toContain("Installing Lore CLI");
+  expect(progress.value).toContain("Installing Lorelum");
 });
 
 test("requires private lifecycle environment before entering the backend daemon", () => {

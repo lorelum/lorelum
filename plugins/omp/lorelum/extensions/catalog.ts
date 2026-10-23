@@ -14,6 +14,7 @@ import {
 
 const MAX_CATALOG_CHARS = 4_000;
 const MAX_READ_HINTS_CHARS = 1_800;
+const MAX_UPDATE_NOTICE_CHARS = 400;
 const DIAGNOSTIC =
   "Lorelum Catalog was not injected; check that the installed lore CLI supports `lore hook omp`, then reload omp.";
 type RequestMessage = Extract<ContextEvent["messages"][number], { role: "user" }>;
@@ -37,10 +38,14 @@ export function registerLorelum(
   let generation = 0;
   let needsRefresh = true;
   let metadata: RequestMessage[] = [];
+  let pendingNotice: RequestMessage | undefined;
   let pending: Promise<void> | undefined;
   let controller: AbortController | undefined;
   let diagnosed = false;
   let stopped = false;
+  let lastSessionId: string | undefined;
+  let updateEligibleSessionId: string | undefined;
+  let updateCheckPending = true;
   const shellControllers = new Set<AbortController>();
   const ownMessages = new WeakSet<ContextEvent["messages"][number]>();
 
@@ -48,27 +53,42 @@ export function registerLorelum(
     generation++;
     needsRefresh = !stopped;
     metadata = [];
+    pendingNotice = undefined;
     controller?.abort();
     controller = undefined;
     pending = undefined;
     for (const shellController of shellControllers) shellController.abort();
     shellControllers.clear();
   };
+  const invalidateForSession = (ctx: ExtensionContext, allowSameSession: boolean): void => {
+    const sessionId = ctx.sessionManager.getSessionId();
+    const changed = sessionId !== lastSessionId;
+    invalidate();
+    lastSessionId = sessionId;
+    updateCheckPending =
+      ctx.agent.kind === "main" &&
+      typeof sessionId === "string" &&
+      sessionId.trim().length > 0 &&
+      (allowSameSession || changed);
+    updateEligibleSessionId = updateCheckPending ? sessionId : undefined;
+  };
   const handoff = createSessionHandoff(invalidate);
   api.on("before_subagent_spawn", (event, ctx) => {
     if (!stopped) handoff.capture(event, ctx);
   });
   api.on("session_start", (_event, ctx) => {
-    invalidate();
+    invalidateForSession(ctx, true);
     handoff.bind(ctx);
   });
-  api.on("session_switch", invalidate);
-  api.on("session_branch", invalidate);
-  api.on("session_tree", invalidate);
-  api.on("session_compact", invalidate);
+  api.on("session_switch", (_event, ctx) => invalidateForSession(ctx, false));
+  api.on("session_branch", (_event, ctx) => invalidateForSession(ctx, false));
+  api.on("session_tree", (_event, ctx) => invalidateForSession(ctx, false));
+  api.on("session_compact", (_event, ctx) => invalidateForSession(ctx, false));
   api.on("session_shutdown", () => {
     stopped = true;
     invalidate();
+    updateCheckPending = false;
+    updateEligibleSessionId = undefined;
     handoff.shutdown();
   });
 
@@ -131,18 +151,44 @@ export function registerLorelum(
     if (needsRefresh) {
       needsRefresh = false;
       metadata = [];
+      pendingNotice = undefined;
       const readController = new AbortController();
       controller = readController;
       const mainSessionId = handoff.mainSessionId(ctx);
+      const sessionId = ctx.sessionManager.getSessionId();
+      const checkUpdates =
+        updateCheckPending &&
+        ctx.agent.kind === "main" &&
+        typeof sessionId === "string" &&
+        sessionId.trim().length > 0 &&
+        (updateEligibleSessionId === undefined || updateEligibleSessionId === sessionId);
+      lastSessionId = sessionId;
+      updateCheckPending = false;
+      updateEligibleSessionId = undefined;
       const readMetadata = async (
         request: BridgeRequest,
         maxChars: number,
       ): Promise<RequestMessage | undefined> => {
         try {
-          const response = parseResponse(
+          let response = parseResponse(
             await execute({ cwd: ctx.cwd, signal: readController.signal, request }),
           );
           if (generation !== requestGeneration || readController.signal.aborted) return;
+          if (
+            request.event === "catalog" &&
+            request.agentKind === "main" &&
+            request.checkUpdates === true &&
+            Object.keys(response).length === 0
+          ) {
+            response = parseResponse(
+              await execute({
+                cwd: ctx.cwd,
+                signal: readController.signal,
+                request: { event: "catalog", agentKind: "main" },
+              }),
+            );
+            if (generation !== requestGeneration || readController.signal.aborted) return;
+          }
           // Empty candidates and an explicitly disabled subagent Catalog are normal no-ops.
           if (
             response.additionalContext === undefined &&
@@ -158,6 +204,22 @@ export function registerLorelum(
             response.additionalContext.length > maxChars
           ) {
             throw new Error("No usable metadata in bridge response");
+          }
+          if (
+            request.event === "catalog" &&
+            request.agentKind === "main" &&
+            request.checkUpdates === true &&
+            ctx.agent.kind === "main" &&
+            typeof response.updateNotice === "string" &&
+            response.updateNotice.trim().length > 0 &&
+            response.updateNotice.length <= MAX_UPDATE_NOTICE_CHARS
+          ) {
+            pendingNotice = {
+              role: "user",
+              content: [{ type: "text", text: response.updateNotice }],
+              timestamp: Date.now(),
+            };
+            ownMessages.add(pendingNotice);
           }
           // Omp converts ordinary custom messages to developer priority.
           // Native user metadata avoids elevating Pack descriptions or read hints into policy.
@@ -176,7 +238,11 @@ export function registerLorelum(
         try {
           const snapshots = await Promise.all([
             readMetadata(
-              { event: "catalog", agentKind: ctx.agent.kind === "sub" ? "sub" : "main" },
+              {
+                event: "catalog",
+                agentKind: ctx.agent.kind === "sub" ? "sub" : "main",
+                ...(checkUpdates ? { sessionId, checkUpdates: true } : {}),
+              },
               MAX_CATALOG_CHARS,
             ),
             mainSessionId
@@ -199,19 +265,20 @@ export function registerLorelum(
     }
     await pending;
     const snapshots = generation === requestGeneration ? metadata : [];
+    const notice = generation === requestGeneration ? pendingNotice : undefined;
+    if (generation === requestGeneration) pendingNotice = undefined;
+    const injected = notice ? [notice, ...snapshots] : snapshots;
     // Identity-only removal: identical real user text and other extension messages survive.
     const hasOwnMessage = event.messages.some((message) => ownMessages.has(message));
-    if (snapshots.length === 0 && !hasOwnMessage) return { messages: event.messages };
+    if (injected.length === 0 && !hasOwnMessage) return { messages: event.messages };
     if (
-      snapshots.length > 0 &&
-      snapshots.every((snapshot, index) => event.messages[index] === snapshot) &&
-      event.messages.every(
-        (message, index) => index < snapshots.length || !ownMessages.has(message),
-      )
+      injected.length > 0 &&
+      injected.every((snapshot, index) => event.messages[index] === snapshot) &&
+      event.messages.every((message, index) => index < injected.length || !ownMessages.has(message))
     ) {
       return { messages: event.messages };
     }
-    const messages: ContextEvent["messages"] = [...snapshots];
+    const messages: ContextEvent["messages"] = [...injected];
     for (const message of event.messages) {
       if (!ownMessages.has(message)) messages.push(message);
     }

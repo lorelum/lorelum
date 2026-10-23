@@ -57,7 +57,7 @@ export function createCliUpdateCommand(services: UpdateServices = {}): CommandDe
   const findInstall = services.findInstall ?? findManagedInstall;
   return {
     name: "update",
-    summary: "Check for a newer Lore CLI release; apply only for default installer installations.",
+    summary: "Check for a newer Lorelum release; apply only for default installer installations.",
     positionals: [],
     options: [
       {
@@ -121,7 +121,7 @@ export function createCliUpdateCommand(services: UpdateServices = {}): CommandDe
           "The default installer entry changed or its bundled installer is missing. Nothing was installed; use your original installer to update.",
         );
       (services.progress ?? process.stderr).write(
-        `Installing Lore CLI ${result.latestVersion}...\n`,
+        `Installing Lorelum ${result.latestVersion}...\n`,
       );
       let installed = false;
       let failureReason: InstallerFailure["reason"] = "unknown";
@@ -162,13 +162,13 @@ export function createCliUpdateCommand(services: UpdateServices = {}): CommandDe
 function renderUpdate(value: JsonValue): string {
   const result = value as unknown as UpdateResult;
   const lines = [
-    `Lore CLI: ${result.currentVersion}`,
+    `Lorelum: ${result.currentVersion}`,
     `Channel: ${result.channel}`,
     `Latest available: ${result.latestVersion ?? "none for this channel and platform"}`,
     `Installation: ${result.canApply ? "default Lorelum installer" : "other or unknown"}`,
   ];
   if (result.status === "updated") {
-    lines.push(`Updated Lore CLI: ${result.currentVersion} → ${result.installedVersion}`);
+    lines.push(`Updated Lorelum: ${result.currentVersion} → ${result.installedVersion}`);
     lines.push(`Verified default command: Lorelum ${result.installedVersion}`);
     lines.push("Restart an already-open agent/editor if it still uses the old CLI.");
   } else {

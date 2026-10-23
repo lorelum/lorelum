@@ -9,19 +9,26 @@ export async function listReleases(
   target: string,
   request: (url: string, init: RequestInit) => Promise<Response> = fetch,
   firstPage = apiUrl,
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<readonly Release[]> {
   const candidates: Release[] = [];
   let next: string | undefined = firstPage;
   const seen = new Set<string>();
   while (next !== undefined) {
+    options.signal?.throwIfAborted();
     if (seen.has(next)) throw new Error("release pagination cycle");
     seen.add(next);
-    const response: Response = await request(next, {
-      headers: { Accept: "application/vnd.github+json", "User-Agent": "lorelum-cli" },
-      signal: AbortSignal.timeout(10_000),
-    });
+    const signal = options.signal ?? AbortSignal.timeout(10_000);
+    const response: Response = await awaitWithAbort(
+      () =>
+        request(next!, {
+          headers: { Accept: "application/vnd.github+json", "User-Agent": "lorelum-cli" },
+          signal,
+        }),
+      options.signal,
+    );
     if (!response.ok) throw new Error("release service unavailable");
-    const body: unknown = await response.json();
+    const body: unknown = await awaitWithAbort(() => response.json(), options.signal);
     if (!Array.isArray(body)) throw new Error("invalid release list");
     for (const item of body) {
       if (!validRelease(item)) throw new Error("invalid release metadata");
@@ -47,7 +54,26 @@ export async function listReleases(
     if (next !== undefined && new URL(next).origin !== new URL(firstPage).origin)
       throw new Error("invalid release pagination URL");
   }
+  options.signal?.throwIfAborted();
   return candidates;
+}
+
+async function awaitWithAbort<T>(
+  operation: () => Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  if (signal === undefined) return operation();
+  signal.throwIfAborted();
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([Promise.resolve().then(operation), aborted]);
+  } finally {
+    if (onAbort !== undefined) signal.removeEventListener("abort", onAbort);
+  }
 }
 
 interface ReleaseMetadata {

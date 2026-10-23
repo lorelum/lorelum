@@ -202,6 +202,59 @@ test("explicit keyword mode selects only the keyword facade", async () => {
   expect(calls).toEqual(["deployment"]);
 });
 
+test("preserves the proven empty reason through keyword and semantic response schemas", async () => {
+  const keyword = app(
+    {
+      async query() {
+        return { mode: "keyword", results: [], emptyReason: "corpus-empty" };
+      },
+    },
+    createContentAddressedSemanticRuntimeStub(),
+  );
+  const keywordResponse = await keyword.handle(
+    request({
+      storageRoot: "/tmp/query-controller",
+      query: { text: "anything", mode: "keyword" },
+    }),
+  );
+  expect(keywordResponse.status).toBe(200);
+  expect(await keywordResponse.json()).toEqual({
+    mode: "keyword",
+    results: [],
+    emptyReason: "corpus-empty",
+  });
+
+  const semantic = app(
+    {
+      async query() {
+        return { mode: "keyword", results: [] };
+      },
+    },
+    createContentAddressedSemanticRuntimeStub({
+      async query() {
+        return {
+          mode: "semantic",
+          profileId: "a".repeat(64),
+          coverage: "complete",
+          results: [],
+          emptyReason: "corpus-empty",
+        };
+      },
+    }),
+  );
+  const semanticResponse = await semantic.handle(
+    request({ storageRoot: "/tmp/query-controller", query: { text: "anything" } }),
+  );
+  expect(semanticResponse.status).toBe(200);
+  expect(await semanticResponse.json()).toEqual({
+    mode: "semantic",
+    profileId: "a".repeat(64),
+    coverage: "complete",
+    emptyReason: "corpus-empty",
+    results: [],
+  });
+});
+
 test("maps semantic index readiness failures to a typed remote error", async () => {
   const instance = app(
     {
