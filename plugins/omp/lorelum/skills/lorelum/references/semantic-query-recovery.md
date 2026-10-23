@@ -1,6 +1,9 @@
+<!-- Generated from scripts/skill-guidance/content/recovery.md. Run bun run skills:generate to regenerate. -->
 # Diagnostic and semantic query recovery
 
-Read this reference only after either an original Lorelum failure has a `diagnostics.traceId`, or a semantic `lore query ...` has reported `state: "preparing"` or an error. Do not use it as a preflight checklist before the first query. Default text is sufficient to detect that recovery is needed; use `--json` only when exact protocol fields are required. Reuse any Pack Catalog already visible in the task. An omp child normally has no Catalog; do not automatically run `lore pack list --details` to fill that absence or bootstrap a directory during recovery. Independent Pack discovery is allowed only when the assigned task materially needs it.
+Read this reference only after either an original Lorelum failure has a `diagnostics.traceId`, or a semantic `lore query ...` has reported `state: "preparing"` or an error. Do not use it as a preflight checklist before the first query. Default text is sufficient to detect that recovery is needed; use `--json` only when exact protocol fields are required.
+
+Reuse a visible Catalog during recovery; follow the Skill's discovery policy only when independent Pack discovery is needed for the task.
 
 ## Original trace evidence
 
@@ -42,10 +45,8 @@ Show the artifact paths, included evidence classes, `externalReview`, and `missi
 
 ## Backend or Store errors
 
-- For `backend.build-mismatch` or `backend.protocol-mismatch`, read `error.recovery`; do not inspect `backend status`, ask the user whether to stop, or run ordinary `lore backend stop`.
-  - `automation: "auto"`: run `lore backend stop --if-idle --json`. If its data state is `stopped`, retry the original query immediately. If it returns `deferred`, follow the defer path.
-  - `automation: "defer"`: leave the other Backend running, keep the current task moving, and retry the original query in the background with bounded backoff. Do not kill, stop, or prompt the user about the other task.
-- For other `backend.*` errors, inspect the reported startup, port, or configuration condition before retrying.
+- For `backend.build-mismatch` or `backend.protocol-mismatch`, follow the complete error message. Run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent.
+- For `backend.unavailable`, run `lore backend start` as instructed, then retry the original command. For other `backend.*` errors, fix the specific startup, ownership, listener, authentication, or configuration problem before retrying. Query and status reads do not stop a Backend because of mismatch.
 - For `store.busy` or `store.recovery-required`, do not treat the failure as an empty result. Wait for concurrent work to finish or recover the selected Store, then retry the same query.
 
 ## Keyword mode remains explicit

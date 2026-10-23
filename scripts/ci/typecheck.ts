@@ -11,6 +11,7 @@ export const workspaceTypecheckConfigs = [
   "packages/log/tsconfig.json",
   "packages/ui/tsconfig.json",
   "apps/site/tsconfig.json",
+  "scripts/skill-guidance/tsconfig.json",
 ] as const;
 
 export const releaseTypecheckConfig = "scripts/release/tsconfig.json";

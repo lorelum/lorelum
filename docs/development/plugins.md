@@ -48,6 +48,16 @@ for invoking production composition; it does not replace a host endpoint.
 
 ## Verify source changes
 
+After editing the shared Skill source or a genuine host adaptation, run:
+
+```sh
+bun run skills:generate
+bun run skills:check
+bun test scripts/skill-guidance
+```
+
+Review and commit the source and generated artifacts together. Do not edit an installed Plugin cache or a generated `SKILL.md` to maintain guidance. The content ownership and host-difference rules are in [Host Plugin conventions](./plugin-conventions.md#what-can-be-shared).
+
 From the repository root:
 
 ```sh

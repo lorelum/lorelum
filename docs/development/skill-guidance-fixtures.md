@@ -1,6 +1,6 @@
 # Skill guidance fixtures
 
-Use these scenarios to review the observable behavior of Lorelum's portable and host Skills. They validate the public retrieval contract without requiring each host Skill to use identical wording.
+Use these scenarios to review the observable behavior of Lorelum's generated portable and host Skills. Shared guidance is maintained under `scripts/skill-guidance/content/`; only native metadata and proven host-specific behavior belong in the profiles. Regenerate with `bun run skills:generate` and check with `bun run skills:check` before reviewing the installation artifacts. Exact generated-content checks prove distribution consistency, not successful native discovery or Agent behavior.
 
 [Agent integration](../../openspec/specs/agent-integration/spec.md) owns the host retrieval flow. [Retrieval query](../../openspec/specs/retrieval-query/spec.md), [local model runtime](../../openspec/specs/local-model-runtime/spec.md), and [semantic index](../../openspec/specs/semantic-index/spec.md) own the CLI readiness and recovery states exercised below.
 
@@ -33,6 +33,24 @@ Use these scenarios to review the observable behavior of Lorelum's portable and 
 **Given:** Main receives a request-scoped Catalog. A task/eval child receives only bounded successful-read candidates from its originating Main by default; every nested child retains that origin. Boolean `agent.subagentPackCatalog: true` additionally supplies Pack routing metadata, never full bodies.
 
 **Expected:** reuse any visible Catalog without another list. Do not automatically bootstrap a Catalog or run `pack list` merely because a child lacks it; independent discovery required by a material task decision remains allowed. Treat read hints as possibly relevant metadata, not adopted guidance, and get a candidate in full before use. Each child's gets belong to its own session and do not automatically join Main's candidates. Candidate lookup is independent of the Catalog setting. Shell identity and lookup are host automation, not extra commands the Agent must manage.
+
+## Ordinary hosts: Hook Catalog is unavailable
+
+**Given:** the native Skill is installed, but its Hook is disabled, untrusted, failed, or has not made its Catalog visible before the first turn, including Cursor's session-start timing.
+
+**Expected:** the native entry and relative reference remain readable. Reuse any usable Catalog actually in context; otherwise, when the task needs Pack discovery, list once and reuse it. Do not require a separate host-only discovery algorithm or a runtime Skill locator.
+
+## All targets: Task-dependent Backend lease
+
+**Given:** a multi-step task needs an already-running Lorelum Backend to stay available between calls.
+
+**Expected:** acquire a lease, retain and renew its opaque ID before expiry, then release it on completion or cancellation. This applies to the portable Skill as well as Plugin Skills. A single query needs no lease; the decision depends on the task, not the host name.
+
+## All targets: Shared Backend recovery
+
+**Given:** a query returns a build/protocol mismatch.
+
+**Expected:** follow the complete CLI message: guarded stop with `--if-idle`, start only after `stopped`, then retry the original command. A `deferred` refusal preserves the other task and instance, without background retry or unauthorized ordinary stop. Do not read the removed `error.recovery` field or retain an older host's background-backoff instruction.
 
 ## Semantic preparation
 
