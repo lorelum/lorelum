@@ -110,7 +110,12 @@ If the directory cannot be opened, fix the path and retry (`source.unavailable`)
 not a valid Pack, fix `pack.yaml` or the Pack contents and retry (`pack.invalid`). Neither result
 includes the local source path, and an invalid local source does not alter an installed Pack.
 
-If `lore registry` returns `registry.catalog-invalid`, make a private backup of
+Registry commands use the filesystem's actual read/write permissions. They do not require a specific
+permission mode for an existing catalog or its parent directory and do not change directory permissions.
+A missing catalog uses the built-in `official` source without creating a catalog file.
+
+If `lore registry` returns `registry.catalog-invalid`, check that the catalog can be accessed and is a
+regular file rather than a symbolic link. For malformed contents, make a private backup of
 `~/.lorelum/registries.yaml`, repair or move the malformed catalog, and run `lore registry list` again.
 Existing installed Packs are unaffected. A temporary `registry.catalog-busy` result is safe to retry.
 

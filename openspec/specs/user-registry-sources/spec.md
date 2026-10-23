@@ -43,7 +43,7 @@ CLI SHALL 提供 `lore registry set-default <alias|official>`。`set-default` MU
 - **THEN** CLI MUST 返回 invalid invocation error，且 source catalog 与 default MUST 保持不变
 
 ### Requirement: Source catalog privacy, integrity, and isolation
-Registry source catalog MUST 独立于 LocalStore 与 project `.lorelum/config.yaml`。它只可持久化 alias、受允许的无凭据 remote locator 或 canonical local Git worktree path，以及 default selection。local worktree path 只可作为私有 catalog state 保存。catalog 读写 MUST 使用严格 schema、regular-file/symlink 防护、私有权限、跨进程互斥和原子替换；失败时 MUST 保留先前完整 catalog。
+Registry source catalog MUST 独立于 LocalStore 与 project `.lorelum/config.yaml`。它只可持久化 alias、受允许的无凭据 remote locator 或 canonical local Git worktree path，以及 default selection。local worktree path 只可作为私有 catalog state 保存。catalog 读写 MUST 使用严格 schema、regular-file/symlink 防护、跨进程互斥和原子替换；失败时 MUST 保留先前完整 catalog。新建目录和 catalog 文件 SHALL 分别使用 `0700` 和 `0600` 创建权限。对已有目录和文件，MUST 以文件系统实际允许的操作为准，不得仅因 POSIX mode 不匹配预设值而拒绝访问，也不得自动修改目录权限。
 
 catalog 不可安全读取或 mutation lock 在有界等待内不可获得时，Registry management 与依赖 default 的 Pack mutation MUST 分别返回 `registry.catalog-invalid` 或 `registry.catalog-busy`。它们 MUST NOT 静默 fallback 到 official 或任意其他 Registry。公开 JSON result、错误、LocalStore 与可公开 Pack metadata MUST NOT 包含 token、credential-helper 数据、SSH private key、Registry source worktree path、`file:` locator 或 temporary source path；这不改变既有 Store `packRoot` result 的语义。
 

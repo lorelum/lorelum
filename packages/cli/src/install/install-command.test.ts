@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { loadConfig } from "@lorelum/config";
+import { loadConfig, readRegistryCatalog, resolveLorelumPaths } from "@lorelum/config";
 import {
   createLocalStore,
   decodePackDirectory,
@@ -25,6 +25,7 @@ import {
   type InstallCommandServices,
 } from "./install-command.js";
 import { resolveRegistryRepository } from "./load-registry.js";
+import { selectRegistry } from "./registry-selection.js";
 import {
   DEFAULT_SEMANTIC_RETRIEVAL_SETTINGS,
   loadSemanticRetrievalSettings,
@@ -157,6 +158,36 @@ function createServices(
     },
   };
 }
+
+test("Pack install uses an accessible catalog directory without changing its permissions", async () => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), "lorelum-catalog-permissions-")));
+  try {
+    const paths = resolveLorelumPaths(directory);
+    await mkdir(paths.rootDirectory);
+    const originalMode = (await lstat(paths.rootDirectory)).mode;
+    const storageRoot = join(directory, "store");
+    const fixture = createServices(await createPack(directory), storageRoot);
+    const definitions = snapshotCommandDefinitions([
+      createInstallCommand({
+        ...fixture.services,
+        selectRegistry: (selector) =>
+          selectRegistry(selector, () => readRegistryCatalog({ homeDirectory: directory })),
+      }),
+    ]);
+    const stdout = new MemoryWriter();
+    expect(
+      await run(["pack", "install", "agentic-coding@0.1.0"], { registry: definitions, stdout }),
+    ).toBe(0);
+    expect(JSON.parse(stdout.value)).toMatchObject({
+      command: "pack.install",
+      ok: true,
+    });
+    expect((await lstat(paths.rootDirectory)).mode).toBe(originalMode);
+    expect(existsSync(paths.registryCatalogFile)).toBe(false);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
 
 test("installs from an explicit Registry repository and is idempotent", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lorelum-install-command-"));

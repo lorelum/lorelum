@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   chmod,
   lstat,
+  mkdir,
   mkdtemp,
   readFile,
   realpath,
@@ -39,6 +40,65 @@ test("a missing catalog is read-only and selects no saved default", () =>
       code: "ENOENT",
     });
   }));
+
+test.skipIf(process.platform === "win32")(
+  "group and other permission bits do not override successful filesystem access",
+  () =>
+    fixture(async (homeDirectory) => {
+      const paths = resolveLorelumPaths(homeDirectory);
+      await mkdir(paths.rootDirectory, { mode: 0o700 });
+      /* eslint-disable no-await-in-loop -- vary every unrelated permission bit combination against real filesystem operations. */
+      for (let extraBits = 0; extraBits <= 0o077; extraBits += 1) {
+        const directoryMode = 0o700 | extraBits;
+        await chmod(paths.rootDirectory, directoryMode);
+        expect(await readRegistryCatalog({ homeDirectory })).toEqual({ registries: {} });
+        expect((await lstat(paths.rootDirectory)).mode & 0o777).toBe(directoryMode);
+      }
+      await expect(lstat(paths.registryCatalogFile)).rejects.toMatchObject({ code: "ENOENT" });
+      const source = {
+        kind: "remote-git" as const,
+        locator: "https://git.example.com/team/packs.git",
+      };
+      await addRegistryCatalogSource("team", source, { homeDirectory });
+      await setRegistryCatalogDefault("team", { homeDirectory });
+      for (let extraBits = 0; extraBits <= 0o077; extraBits += 1) {
+        const directoryMode = 0o700 | extraBits;
+        const fileMode = 0o600 | extraBits;
+        await chmod(paths.rootDirectory, directoryMode);
+        await chmod(paths.registryCatalogFile, fileMode);
+        expect(await readRegistryCatalog({ homeDirectory })).toEqual({
+          defaultAlias: "team",
+          registries: { team: source },
+        });
+        expect((await lstat(paths.registryCatalogFile)).mode & 0o777).toBe(fileMode);
+        expect((await setRegistryCatalogDefault("team", { homeDirectory })).defaultAlias).toBe(
+          "team",
+        );
+        expect((await lstat(paths.rootDirectory)).mode & 0o777).toBe(directoryMode);
+      }
+      /* eslint-enable no-await-in-loop */
+    }),
+);
+
+test.skipIf(process.platform === "win32" || process.geteuid?.() === 0)(
+  "reports a real filesystem read denial without changing the catalog",
+  () =>
+    fixture(async (homeDirectory) => {
+      const path = resolveLorelumPaths(homeDirectory).registryCatalogFile;
+      await setRegistryCatalogDefault(undefined, { homeDirectory });
+      const original = await readFile(path, "utf8");
+      await chmod(path, 0o000);
+      try {
+        await expect(readRegistryCatalog({ homeDirectory })).rejects.toEqual(
+          new RegistryCatalogError(),
+        );
+        expect((await lstat(path)).mode & 0o777).toBe(0o000);
+      } finally {
+        await chmod(path, 0o600);
+      }
+      expect(await readFile(path, "utf8")).toBe(original);
+    }),
+);
 
 test("adds remote and local sources without exposing local paths in catalog shape changes", () =>
   fixture(async (homeDirectory) => {
@@ -164,7 +224,7 @@ test("rejects malformed and symlinked catalog files without following them", () 
     expect(await readFile(external, "utf8")).toBe("external\n");
   }));
 
-test("rejects hand-edited unsafe locators and a non-private catalog directory", () =>
+test("rejects hand-edited unsafe locators", () =>
   fixture(async (homeDirectory) => {
     const paths = resolveLorelumPaths(homeDirectory);
     await addRegistryCatalogSource(
@@ -172,13 +232,6 @@ test("rejects hand-edited unsafe locators and a non-private catalog directory", 
       { kind: "remote-git", locator: "https://git.example.com/team/packs.git" },
       { homeDirectory },
     );
-    if (process.platform !== "win32") {
-      await chmod(paths.registryCatalogFile, 0o644);
-      await expect(readRegistryCatalog({ homeDirectory })).rejects.toEqual(
-        new RegistryCatalogError(),
-      );
-      await chmod(paths.registryCatalogFile, 0o600);
-    }
     await writeFile(
       paths.registryCatalogFile,
       "schema_version: 1\nregistries:\n  team:\n    kind: remote-git\n    locator: https://token@git.example.com/team/packs.git\n",
@@ -193,11 +246,6 @@ test("rejects hand-edited unsafe locators and a non-private catalog directory", 
         { homeDirectory },
       ),
     ).rejects.toEqual(new RegistryCatalogError());
-    if (process.platform === "win32") return;
-    await chmod(paths.rootDirectory, 0o755);
-    await expect(readRegistryCatalog({ homeDirectory })).rejects.toEqual(
-      new RegistryCatalogError(),
-    );
   }));
 
 test("preserves the last complete catalog when a mutation cannot write its lock", () =>
