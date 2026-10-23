@@ -1,13 +1,11 @@
 import { BACKEND_ROUTES } from "../../protocol/constants";
 import { Elysia, status } from "elysia";
-import { randomUUID } from "node:crypto";
 import {
   reject,
   requestDiagnosticLevel,
   requestTraceId,
   requireJson,
 } from "../../plugins/local-auth";
-import { noopEmitter, withDiagnosticLevel, type LogEmitter } from "@lorelum/log";
 import { errorSchema } from "../../protocol/errors";
 import {
   embeddingRequestSchema,
@@ -28,11 +26,7 @@ const modelResponses = {
 };
 const modelMutation = { body: emptyModelRequestSchema, response: modelResponses };
 
-export function embeddingController(
-  service: EmbeddingService,
-  available: () => boolean,
-  diagnostics: LogEmitter = noopEmitter,
-) {
+export function embeddingController(service: EmbeddingService, available: () => boolean) {
   return new Elysia({ normalize: false })
     .onBeforeHandle(({ request }) => {
       if (!available()) return reject(503, "backend.busy");
@@ -43,9 +37,9 @@ export function embeddingController(
     })
     .post(
       BACKEND_ROUTES.modelLoad,
-      () =>
+      ({ request }) =>
         invoke(async () => {
-          const result = service.beginLoad();
+          const result = service.beginLoad(preparationDiagnosticContext(request));
           return status(result.state === "ready" ? 200 : 202, result);
         }),
       modelMutation,
@@ -55,23 +49,7 @@ export function embeddingController(
       BACKEND_ROUTES.modelPrepare,
       ({ request }) =>
         invoke(async () => {
-          const result = service.beginModelPreparation();
-          const traceId = requestTraceId(request);
-          const requestDiagnostics = withDiagnosticLevel(
-            diagnostics,
-            requestDiagnosticLevel(request),
-          );
-          if (traceId !== undefined) {
-            requestDiagnostics.emit({
-              time: new Date().toISOString(),
-              level: "info",
-              component: "backend",
-              event: "trace.preparation.accepted",
-              traceId,
-              requestId: randomUUID(),
-              preparationId: result.preparationId,
-            });
-          }
+          const result = service.beginModelPreparation(preparationDiagnosticContext(request));
           return status(result.status.state === "ready" ? 200 : 202, result);
         }),
       {
@@ -100,6 +78,13 @@ export function embeddingController(
         response: { 200: embeddingResultSchema, 400: errorSchema, 503: errorSchema },
       },
     );
+}
+
+function preparationDiagnosticContext(request: Request) {
+  return {
+    traceId: requestTraceId(request),
+    diagnosticLevel: requestDiagnosticLevel(request),
+  };
 }
 
 async function invoke<T>(operation: () => Promise<T>) {

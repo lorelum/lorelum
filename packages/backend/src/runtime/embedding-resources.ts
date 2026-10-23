@@ -1,6 +1,7 @@
 import { isCompiledEntrypoint } from "./build-identity";
 import { realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { noopEmitter, type LogEmitter } from "@lorelum/log";
 import type { ResolvedEmbeddingConfig } from "../config/embedding";
 import { prepareModel } from "../models/prepare";
 import type { ModelProgress } from "../modules/embedding/dto";
@@ -29,21 +30,31 @@ export async function prepareEmbeddingResources(
     /** Source-run fixture seam; production uses the fixed development catalog directory. */
     readonly developmentDirectory?: string;
     readonly model?: Parameters<typeof prepareModel>[3];
+    readonly diagnostics?: LogEmitter;
   } = {},
 ): Promise<PreparedEmbeddingResources> {
   const native = await verifyNativeEmbeddingResources(signal, options);
-  const modelPath = await prepareModel(config, signal, progress, options.model);
+  const modelPath = await prepareModel(config, signal, progress, {
+    ...options.model,
+    diagnostics: options.diagnostics ?? options.model?.diagnostics ?? noopEmitter,
+  });
   return { modelPath, ...native };
 }
 
 /** Check only the matching manifest and executable before starting a model transfer. */
 export async function verifyNativeEmbeddingResources(
   signal: AbortSignal,
-  options: { readonly compiledRoot?: string; readonly developmentDirectory?: string } = {},
+  options: {
+    readonly compiledRoot?: string;
+    readonly developmentDirectory?: string;
+    readonly diagnostics?: LogEmitter;
+  } = {},
 ): Promise<Pick<PreparedEmbeddingResources, "executable" | "buildIdentity">> {
+  const diagnostics = options.diagnostics ?? noopEmitter;
   const artifact = resolveEmbeddingNativeArtifact(process.platform, process.arch);
   if (artifact === undefined) throw new EmbeddingError("embedding.native-resource-invalid");
   const target = artifact.id;
+  let resourcePath: string | undefined;
   try {
     signal.throwIfAborted();
     const expected = artifact.manifest;
@@ -66,9 +77,26 @@ export async function verifyNativeEmbeddingResources(
       root === undefined
         ? (options.developmentDirectory ?? developmentEmbeddingArtifactDirectory(artifact))
         : installedEmbeddingArtifactDirectory(root, artifact);
+    resourcePath = join(directory, "manifest.json");
+    diagnostics.emit({
+      level: "debug",
+      component: "backend",
+      event: "backend.native.manifest.verifying",
+      path: resourcePath,
+      target,
+      compiledEntrypoint,
+    });
     const actual = await readNativeArtifactManifest(directory);
     if (compiledEntrypoint) assertNativeArtifactMatch(expected, actual);
     else assertSourceNativeArtifactMatch(expected, actual);
+    diagnostics.emit({
+      level: "debug",
+      component: "backend",
+      event: "backend.native.manifest.verified",
+      path: resourcePath,
+      target,
+      buildIdentity: actual.buildIdentity,
+    });
     const executable = actual.files.find((file) => file.path === actual.executable);
     if (!executable)
       throw new NativeArtifactValidationError(
@@ -76,12 +104,14 @@ export async function verifyNativeEmbeddingResources(
         actual.executable,
         "invalid",
       );
+    resourcePath = join(directory, executable.path);
     await verifyResource(
-      join(directory, executable.path),
+      resourcePath,
       executable.bytes,
       executable.sha256,
       signal,
       { kind: "native", file: `native/${target}/${executable.path}` },
+      diagnostics,
     );
     return {
       executable: join(directory, actual.executable),
@@ -89,21 +119,32 @@ export async function verifyNativeEmbeddingResources(
     };
   } catch (error) {
     if (signal.aborted) throw new EmbeddingError("embedding.deadline-exceeded");
-    if (error instanceof EmbeddingError && error.code === "embedding.native-resource-invalid")
-      throw error;
     const detail = error instanceof NativeArtifactValidationError ? error : undefined;
     const missing = error instanceof Error && "code" in error && error.code === "ENOENT";
-    throw new EmbeddingError(
-      "embedding.native-resource-invalid",
-      { cause: error },
-      {
-        kind: "native",
-        file: `native/${target}/${detail?.file ?? "manifest.json"}`,
-        check: detail?.check ?? (missing ? "missing" : "invalid"),
-        ...(detail?.expected === undefined ? {} : { expected: detail.expected }),
-        ...(detail?.actual === undefined ? {} : { actual: detail.actual }),
-      },
-    );
+    const failure =
+      error instanceof EmbeddingError && error.code === "embedding.native-resource-invalid"
+        ? error
+        : new EmbeddingError(
+            "embedding.native-resource-invalid",
+            { cause: error },
+            {
+              kind: "native",
+              file: `native/${target}/${detail?.file ?? "manifest.json"}`,
+              check: detail?.check ?? (missing ? "missing" : "invalid"),
+              ...(detail?.expected === undefined ? {} : { expected: detail.expected }),
+              ...(detail?.actual === undefined ? {} : { actual: detail.actual }),
+            },
+          );
+    diagnostics.emit({
+      level: "debug",
+      component: "backend",
+      event: "backend.native.failed",
+      path: resourcePath,
+      target,
+      resource: failure.resource,
+      error,
+    });
+    throw failure;
   }
 }
 

@@ -2,6 +2,7 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { noopEmitter, type LogEmitter } from "@lorelum/log";
 import { EmbeddingError, type ResourceFailure } from "../modules/embedding/errors";
 
 const HASH_CHUNK_BYTES = 256 * 1024;
@@ -15,21 +16,40 @@ export async function verifyResource(
   digest: string,
   signal: AbortSignal,
   resource: ResourceIdentity,
+  diagnostics: LogEmitter = noopEmitter,
 ): Promise<void> {
-  const invalid = (check: ResourceFailure["check"], expected?: string, actual?: string) =>
-    new EmbeddingError(
+  const invalid = (check: ResourceFailure["check"], expected?: string, actual?: string) => {
+    const failure = {
+      ...resource,
+      check,
+      ...(expected === undefined ? {} : { expected }),
+      ...(actual === undefined ? {} : { actual }),
+    };
+    diagnostics.emit({
+      level: "debug",
+      component: "backend",
+      event: "backend.resource.failed",
+      path,
+      resource: failure,
+    });
+    return new EmbeddingError(
       resource.kind === "native"
         ? "embedding.native-resource-invalid"
         : "embedding.resource-invalid",
       undefined,
-      {
-        ...resource,
-        check,
-        ...(expected === undefined ? {} : { expected }),
-        ...(actual === undefined ? {} : { actual }),
-      },
+      failure,
     );
+  };
   signal.throwIfAborted();
+  diagnostics.emit({
+    level: "debug",
+    component: "backend",
+    event: "backend.resource.verifying",
+    path,
+    resource,
+    expectedBytes: bytes,
+    expectedSha256: digest,
+  });
   const file = await open(
     path,
     constants.O_RDONLY | (resource.kind === "native" ? constants.O_NOFOLLOW : 0),
@@ -63,6 +83,15 @@ export async function verifyResource(
     const actualDigest = hash.digest("hex");
     if (actualDigest !== digest) throw invalid("sha256-mismatch", digest, actualDigest);
     signal.throwIfAborted();
+    diagnostics.emit({
+      level: "debug",
+      component: "backend",
+      event: "backend.resource.verified",
+      path,
+      resource,
+      bytes: size,
+      sha256: actualDigest,
+    });
   } catch (error) {
     if (signal.aborted || error instanceof EmbeddingError) throw error;
     throw invalid("invalid");

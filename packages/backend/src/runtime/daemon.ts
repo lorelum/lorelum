@@ -63,8 +63,10 @@ export async function runBackendDaemon(options: { readonly buildIdentity: string
     diagnostics,
     onPreparationActivityChange: (active) => updateActivity("model-preparation", active),
     threads: embeddingConfig.threads,
-    prepareModel: (signal, progress) =>
-      prepareEmbeddingResources(embeddingConfig, signal, progress),
+    prepareModel: (signal, progress, preparationDiagnostics) =>
+      prepareEmbeddingResources(embeddingConfig, signal, progress, {
+        diagnostics: preparationDiagnostics,
+      }),
     createRuntime: (prepared, preparationId) =>
       createEmbeddingProcess(
         { ...prepared!, threads: embeddingConfig.threads },
