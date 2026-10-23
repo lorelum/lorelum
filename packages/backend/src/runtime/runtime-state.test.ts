@@ -1,10 +1,12 @@
 import { createLogRecord } from "@lorelum/log";
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
+import * as fileSystem from "node:fs/promises";
 import { chmod, link, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  assertPrivateFile,
   checkDirectory,
   readRecord,
   removeRecord,
@@ -202,6 +204,21 @@ test("private state rejects a hard-linked instance record", async () =>
     await expect(readRecord(directory)).rejects.toMatchObject({
       code: "backend.state-invalid",
     });
+  }));
+test("private file inspection accepts the zero-link snapshot of an atomic replacement", async () =>
+  fixture(async (directory) => {
+    const path = join(directory, "instance.json");
+    await writeRecord(directory, await record());
+    const info = await fileSystem.lstat(path);
+    // Linux lstat can observe the old inode after rename has removed its last link.
+    // Reproduce that metadata deterministically, without depending on syscall timing.
+    info.nlink = 0;
+    const inspection = spyOn(fileSystem, "lstat").mockResolvedValueOnce(info);
+    try {
+      await expect(assertPrivateFile(path)).resolves.toBe(true);
+    } finally {
+      inspection.mockRestore();
+    }
   }));
 test("private diagnostic lifecycle log rotates at a bounded size", async () =>
   fixture(async (directory) => {

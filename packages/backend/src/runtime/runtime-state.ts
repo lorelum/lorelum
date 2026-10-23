@@ -67,7 +67,7 @@ export async function assertPrivateFile(path: string): Promise<boolean> {
     if (
       !info.isFile() ||
       info.isSymbolicLink() ||
-      info.nlink !== 1 ||
+      info.nlink > 1 ||
       (process.platform !== "win32" &&
         (info.uid !== process.getuid?.() || (info.mode & 0o077) !== 0))
     )
