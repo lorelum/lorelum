@@ -28,3 +28,7 @@ Sol medium 按 `agentic-coding.implementation.justify-added-checks` 独立审查
 ## 空结果的停止条件
 
 将默认动作改为 `continue-task`，只有缺重要上下文时才可为本次检索实质改写一次；已具体或改写仍空就停，空 corpus 不建议改写。不新增计数器、持久状态或 Skill 指令。回归测试先得到 2 fail，再修改实现后定向 34/34、CLI 全量 614 pass/4 skip；CLI/site typecheck、CLI process、隔离 semantic `empty-query` smoke 通过，embedding batches/download requests 均为零。Sol 定向 CR 无阻塞发现。
+
+## 停止范围限定为本次检索
+
+将动作收紧为 `finish-lookup`，通用文案明确其他主题或新决策照常查询；空 corpus 结论限定选定 context/snapshot。回归测试先得到 2 fail，修改后定向 34/34、CLI 全量 614 pass/4 skip、CLI/site typecheck 通过。真实 CLI process 验证主题 A 空后主题 B 命中，再 get 核对正文和 digest；隔离 semantic 空结果 smoke 通过，embedding/download 均为零。Sol 定向 CR 无阻塞发现。这些结果覆盖 CLI 和响应契约，不是所有 AI 都会遵循文案的行为保证。

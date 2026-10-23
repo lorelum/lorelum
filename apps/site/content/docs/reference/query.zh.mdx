@@ -32,12 +32,12 @@ Ready 查询未返回 Practice 时仍是成功结果（退出码 `0`），data �
 ```json
 {
   "reason": "empty",
-  "nextAction": "continue-task",
-  "message": "Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: continue the task without Lorelum guidance. Only if important context was missing, try at most one substantive rewrite for this lookup with the decision, constraints, and technology context. If the query was already specific or the rewrite is still empty, stop querying."
+  "nextAction": "finish-lookup",
+  "message": "Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: proceed with the current decision using other available evidence. Only if important context was missing, try at most one substantive rewrite for this lookup with the decision, constraints, and technology context. If the query was already specific or the rewrite is still empty, end this lookup only. Query Lorelum normally for other topics or new decisions."
 }
 ```
 
-`reason` 与 `nextAction` 是稳定的机器字段；程序应读取它们，不要解析 `message`。`reason: "corpus-empty"` 表示本次完整 query context 中没有可检索 Practice；其他情况为 `"empty"`，不推断具体原因，包括 keyword query 没有匹配项。说明会保留原 mode、coverage 与计数，以及 context warnings。`nextAction: "continue-task"` 表示默认无需 Lorelum guidance 继续任务，不要求一直查到有结果。只有 query 缺少重要决策、约束或技术上下文时，本次检索才可实质改写一次；query 已具体或改写后仍空就停止，后续空响应不会重置次数。已确认空 corpus 时直接继续，不建议改写。不要把成功空结果当成模型故障，也不要自动检查 status、安装来源、修改配置或切换 mode。只有用户明确怀疑缺少预期来源时，才检查已安装 Pack。只有用户或 host policy 允许且符合现有 retrieval contract 时才考虑其他 mode；`keyword` 用于明确的离线检索或 semantic runtime 诊断。使用返回的候选前，通过 [`get`](./get) 读取完整 Practice。
+`reason` 与 `nextAction` 是稳定的机器字段；程序应读取它们，不要解析 `message`。`reason: "corpus-empty"` 表示本次完整 query context 中没有可检索 Practice；其他情况为 `"empty"`，不推断具体原因，包括 keyword query 没有匹配项。说明会保留原 mode、coverage 与计数，以及 context warnings。`nextAction: "finish-lookup"` 只结束当前问题的检索，不表示整项任务或会话停用 Lorelum；其他主题或新决策仍照常查询。只有 query 缺少重要决策、约束或技术上下文时，本次检索才可实质改写一次；query 已具体或改写后仍空就结束本次检索，后续空响应不会重置次数。已确认空 corpus 时不建议改写，事实仅适用于选定 context 和 snapshot。不要把成功空结果当成模型故障，也不要自动检查 status、安装来源、修改配置或切换 mode。只有用户明确怀疑缺少预期来源时，才检查已安装 Pack。只有用户或 host policy 允许且符合现有 retrieval contract 时才考虑其他 mode；`keyword` 用于明确的离线检索或 semantic runtime 诊断。使用返回的候选前，通过 [`get`](./get) 读取完整 Practice。
 
 模型仍在准备时，data 为 `{ "state": "preparing", "preparationId": "...", "message": "..." }`，进程退出码为 `1`；查看 `lore model status`，用 `lore model load` 等待后重试。若当前 progress 尚未达到所需覆盖率，data 为 `{ "state": "indexing", "operationId": "...", "indexedPracticeCount": 50, "totalPracticeCount": 100 }`，同样退出 `1`。两者都只表示非终态；已确认的模型或 index 失败会以 typed error 和 exit `2` 返回，不会继续显示 `indexing`。等待超时不会取消 operation。
 

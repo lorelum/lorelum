@@ -72,15 +72,6 @@ export async function verifyGetAndQueryScenario(
   assert.equal(keywordHit.contentDigest, queriedGetData.contentDigest);
   assert.equal(queriedGetData.contentDigest, firstData.contentDigest);
 
-  const chinese = await runQuery(compiledBinary, "认证接口", fixture.storageRoot, 5);
-  assert.equal(chinese.exitCode, 0);
-  assert.equal(chinese.stderr, "");
-  const chineseData = requireSuccessData(parseSingleResponse(chinese.stdout), "query");
-  assert(Array.isArray(chineseData.results));
-  assert(
-    chineseData.results.some((value) => isRecord(value) && value.practiceId === chinesePracticeId),
-  );
-
   const noMatches = await runQuery(compiledBinary, "zzzxylophone", fixture.storageRoot);
   assert.equal(noMatches.exitCode, 0);
   const emptyData = requireSuccessData(parseSingleResponse(noMatches.stdout), "query");
@@ -88,12 +79,16 @@ export async function verifyGetAndQueryScenario(
   const explanation = emptyData.empty;
   assert(isRecord(explanation));
   assert.equal(explanation.reason, "empty");
-  assert.equal(explanation.nextAction, "continue-task");
+  assert.equal(explanation.nextAction, "finish-lookup");
   assert.match(String(explanation.message), /decision, constraints, and technology context/);
   assert.match(String(explanation.message), /at most one substantive rewrite for this lookup/);
   assert.match(
     String(explanation.message),
-    /already specific or the rewrite is still empty, stop querying/,
+    /already specific or the rewrite is still empty, end this lookup only/,
+  );
+  assert.match(
+    String(explanation.message),
+    /Query Lorelum normally for other topics or new decisions/,
   );
   assert.equal("empty" in keywordData, false);
   await Promise.all(
@@ -114,6 +109,25 @@ export async function verifyGetAndQueryScenario(
       assert.match(text.stdout, /results: \[\]/);
     }),
   );
+
+  // An empty topic must not suppress a later, independent query/get on another topic.
+  const chinese = await runQuery(compiledBinary, "认证接口", fixture.storageRoot, 5);
+  assert.equal(chinese.exitCode, 0);
+  assert.equal(chinese.stderr, "");
+  const chineseData = requireSuccessData(parseSingleResponse(chinese.stdout), "query");
+  assert(Array.isArray(chineseData.results));
+  const chineseHit = chineseData.results.find(
+    (value) => isRecord(value) && value.practiceId === chinesePracticeId,
+  );
+  assert(isRecord(chineseHit));
+  assert.equal("empty" in chineseData, false);
+  const chineseGet = await runGet(compiledBinary, chinesePracticeId, fixture.storageRoot);
+  assert.equal(chineseGet.exitCode, 0);
+  const chineseGetData = requireSuccessData(parseSingleResponse(chineseGet.stdout), "get");
+  assert(isRecord(chineseGetData.practice));
+  assert.equal(chineseGetData.practice.id, chinesePracticeId);
+  assert.match(String(chineseGetData.practice.body), /通过现有认证接口完成页面请求/);
+  assert.equal(chineseHit.contentDigest, chineseGetData.contentDigest);
 
   const before = await runGet(
     compiledBinary,
@@ -141,7 +155,7 @@ export async function verifyGetAndQueryScenario(
   assert.deepEqual(emptyStoreData.results, []);
   assert(isRecord(emptyStoreData.empty));
   assert.equal(emptyStoreData.empty.reason, "corpus-empty");
-  assert.equal(emptyStoreData.empty.nextAction, "continue-task");
+  assert.equal(emptyStoreData.empty.nextAction, "finish-lookup");
   assert.doesNotMatch(String(emptyStoreData.empty.message), /try at most one/);
   const isolated = await runGet(compiledBinary, fixture.primaryPracticeId, isolatedRoot);
   assert.equal(isolated.exitCode, 2);

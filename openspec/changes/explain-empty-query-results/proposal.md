@@ -4,7 +4,7 @@
 
 ## What Changes
 
-- 仅 ready 空结果增加 `empty`；text 先说明查询成功，再给已知边界。默认继续任务；只有缺少重要上下文时才可实质改写一次，再空就停止，不追求必有命中。
+- 仅 ready 空结果增加 `empty`；text 先说明查询成功，再给已知边界。只结束当前问题的检索，不停止其他主题或新决策的 Lorelum 查询；缺少重要上下文时才可实质改写一次，再空就停，不追求必有命中。
 - 原因只按本次事实判断，保留 mode、coverage 和 context warnings；不额外探测、扫库或切换模式。
 - 更新 CLI 参考及英中文档；下一步建议由查询响应自身提供，不修改 Skill。产品流程见 [product](./product.md)，实现位置见 [design](./design.md)。
 

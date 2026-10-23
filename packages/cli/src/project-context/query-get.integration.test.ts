@@ -215,7 +215,7 @@ test("query and get use project winners, retain valid neighbors, and keep --no-p
       data: {
         mode: "keyword",
         results: [],
-        empty: { reason: "empty", nextAction: "continue-task" },
+        empty: { reason: "empty", nextAction: "finish-lookup" },
         context: {
           state: "degraded",
           warnings: [{ code: "practice.invalid", packName: "platform" }],
