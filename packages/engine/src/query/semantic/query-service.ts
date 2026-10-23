@@ -32,6 +32,7 @@ export interface SemanticQueryResult {
   readonly profileId: string;
   readonly coverage: "complete" | "partial";
   readonly results: readonly QueryHit[];
+  readonly emptyReason?: "corpus-empty";
 }
 
 export interface SemanticQueryService {

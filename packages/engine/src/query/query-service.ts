@@ -133,7 +133,11 @@ export function createQueryService({ store }: QueryDependencies): QueryService {
             const candidates = prepared.index.search(input.text, input.limit);
             let result: QueryResult;
             if (prepared.practices !== undefined) {
-              result = assembleQueryResult(prepared.practices, candidates);
+              result = assembleQueryResult(
+                prepared.practices,
+                candidates,
+                prepared.practices.length === 0,
+              );
             } else {
               // eslint-disable-next-line no-await-in-loop -- the candidate read validates this retry's snapshot.
               const practices = await store.readEffectivePracticesAtSnapshot(
@@ -184,11 +188,16 @@ export function createQueryService({ store }: QueryDependencies): QueryService {
 function assembleQueryResult(
   practices: readonly EffectivePractice[],
   candidates: readonly KeywordCandidate[],
+  corpusIsProvenEmpty = false,
 ): QueryResult {
   const results = assembleQueryHits(
     practices,
     candidates,
     (message) => new KeywordIndexError(message),
   );
-  return Object.freeze({ mode: "keyword", results });
+  return Object.freeze({
+    mode: "keyword",
+    results,
+    ...(corpusIsProvenEmpty ? { emptyReason: "corpus-empty" } : {}),
+  });
 }

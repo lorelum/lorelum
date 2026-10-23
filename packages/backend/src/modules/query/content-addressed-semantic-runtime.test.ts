@@ -229,18 +229,22 @@ test("project query starts indexing and reads the completed semantic artifact", 
     const policy = { maxWaitMs: 0, minCoveragePercent: 0 };
     try {
       // Hold publication explicitly; runner speed must not decide the query state.
-      await expect(runtime.query(storageRoot, target, query, policy)).resolves.toMatchObject({
+      const pending = await runtime.query(storageRoot, target, query, policy);
+      expect(pending).toMatchObject({
         state: "indexing",
         indexedPracticeCount: 0,
         totalPracticeCount: 1,
       });
+      expect(pending).not.toHaveProperty("emptyReason");
       releaseEmbedding();
       await runtime.waitForIdle();
-      await expect(runtime.query(storageRoot, target, query, policy)).resolves.toMatchObject({
+      const ready = await runtime.query(storageRoot, target, query, policy);
+      expect(ready).toMatchObject({
         mode: "semantic",
         coverage: "complete",
         results: [{ practiceId: "platform.query" }],
       });
+      expect(ready).not.toHaveProperty("emptyReason");
     } finally {
       releaseEmbedding();
       await runtime.waitForIdle();
@@ -249,6 +253,109 @@ test("project query starts indexing and reads the completed semantic artifact", 
     await Promise.all([
       rm(root, { recursive: true, force: true }),
       rm(cache, { recursive: true, force: true }),
+    ]);
+  }
+});
+
+test("ready semantic Store and Project queries report only proven empty corpora", async () => {
+  const [storeRoot, storeCache, projectRoot, projectCache] = await Promise.all([
+    mkdtemp(join(tmpdir(), "lorelum-backend-empty-store-")),
+    mkdtemp(join(tmpdir(), "lorelum-backend-empty-store-cache-")),
+    createIsolatedProjectSandbox("lorelum-backend-empty-project-"),
+    mkdtemp(join(tmpdir(), "lorelum-backend-empty-project-cache-")),
+  ]);
+  const identity = {
+    rootBinding: "empty-runtime-store",
+    generation: 0,
+    effectiveRevision: 0,
+    manifestDigest: "0".repeat(64),
+  } as const;
+  let storeSnapshots = 0;
+  const store = {
+    async readSnapshotIdentity() {
+      return identity;
+    },
+    async readEffectivePracticeSnapshot() {
+      storeSnapshots += 1;
+      return { identity, practices: [] };
+    },
+  };
+  const embeddingCalls: string[][] = [];
+  const embedding = {
+    maxBatchSize: 8,
+    async embed(inputs: readonly string[]) {
+      embeddingCalls.push([...inputs]);
+      return { encodingId, vectors: inputs.map(() => [1, 0]) };
+    },
+  };
+  const runtime = new ContentAddressedSemanticRuntime(
+    store,
+    { encodingId, dimensions: 2 },
+    embedding,
+    embedding,
+    {
+      beginModelPreparation() {
+        throw new Error("Empty corpora must not prepare a model");
+      },
+      async waitModelPreparation() {
+        throw new Error("Empty corpora must not prepare a model");
+      },
+    },
+  );
+  try {
+    await mkdir(join(projectRoot, ".lorelum"), { recursive: true });
+    await writeFile(join(projectRoot, ".lorelum", "config.yaml"), "base: none\n");
+    const root = { rootPath: storeRoot };
+    const storeTarget = { kind: "store" as const, cacheRoot: storeCache };
+    await runtime.build(root, storeTarget);
+    await runtime.waitForIdle();
+    await expect(
+      runtime.query(
+        root,
+        storeTarget,
+        { text: "empty Store" },
+        { maxWaitMs: 0, minCoveragePercent: 0 },
+      ),
+    ).resolves.toMatchObject({
+      mode: "semantic",
+      coverage: "complete",
+      results: [],
+      emptyReason: "corpus-empty",
+    });
+    // One canonical snapshot is read for build and one for query target resolution.
+    expect(storeSnapshots).toBe(2);
+
+    const projectTarget = {
+      kind: "project" as const,
+      projectRoot,
+      cacheRoot: projectCache,
+    };
+    await runtime.build(root, projectTarget);
+    await runtime.waitForIdle();
+    await expect(
+      runtime.query(
+        root,
+        projectTarget,
+        { text: "empty ProjectContext" },
+        {
+          maxWaitMs: 0,
+          minCoveragePercent: 0,
+        },
+      ),
+    ).resolves.toMatchObject({
+      mode: "semantic",
+      coverage: "complete",
+      results: [],
+      emptyReason: "corpus-empty",
+    });
+    expect(embeddingCalls).toEqual([]);
+  } finally {
+    await runtime.waitForIdle();
+    await Promise.all([
+      rm(storeRoot, { recursive: true, force: true }),
+      rm(storeCache, { recursive: true, force: true }),
+      rm(projectRoot, { recursive: true, force: true }),
+      rm(projectCache, { recursive: true, force: true }),
     ]);
   }
 });
@@ -344,6 +451,7 @@ test("uses the Store target when automatic semantic discovery reaches the select
       coverage: "complete",
       results: [{ practiceId: "stored.canonical" }],
     });
+    expect(result).not.toHaveProperty("emptyReason");
     expect(result).not.toHaveProperty("context");
   } finally {
     await Promise.all([

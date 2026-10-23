@@ -291,11 +291,17 @@ function toResponse(
     severity: hit.severity,
     contentDigest: hit.contentDigest,
   }));
-  if (result.mode === "keyword") return { mode: "keyword", results };
+  if (result.mode === "keyword")
+    return {
+      mode: "keyword",
+      ...(result.emptyReason === undefined ? {} : { emptyReason: result.emptyReason }),
+      results,
+    };
   return {
     mode: "semantic",
     profileId: result.profileId,
     coverage: result.coverage,
+    ...(result.emptyReason === undefined ? {} : { emptyReason: result.emptyReason }),
     ...("indexedPracticeCount" in result
       ? {
           indexedPracticeCount: result.indexedPracticeCount,

@@ -49,7 +49,8 @@ import {
   type QuerySettings,
   type SemanticRetrievalSettings,
 } from "./settings.js";
-import { renderQueryDecisionText } from "./text.js";
+import { renderQueryDecisionText, renderQueryVerboseText } from "./text.js";
+import { createEmptyQueryExplanation } from "./empty-result.js";
 import type { TraceId } from "@lorelum/log";
 
 interface QueryIndexingResult {
@@ -60,13 +61,13 @@ interface QueryIndexingResult {
   readonly context?: QueryContextData;
 }
 
-interface QueryContextData {
+export interface QueryContextData {
   readonly state: "ready" | "degraded";
   readonly warnings: readonly {
     readonly code: "config.invalid" | "pack.invalid" | "practice.invalid" | "source.unsafe";
     readonly layerDepth: number;
-    readonly packName?: string;
-    readonly practiceId?: string;
+    readonly packName?: string | undefined;
+    readonly practiceId?: string | undefined;
   }[];
 }
 
@@ -203,6 +204,22 @@ function toQueryResult(
       severity: hit.severity,
       contentDigest: hit.contentDigest,
     })),
+    ...(queryResult.results.length === 0
+      ? {
+          empty: createEmptyQueryExplanation({
+            mode: queryResult.mode,
+            ...(queryResult.mode === "semantic"
+              ? {
+                  coverage: queryResult.coverage,
+                  indexedPracticeCount: queryResult.indexedPracticeCount,
+                  totalPracticeCount: queryResult.totalPracticeCount,
+                }
+              : {}),
+            emptyReason: queryResult.emptyReason,
+            context: project ?? ("context" in result ? result.context : undefined),
+          }),
+        }
+      : {}),
     ...context,
   };
 }
@@ -406,7 +423,8 @@ export function createQueryCommand(services: QueryCommandServices): CommandDefin
         return {
           data,
           ...(dataIsPending(data) ? { exitCode: 1 as const } : {}),
-          ...(invocation.options.verbose === true ? {} : { textRenderer: renderQueryDecisionText }),
+          textRenderer:
+            invocation.options.verbose === true ? renderQueryVerboseText : renderQueryDecisionText,
         };
       } catch (error) {
         throwVisibleQueryError(error);
