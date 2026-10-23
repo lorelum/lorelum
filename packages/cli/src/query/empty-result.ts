@@ -2,7 +2,7 @@ import type { QueryContextData } from "./query-command.js";
 
 export type EmptyQueryExplanation = Readonly<{
   reason: "empty" | "corpus-empty";
-  nextAction: "refine-query";
+  nextAction: "continue-task";
   message: string;
 }>;
 
@@ -34,8 +34,9 @@ export function createEmptyQueryExplanation(input: {
     ...(input.context?.state === "degraded" || (input.context?.warnings.length ?? 0) > 0
       ? ["Some sources were ignored; see context warnings."]
       : []),
-    "Next: rewrite the query once with the decision, constraints, and technology context.",
-    ...(reason === "corpus-empty" ? ["Rewriting alone does not add Practices."] : []),
+    reason === "corpus-empty"
+      ? "Next: continue the task without Lorelum guidance; rewriting cannot add Practices to this context."
+      : "Next: continue the task without Lorelum guidance. Only if important context was missing, try at most one substantive rewrite for this lookup with the decision, constraints, and technology context. If the query was already specific or the rewrite is still empty, stop querying.",
   ];
-  return { reason, nextAction: "refine-query", message: facts.join(" ") };
+  return { reason, nextAction: "continue-task", message: facts.join(" ") };
 }

@@ -207,7 +207,7 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
     retrievalMethod: "single-vector",
     empty: {
       reason: "empty",
-      nextAction: "refine-query",
+      nextAction: "continue-task",
       message: expect.stringContaining("coverage: partial"),
     },
   });
@@ -651,7 +651,7 @@ test("successful keyword empty output explains the same data in text, verbose an
           results: [],
           empty: {
             reason: "empty",
-            nextAction: "refine-query",
+            nextAction: "continue-task",
             message: expect.stringContaining("decision, constraints, and technology context"),
           },
         });
@@ -662,7 +662,7 @@ test("successful keyword empty output explains the same data in text, verbose an
         expect(stdout.value).toStartWith("Query completed successfully but returned no Practices");
         expect(stdout.value).toContain("mode: keyword");
         expect(stdout.value).toContain("results: []");
-        expect(stdout.value).toContain("Next: rewrite the query once");
+        expect(stdout.value).toContain("Next: continue the task");
       }
     }),
   );
@@ -701,7 +701,7 @@ test("semantic empty results retain corpus proof and degraded context without le
     coverage: "complete",
     results: [],
     context,
-    empty: { reason: "corpus-empty", nextAction: "refine-query" },
+    empty: { reason: "corpus-empty", nextAction: "continue-task" },
   });
   expect(result.response.data.empty.message).toContain("no retrievable Practices");
   expect(result.response.data.empty.message).toContain("see context warnings");

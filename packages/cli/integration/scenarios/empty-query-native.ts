@@ -22,7 +22,7 @@ export async function verifyEmptyQueryNativeScenario(environment: NativeSmokeEnv
   assert.deepEqual(store.results, []);
   assert(isRecord(store.empty));
   assert.equal(store.empty.reason, "corpus-empty");
-  assert.equal(store.empty.nextAction, "refine-query");
+  assert.equal(store.empty.nextAction, "continue-task");
   assert.match(String(store.empty.message), /no retrievable Practices/);
   assert.equal("emptyReason" in store, false);
 

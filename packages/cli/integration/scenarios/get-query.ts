@@ -88,8 +88,13 @@ export async function verifyGetAndQueryScenario(
   const explanation = emptyData.empty;
   assert(isRecord(explanation));
   assert.equal(explanation.reason, "empty");
-  assert.equal(explanation.nextAction, "refine-query");
+  assert.equal(explanation.nextAction, "continue-task");
   assert.match(String(explanation.message), /decision, constraints, and technology context/);
+  assert.match(String(explanation.message), /at most one substantive rewrite for this lookup/);
+  assert.match(
+    String(explanation.message),
+    /already specific or the rewrite is still empty, stop querying/,
+  );
   assert.equal("empty" in keywordData, false);
   await Promise.all(
     [[], ["--verbose"]].map(async (flags) => {
@@ -136,6 +141,8 @@ export async function verifyGetAndQueryScenario(
   assert.deepEqual(emptyStoreData.results, []);
   assert(isRecord(emptyStoreData.empty));
   assert.equal(emptyStoreData.empty.reason, "corpus-empty");
+  assert.equal(emptyStoreData.empty.nextAction, "continue-task");
+  assert.doesNotMatch(String(emptyStoreData.empty.message), /try at most one/);
   const isolated = await runGet(compiledBinary, fixture.primaryPracticeId, isolatedRoot);
   assert.equal(isolated.exitCode, 2);
   requireFailureCode(parseSingleResponse(isolated.stdout), "get", "practice.not-found");

@@ -4,7 +4,7 @@
 
 ready 且 `results: []` 的 query SHALL 保持 exit `0` 及原字段，增加 `empty: {reason, nextAction, message}`。`reason` MUST 为 `empty` 或 `corpus-empty`；只有同一本次完整 canonical snapshot 证明可检索 Practice 为零时才使用后者，否则 MUST 使用前者。空候选或空结果本身不得证明空 corpus，也不得据此猜测语义失败、无匹配、未安装 Pack 或 query 写错。
 
-`nextAction` MUST 为 `refine-query`，建议补充决策、约束及技术上下文后改写一次，不表示 CLI 自动执行。空 corpus 的 message MUST 明确当前 context 没有可检索 Practice，且改写不会增加 Practice。Harness MUST 不解析 message 获取机器语义。
+`nextAction` MUST 为 `continue-task`，默认无需 Lorelum guidance 继续主任务，不要求取得命中。泛化空结果的 message MAY 仅在 query 缺少重要上下文时建议本次检索最多一次实质改写，且 MUST 明确 query 已具体或该次改写仍空时停止查询；后续空响应不得被解读为重置改写次数。空 corpus 的 message MUST 明确当前 context 没有可检索 Practice，且改写不会增加 Practice，MUST NOT 建议改写。Harness MUST 不解析 message 获取机器语义。
 
 #### Scenario: Proven empty corpus
 
@@ -14,7 +14,7 @@ ready 且 `results: []` 的 query SHALL 保持 exit `0` 及原字段，增加 `e
 #### Scenario: Keyword miss without corpus evidence
 
 - **WHEN** keyword query 仅取得空候选，没有完整 corpus 为空的证据
-- **THEN** 输出 MUST 使用 `empty` 和 `refine-query`，不猜知识源缺失
+- **THEN** 输出 MUST 使用 `empty` 和 `continue-task`，不猜知识源缺失，不把持续改写直到命中作为下一步
 
 #### Scenario: Partial empty preserves its limits
 

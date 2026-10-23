@@ -21,14 +21,14 @@ Backend ready schema/controller 转发标记，pending 不加。不得为精细�
 ```ts
 interface EmptyQueryExplanation {
   readonly reason: "empty" | "corpus-empty";
-  readonly nextAction: "refine-query";
+  readonly nextAction: "continue-task";
   readonly message: string;
 }
 ```
 
 `toQueryResult` 仅在 ready `results.length === 0` 调用它：有标记则 `corpus-empty`，否则 `empty`；内部标记不单独泄漏到 CLI JSON。公开 schema 同步该对象。沿用原 context 类型，不复制 warning 状态。
 
-message 一次生成成功事实、mode/coverage、来源限制和建议；空 corpus 文案明确改写不会增加 Practice。default text 先显示 message，再保留结果及 warnings；verbose 空结果先显示同一 message，再用原完整 renderer。非空和 pending 渲染不变，JSON 原样输出 data。建议随本次响应提供，不在 Skill 中重复维护。
+message 一次生成成功事实、mode/coverage、来源限制和建议。`nextAction` 统一为 `continue-task`，避免只消费机器字段的 Harness 被持续要求改写。泛化空结果仅在 query 缺重要上下文时建议本次检索最多一次实质改写，已具体或再空就停；空 corpus 只建议继续任务，明确改写不会增加 Practice。不新增跨调用计数或状态，调用方负责自己的检索过程。default text 先显示 message，再保留结果及 warnings；verbose 空结果先显示同一 message，再用原完整 renderer。非空和 pending 渲染不变，JSON 原样输出 data。建议随本次响应提供，不在 Skill 中重复维护。
 
 ## Verification
 

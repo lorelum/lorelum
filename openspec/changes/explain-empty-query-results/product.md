@@ -3,18 +3,18 @@
 用户正常运行 `lore query`，成功但没有 Practice 时，仍 exit `0`，看到一小段说明和一条首选下一步：
 
 ```text
-Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: rewrite the query once with the decision, constraints, and technology context.
+Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: continue the task without Lorelum guidance. Only if important context was missing, try at most one substantive rewrite for this lookup with the decision, constraints, and technology context. If the query was already specific or the rewrite is still empty, stop querying.
 results: []
 ```
 
-例如把“auth”改成“React 登录页使用现有 cookie-session 服务，需要防止重复提交，不能改服务端 API”，保留原 mode。建议不代表原 query 写错，也不保证下一次有结果。
+默认无需 Lorelum guidance 继续任务，不要求把空结果改到有命中。只有原 query 缺少重要上下文时，才可把“auth”实质补充为“React 登录页使用现有 cookie-session 服务，需要防止重复提交，不能改服务端 API”，保留原 mode；本次检索最多改写一次，不是每个空响应各一次。query 已具体或改写后仍空就停止检索，不保证语料中存在相关内容。
 
 ## 已知边界与 JSON
 
 仅 ready 空结果增加以下对象；真实 envelope 及原 data 字段保留：
 
 ```json
-{"empty":{"reason":"empty","nextAction":"refine-query","message":"Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: rewrite the query once with the decision, constraints, and technology context."}}
+{"empty":{"reason":"empty","nextAction":"continue-task","message":"Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: continue the task without Lorelum guidance. Only if important context was missing, try at most one substantive rewrite for this lookup with the decision, constraints, and technology context. If the query was already specific or the rewrite is still empty, stop querying."}}
 ```
 
 | 情况 | 说明 |
@@ -28,6 +28,6 @@ results: []
 
 ## Agent 的下一步与不变行为
 
-先分清 ready、pending、error；只有成功空结果才消费 `empty`。优先澄清决策、约束和技术上下文，改写一次；零 corpus 时不得宣称改写能补充知识，也不在语料或 context 未变时机械重试。用户明确怀疑来源缺失时才建议检查 Pack。
+先分清 ready、pending、error；只有成功空结果才消费 `empty`。`nextAction: continue-task` 表示默认不再查询，继续主任务。泛化空结果可提示一次有实质补充的改写，但 query 已具体或该次改写仍空就停止；已证明零 corpus 时直接继续，不建议改写。用户明确怀疑来源缺失时才建议检查 Pack。
 
 空结果不触发 status 命令、安装、更改配置或模式 fallback。只有用户意图或 Host policy 明确允许且符合既有 mode contract，才考虑显式换模式；出现候选后仍用 `get` 读全文。非空 ready 不加说明，pending/error 沿用原恢复和 exit `1/2`，已有安装和数据保持不变。

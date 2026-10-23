@@ -2,13 +2,18 @@ import { expect, test } from "bun:test";
 
 import { createEmptyQueryExplanation } from "./empty-result.js";
 
-test("keyword empty explanation recommends a specific rewrite without guessing a cause", () => {
+test("keyword empty explanation defaults to continuing with only one optional substantive rewrite", () => {
   const result = createEmptyQueryExplanation({ mode: "keyword" });
-  expect(result).toMatchObject({ reason: "empty", nextAction: "refine-query" });
+  expect(result).toMatchObject({ reason: "empty", nextAction: "continue-task" });
   expect(result.message).toStartWith("Query completed successfully but returned no Practices");
   expect(result.message).toContain("mode: keyword");
   expect(result.message).toContain("No more specific cause is confirmed");
   expect(result.message).toContain("decision, constraints, and technology context");
+  expect(result.message).toContain("Only if important context was missing");
+  expect(result.message).toContain("at most one substantive rewrite for this lookup");
+  expect(result.message).toContain(
+    "If the query was already specific or the rewrite is still empty, stop querying",
+  );
   expect(result.message).not.toMatch(/lore (index|context|pack|model)|--mode/);
 });
 
@@ -24,7 +29,9 @@ test("only the explicit corpus proof yields corpus-empty, not coverage counts", 
   expect(proven.reason).toBe("corpus-empty");
   expect(proven.message).toContain("mode: semantic; coverage: complete");
   expect(proven.message).toContain("This query context has no retrievable Practices");
-  expect(proven.message).toContain("Rewriting alone does not add Practices");
+  expect(proven.nextAction).toBe("continue-task");
+  expect(proven.message).toContain("rewriting cannot add Practices to this context");
+  expect(proven.message).not.toContain("try at most one");
 });
 
 test("partial coverage and ignored sources qualify the same empty result", () => {

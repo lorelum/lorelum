@@ -65,12 +65,12 @@ Only a ready successful result with `results: []` adds an `empty` explanation to
 ```json
 {
   "reason": "empty",
-  "nextAction": "refine-query",
-  "message": "Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: rewrite the query once with the decision, constraints, and technology context."
+  "nextAction": "continue-task",
+  "message": "Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: continue the task without Lorelum guidance. Only if important context was missing, try at most one substantive rewrite for this lookup with the decision, constraints, and technology context. If the query was already specific or the rewrite is still empty, stop querying."
 }
 ```
 
-`reason: "corpus-empty"` is used only when the same complete current snapshot proves there are no searchable Practices; otherwise the reason is `"empty"`, including a keyword miss or an empty partial result. The explanation retains the original mode, coverage and counts, and ProjectContext warnings. Treat it as a successful result, not a model or index failure: clarify the decision, constraints, and technology context, then rewrite once. When the current context has no searchable Practices, rewriting cannot add knowledge. Do not check status, install Packs, change configuration, or switch modes automatically; check Packs only if the user explicitly suspects a missing source. Use another mode only when user/host policy and the existing retrieval contract permit it (`keyword` is for explicit offline lookup or semantic-runtime diagnosis). Read a returned candidate with `lore get <practice-id>` before using it.
+`reason: "corpus-empty"` is used only when the same complete current snapshot proves there are no searchable Practices; otherwise the reason is `"empty"`, including a keyword miss or an empty partial result. The explanation retains the original mode, coverage and counts, and ProjectContext warnings. `nextAction: "continue-task"` means the default is to continue without Lorelum guidance, not keep querying until something is returned. Only if important context was missing may the caller make one substantive rewrite for this lookup with the decision, constraints, and technology context. If the query was already specific or that rewrite is still empty, stop querying; another empty response does not renew the allowance. A proven empty corpus offers no rewrite suggestion, because rewriting cannot add knowledge. Do not check status, install Packs, change configuration, or switch modes automatically; check Packs only if the user explicitly suspects a missing source. Use another mode only when user/host policy and the existing retrieval contract permit it (`keyword` is for explicit offline lookup or semantic-runtime diagnosis). Read a returned candidate with `lore get <practice-id>` before using it.
 
 When automatic preparation has been accepted but is not ready within the observation interval, semantic query returns `ok: true`, exit code `1`, and no results:
 

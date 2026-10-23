@@ -38,7 +38,7 @@ const emptySchema: JsonSchema = {
   required: ["reason", "nextAction", "message"],
   properties: {
     reason: { enum: ["empty", "corpus-empty"] },
-    nextAction: { const: "refine-query" },
+    nextAction: { const: "continue-task" },
     message: stringSchema,
   },
 };

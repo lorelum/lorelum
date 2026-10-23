@@ -24,3 +24,7 @@ Sol medium 按 `agentic-coding.implementation.justify-added-checks` 独立审查
 ## 撤回重复指导
 
 下一步建议由空查询响应自身承载，撤回七份 Skill、对应指导 fixture 和 agent-integration delta 中的重复要求；七份 Skill 及 fixture 与变更前逐字一致，CLI 实现与测试不变。OpenSpec 严格校验和 diff 检查再次通过；Sol 定向只读复核无阻塞发现，不重跑未变的 runtime 测试。
+
+## 空结果的停止条件
+
+将默认动作改为 `continue-task`，只有缺重要上下文时才可为本次检索实质改写一次；已具体或改写仍空就停，空 corpus 不建议改写。不新增计数器、持久状态或 Skill 指令。回归测试先得到 2 fail，再修改实现后定向 34/34、CLI 全量 614 pass/4 skip；CLI/site typecheck、CLI process、隔离 semantic `empty-query` smoke 通过，embedding batches/download requests 均为零。Sol 定向 CR 无阻塞发现。
