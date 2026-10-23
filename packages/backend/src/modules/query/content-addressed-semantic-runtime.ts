@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { noopEmitter, type LogEmitter } from "@lorelum/log";
+import { noopEmitter, withDiagnosticLevel, type LogEmitter } from "@lorelum/log";
 
 import {
   createContentAddressedSemanticServices,
@@ -32,6 +32,7 @@ import {
 import { waitForCompletionOrDeadline } from "../../lifecycle/deadline";
 import { BackendError } from "../../protocol/errors";
 import { EmbeddingError, embeddingErrorCodes } from "../embedding/errors";
+import type { PreparationDiagnosticContext } from "../embedding/service";
 import type { ModelPreparation, ModelStatus } from "../embedding/dto";
 import type { IndexOperation, IndexOperationErrorCode, IndexStatus } from "../index/model";
 import {
@@ -94,10 +95,19 @@ export interface ContentAddressedSemanticRuntimePort {
     target: ContentAddressedTargetRequest,
     query: QueryRequest,
     policy: QueryPolicy,
+    diagnosticContext?: PreparationDiagnosticContext,
   ): Promise<ContentAddressedSemanticQueryResult>;
   indexStatus(root: StorageRoot, target: ContentAddressedTargetRequest): Promise<IndexStatus>;
-  build(root: StorageRoot, target: ContentAddressedTargetRequest): Promise<IndexOperation>;
-  rebuild(root: StorageRoot, target: ContentAddressedTargetRequest): Promise<IndexOperation>;
+  build(
+    root: StorageRoot,
+    target: ContentAddressedTargetRequest,
+    diagnosticContext?: PreparationDiagnosticContext,
+  ): Promise<IndexOperation>;
+  rebuild(
+    root: StorageRoot,
+    target: ContentAddressedTargetRequest,
+    diagnosticContext?: PreparationDiagnosticContext,
+  ): Promise<IndexOperation>;
   indexOperation(operationId: string): Promise<IndexOperation | undefined>;
   waitForIdle(deadline?: number): Promise<void>;
 }
@@ -132,6 +142,7 @@ interface SemanticOperation {
   readonly key: string;
   readonly target: SemanticTarget;
   readonly task: Promise<void>;
+  readonly attachPreparationDiagnostics: (context?: PreparationDiagnosticContext) => void;
 }
 
 /** Shared persistent target queue for Store-only and ProjectContext corpora. */
@@ -480,14 +491,25 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     });
   }
 
-  private async start(target: SemanticTarget, force = false): Promise<SemanticOperation> {
+  private async start(
+    target: SemanticTarget,
+    force = false,
+    diagnosticContext?: PreparationDiagnosticContext,
+  ): Promise<SemanticOperation> {
     const key = this.operationKey(target);
     this.desiredTargetBySlot.set(target.targetSlotId, key);
     const live = this.operations.get(key);
-    if (live !== undefined) return live;
+    if (live !== undefined) {
+      live.attachPreparationDiagnostics(diagnosticContext);
+      return live;
+    }
     const pending = this.starting.get(key);
-    if (pending !== undefined) return pending;
-    const work = this.startNew(target, force, key);
+    if (pending !== undefined) {
+      const operation = await pending;
+      operation.attachPreparationDiagnostics(diagnosticContext);
+      return operation;
+    }
+    const work = this.startNew(target, force, key, diagnosticContext);
     this.starting.set(key, work);
     try {
       return await work;
@@ -500,16 +522,41 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     target: SemanticTarget,
     force: boolean,
     key: string,
+    diagnosticContext?: PreparationDiagnosticContext,
   ): Promise<SemanticOperation> {
     await this.recovered;
     const active = this.operations.get(key);
-    if (active !== undefined) return active;
+    if (active !== undefined) {
+      active.attachPreparationDiagnostics(diagnosticContext);
+      return active;
+    }
     const previous = await this.journal?.latestForSlot(target.targetSlotId);
     const recovered = await this.journal?.findByTarget(target.artifactId, target.cacheScopeId);
     const reuse = force !== true && recovered !== undefined && isPending(recovered.state);
     const operationId = reuse ? recovered.operationId : randomUUID();
     const createdAt = reuse ? recovered.createdAt : new Date().toISOString();
     const attempts = reuse ? recovered.attempts : 0;
+    let preparationId: string | undefined;
+    const preparationObservers: PreparationDiagnosticContext[] = [];
+    const recordPreparationAcceptance = (context: PreparationDiagnosticContext) => {
+      withDiagnosticLevel(this.diagnostics, context.diagnosticLevel).emit({
+        level: "info",
+        component: "backend",
+        event: "trace.preparation.accepted",
+        traceId: context.traceId,
+        requestId: context.requestId ?? randomUUID(),
+        preparationId,
+        operationId,
+      });
+    };
+    // Joining callers must be linked before shared preparation can fail, including
+    // when a normal request created the operation before a debug caller arrived.
+    const attachPreparationDiagnostics = (context?: PreparationDiagnosticContext) => {
+      if (context?.traceId === undefined) return;
+      if (preparationId === undefined) preparationObservers.push(context);
+      else recordPreparationAcceptance(context);
+    };
+    attachPreparationDiagnostics(diagnosticContext);
     if (
       previous !== undefined &&
       previous.operationId !== operationId &&
@@ -578,6 +625,9 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
         if (!(error instanceof EmbeddingError) || error.code !== "embedding.not-loaded")
           throw error;
         const preparation = this.modelPreparation.beginModelPreparation();
+        preparationId = preparation.preparationId;
+        for (const context of preparationObservers) recordPreparationAcceptance(context);
+        preparationObservers.length = 0;
         await this.record(target, operationId, "preparing", {
           preparationId: preparation.preparationId,
           indexedPracticeCount: (await tracked.status()).indexedPracticeCount,
@@ -632,7 +682,13 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
         throw error;
       });
     this.queue = task.catch(() => undefined);
-    const operation = Object.freeze({ operationId, key, target, task });
+    const operation = Object.freeze({
+      operationId,
+      key,
+      target,
+      task,
+      attachPreparationDiagnostics,
+    });
     this.operations.set(key, operation);
     void task
       .finally(async () => {
@@ -651,6 +707,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     target: SemanticTarget,
     query: QueryRequest,
     policy: QueryPolicy,
+    diagnosticContext?: PreparationDiagnosticContext,
   ): Promise<ContentAddressedSemanticQueryResult> {
     const progress = this.progress(target);
     const complete = async (): Promise<SemanticQueryResult> => {
@@ -673,7 +730,7 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
       return this.withContext(target, await complete());
     const previousFailure = await this.unrecoveredEmbeddingFailure(target);
     if (previousFailure !== undefined) throwIndexOperationFailure(previousFailure);
-    const operation = await this.start(target);
+    const operation = await this.start(target, false, diagnosticContext);
     if (policy.maxWaitMs > 0) {
       await waitForCompletionOrDeadline(
         operation.task.catch(() => undefined),
@@ -766,14 +823,15 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     resolve: () => Promise<SemanticTarget>,
     query: QueryRequest,
     policy: QueryPolicy,
+    diagnosticContext?: PreparationDiagnosticContext,
     attempts = 0,
   ): Promise<ContentAddressedSemanticQueryResult> {
     const target = await resolve();
-    const result = await this.queryTarget(target, query, policy);
+    const result = await this.queryTarget(target, query, policy, diagnosticContext);
     if (await target.isCurrent()) return result;
-    if (attempts === 0) return this.queryCurrent(resolve, query, policy, 1);
+    if (attempts === 0) return this.queryCurrent(resolve, query, policy, diagnosticContext, 1);
     const latest = await resolve();
-    const operation = await this.start(latest);
+    const operation = await this.start(latest, false, diagnosticContext);
     const status = await this.progress(latest).status();
     return this.withContext(latest, {
       state: "indexing",
@@ -788,15 +846,25 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
     target: ContentAddressedTargetRequest,
     query: QueryRequest,
     policy: QueryPolicy,
+    diagnosticContext?: PreparationDiagnosticContext,
   ): Promise<ContentAddressedSemanticQueryResult> {
-    return this.queryCurrent(() => this.resolveTarget(root, target), query, policy);
+    return this.queryCurrent(
+      () => this.resolveTarget(root, target),
+      query,
+      policy,
+      diagnosticContext,
+    );
   }
 
-  private async buildTarget(target: SemanticTarget, force: boolean): Promise<IndexOperation> {
+  private async buildTarget(
+    target: SemanticTarget,
+    force: boolean,
+    diagnosticContext?: PreparationDiagnosticContext,
+  ): Promise<IndexOperation> {
     const status = await this.indexStatusForTarget(target);
     if (!force && status.state === "ready")
       return Object.freeze({ operationId: randomUUID(), state: "ready", index: status });
-    const operation = await this.start(target, force);
+    const operation = await this.start(target, force, diagnosticContext);
     const record = await this.journal?.findById(operation.operationId);
     return this.toIndexOperation(
       record ?? this.fallbackRecord(operation, "queued", 0, target.corpus.practices.length),
@@ -808,11 +876,19 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
   ): Promise<IndexStatus> {
     return this.indexStatusForTarget(await this.resolveTarget(root, target));
   }
-  async build(root: StorageRoot, target: ContentAddressedTargetRequest): Promise<IndexOperation> {
-    return this.buildTarget(await this.resolveTarget(root, target), false);
+  async build(
+    root: StorageRoot,
+    target: ContentAddressedTargetRequest,
+    diagnosticContext?: PreparationDiagnosticContext,
+  ): Promise<IndexOperation> {
+    return this.buildTarget(await this.resolveTarget(root, target), false, diagnosticContext);
   }
-  async rebuild(root: StorageRoot, target: ContentAddressedTargetRequest): Promise<IndexOperation> {
-    return this.buildTarget(await this.resolveTarget(root, target), true);
+  async rebuild(
+    root: StorageRoot,
+    target: ContentAddressedTargetRequest,
+    diagnosticContext?: PreparationDiagnosticContext,
+  ): Promise<IndexOperation> {
+    return this.buildTarget(await this.resolveTarget(root, target), true, diagnosticContext);
   }
 
   async indexOperation(operationId: string): Promise<IndexOperation | undefined> {

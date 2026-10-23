@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createTraceId, MemoryLogSink, SinkLogEmitter, TraceDetailLogEmitter } from "@lorelum/log";
 
 import {
   createVectorExecution,
@@ -13,10 +14,137 @@ import { canonicalizePractice } from "../../../../engine/src/local-store/model/c
 import { createIsolatedProjectSandbox } from "../../../../engine/src/project-context/project-sandbox.test-helper";
 
 import { EmbeddingError } from "../embedding/errors";
+import { createEmbeddingService } from "../embedding/service";
+import { DEFAULT_BACKEND_SETTINGS } from "../../config/model";
 import { ContentAddressedSemanticRuntime } from "./content-addressed-semantic-runtime";
 import { SemanticOperationJournal } from "./project-operation-journal";
 
 const encodingId = "c".repeat(64);
+
+// Automatic preparation may fail before the controller returns a preparing response.
+// Its debug override must therefore arrive when preparation starts, not after observation.
+test.each(["query", "build", "rebuild", "query-join"] as const)(
+  "%s keeps trace-scoped debug for automatic preparation failure",
+  async (entry) => {
+    const directory = await mkdtemp(join(tmpdir(), "lore-auto-preparation-debug-"));
+    const sink = new MemoryLogSink();
+    const diagnostics = new TraceDetailLogEmitter("info", new SinkLogEmitter(sink));
+    const traceId = createTraceId();
+    let releasePreparation!: () => void;
+    const preparationGate = new Promise<void>((resolve) => {
+      releasePreparation = resolve;
+    });
+    let preparationStarted!: () => void;
+    const preparing = new Promise<void>((resolve) => {
+      preparationStarted = resolve;
+    });
+    const resource = {
+      kind: "model",
+      file: "embedding.modelPath",
+      check: "missing",
+    } as const;
+    const model = createEmbeddingService({
+      settings: DEFAULT_BACKEND_SETTINGS,
+      diagnostics,
+      prepareModel: async (_signal, _progress, preparationDiagnostics) => {
+        preparationStarted();
+        if (entry === "query-join") await preparationGate;
+        preparationDiagnostics.emit({
+          level: "debug",
+          component: "backend",
+          event: "backend.resource.failed",
+          resource,
+        });
+        throw new EmbeddingError("embedding.resource-invalid", undefined, resource);
+      },
+      createRuntime() {
+        throw new Error("Invalid resources must not start a native runtime");
+      },
+    });
+    const identity = {
+      rootBinding: "debug-store",
+      generation: 0,
+      effectiveRevision: 0,
+      manifestDigest: "0".repeat(64),
+    };
+    const runtime = new ContentAddressedSemanticRuntime(
+      {
+        readSnapshotIdentity: async () => identity,
+        readEffectivePracticeSnapshot: async () => ({
+          identity,
+          practices: [storePractice("debug.preparation")],
+        }),
+      },
+      { encodingId, dimensions: 384 },
+      { maxBatchSize: 8, embed: (inputs) => model.embed("document", inputs) },
+      { maxBatchSize: 1, embed: (inputs) => model.embed("query", inputs) },
+      model,
+      new SemanticOperationJournal(join(directory, "journal")),
+      undefined,
+      diagnostics,
+    );
+    try {
+      const root = { rootPath: join(directory, "store") };
+      const target = { kind: "store", cacheRoot: join(directory, "cache") } as const;
+      const context = {
+        traceId,
+        requestId: "request-preparation",
+        diagnosticLevel: "debug",
+      } as const;
+      if (entry === "query-join") {
+        const query = { text: "debug preparation" };
+        const policy = { maxWaitMs: 0, minCoveragePercent: 0 };
+        await runtime.query(root, target, query, policy);
+        await preparing;
+        await runtime.query(root, target, query, policy, context);
+        releasePreparation();
+      } else if (entry === "query") {
+        await expect(
+          runtime.query(
+            root,
+            target,
+            { text: "debug preparation" },
+            {
+              maxWaitMs: 1_000,
+              minCoveragePercent: 0,
+            },
+            context,
+          ),
+        ).rejects.toMatchObject({ code: "embedding.resource-invalid" });
+      } else {
+        await runtime[entry](root, target, context);
+      }
+      await runtime.waitForIdle();
+      const accepted = sink.records.find(
+        (record) => record.message === "trace.preparation.accepted" && record.traceId === traceId,
+      );
+      expect(accepted).toMatchObject({
+        preparationId: expect.any(String),
+        requestId: context.requestId,
+      });
+      expect(sink.records).toContainEqual(
+        expect.objectContaining({
+          level: "debug",
+          message: "backend.resource.failed",
+          preparationId: accepted?.preparationId,
+          context: { resource },
+        }),
+      );
+      expect(sink.records).toContainEqual(
+        expect.objectContaining({
+          level: "error",
+          message: "backend.preparation.failed",
+          context: expect.objectContaining({ resource }),
+          error: expect.objectContaining({ name: "EmbeddingError", stack: expect.any(String) }),
+        }),
+      );
+    } finally {
+      releasePreparation();
+      await runtime.waitForIdle();
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
 
 function storePractice(id: string, body = id): EffectivePractice {
   const canonical = canonicalizePractice({

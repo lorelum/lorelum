@@ -103,7 +103,8 @@ async function handleIndexMutation(
   request: Request,
 ) {
   const traceId = requestTraceId(request);
-  const requestDiagnostics = withDiagnosticLevel(diagnostics, requestDiagnosticLevel(request));
+  const diagnosticLevel = requestDiagnosticLevel(request);
+  const requestDiagnostics = withDiagnosticLevel(diagnostics, diagnosticLevel);
   const requestId = randomUUID();
   const startedAt = Date.now();
   if (traceId !== undefined) {
@@ -130,6 +131,7 @@ async function handleIndexMutation(
     const operation = await runtime[mutation](
       { rootPath: body.storageRoot },
       targetForMutation(body),
+      { traceId, requestId, diagnosticLevel },
     );
     if (traceId !== undefined) {
       recordIndexMutationAccepted(requestDiagnostics, traceId, requestId, operation, startedAt);
@@ -174,17 +176,6 @@ function recordIndexMutationAccepted(
     operationId: operation.operationId,
     ...preparation,
   });
-  if (operation.state === "preparing") {
-    diagnostics.emit({
-      time: new Date().toISOString(),
-      level: "info",
-      component: "backend",
-      event: "trace.preparation.accepted",
-      traceId,
-      requestId,
-      preparationId: operation.preparationId,
-    });
-  }
   diagnostics.emit({
     time: new Date().toISOString(),
     level: "info",

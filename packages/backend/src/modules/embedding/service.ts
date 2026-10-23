@@ -2,7 +2,7 @@ import { DEFAULT_EMBEDDING_SETTINGS } from "../../config/embedding";
 import { createTimeoutSignal } from "../../lifecycle/timeout";
 import { randomUUID } from "node:crypto";
 import { waitForSettlement } from "../../lifecycle/deadline";
-import { noopEmitter, type LogEmitter } from "@lorelum/log";
+import { noopEmitter, withDiagnosticLevel, type LogEmitter, type TraceId } from "@lorelum/log";
 import type { BackendSettings } from "../../config/model";
 import type { ModelPreparation, ModelProgress, ModelStatus } from "./dto";
 import {
@@ -22,6 +22,12 @@ import {
 
 const SHUTDOWN_DRAIN_RESERVE_MS = 200;
 
+export interface PreparationDiagnosticContext {
+  readonly traceId?: TraceId | undefined;
+  readonly requestId?: string | undefined;
+  readonly diagnosticLevel?: "debug" | undefined;
+}
+
 export interface EmbeddingServiceOptions {
   readonly createRuntime: (
     prepared?: PreparedEmbeddingResources,
@@ -30,6 +36,7 @@ export interface EmbeddingServiceOptions {
   readonly prepareModel?: (
     signal: AbortSignal,
     progress: (value: ModelProgress) => void,
+    diagnostics: LogEmitter,
   ) => Promise<PreparedEmbeddingResources>;
   readonly threads?: number;
   readonly settings: BackendSettings;
@@ -113,14 +120,29 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
       let handle: EmbeddingRuntime | undefined;
       let activityPublished = false;
       try {
+        diagnostics.emit({
+          level: "debug",
+          component: "backend",
+          event: "backend.preparation.resolving",
+          preparationId: activePreparationId,
+          encodingId,
+          threads,
+        });
         if (options.onPreparationActivityChange !== undefined) {
           await options.onPreparationActivityChange(true);
           activityPublished = true;
         }
         signal.throwIfAborted();
-        const prepared = await options.prepareModel?.(signal, (value) => {
-          if (state === "loading" && !signal.aborted) progress = value;
-        });
+        const preparationDiagnostics: LogEmitter = {
+          emit: (input) => diagnostics.emit({ ...input, preparationId: activePreparationId }),
+        };
+        const prepared = await options.prepareModel?.(
+          signal,
+          (value) => {
+            if (state === "loading" && !signal.aborted) progress = value;
+          },
+          preparationDiagnostics,
+        );
         signal.throwIfAborted();
         progress = { phase: "starting" };
         handle = options.createRuntime(prepared, activePreparationId);
@@ -161,6 +183,8 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
           preparationId: activePreparationId,
           durationMs: Date.now() - preparationStartedAt,
           code: visible.code,
+          ...(visible.resource === undefined ? {} : { resource: visible.resource }),
+          error,
         });
         return await recover(visible, handle);
       } finally {
@@ -249,24 +273,37 @@ export function createEmbeddingService(options: EmbeddingServiceOptions) {
       timeout.dispose();
     }
   }
-  function beginLoad(): ModelStatus {
+  function recordPreparationAcceptance(context?: PreparationDiagnosticContext) {
+    if (context?.traceId === undefined) return;
+    withDiagnosticLevel(diagnostics, context.diagnosticLevel).emit({
+      level: "info",
+      component: "backend",
+      event: "trace.preparation.accepted",
+      traceId: context.traceId,
+      requestId: context.requestId ?? randomUUID(),
+      preparationId,
+    });
+  }
+  function beginLoad(context?: PreparationDiagnosticContext): ModelStatus {
     if (state === "unloading" || (!loading && state !== "ready" && (runtime || inflight)))
       throw new EmbeddingError("embedding.busy");
     // HTTP accepts immediately; the shared task owns its error/status until completion.
     void load().catch(() => {});
+    recordPreparationAcceptance(context);
     return status();
   }
   function modelPreparation(id: string) {
     if (id !== preparationId) throw new EmbeddingError("embedding.preparation-expired");
     return { preparationId: id, status: status() };
   }
-  function beginModelPreparation(): ModelPreparation {
+  function beginModelPreparation(context?: PreparationDiagnosticContext): ModelPreparation {
     if (state === "failed")
       throw new EmbeddingError(failure ?? "embedding.failed", undefined, resourceFailure);
     if (state === "unloading" || (!loading && state !== "ready" && (runtime || inflight)))
       throw new EmbeddingError("embedding.busy");
     void load().catch(() => {});
     preparationId ??= randomUUID();
+    recordPreparationAcceptance(context);
     return { preparationId, status: status() };
   }
   async function waitModelPreparation(id: string): Promise<ModelStatus> {

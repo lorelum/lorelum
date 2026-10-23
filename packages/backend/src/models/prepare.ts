@@ -1,5 +1,6 @@
 import { lstat, open, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
+import type { LogEmitter } from "@lorelum/log";
 import type { ResolvedEmbeddingConfig } from "../config/embedding";
 import { downloadFile, DownloadError } from "../download/file";
 import { EmbeddingError } from "../modules/embedding/errors";
@@ -18,7 +19,11 @@ export async function prepareModel(
   config: ResolvedEmbeddingConfig,
   signal: AbortSignal,
   progress: (value: ModelProgress) => void,
-  dependencies: { artifact?: ModelArtifact; download?: typeof downloadFile } = {},
+  dependencies: {
+    artifact?: ModelArtifact;
+    download?: typeof downloadFile;
+    diagnostics?: LogEmitter;
+  } = {},
 ): Promise<string> {
   const artifact = dependencies.artifact ?? EMBEDDING_MODEL;
   const verify = async (path: string) => {
@@ -29,7 +34,14 @@ export async function prepareModel(
         ? "model.gguf.part"
         : "model.gguf";
     try {
-      await verifyResource(path, artifact.bytes, artifact.sha256, signal, { kind: "model", file });
+      await verifyResource(
+        path,
+        artifact.bytes,
+        artifact.sha256,
+        signal,
+        { kind: "model", file },
+        dependencies.diagnostics,
+      );
     } catch (error) {
       if (signal.aborted) throw error;
       if (error instanceof EmbeddingError) throw error;
@@ -73,14 +85,23 @@ export async function prepareModel(
       await file.close();
     }
     const size = (await stat(partial)).size;
-    if (size > artifact.bytes)
-      throw new EmbeddingError("embedding.resource-invalid", undefined, {
+    if (size > artifact.bytes) {
+      const resource = {
         kind: "model",
         file: "model.gguf.part",
         check: "size-mismatch",
         expected: String(artifact.bytes),
         actual: String(size),
+      } as const;
+      dependencies.diagnostics?.emit({
+        level: "debug",
+        component: "backend",
+        event: "backend.resource.failed",
+        path: partial,
+        resource,
       });
+      throw new EmbeddingError("embedding.resource-invalid", undefined, resource);
+    }
     if (size < artifact.bytes) {
       try {
         await (dependencies.download ?? downloadFile)({
