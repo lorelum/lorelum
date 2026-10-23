@@ -21,6 +21,7 @@
 ## Verification
 
 - Add colocated unit/protocol tests for lifecycle and adapter behavior. Run focused tests, then `bun test packages/backend` when the package-wide scope is affected.
+- For CLI acceptance against the shared Backend, follow the [normal worktree workflow](../../docs/development/README.md#normal-development-workflow) and select the target build with `backend start --current-build`; a successful ordinary query may still use another build's Backend. Integration harnesses that already launch their own isolated daemon do not need to switch the shared service.
 - Backend/model lifecycle and keyword behavior do not require a native candidate. Before source validation that exercises embedding, model preparation, or semantic indexing, run `bun run build:native`.
 - Run the relevant scripts in `packages/backend/integration/` only with the required local native/model inputs and isolated test paths. They are integration acceptance, not ordinary unit tests.
 - Record readiness, preparing, failure, cancellation, and cleanup observations separately; a passing mocked unit test does not establish native-process behavior.

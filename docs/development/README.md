@@ -64,13 +64,13 @@ Use isolated Store and cache roots by default when validating a worktree. This a
 | Compiled model loading or semantic behavior | `bun run build:cli` followed by `./dist/release/<target>/lore ...` (`lore.exe` on Windows) | `build:cli-only` or copying only the executable; both omit its matching native runtime. |
 | Final archive/package | `bun run build:release` | Treating the archive command as the normal development build. |
 
-For example, a source-level semantic-index check against a worktree-local Store is:
+For example, a source-level semantic-index check against worktree-local Store and cache roots is shown below. Keep the `&&` chain: if build selection is deferred (exit `1`) or fails, the later commands must not run as though the target Backend were ready.
 
 ```zsh
-bun run build:native
-bun packages/cli/src/main.ts backend start --current-build
-bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-store)" pack install agentic-coding
-bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-store)" query "responsibility boundary"
+bun run build:native &&
+bun packages/cli/src/main.ts backend start --current-build &&
+bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-store)" pack install agentic-coding &&
+bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-store)" query "responsibility boundary" --cache-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-cache)"
 ```
 
 The Backend and model are user-level resources. Ordinary start and query reuse any running Backend with a compatible internal protocol, even when another build started it; they do not switch or restart it. `backend start --current-build` is the explicit worktree-validation path: it uses guarded handoff before switching to this build. If it returns `state: deferred`, the command exits `1`; leave active work alone and retry manually after it completes. Deferred reasons reflect admitted requests, background model/index work, valid task leases, or unknown activity—not a loaded model or another Agent merely being present. Protocol 4 guards in-flight requests; protocol 3 retains its older activity/lease-only guard. The explicit Store root selects Pack base data, while `--cache-root` selects derived query artifacts. Stop a test Backend with `bun packages/cli/src/main.ts backend stop` when the check is complete.
@@ -134,8 +134,8 @@ The command inherits the caller's current worktree, so `lore-dev` still anchors 
 Use the source entrypoint while iterating. `bun run build:cli-only` produces a standalone `dist/lore` without the native embedding runtime, so it is suitable only for non-embedding compiled checks such as keyword benchmarks. For a compiled model or semantic check in the target worktree, build the complete local bundle instead:
 
 ```zsh
-bun run build:cli
-./dist/release/darwin-arm64/lore backend start --current-build
+bun run build:cli &&
+./dist/release/darwin-arm64/lore backend start --current-build &&
 ./dist/release/darwin-arm64/lore model load
 ```
 

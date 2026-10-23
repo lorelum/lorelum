@@ -70,6 +70,7 @@ For visual or component work, read [DESIGN.md](./DESIGN.md) first. Reusable Web 
 - Run a package command with `bun run --filter <package> <script>` when a focused check exists.
 - Use `bun build --compile` only when the task actually needs a single compiled binary. See [the development guide](./docs/development/README.md) for source, worktree, native, and release-staging workflows.
 - For compiled model loading or semantic validation, run `bun run build:cli` and use the CLI from its complete `dist/release/<target>/` directory, keeping its matching `native/<target>/` runtime alongside it. `build:cli-only` produces only `dist/lore` without the native runtime; use it only for checks that do not need embedding. `build:release-staging` remains a compatibility alias for the same complete local build and does not publish a release.
+- Before CLI acceptance of changed Backend code against the shared service, follow the [normal worktree workflow](./docs/development/README.md#normal-development-workflow). Ordinary start/query can reuse another compatible build; use the target worktree's CLI with `backend start --current-build` to select the code under test. This is not a prerequisite for ordinary knowledge retrieval or CLI-only/keyword checks.
 
 Match verification to the changed boundary. New behavior ships with colocated `bun:test` coverage; format/parser and retrieval behavior have no exception. Mock filesystem and network in unit tests. A bug fix needs a regression test that fails before the fix and passes after it.
 
