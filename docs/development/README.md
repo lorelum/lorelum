@@ -73,6 +73,8 @@ bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolut
 bun packages/cli/src/main.ts --store-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-store)" query "responsibility boundary" --cache-root "$(git rev-parse --path-format=absolute --git-path lorelum/dev-cache)"
 ```
 
+The query's separate cache may still need indexing even if Pack installation reported `indexSync: ready`. If the first query reports preparation/indexing or `embedding.busy` while that work is running, follow its operation or trace, wait for the accepted work to finish, and retry the same query. Do not treat Backend ready or an accepted indexing operation as completed retrieval, switch to keyword, or reload the model merely to bypass a busy encoder.
+
 The Backend and model are user-level resources. Ordinary start and query reuse any running Backend with a compatible internal protocol, even when another build started it; they do not switch or restart it. `backend start --current-build` is the explicit worktree-validation path: it uses guarded handoff before switching to this build. If it returns `state: deferred`, the command exits `1`; leave active work alone and retry manually after it completes. Deferred reasons reflect admitted requests, background model/index work, valid task leases, or unknown activity—not a loaded model or another Agent merely being present. Protocol 4 guards in-flight requests; protocol 3 retains its older activity/lease-only guard. The explicit Store root selects Pack base data, while `--cache-root` selects derived query artifacts. Stop a test Backend with `bun packages/cli/src/main.ts backend stop` when the check is complete.
 
 ### Source entrypoint and human helper

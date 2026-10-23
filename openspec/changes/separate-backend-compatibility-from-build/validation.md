@@ -35,3 +35,15 @@
 - Windows 专用进程与宿主用例在 macOS 上跳过，不把当前平台编译路径测试当作 Windows 实机验收。
 - 真实 A/B native 路径记录先于上述减法审查；删减后重跑整包与正式编译测试，并由 Sol 窄复核确认未弱化身份和停止边界，没有宣称再次执行完整 native 演练。
 - 同步上游后，迁移新增 preparation-debug integration 的 client 调用；`bun run build:native` 命中既有 native candidate，随后真实执行 `bun packages/cli/integration/backend-preparation-debug.integration.ts` 通过，覆盖 daemon、认证 HTTP、query/index 准备失败、日志与 feedback draft，且没有改变持久 logging 配置。
+
+## AGENTS 与开发指南真实复跑
+
+2026-10-23，以 `5a232ae` 的代码、既有用户配置和模型缓存，在正常本机环境执行；不是 mock，也不是只检查命令语法。
+
+- 直接提取开发指南的 source 示例执行：native 构建 cache hit，`backend start --current-build` 成功切到 source，双方 ID 为 `d9b89defb9cb…`，在 worktree-local Store 安装 agentic-coding 成功。
+- 该示例没有一次全绿：新隔离 cache 的首次 `responsibility boundary` query 返回 `embedding.busy` / exit 2。原 trace 显示该 query 启动了 35 条文档的后台索引，查询编码与索引编码竞争；观察该操作完成后，用完全相同的 query、Store、cache 和默认 semantic 模式重试，exit 0、multi-view-vector 返回 5 条。没有切 keyword、清缓存或重载模型来掩盖该失败；开发指南补充了这条条件恢复路径，没有扩修独立的调度问题。
+- 同 source build 再次执行 current-build start，daemon/native PID 保持 `61861`/`61911`，model ready。
+- 给一个不继承本对话历史的 Agent 验收目标、仓库路径和共享 Backend/lease 边界，由它自行读取模块 AGENTS 和开发指南、选择实际命令，而非提供预写执行脚本。它执行完整 `bun run build:cli`；首次 compiled current-build start 在有效 lease 下返回 exit 1 / active-long-task，它按任务边界及指南停止后续 model/query，没有停止实例、解除 lease 或后台重试；主线程确认 source 的两个 PID 均未改变。
+- 主线程释放本次 lease 后，该 Agent 重试切换，exit 0，双方 compiled build 为 `7fd59ff2f181824983700e61b7accfe8bcb0e04c4bab1c12c7c38840ff34afb8`，revision `5a232ae`、dirty false。真实 model load 为 ready；相同 query 使用相同 worktree-local Store/cache，默认 semantic 返回 5 条、exit 0。主线程通过私有 runtime record 的安全字段另行确认 daemon/native PID 为 `65233`/`65250`。
+- source 和 compiled 的成功查询均保留默认 ProjectContext 行为，并带有 `context.state: degraded` 及 config.invalid/pack.invalid 告警；结果不是空检索，没有用 no-project 隐去告警，也未扩展修复项目层问题。
+- 收尾 guarded stop 返回 stopped；恢复原安装 build `1bce86050e6a…`，model load/status 为 ready。全局 CLI 链接未改变，本次测试没有写入共享 Pack Store。后续补充仅涉及开发说明和本验证记录，不改变已验收的生产代码或命令序列。
