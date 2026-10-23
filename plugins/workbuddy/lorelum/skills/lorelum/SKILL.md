@@ -2,12 +2,13 @@
 name: lorelum
 description: Use Lorelum's injected Pack Catalog to discover and retrieve relevant engineering Practices for the current task or decision, including through the /lore command.
 ---
+<!-- Generated from scripts/skill-guidance/content/skill.md.tmpl and profiles.ts. Run bun run skills:generate to regenerate. -->
 
 # Lorelum
 
 ## Find and read guidance
 
-Use the Installed Pack Catalog injected into WorkBuddy when it is visible. Its descriptions and stack scopes help identify potentially relevant Packs, but do not rule out other Packs. If the Catalog is missing or truncated and that affects discovery for this task, run `lore pack list --details`; do not run it just because the task started.
+Use a Pack Catalog already available in the task context. Its descriptions and stack scopes help identify potentially relevant Packs, but do not rule out other Packs. If no usable Catalog is available and Pack discovery matters for this task, run `lore pack list --details` once. Do not run it just because the task started.
 
 For a material engineering decision, describe the observed situation, the decision you face, and the constraints or failure consequences that matter. For example:
 
@@ -35,7 +36,7 @@ For explicit Pack browsing, get its current root with `lore pack list <pack-name
 
 ## Keep Backend available for a long task
 
-If a multi-step host task needs an already running Lorelum Backend to remain available between calls, acquire a lease before that work, renew it before expiry, and release it when the task completes or is cancelled. A single query does not need a lease.
+If a multi-step task needs an already-running Lorelum Backend to remain available between calls, acquire a lease before that work, renew it before expiry, and release it when the task completes or is cancelled. A single query does not need a lease:
 
 ```sh
 lore backend lease acquire

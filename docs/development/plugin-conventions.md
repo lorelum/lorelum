@@ -17,7 +17,20 @@ Do not encode a host name into the public Plugin ID merely because the source di
 
 ## What can be shared
 
-`skills/lorelum/` is the portable Skill core. It owns the generic retrieval guidance for a command-capable Agent. A host Plugin may package a translated copy when it has an injected Catalog or host-specific recovery instruction; the copy does not need identical wording, but it must satisfy the scenarios in [Skill guidance fixtures](./skill-guidance-fixtures.md).
+Edit the shared content under `scripts/skill-guidance/content/`, then regenerate and check the installation files:
+
+```sh
+bun run skills:generate
+bun run skills:check
+```
+
+Commit the content source and generated files together. `skills/lorelum/` and every `plugins/<hostKey>/lorelum/skills/lorelum/` are complete, generated installation artifacts, not independently edited sources. Each carries its own relative recovery reference; loading it does not require the source checkout, generator, Hook success, or a CLI-managed content locator. End users install through their existing host mechanism and do not run these commands.
+
+`scripts/skill-guidance/profiles.ts` owns the native descriptions and the omp-specific Catalog/read-hint text. Ordinary hosts and the portable Skill share the same visible-Catalog discovery rule. Query/get, trace recovery, resource lookup and task-dependent Backend leases are shared product guidance, not host overrides. The recovery reference has one complete source for every target.
+
+Before adding an adapter difference, establish why it exists from the current host contract, implementation and tests. A stale instruction, a missing shared update or a different title is not a host capability. In particular, Cursor's first-turn Catalog timing is a case covered by the common visibility rule; omp's intentionally absent child Catalog and Main read hints are genuine separate behavior. Use [Skill guidance fixtures](./skill-guidance-fixtures.md) to check the resulting behavior.
+
+The read-only check reports stale or missing artifacts without repairing them. It also compares the profiles with actual Plugin directories, so adding a host without deciding its guidance fails instead of silently excluding it. The same check runs in `bun test`; CI never generates and hides an uncommitted update.
 
 The released `lore` CLI owns Pack Catalog retrieval, semantic query behavior, Practice reads, and the shared Catalog renderer. A host Hook calls a narrow `lore hook <hostKey>` ABI rather than importing Engine or Store code.
 

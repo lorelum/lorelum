@@ -1,6 +1,9 @@
-# Diagnostic and semantic query recovery in WorkBuddy
+<!-- Generated from scripts/skill-guidance/content/recovery.md. Run bun run skills:generate to regenerate. -->
+# Diagnostic and semantic query recovery
 
-Read this reference only after either an original Lorelum failure has a `diagnostics.traceId`, or a semantic `lore query` has reported `state: "preparing"` or an error. Do not use it as a preflight checklist before the first query. Default text is sufficient to detect that recovery is needed; use `--json` only when exact protocol fields are required. The injected Pack Catalog remains available while recovery is in progress; do not rerun `lore pack list --details` unless the catalog itself is missing or truncated.
+Read this reference only after either an original Lorelum failure has a `diagnostics.traceId`, or a semantic `lore query ...` has reported `state: "preparing"` or an error. Do not use it as a preflight checklist before the first query. Default text is sufficient to detect that recovery is needed; use `--json` only when exact protocol fields are required.
+
+Reuse a visible Catalog during recovery; follow the Skill's discovery policy only when independent Pack discovery is needed for the task.
 
 ## Original trace evidence
 
@@ -30,7 +33,7 @@ Show the artifact paths, included evidence classes, `externalReview`, and `missi
 
 ## Model preparation or embedding errors
 
-- For `state: "preparing"`, run `lore model status --json` and retry the same query after the model is ready.
+- For `data.state: "preparing"`, run `lore model status --json` and retry the same query after the model is ready.
 - If a previous model download or load failed, or waiting is necessary, run `lore model load --json` to retry and wait.
 - For an `embedding.*` error, inspect `lore model status --json`, resolve the reported configuration or resource problem, then use `lore model load --json` before retrying the same query.
 
@@ -43,8 +46,7 @@ Show the artifact paths, included evidence classes, `externalReview`, and `missi
 ## Backend or Store errors
 
 - For `backend.build-mismatch` or `backend.protocol-mismatch`, follow the complete error message. Run `lore backend stop --if-idle`; only after `state: "stopped"`, run `lore backend start`, then retry the original command with the same arguments. If stop returns `deferred`, leave the instance and task running, report the safe refusal, and do not retry in the background or use ordinary stop without explicit user consent.
-- Before a host Agent starts a Lorelum-dependent long task, acquire a machine lease with `lore backend lease acquire`; retain its opaque `leaseId`, renew it before the returned expiry with `lore backend lease renew <leaseId>`, and release it in a `finally` path with `lore backend lease release <leaseId>`. This remains host automation, not user-facing setup; do not bypass a valid lease or unknown activity.
-- For `backend.unavailable`, follow the message to run `lore backend start`, then retry the original command. For other `backend.*` errors, fix the specific startup, ownership, listener, authentication, or configuration problem before retrying. Query and status reads never stop a Backend because of mismatch.
+- For `backend.unavailable`, run `lore backend start` as instructed, then retry the original command. For other `backend.*` errors, fix the specific startup, ownership, listener, authentication, or configuration problem before retrying. Query and status reads do not stop a Backend because of mismatch.
 - For `store.busy` or `store.recovery-required`, do not treat the failure as an empty result. Wait for concurrent work to finish or recover the selected Store, then retry the same query.
 
 ## Keyword mode remains explicit

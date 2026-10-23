@@ -2,12 +2,13 @@
 name: lorelum
 description: Retrieve relevant engineering Practices from installed Lorelum Packs when an engineering decision needs guidance.
 ---
+<!-- Generated from scripts/skill-guidance/content/skill.md.tmpl and profiles.ts. Run bun run skills:generate to regenerate. -->
 
 # Lorelum
 
 ## Find and read guidance
 
-Use a Pack Catalog already available in the task context. Its descriptions and stack scopes help identify potentially relevant Packs, but do not rule out other Packs. Main receives the Catalog; task/eval children do not by default (`agent.subagentPackCatalog: false`). Do not run `lore pack list --details` merely because a child has no Catalog, and do not bootstrap a Catalog automatically. Independent Pack discovery is allowed when a material decision in the assigned task actually requires it; then list once and reuse the result.
+Use a Pack Catalog already available in the task context. Its descriptions and stack scopes help identify potentially relevant Packs, but do not rule out other Packs. Main receives the Catalog; task/eval children do not by default (`agent.subagentPackCatalog: false`). Do not run `lore pack list --details` merely because a child has no Catalog or bootstrap a Catalog automatically. Independent Pack discovery is allowed when a material decision in the assigned task actually requires it; then list once and reuse the result.
 
 For a material engineering decision, describe the observed situation, the decision you face, and the constraints or failure consequences that matter. For example:
 

@@ -19,6 +19,10 @@ test("uses the root native tsc binary for every configuration", () => {
   ]);
 });
 
+test("includes Skill guidance tooling in the existing CI typecheck entry", () => {
+  expect(workspaceTypecheckConfigs).toContain("scripts/skill-guidance/tsconfig.json");
+});
+
 test("keeps all workspace checks ahead of the release-script check", async () => {
   const configs: string[] = [];
   const exitCode = await runTypecheck({
