@@ -165,6 +165,9 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
     mode: "semantic" as const,
     profileId: "p".repeat(64),
     coverage: "partial" as const,
+    indexedPracticeCount: 2,
+    totalPracticeCount: 3,
+    operationId: "0f8fad5b-d9cb-469f-a165-70867728950e",
     results: [],
   };
   const result = await invoke(
@@ -199,7 +202,15 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
       },
     },
   });
-  expect(result.response.data).toEqual({ ...semantic, retrievalMethod: "single-vector" });
+  expect(result.response.data).toEqual({
+    ...semantic,
+    retrievalMethod: "single-vector",
+    empty: {
+      reason: "empty",
+      nextAction: "refine-query",
+      message: expect.stringContaining("coverage: partial"),
+    },
+  });
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
@@ -245,6 +256,7 @@ test("returns preparing as a successful exit-1 result", async () => {
   );
   expect(result.exitCode).toBe(1);
   expect(result.response).toMatchObject({ ok: true, data: preparation });
+  expect(result.response.data).not.toHaveProperty("empty");
   expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
 });
 
@@ -276,6 +288,7 @@ test("surfaces a terminal embedding failure instead of an indexing result", asyn
   });
   expect(JSON.stringify(result.response)).not.toContain("indexing");
   expect(JSON.stringify(result.response)).not.toContain("Retry shortly");
+  expect(result.response).not.toHaveProperty("data");
 });
 
 test("requires complete coverage without cancelling the accepted semantic operation", async () => {
@@ -592,4 +605,107 @@ test("experimental mode retains query input validation before settings and Backe
   );
   expect(result.exitCode).toBe(2);
   expect(result.response.error.code).toBe("usage.invalid");
+});
+
+test("successful keyword empty output explains the same data in text, verbose and JSON", async () => {
+  let queryCalls = 0;
+  const definition = createQueryCommand({
+    queryService: {
+      async query() {
+        queryCalls += 1;
+        return { mode: "keyword", results: [] };
+      },
+    },
+    createClient: async () => {
+      throw new Error("empty keyword results must not start semantic retrieval");
+    },
+    storageRoot: { rootPath: "isolated" },
+  });
+  const registry = snapshotCommandDefinitions([definition]);
+  let jsonData: unknown;
+  await Promise.all(
+    [[], ["--verbose"], ["--json"], ["--json", "--verbose"]].map(async (flags) => {
+      const stdout = {
+        value: "",
+        write(text: string) {
+          this.value += text;
+        },
+      };
+      const stderr = {
+        value: "",
+        write(text: string) {
+          this.value += text;
+        },
+      };
+      const exit = await runCli(["query", "auth", "--mode", "keyword", ...flags], {
+        registry,
+        stdout,
+        stderr,
+      });
+      expect(exit).toBe(0);
+      expect(stderr.value).toBe("");
+      if (flags.includes("--json")) {
+        const data = JSON.parse(stdout.value).data;
+        expect(data).toEqual({
+          mode: "keyword",
+          results: [],
+          empty: {
+            reason: "empty",
+            nextAction: "refine-query",
+            message: expect.stringContaining("decision, constraints, and technology context"),
+          },
+        });
+        expect(validateJsonSchema(data, definition.resultSchema)).toEqual([]);
+        if (jsonData === undefined) jsonData = data;
+        else expect(data).toEqual(jsonData);
+      } else {
+        expect(stdout.value).toStartWith("Query completed successfully but returned no Practices");
+        expect(stdout.value).toContain("mode: keyword");
+        expect(stdout.value).toContain("results: []");
+        expect(stdout.value).toContain("Next: rewrite the query once");
+      }
+    }),
+  );
+  expect(queryCalls).toBe(4);
+});
+
+test("semantic empty results retain corpus proof and degraded context without leaking internal fields", async () => {
+  let calls = 0;
+  const context = {
+    state: "degraded" as const,
+    warnings: [{ code: "practice.invalid" as const, layerDepth: 1, practiceId: "sample.bad" }],
+  };
+  const result = await invoke(
+    ["query", "deployment decision"],
+    {
+      async query() {
+        throw new Error("semantic result must not fall back to keyword");
+      },
+    },
+    async () => ({
+      async query() {
+        calls += 1;
+        return {
+          mode: "semantic",
+          profileId: "a".repeat(64),
+          coverage: "complete",
+          results: [],
+          emptyReason: "corpus-empty",
+          context,
+        };
+      },
+    }),
+  );
+  expect(result.response.data).toMatchObject({
+    mode: "semantic",
+    coverage: "complete",
+    results: [],
+    context,
+    empty: { reason: "corpus-empty", nextAction: "refine-query" },
+  });
+  expect(result.response.data.empty.message).toContain("no retrievable Practices");
+  expect(result.response.data.empty.message).toContain("see context warnings");
+  expect(result.response.data).not.toHaveProperty("emptyReason");
+  expect(validateJsonSchema(result.response.data, result.definition.resultSchema)).toEqual([]);
+  expect(calls).toBe(1);
 });

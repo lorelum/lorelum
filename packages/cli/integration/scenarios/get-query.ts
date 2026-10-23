@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { chinesePracticeId, type InstalledPacksFixture } from "../fixtures/installed-packs.js";
 import { runGet, runQuery } from "../support/commands.js";
+import { runProcess } from "../support/process.js";
 import {
   isRecord,
   parseSingleResponse,
@@ -82,7 +83,32 @@ export async function verifyGetAndQueryScenario(
 
   const noMatches = await runQuery(compiledBinary, "zzzxylophone", fixture.storageRoot);
   assert.equal(noMatches.exitCode, 0);
-  assert.deepEqual(requireSuccessData(parseSingleResponse(noMatches.stdout), "query").results, []);
+  const emptyData = requireSuccessData(parseSingleResponse(noMatches.stdout), "query");
+  assert.deepEqual(emptyData.results, []);
+  const explanation = emptyData.empty;
+  assert(isRecord(explanation));
+  assert.equal(explanation.reason, "empty");
+  assert.equal(explanation.nextAction, "refine-query");
+  assert.match(String(explanation.message), /decision, constraints, and technology context/);
+  assert.equal("empty" in keywordData, false);
+  await Promise.all(
+    [[], ["--verbose"]].map(async (flags) => {
+      const text = await runProcess([
+        compiledBinary,
+        "query",
+        "zzzxylophone",
+        "--mode",
+        "keyword",
+        "--store-root",
+        fixture.storageRoot,
+        ...flags,
+      ]);
+      assert.equal(text.exitCode, 0);
+      assert.equal(text.stderr, "");
+      assert(text.stdout.startsWith(String(explanation.message)));
+      assert.match(text.stdout, /results: \[\]/);
+    }),
+  );
 
   const before = await runGet(
     compiledBinary,
@@ -104,6 +130,12 @@ export async function verifyGetAndQueryScenario(
 
   const isolatedRoot = join(workingDirectory, "isolated-store");
   await mkdir(isolatedRoot, { recursive: true });
+  const emptyStore = await runQuery(compiledBinary, "anything", isolatedRoot);
+  assert.equal(emptyStore.exitCode, 0);
+  const emptyStoreData = requireSuccessData(parseSingleResponse(emptyStore.stdout), "query");
+  assert.deepEqual(emptyStoreData.results, []);
+  assert(isRecord(emptyStoreData.empty));
+  assert.equal(emptyStoreData.empty.reason, "corpus-empty");
   const isolated = await runGet(compiledBinary, fixture.primaryPracticeId, isolatedRoot);
   assert.equal(isolated.exitCode, 2);
   requireFailureCode(parseSingleResponse(isolated.stdout), "get", "practice.not-found");

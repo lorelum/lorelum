@@ -208,6 +208,34 @@ test("query and get use project winners, retain valid neighbors, and keep --no-p
       },
     });
 
+    const missed = await invoke([...globals, "query", "zzzxylophone", "--mode", "keyword"]);
+    expect(missed.exitCode).toBe(0);
+    expect(missed.response).toMatchObject({
+      ok: true,
+      data: {
+        mode: "keyword",
+        results: [],
+        empty: { reason: "empty", nextAction: "refine-query" },
+        context: {
+          state: "degraded",
+          warnings: [{ code: "practice.invalid", packName: "platform" }],
+        },
+      },
+    });
+    const missedData = missed.response.data as { empty: { message: string }; context: unknown };
+    expect(missedData.empty.message).toContain("Some sources were ignored");
+    const emptyText = new MemoryWriter();
+    expect(
+      await runCli([...globals, "query", "zzzxylophone", "--mode", "keyword"], {
+        registry: definitions,
+        stdout: emptyText,
+      }),
+    ).toBe(0);
+    expect(emptyText.value).toStartWith("Query completed successfully but returned no Practices");
+    expect(emptyText.value).toContain("state: degraded");
+    expect(emptyText.value).toContain("practice.invalid");
+    expect(childQuery.response.data).not.toHaveProperty("empty");
+
     const storeGetFromProject = await invoke([...readGlobals, "get", "store.only"]);
     expect(storeGetFromProject.exitCode).toBe(0);
     const storeGetData = storeGetFromProject.response.data as {

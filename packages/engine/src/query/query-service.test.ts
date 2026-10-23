@@ -48,13 +48,17 @@ function identity(rootPath: string, revision = 1): StoreSnapshotIdentity {
 
 function snapshotStore(
   practices: readonly EffectivePractice[],
-  options: { readonly readIdentity?: () => Promise<StoreSnapshotIdentity> } = {},
+  options: {
+    readonly readIdentity?: () => Promise<StoreSnapshotIdentity>;
+    readonly onSnapshot?: () => void;
+  } = {},
 ): QueryDependencies["store"] {
   return {
     async readSnapshotIdentity(root) {
       return options.readIdentity?.() ?? identity(root.rootPath);
     },
     async readEffectivePracticeSnapshot(root) {
+      options.onSnapshot?.();
       return { identity: identity(root.rootPath), practices };
     },
     async readEffectivePracticeChanges() {
@@ -169,17 +173,32 @@ test("default top-k and equal-score ordering are deterministic", async () => {
   });
 });
 
-test("empty Stores, unmatched text, and tokenless text return successful empty results", async () => {
+test("only a cold Store keyword query proves an empty corpus", async () => {
   await withRoot(async (rootPath) => {
-    for (const practices of [[], [entry()]]) {
-      const service = createQueryService({ store: snapshotStore(practices) });
-      for (const text of ["zzznomatch", "!!!"]) {
-        // eslint-disable-next-line no-await-in-loop -- each request has its own index lifecycle
-        expect(await service.query({ rootPath }, { text })).toEqual({
-          mode: "keyword",
-          results: [],
-        });
-      }
+    let fullSnapshots = 0;
+    const emptyStore = createQueryService({
+      store: snapshotStore([], { onSnapshot: () => fullSnapshots++ }),
+    });
+    await expect(emptyStore.query({ rootPath }, { text: "anything" })).resolves.toEqual({
+      mode: "keyword",
+      results: [],
+      emptyReason: "corpus-empty",
+    });
+    await expect(emptyStore.query({ rootPath }, { text: "anything else" })).resolves.toEqual({
+      mode: "keyword",
+      results: [],
+    });
+    expect(fullSnapshots).toBe(1);
+  });
+
+  await withRoot(async (rootPath) => {
+    const service = createQueryService({ store: snapshotStore([entry()]) });
+    for (const text of ["zzznomatch", "!!!"]) {
+      // eslint-disable-next-line no-await-in-loop -- each request exercises a distinct search term.
+      await expect(service.query({ rootPath }, { text })).resolves.toEqual({
+        mode: "keyword",
+        results: [],
+      });
     }
   });
 });

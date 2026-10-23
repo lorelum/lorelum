@@ -59,12 +59,14 @@ export const queryHitSchema = z.strictObject({
 
 export const keywordQueryResultSchema = z.strictObject({
   mode: z.literal("keyword"),
+  emptyReason: z.literal("corpus-empty").optional(),
   results: z.array(queryHitSchema),
 });
 export const semanticQueryResultSchema = z.strictObject({
   mode: z.literal("semantic"),
   profileId: z.string().regex(/^[a-f0-9]{64}$/),
   coverage: z.enum(["complete", "partial"]),
+  emptyReason: z.literal("corpus-empty").optional(),
   indexedPracticeCount: z.int().nonnegative().optional(),
   totalPracticeCount: z.int().nonnegative().optional(),
   operationId: z.string().uuid().optional(),

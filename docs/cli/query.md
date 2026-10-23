@@ -46,16 +46,7 @@ lore --store-root /path/to/store query "how should I verify this release?"
 
 `lore index build` and `lore index rebuild` remain useful to observe or force work explicitly. After automatic model/index preparation has started, ordinary semantic queries need neither `backend start` nor a preliminary index command. If the first query returns preparing, inspect `lore model status` and retry after it becomes ready. Explicit `lore model load` remains useful when a prior download failed and the user wants to wait for its retry.
 
-The complete successful result data includes the Profile identity and how completely the active index covers the Store snapshot. This full data is available with `--verbose` or `--json`; the default text omits non-decision metadata such as `profileId` and `contentDigest`:
-
-```json
-{
-  "mode": "semantic",
-  "profileId": "...",
-  "coverage": "complete",
-  "results": []
-}
-```
+Semantic ready data includes `mode`, `retrievalMethod`, `profileId`, `coverage`, and `results`, plus `empty` when no Practice is returned (see Shared result behavior below). `--verbose` and `--json` include the full data; the default text omits non-decision metadata such as `profileId` and `contentDigest`.
 
 `coverage: "complete"` means the complete artifact exactly matches the current context. `coverage: "partial"` means only the displayed `indexedPracticeCount / totalPracticeCount` current Practice rows are queryable so far. A changed, removed, shadowed, ignored, or incompatible Practice is never substituted from an old artifact. If no current row satisfies the requested coverage policy, the command returns `state: "indexing"` instead of pretending that an empty result or keyword result is semantic retrieval.
 
@@ -68,6 +59,18 @@ The complete successful result data includes the Profile identity and how comple
 Default successful text is a decision view, not a field-for-field rendering of `data`. A ready result shows each hit's `practiceId`, title, stage, non-empty tech stack, and applicability; it includes severity only when non-default, shows `mode` for keyword retrieval, and shows `retrievalMethod` only when it is not `single-vector`. Partial coverage remains explicit with its progress counts, and degraded ProjectContext retains its warning. The default text omits digests, Profile IDs, complete-coverage metadata, and operation IDs on ready results. For `preparing` or `indexing`, it still shows the non-ready state and recovery message; indexing also retains its operation ID and progress counts.
 
 `--verbose` renders the complete existing result data as text. `--json` returns the complete envelope and data and is unaffected by `--verbose`; use it for machine callers rather than parsing text. `results` may be empty and contains at most `top-k` entries. Results are Practice summaries, not source files. They omit the full body and internal scores; use `lore get <practice-id>` to retrieve the complete canonical Practice. Results are deterministic for the same Store snapshot and query implementation. A query does not pin a revision for a later `get` invocation.
+
+Only a ready successful result with `results: []` adds an `empty` explanation to `data`; it exits `0`. Default text shows its message, `--verbose` shows the same explanation with the complete data, and `--json` includes the object:
+
+```json
+{
+  "reason": "empty",
+  "nextAction": "refine-query",
+  "message": "Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: rewrite the query once with the decision, constraints, and technology context."
+}
+```
+
+`reason: "corpus-empty"` is used only when the same complete current snapshot proves there are no searchable Practices; otherwise the reason is `"empty"`, including a keyword miss or an empty partial result. The explanation retains the original mode, coverage and counts, and ProjectContext warnings. Treat it as a successful result, not a model or index failure: clarify the decision, constraints, and technology context, then rewrite once. When the current context has no searchable Practices, rewriting cannot add knowledge. Do not check status, install Packs, change configuration, or switch modes automatically; check Packs only if the user explicitly suspects a missing source. Use another mode only when user/host policy and the existing retrieval contract permit it (`keyword` is for explicit offline lookup or semantic-runtime diagnosis). Read a returned candidate with `lore get <practice-id>` before using it.
 
 When automatic preparation has been accepted but is not ready within the observation interval, semantic query returns `ok: true`, exit code `1`, and no results:
 

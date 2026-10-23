@@ -27,6 +27,18 @@ The first semantic query submits or joins the background index operation for the
 
 Default text is a decision view: ready results show each hit's ID, title, stage, non-empty tech stack, and applicability, with severity only when non-default. Keyword results identify their mode; partial coverage retains its state and progress counts, and ProjectContext warnings remain visible. The default view omits digest and Profile IDs and operation IDs for ready results. Use `--verbose` to display the complete result data as text. `--json` returns the complete envelope and data regardless of `--verbose`; machine callers should use JSON rather than parse text.
 
+A ready query with no results is still successful (exit `0`). Its data adds an `empty` object; default text shows the explanation, `--verbose` keeps it with the full data, and `--json` includes it:
+
+```json
+{
+  "reason": "empty",
+  "nextAction": "refine-query",
+  "message": "Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: rewrite the query once with the decision, constraints, and technology context."
+}
+```
+
+`reason` and `nextAction` are stable machine-facing fields; use them instead of parsing `message`. `reason: "corpus-empty"` means the complete current query context has no searchable Practices. Otherwise it is `"empty"`, which leaves the cause unknown, including when a keyword query has no match. The explanation keeps the original mode, coverage and counts, and context warnings. First make the decision, constraints, and technology context clearer, then rewrite once. Rewording cannot add knowledge when the current context has no searchable Practices. Do not treat a successful empty result as a model failure or automatically check status, install sources, change configuration, or switch modes. Check installed Packs only if the user explicitly suspects an expected source is missing. Use another mode only when you or the host policy allow it and the existing retrieval contract permits it; keyword mode is for explicit offline lookup or semantic-runtime diagnosis. For any returned candidate, use [`get`](./get) to read its full Practice before relying on it.
+
 If the semantic model is still preparing, data is `{ "state": "preparing", "preparationId": "...", "message": "..." }` and the process exits `1`; check `lore model status`, wait with `lore model load`, then retry. If verified current progress has not reached the requested coverage, data is `{ "state": "indexing", "operationId": "...", "indexedPracticeCount": 50, "totalPracticeCount": 100 }` and also exits `1`. Both are non-terminal states only: a confirmed model or index failure returns its typed error with exit `2`, not `indexing`. A wait timeout does not cancel the operation.
 
 | Error | Action |

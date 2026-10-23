@@ -27,6 +27,18 @@ Semantic mode 使用 [`query.retrievalMethod` 配置](../configuration#semantic-
 
 默认 text 是决策视图：ready 结果显示每个命中的 ID、标题、stage、非空 tech stack 和适用时机，只有非默认 severity 才显示。Keyword 结果标明 mode；partial coverage 保留状态和进度计数，ProjectContext warning 仍可见。默认视图省略 digest、Profile ID 和 ready 结果的 operation ID。使用 `--verbose` 可将完整结果 data 输出为 text。`--json` 无论是否同时传入 `--verbose`，都返回完整 envelope 和 data；机器调用方应使用 JSON，不解析 text。
 
+Ready 查询未返回 Practice 时仍是成功结果（退出码 `0`），data 会增加 `empty` 对象；默认 text 显示说明，`--verbose` 在完整 data 前保留该说明，`--json` 则包含这个对象：
+
+```json
+{
+  "reason": "empty",
+  "nextAction": "refine-query",
+  "message": "Query completed successfully but returned no Practices (mode: keyword). No more specific cause is confirmed. Next: rewrite the query once with the decision, constraints, and technology context."
+}
+```
+
+`reason` 与 `nextAction` 是稳定的机器字段；程序应读取它们，不要解析 `message`。`reason: "corpus-empty"` 表示本次完整 query context 中没有可检索 Practice；其他情况为 `"empty"`，不推断具体原因，包括 keyword query 没有匹配项。说明会保留原 mode、coverage 与计数，以及 context warnings。先补清决策、约束和技术上下文，再改写一次；当前 context 没有可检索 Practice 时，改写不会增加知识。不要把成功空结果当成模型故障，也不要自动检查 status、安装来源、修改配置或切换 mode。只有用户明确怀疑缺少预期来源时，才检查已安装 Pack。只有用户或 host policy 允许且符合现有 retrieval contract 时才考虑其他 mode；`keyword` 用于明确的离线检索或 semantic runtime 诊断。使用返回的候选前，通过 [`get`](./get) 读取完整 Practice。
+
 模型仍在准备时，data 为 `{ "state": "preparing", "preparationId": "...", "message": "..." }`，进程退出码为 `1`；查看 `lore model status`，用 `lore model load` 等待后重试。若当前 progress 尚未达到所需覆盖率，data 为 `{ "state": "indexing", "operationId": "...", "indexedPracticeCount": 50, "totalPracticeCount": 100 }`，同样退出 `1`。两者都只表示非终态；已确认的模型或 index 失败会以 typed error 和 exit `2` 返回，不会继续显示 `indexing`。等待超时不会取消 operation。
 
 | 错误 | 处理 |

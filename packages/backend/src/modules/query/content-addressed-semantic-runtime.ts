@@ -666,7 +666,10 @@ export class ContentAddressedSemanticRuntime implements ContentAddressedSemantic
           target.execution,
           this.queryEmbedding,
         );
-        return services.query.query(services.root, query);
+        const result = await services.query.query(services.root, query);
+        return target.corpus.practices.length === 0
+          ? Object.freeze({ ...result, emptyReason: "corpus-empty" as const })
+          : result;
       });
     };
     if ((await progress.status()).state === "ready")

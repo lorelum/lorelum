@@ -19,6 +19,13 @@ Read the full body of each candidate you intend to use with `lore get <practice-
 
 Read-Practice hints in an omp child come from successful gets by the originating Main session, including in nested task/eval children. They are possibly relevant metadata, not the full guidance or proof of adoption. Read a candidate in full before using it; your own reads belong to your session and are not automatically added to Main's candidates. Enabling `agent.subagentPackCatalog: true` adds only Pack routing metadata, never complete Pack or Practice bodies.
 
+## Successful empty results
+
+- Treat `results: []` as empty only when the query is ready; `preparing`, `indexing`, and errors use the existing recovery path.
+- Use `data.empty` without changing the returned mode or dropping coverage and context warnings; `reason: empty` does not establish a cause.
+- Clarify the decision, constraints, and technology context, then rewrite once. For `corpus-empty`, explain that the current context has no searchable Practices and rewriting cannot add knowledge; do not repeat an unchanged query.
+- Check Packs only when the user explicitly suspects a missing source. Do not run status, install, change configuration, or switch modes automatically; another mode needs user/host policy and an existing retrieval contract (keyword is for explicit offline lookup or semantic-runtime diagnosis).
+
 ## Recover a query or diagnose a failure
 
 Run the default semantic query before checking Backend, model, or index status. If it returns a preparation state, follow [semantic query recovery](references/semantic-query-recovery.md) and retry the same query when ready. Do not silently switch to keyword; use `--mode keyword` only for an intentional offline lookup or semantic-runtime diagnosis.

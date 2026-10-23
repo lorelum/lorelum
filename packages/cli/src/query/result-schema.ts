@@ -32,6 +32,17 @@ const queryHitSchema: JsonSchema = {
 
 const resultsSchema: JsonSchema = { type: "array", items: queryHitSchema };
 
+const emptySchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["reason", "nextAction", "message"],
+  properties: {
+    reason: { enum: ["empty", "corpus-empty"] },
+    nextAction: { const: "refine-query" },
+    message: stringSchema,
+  },
+};
+
 const contextWarningSchema: JsonSchema = {
   type: "object",
   additionalProperties: false,
@@ -96,6 +107,7 @@ export const queryResultSchema: JsonSchema = {
       properties: {
         mode: { const: "keyword" },
         results: resultsSchema,
+        empty: emptySchema,
         context: contextSchema,
       },
     },
@@ -112,6 +124,7 @@ export const queryResultSchema: JsonSchema = {
         totalPracticeCount: { type: "integer" },
         operationId: stringSchema,
         results: resultsSchema,
+        empty: emptySchema,
         context: contextSchema,
       },
     },

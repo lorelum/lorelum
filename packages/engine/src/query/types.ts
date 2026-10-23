@@ -20,6 +20,7 @@ export interface QueryHit {
 export interface QueryResult {
   readonly mode: "keyword";
   readonly results: readonly QueryHit[];
+  readonly emptyReason?: "corpus-empty";
 }
 
 export interface QueryService {

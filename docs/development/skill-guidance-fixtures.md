@@ -46,6 +46,12 @@ Use these scenarios to review the observable behavior of Lorelum's portable and 
 
 **Expected:** use `lore query "idempotency key database uniqueness safe retry" --mode keyword`, identify the result as keyword retrieval, and do not present it as semantic retrieval.
 
+## Successful empty query
+
+**Given:** a ready query returns `results: []` with `data.empty`, while mode, coverage, counts, and context warnings remain part of the result.
+
+**Expected:** treat it as success, clarify the decision, constraints, and technology context, then rewrite once. Keep an unknown cause unknown; if `reason` is `corpus-empty`, explain that rewriting cannot add Practices to the current context. Do not run status, install, change configuration, or switch modes automatically. Check Packs only when the user explicitly suspects a missing source; use another mode only when user/host policy and the existing query contract allow it. Pending and error results continue through their existing recovery path. If the rewrite returns candidates, read any Practice to be used with `lore get <practice-id>`.
+
 ## Unrelated low-risk work
 
 **Given:** the Agent makes an ordinary low-risk edit or response without a material engineering decision.
