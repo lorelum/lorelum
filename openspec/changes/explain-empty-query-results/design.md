@@ -28,7 +28,7 @@ interface EmptyQueryExplanation {
 
 `toQueryResult` 仅在 ready `results.length === 0` 调用它：有标记则 `corpus-empty`，否则 `empty`；内部标记不单独泄漏到 CLI JSON。公开 schema 同步该对象。沿用原 context 类型，不复制 warning 状态。
 
-message 一次生成成功事实、mode/coverage、来源限制和建议；空 corpus 文案明确改写不会增加 Practice。default text 先显示 message，再保留结果及 warnings；verbose 空结果先显示同一 message，再用原完整 renderer。非空和 pending 渲染不变，JSON 原样输出 data。
+message 一次生成成功事实、mode/coverage、来源限制和建议；空 corpus 文案明确改写不会增加 Practice。default text 先显示 message，再保留结果及 warnings；verbose 空结果先显示同一 message，再用原完整 renderer。非空和 pending 渲染不变，JSON 原样输出 data。建议随本次响应提供，不在 Skill 中重复维护。
 
 ## Verification
 

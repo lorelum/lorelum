@@ -6,7 +6,7 @@
 
 - 仅 ready 空结果增加 `empty`；text 先说明查询成功，再给已知边界和一次改写建议。
 - 原因只按本次事实判断，保留 mode、coverage 和 context warnings；不额外探测、扫库或切换模式。
-- 同步官方 Skills 和英中文档。产品流程见 [product](./product.md)，实现位置见 [design](./design.md)。
+- 更新 CLI 参考及英中文档；下一步建议由查询响应自身提供，不修改 Skill。产品流程见 [product](./product.md)，实现位置见 [design](./design.md)。
 
 ## Capabilities
 
@@ -17,7 +17,6 @@
 ### Modified Capabilities
 
 - `retrieval-query`：成功空结果的说明、字段与回归边界。
-- `agent-integration`：消费说明，不盲目诊断或 fallback。
 
 ## Impact
 
