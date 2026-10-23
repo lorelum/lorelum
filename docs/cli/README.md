@@ -38,6 +38,8 @@ lore pack list --details --json
 
 ## 版本更新结果
 
+带有效 `LORELUM_HOST_KEY` / `LORELUM_HOST_SESSION_ID` 的成功 semantic `query`、`get`、`list`、`pack.list` 调用可调度异步更新检查；`query --mode keyword` 保持离线，不参与 sidecar。text 响应在完整检索内容之后可附一次固定 Lorelum 提醒，要求 Agent 在任务完成后转告用户；该段不属于命令 `data`。JSON 仍严格遵循下面的原 envelope，不新增通知字段、不追加第二段输出，也不消费提醒记录。未绑定会话、Help/version/discovery、失败及管理命令不参与此入口。状态和冷却的内部所有权见[配置实现说明](../configuration/README.md#自动更新状态)；用户交互见[安装指南](../../apps/site/content/docs/installation.zh.mdx#agent-会话中的自动更新提示)。
+
 `lore update [--channel stable|prerelease] [--apply] --json` 使用普通 CLI envelope，`command` 为 `update`。成功时的 `data` 包含 `currentVersion`、`channel`、`latestVersion`、`status`、`canApply` 和 `releaseNotesUrl`；没有匹配发行版时后两个版本/页面字段为 `null`。`status` 为 `available`、`current`、`ahead`、`no-release` 或 `updated`。只有 `--apply` 安装完成且从新的默认命令入口核对版本成功，才出现 `installedVersion`。
 
 `currentVersion` 和 envelope 的 `toolVersion` 都描述发起命令的 CLI 进程；自更新成功时它们仍是旧版本。判断新安装版本应看 `data.installedVersion`，或另起一次 `lore --version`。`canApply` 表示当前入口是否由默认位置的官方 installer 管理。`--apply` 的安装进度写入 stderr，stdout 只输出一条最终 JSON envelope。

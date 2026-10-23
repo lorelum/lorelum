@@ -54,7 +54,7 @@ The CLI installation does not download the embedding model. Pack installation an
 
 Follow [Quickstart](./quickstart) to install a Pack and run a query. [Configuration](./configuration) covers model paths and download options, including environments that prepare the model in advance.
 
-## Update Lore
+## Update Lorelum
 
 The update command is available in CLI releases that include it. If `lore update` is not recognized, install a release that includes the command first: choose its exact version from [GitHub Releases](https://github.com/lorelum/lorelum/releases), substitute that version in the installer command above, and then follow this section.
 
@@ -67,7 +67,7 @@ lore update
 This checks the channel and release for your platform, then shows the installed version, any newer version, release notes, and the next step. It does not download or install anything, stop the Backend, or change the CLI. For example, a default-installer installation with an available release reports:
 
 ```text
-Lore CLI: <current-version>
+Lorelum: <current-version>
 Channel: prerelease
 Latest available: <newer-version>
 Installation: default Lorelum installer
@@ -76,7 +76,21 @@ Release notes: <release-notes-page>
 Review them, then run: lore update --apply
 ```
 
-Prerelease builds check the prerelease channel by default; stable builds check the stable channel. Choose another channel for this check with `--channel stable` or `--channel prerelease`. Each command checks the published releases again; Lore does not check or install updates in the background. `lore --version` remains a local version check, and `lore pack update` continues to update Packs only.
+Prerelease builds check the prerelease channel by default; stable builds check the stable channel. Choose another channel for this check with `--channel stable` or `--channel prerelease`. Each explicit command checks published releases again rather than using automatic-check results. `lore --version` remains a local version check, and `lore pack update` continues to update Packs only.
+
+### Automatic update notices in Agent sessions
+
+With a supported Plugin, session startup/resume and successful session-associated semantic `query`, `get`, `list`, or `pack list` calls can start a short background release check. Explicit `query --mode keyword` remains offline and does not participate. Your command does not wait for its network request. A later Agent-readable text response or eligible session Hook can include a ready notice; the Agent should finish your task before mentioning it in the final summary. It must not check or install an update just because it received a notice.
+
+Successful checks have a one-hour rolling interval; failures retry no sooner than fifteen minutes, on a later eligible call. These intervals are shared across projects and hosts for the same running version, channel, and platform. No calls means no periodic polling. The first use of a different installed version has fresh check eligibility, even if the previous version checked recently.
+
+Each suggestion, identified by **running version → target version**, is automatically delivered at most once per local user. Ignoring a suggestion does not repeat it in another conversation. A newer target can produce a new suggestion, and updating from `0.1.0` to `0.1.1` can produce a fresh suggestion for `0.1.2`, even if `0.1.2` was mentioned before. Only the latest matching candidate is suggested; missed releases are not replayed.
+
+JSON responses retain their existing schema and never contain extra prompt text; a session-associated JSON call may schedule a check but does not consume a notice. Ordinary terminal/CI calls without a supported host session identity, Help, version, and management commands do not participate. Offline checks and unavailable local update state do not change retrieval results. No automatic notice guarantees that the host or a person has read it, and nothing is installed automatically.
+
+To stop automatic checks and notices, set `updates.autoCheck: false` in the [user configuration](./configuration#automatic-update-checks). Explicit `lore update` and `--apply` remain available regardless of that setting or cooldown.
+
+### Apply an update explicitly
 
 After reviewing the release notes, update a CLI installed by Lorelum's official installer at its default location with:
 
@@ -84,7 +98,7 @@ After reviewing the release notes, update a CLI installed by Lorelum's official 
 lore update --apply
 ```
 
-`--apply` is the explicit instruction to install, so there is no second confirmation prompt. Lore checks for a newer release again, uses the installer included with the current release, verifies the archive, safely stops the existing Backend if needed, switches the default command entry, and checks the version through that new entry. It does nothing when there is no newer version and never downgrades. When it reports success, verify the command in your terminal:
+`--apply` is the explicit instruction to install, so there is no second confirmation prompt. Lorelum checks for a newer release again, uses the installer included with the current release, verifies the archive, safely stops the existing Backend if needed, switches the default command entry, and checks the version through that new entry. It does nothing when there is no newer version and never downgrades. When it reports success, verify the command in your terminal:
 
 During `--apply`, archive download progress (including speed and the percentage when available) and the download-complete line appear on stderr. With `--json`, stdout stays a single final result; a completed download does not mean the update has succeeded.
 

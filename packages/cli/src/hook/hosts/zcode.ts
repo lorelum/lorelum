@@ -1,10 +1,13 @@
 import { sessionRefSchema } from "@lorelum/backend/client";
 import type { Logger } from "@lorelum/log";
-import type { CatalogReader, HookEndpoint, ShellAssociator } from "../types.js";
+import type { AutoUpdatePoller, CatalogReader, HookEndpoint, ShellAssociator } from "../types.js";
+import { readCatalogWithUpdateNotice } from "../services/catalog.js";
 import { readPayload } from "./validation.js";
 
 interface ZcodeSessionStartInput {
   readonly hook_event_name: "SessionStart";
+  readonly session_id?: unknown;
+  readonly source?: unknown;
 }
 
 interface ZcodePreToolUseInput {
@@ -24,19 +27,27 @@ type ZcodeResponse = {
 };
 
 export function createZcodeEndpoint(
-  services: CatalogReader & ShellAssociator,
+  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator,
   platform: NodeJS.Platform,
   log?: Logger,
 ): HookEndpoint {
   async function respond(input: ZcodeInput): Promise<ZcodeResponse> {
     switch (input.hook_event_name) {
-      case "SessionStart":
+      case "SessionStart": {
+        const session = sessionRefSchema.safeParse({
+          hostKey: "zcode",
+          sessionId: input.session_id,
+        });
         return {
           hookSpecificOutput: {
             hookEventName: "SessionStart",
-            additionalContext: await services.readCatalog(),
+            additionalContext: await readCatalogWithUpdateNotice(
+              services,
+              session.success && (input.source === "startup" || input.source === "resume"),
+            ),
           },
         };
+      }
       case "PreToolUse": {
         if (input.tool_name !== "Bash") return {};
         if (platform !== "darwin" && platform !== "linux" && platform !== "win32") return {};

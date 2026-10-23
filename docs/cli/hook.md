@@ -28,6 +28,12 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | lore hook zcode --store-root /absolute/path/to/isolated-store
 ```
 
+## 自动版本提醒
+
+原生 Codex、Claude Code、WorkBuddy、ZCode 的 `SessionStart` 若含有效 `session_id` 且 `source` 为 `startup` 或 `resume`，可在成功读取 Catalog 后调用本地 update sidecar。Cursor 的原生 `sessionStart` 沿用字符串 `session_id` 优先、否则 `conversation_id` 的身份规则。缺失身份、其他来源、compact 和所有工具/子 Agent Hook 保持原路径。sidecar 只读用户级状态并按需启动独立 worker，不能在 Hook 中等待发行网络。
+
+已就绪的提醒作为 Catalog 之外的独立段落附到原宿主 context 字符串，不增加宿主未知 JSON 字段。Catalog 保留 4000 字符预算，提醒最多 400 字符，加分隔最多 4402 字符。更新配置/状态失败只略过提醒，不丢成功 Catalog，不增加 stderr 更新警告；Catalog 自身失败仍按原降级。该 ABI 不提供送达确认，不能据此声称人类已阅读。
+
 ## omp extension bridge
 
 `lore hook omp` 供 omp 的 TypeScript extension 调用，接收 Lorelum bridge 请求而非宿主原生 Hook envelope：
@@ -39,6 +45,10 @@ printf '%s\n' '{"event":"catalog"}' | lore hook omp
 成功 stdout 为单行 `{"additionalContext":"<Catalog>"}`。Catalog 复用共享检索与渲染，最多 4000 字符，字段和数据边界与上述 SessionStart Catalog 相同；不会自动 query/get 或启动模型/Backend。
 
 Catalog 请求可带 `agentKind: "main" | "sub"`，省略保持 main 语义。主 Agent 始终有 Catalog；子请求显式传 `sub`，由 CLI 独立读取 `~/.lorelum/config.yaml` 的布尔项 `agent.subagentPackCatalog`（默认 false）。缺省/false 正常返回 `{}` 且不读取 Store，不是故障；true 复用既有 renderer，只额外提供 Pack 目录 metadata，不含完整 Pack 或 Practice 正文。extension 不直接读配置文件。下一次子 Agent Catalog bridge 调用读取设置；新子 Agent 或下一次会话/compact 刷新采用新值，同一生命周期普通请求仍复用快照，无需重启 Backend。开关不影响 read-hints。
+
+明确 Main 的新建／恢复／实际会话切换刷新可发送 `{"event":"catalog","agentKind":"main","sessionId":"<实际会话 ID>","checkUpdates":true}`。CLI 只在主身份、有效 ID 与 true 都满足时访问自动 sidecar，可在既有 `additionalContext` 之外返回可选 `updateNotice` 字符串（最多 400 字符）。旧请求保持 Catalog-only，sub 或无效更新字段不触发更新，也不损害原本有效的 Catalog。extension 使用当前 Main 的 sessionManager ID，不使用子 Agent 来源 Main 的 ID；相同 ID 的 compact/tree/branch 刷新不获得新资格。
+
+`updateNotice` 只在当前 generation 的一次自然模型请求中临时提供，不进入逐请求复用的 Catalog metadata 快照或持久 transcript；并发 context 只消费一次，失效/取消清空，晚到结果不注入其他会话。新 extension 的扩展 main 请求若收到 exit 0、合法单行精确 `{}`，最多一次退回旧 catalog 请求形状，兼容旧 CLI 的严格字段白名单；不将 `{}` 判定为确定旧版本。超时、取消、非零退出或畸形响应不回退，不逐模型请求重试。旧 extension 调用新 CLI 不会意外消费提醒。
 
 坏 JSON、不支持 event 或 Store 读取失败时输出单行 `{}`，以退出码 0 结束，诊断写 stderr，前缀为 `lore hook omp degraded: `。有效空 Store 返回明确的空 Catalog，不把错误当作没有 Pack。非法 argv 保持普通 CLI 用法错误；`--store-root` 和 `--debug` 沿用既有参数规则。
 

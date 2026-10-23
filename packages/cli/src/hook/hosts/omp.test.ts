@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -74,6 +74,110 @@ describe("lore hook omp source entry", () => {
     expect(response.additionalContext).toContain("Engineering guidance.");
     expect(response.additionalContext).not.toContain("/private/metadata-only");
     expect(response.additionalContext).not.toContain("0.1.0");
+  });
+
+  test("checks updates only for an explicit main request with a valid identity", async () => {
+    const poll = mock(async (_deliver: boolean) => "A Lorelum update is available.");
+    const result = await invoke(
+      JSON.stringify({
+        event: "catalog",
+        agentKind: "main",
+        sessionId: "actual-session",
+        checkUpdates: true,
+      }),
+      {
+        list: { listPackDetails: async () => details },
+        storageRoot: { rootPath: "/selected-store" },
+        autoUpdate: { poll },
+      },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(poll).toHaveBeenCalledTimes(1);
+    expect(poll).toHaveBeenCalledWith(true);
+    expect(JSON.parse(result.stdout)).toEqual({
+      additionalContext: expect.stringContaining("Engineering guidance."),
+      updateNotice: "A Lorelum update is available.",
+    });
+  });
+
+  test.each([
+    ["omitted agentKind", { event: "catalog", sessionId: "actual-session", checkUpdates: true }],
+    [
+      "sub with invalid auto fields",
+      { event: "catalog", agentKind: "sub", sessionId: 7, checkUpdates: true },
+    ],
+    [
+      "main with invalid sessionId",
+      { event: "catalog", agentKind: "main", sessionId: "", checkUpdates: true },
+    ],
+    [
+      "main without explicit opt-in",
+      { event: "catalog", agentKind: "main", sessionId: "actual-session", checkUpdates: false },
+    ],
+    [
+      "main with non-boolean opt-in",
+      { event: "catalog", agentKind: "main", sessionId: "actual-session", checkUpdates: "true" },
+    ],
+  ] as const)("keeps Catalog behavior and skips polling for %s", async (_label, request) => {
+    const poll = mock(async () => "must not appear");
+    const result = await invoke(JSON.stringify(request), {
+      list: { listPackDetails: async () => details },
+      storageRoot: { rootPath: "/selected-store" },
+      subagentPackCatalog: async () => true,
+      autoUpdate: { poll },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).additionalContext).toContain("Engineering guidance.");
+    expect(result.stdout).not.toContain("must not appear");
+    expect(poll).toHaveBeenCalledTimes(0);
+  });
+
+  test("keeps a successful Catalog if auto-update polling rejects", async () => {
+    const poll = mock(async () => {
+      throw new Error("auto-check unavailable");
+    });
+    const result = await invoke(
+      JSON.stringify({
+        event: "catalog",
+        agentKind: "main",
+        sessionId: "actual-session",
+        checkUpdates: true,
+      }),
+      {
+        list: { listPackDetails: async () => details },
+        storageRoot: { rootPath: "/selected-store" },
+        autoUpdate: { poll },
+      },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).additionalContext).toContain("Engineering guidance.");
+  });
+
+  test("does not poll when the Catalog itself is unavailable", async () => {
+    const poll = mock(async () => "not delivered");
+    const result = await invoke(
+      JSON.stringify({
+        event: "catalog",
+        agentKind: "main",
+        sessionId: "actual-session",
+        checkUpdates: true,
+      }),
+      {
+        list: {
+          async listPackDetails() {
+            throw new Error("Store unavailable");
+          },
+        },
+        storageRoot: { rootPath: "/broken-store" },
+        autoUpdate: { poll },
+      },
+    );
+    expect(result.stdout).toBe("{}\n");
+    expect(result.stderr).toContain("Store unavailable");
+    expect(poll).toHaveBeenCalledTimes(0);
   });
 
   test("uses the shared 4000-character budget, ordering and deduplication", async () => {
@@ -425,7 +529,7 @@ describe("omp role-scoped Pack Catalog", () => {
     { event: "catalog", agentKind: false },
     { event: "catalog", agentKind: 1 },
     { event: "catalog", agentKind: "child" },
-    { event: "catalog", agentKind: "sub", sessionId: "parent" },
+    { event: "catalog", agentKind: "sub", extra: "not part of the bridge contract" },
     { event: "shell", agentKind: "sub", sessionId: "child", command: "lore get retry" },
     { event: "read-hints", agentKind: "sub", sessionId: "parent" },
   ])("strictly rejects role misuse %j before services", async (payload) => {

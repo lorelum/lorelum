@@ -14,7 +14,12 @@ export interface BridgeExecution {
 }
 
 export type BridgeRequest =
-  | { event: "catalog"; agentKind: "main" | "sub" }
+  | {
+      event: "catalog";
+      agentKind: "main" | "sub";
+      sessionId?: string;
+      checkUpdates?: boolean;
+    }
   | { event: "shell"; sessionId: string; command: string }
   | { event: "read-hints"; sessionId: string };
 

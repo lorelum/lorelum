@@ -13,6 +13,10 @@ export interface CatalogReader {
   readCatalog(): Promise<string>;
 }
 
+export interface AutoUpdatePoller {
+  poll(deliver: boolean): Promise<string | undefined>;
+}
+
 export interface ShellAssociator {
   associateShell(input: {
     readonly session: SessionRef;
