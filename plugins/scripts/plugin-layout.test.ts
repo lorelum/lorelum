@@ -96,6 +96,34 @@ function assertMarketplaceVersion(
   }
 }
 
+test("omp keeps its marketplace version aligned with its own package", async () => {
+  const root = join(import.meta.dir, "../..");
+  const manifest = JSON.parse(
+    await readFile(join(root, "plugins/omp/lorelum/package.json"), "utf8"),
+  ) as NativeManifest;
+  const marketplace = JSON.parse(
+    await readFile(join(root, ".omp-plugin/marketplace.json"), "utf8"),
+  ) as {
+    readonly name: string;
+    readonly plugins: readonly {
+      readonly name: string;
+      readonly source: string;
+      readonly version?: string;
+    }[];
+  };
+
+  expect(marketplace.name).toBe("lorelum-plugins");
+  expect(marketplace.plugins).toHaveLength(1);
+  const entry = marketplace.plugins[0]!;
+  expect(entry.name).toBe(productId);
+  assertHostPluginIdentity({
+    hostKey: "omp",
+    manifestName: manifest.name,
+    source: entry.source,
+  });
+  assertMarketplaceVersion(entry.version, manifest.version);
+});
+
 test("host adapters use a stable product ID and host-specific source roots", async () => {
   const root = join(import.meta.dir, "../..");
   const [

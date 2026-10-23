@@ -6,6 +6,58 @@ Silicon, Linux x64, and Windows x64 archives before it creates a **draft** GitHu
 Publishing, checksums, and the supported installer smoke are separate gates; do not describe a
 queued run, an Actions artifact, or an unpublished draft as released or installable.
 
+## Version preparation and review
+
+Select only the artifacts in the candidate, using independent SemVer values without a leading `v`.
+Selectors: `--cli`, `--codex`, `--zcode`, `--cursor`, `--workbuddy`, `--claude`, `--omp`.
+
+```sh
+bun run release:version prepare --cli 0.1.0-alpha.7 --codex 0.1.0-alpha.8 --dry-run
+bun run release:version prepare --cli 0.1.0-alpha.7 --codex 0.1.0-alpha.8
+bun run release:version check
+git diff
+```
+
+`--dry-run` lists old/new versions and exact files without writing; preview is optional. Review the
+diff and `check` output before preparing the PR. For a Plugin-only candidate, select only that host:
+
+```sh
+bun run release:version prepare --zcode 0.2.0
+```
+
+A Plugin-only release uses the host's existing distribution and verification path; it does not
+require a CLI version change, the CLI Release workflow, or a public CLI recommendation update.
+
+`apps/site/content/public-release.json` owns the public CLI install recommendation, independently of
+source versions. Bilingual installation and Agent pages use `<CliInstall platform="unix" />` or
+`windows` to generate concrete commands for pages, copy buttons, and `agents.md`; do not repeat the
+version in their prose or in README files.
+
+After a CLI Release is public and its supported installer smoke passes, explicitly update the
+recommendation if it should become the documented target:
+
+```sh
+bun run release:version docs --cli 0.1.0-alpha.7
+git diff -- apps/site/content/public-release.json
+```
+
+`docs` also supports `--dry-run` and only changes the recommendation, not manifests. It does not
+verify remote availability, publish, or deploy. Review and merge this one-file change, manually
+deploy the site, then confirm the installation pages and `agents.md`. The offline `check` checks
+registered relationships and recommendation format without network requests or a site build.
+
+For rollback, review the diff for the exact paths printed by the command, then select only its hunks:
+
+```sh
+git restore -p -- packages/cli/package.json bun.lock
+```
+
+Do not restore whole files containing other edits. Repeated targets leave files unchanged; invalid
+input, missing fields, and mismatched originals fail before writing and name the affected argument
+or file. A write failure attempts to restore every attempted file and reports restoration failures.
+After forced termination or failed restoration, inspect the exact-path diff and selectively revert
+this operation before retrying; there is no cross-file crash transaction.
+
 ## Release-note coverage
 
 Before the version-preparation PR is ready for review, take the **complete commit range from the
@@ -45,13 +97,16 @@ published notes.
 
 ## Normal prerelease path
 
-1. Merge the version-preparation PR only after its checks pass and its release-note coverage has been
-   reviewed against the full range above. Confirm that `origin/main` contains the intended CLI
-   version, release notes, every public Plugin/marketplace version surface, and user documentation.
+1. Prepare only the CLI and/or Plugin versions that belong in this candidate. Run
+   `bun run release:version check`, review the selected changes with `git diff`, and complete the
+   release-note coverage review against the full range above. Merge the version-preparation PR only
+   after its checks pass. Confirm that `origin/main` contains the intended selected versions,
+   release notes, every relevant public Plugin/marketplace version surface, and user documentation.
 2. In GitHub Actions, manually run **Deploy site** from the verified `main` commit. Confirm that the
    run succeeded, its commit SHA is the intended merged commit, and the release-related documentation
-   is live on the site. Merging to `main` does not deploy the site. See the
-   [site deployment workflow](./site-deploy.md) for deployment details.
+   is live on the site. This deployment still recommends the previous public CLI version until the
+   post-release recommendation is deliberately changed. Merging to `main` does not deploy the site.
+   See the [site deployment workflow](./site-deploy.md) for deployment details.
 3. In GitHub Actions, manually run **Release** from that same `main` commit. If `main` has moved since
    the site deployment, reconcile the release-note range and repeat the deployment for the selected
    commit before continuing. Turn on **Create the
@@ -76,6 +131,11 @@ published notes.
 6. Change the verified draft to a published prerelease, then use the public installer in an isolated
    temporary directory and confirm the installed `lore --version` reports that exact version. Only
    after this smoke may a release be described as publicly available or installable.
+7. If this CLI version should become the documented install target, run the explicit `docs --cli`
+   update from the version-preparation section only after the public-release smoke succeeds. Review
+   and merge that recommendation-only change, then manually run **Deploy site** from the merged
+   commit. This second deployment updates the recommended install command; it does not rerun Release,
+   move the tag, or rebuild the published assets. Skip this step for a Plugin-only release.
 
 ## Build-only candidates
 
