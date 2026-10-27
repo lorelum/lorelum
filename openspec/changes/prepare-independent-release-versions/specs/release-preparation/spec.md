@@ -41,16 +41,16 @@
 
 `prepare` MUST 不推进公开安装推荐。仓库 SHALL 以单一公开推荐数据保存文档所用的 CLI 版本，并提供独立的 `docs --cli <version>` 只更新该推荐值，MUST 不逐页修改文档或更新 manifest。该动作 SHALL 要求维护者显式指定公开目标，MUST 不从源码版本推断默认值。公开推荐 SHALL 允许不同于源码版本。
 
-维护者流程 MUST 将 `docs` 安排在公开发布及支持安装路径 smoke 之后。此命令 SHALL 只承诺本地文档同步，不自动查证发布/安装状态，不发布或部署，也不将本地成功报告为已公开可安装。
+CLI 发版需要更新推荐时，维护者流程 MUST 在版本准备时执行 `docs`，将推荐与产物版本、发布说明放在同一个 PR；MUST NOT 以公开发布或安装 smoke 为此编辑的前提，也不得要求发布后再开推荐专用 PR 或仅为版本再部署一次站点。此命令 SHALL 只承诺本地文档同步，不自动查证发布/安装状态，不发布或部署，也不将本地成功报告为已公开可安装。发行包校验和公开安装验证 SHALL 保留在既有发布流程中，不阻塞文档准备。
 
-#### Scenario: The next candidate is not yet published
+#### Scenario: CLI and documentation are prepared together
 
-- **WHEN** 源码准备了新 CLI 版本，尚未执行公开推荐更新
-- **THEN** 公开文档 MUST 保持原有安装目标，且本地一致性检查 MUST 允许候选版本领先于公开推荐
+- **WHEN** 维护者为 CLI release 执行 `prepare` 和 `docs --cli <目标版本>`，该版本尚未公开或完成安装 smoke
+- **THEN** 推荐与产物版本 SHALL 可在同一个 PR 中准备，检查 MUST 不要求远端发布状态；站点只需按正常部署流程发布一次对应文档
 
-#### Scenario: A published version is recommended while source is ahead
+#### Scenario: An explicit recommendation differs from source
 
-- **WHEN** 维护者已公开并完成目标版本的安装 smoke，显式执行 `docs --cli <该版本>`，而源码已在准备另一版本
+- **WHEN** 维护者显式执行 `docs --cli <目标版本>`，而源码已在准备另一版本
 - **THEN** 工具 SHALL 只将单一公开推荐值更新至显式目标，不改动源码 manifest 或文档正文
 
 ### Requirement: Shared concrete installation content
@@ -118,4 +118,4 @@
 #### Scenario: A developer discovers the release command
 
 - **WHEN** 开发者从根 `AGENTS.md` 查找版本准备方法
-- **THEN** 其 SHALL 能识别版本准备、发布后推荐推进与离线检查的入口，并沿链接找到与已实现命令一致的完整用法及回退说明
+- **THEN** 其 SHALL 能识别产物与文档在同一次发布准备中的入口及离线检查，并沿链接找到与已实现命令一致的完整用法及回退说明

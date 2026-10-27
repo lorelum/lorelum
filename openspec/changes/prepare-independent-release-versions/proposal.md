@@ -8,7 +8,7 @@
 
 - 提供 `bun run release:version`，用 `prepare` 显式选择 CLI 和/或宿主及目标版本；未选择的发布物不变。
 - 支持仓库已有的 `codex`、`zcode`、`cursor`、`workbuddy`、`claude`、`omp`，版本仍由各自原生 manifest 定义；只同步本发布物必要的派生字段。
-- 用一份 `apps/site/content/public-release.json` 保存公开 CLI 安装推荐；独立的 `docs --cli <version>` 在公开发布、安装 smoke 后只更新这个值，`prepare` 不更新它。
+- 用一份 `apps/site/content/public-release.json` 保存公开 CLI 安装推荐；独立的 `docs --cli <version>` 只更新这个值，`prepare` 不更新它。CLI 发版时两个动作在同一次准备中执行，产物版本、推荐和说明合入同一个 PR，不要求发布后补改。
 - 站点双语 installation、agents 复用 `<CliInstall platform="unix" />` / `windows` 安装内容，在 Markdown 编译阶段生成具体代码块，使网页、复制命令和 `agents.md` 使用同一结果。README 和 Quickstart 不再写当前版本，README 安装段落改为安装指南入口。
 - 两种更新支持 `--dry-run`，并提供离线 `check`；检查完成后才写文件，失败明确列出文件与恢复方式。
 - 测试断言版本关系与更新结果，不把协议样例、升级旧版本和历史记录当成当前版本位置。
@@ -18,7 +18,7 @@
 
 ### New Capabilities
 
-- `release-preparation`：维护者按发布物独立准备版本、检查一致性，并在发布后显式推进公开安装推荐。
+- `release-preparation`：维护者按发布物独立准备版本、检查一致性，并在同一个发布 PR 中显式准备安装推荐。
 
 ### Modified Capabilities
 

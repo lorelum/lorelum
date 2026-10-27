@@ -2,7 +2,7 @@
 
 ## 推荐用法
 
-维护者只需要记住一个入口：`bun run release:version`。发布前用 `prepare` 选择版本，发布后需要更换公开安装推荐时用 `docs`；`check` 随时检查本地一致性。以下是拟议用法，版本号仅用于说明，不表示相应版本已公开。
+维护者只需要记住一个入口：`bun run release:version`。CLI 发版时用 `prepare` 选择产物版本、用 `docs` 设置安装推荐，把两者和发布说明一起放进同一个 PR；`check` 随时检查本地一致性。版本号仅用于说明，不表示相应版本已公开。
 
 ### 只更新 CLI 和 Codex
 
@@ -28,13 +28,14 @@ Codex  0.1.0-alpha.6 -> 0.1.0-alpha.8
 
 ```sh
 bun run release:version prepare --cli 0.1.0-alpha.7 --codex 0.1.0-alpha.8
+bun run release:version docs --cli 0.1.0-alpha.7
 bun run release:version check
 git diff
 ```
 
 CLI 与 Codex 可以使用不同目标版本。ZCode、Cursor、WorkBuddy、Claude Code、omp 的文件不变；Codex marketplace 没有对应 version 字段，因此不写它。协议版本、独立 golden fixture、历史升级样例和 release notes 不跟着替换。测试从 manifest 读取当前实现版本，不要求维护者更新测试中的字面值。
 
-工具不提交代码、不生成 release notes、不替代发布准备 PR。版本准备通过检查、审阅后，仍沿现有流程由维护者触发站点部署和 Release、检查 draft、人工公开、运行安装 smoke。发布前部署的站点可以包含功能说明，但安装推荐仍指向上一个公开可用版本。
+工具不提交代码、不生成 release notes、不替代发布准备 PR。版本准备通过检查、审阅后，维护者触发 Release、检查 draft、人工公开、运行安装 smoke；站点从同次准备的文档部署一次即可，可与发行包构建并行，不要求先部署旧推荐再补新推荐。
 
 ### 只更新一个宿主
 
@@ -46,9 +47,9 @@ bun run release:version prepare --zcode 0.2.0
 
 Plugin-only 准备不要求发布 CLI，也不要求运行 CLI Release workflow；发布渠道和宿主安装/更新验证仍由各自既有流程负责，不更新公开 CLI 推荐。
 
-### 发布后更新公开安装推荐
+### 同次准备安装推荐
 
-新 CLI 已公开且支持的安装路径 smoke 成功后，执行：
+在发布准备中执行，无需等待公开发布或安装 smoke：
 
 ```sh
 bun run release:version docs --cli 0.1.0-alpha.7 --dry-run
@@ -57,11 +58,11 @@ bun run release:version check
 git diff
 ```
 
-工具只更新 `apps/site/content/public-release.json` 的 `cli` 字段，显示旧/新推荐版本和文件名，不逐页编辑文档正文。它不更新 manifest，不要求源码版本等于推荐版本：即使源码已在准备 alpha.8，也可以推荐刚公开并通过 smoke 的 alpha.7。
+工具只更新 `apps/site/content/public-release.json` 的 `cli` 字段，显示旧/新推荐版本和文件名，不逐页编辑文档正文。它不更新 manifest，不要求源码版本等于推荐版本：即使源码已在准备 alpha.8，也可以显式推荐 alpha.7。
 
-`docs` 是维护者主动推进推荐的操作，工具只检查本地文档一致性，不联网推断发布进度，也不宣称自己验证了可安装性。发布并完成 smoke 是本操作的流程前提，不增加新的确认参数。公开推荐可以继续停留在旧版本；无需每个 Plugin 更新后执行它。
+`docs` 是维护者显式设置推荐的操作，工具只检查本地文档一致性，不联网推断发布进度，也不宣称自己验证了可安装性。它与 `prepare` 职责独立，不代表必须分阶段或分 PR；公开发布和 smoke 不是文档编辑的前提。无需每个 Plugin 更新后执行它。
 
-推荐数据改动仍需正常审阅合并，并手动部署站点；命令成功只表示本地文件更新成功，不表示网页已上线。已公开版本的 GitHub Release 说明沿用精确版本安装命令，不随下一次准备而改变。
+推荐数据与产物版本一起正常审阅合并，并手动部署一次站点；命令成功只表示本地文件更新成功，不表示网页已上线。发行包校验和公共安装 smoke 仍验证真正的产物，不要求发布后再改推荐、开第二个 PR 或重复部署。已公开版本的 GitHub Release 说明沿用精确版本安装命令，不随下一次准备而改变。
 
 ## 文档作者怎么写
 

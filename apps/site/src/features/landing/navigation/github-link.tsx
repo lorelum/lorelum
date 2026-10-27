@@ -1,7 +1,7 @@
 import { Star } from "lucide-react";
 import { gitConfig } from "@/shared/config/git";
 
-const starCount = 28;
+const starCount = 30;
 
 /** Official GitHub mark; brand icons are not substituted with generic icons. */
 export function GitHubLink() {

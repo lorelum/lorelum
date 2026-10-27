@@ -14,6 +14,7 @@ Selectors: `--cli`, `--codex`, `--zcode`, `--cursor`, `--workbuddy`, `--claude`,
 ```sh
 bun run release:version prepare --cli 0.1.0-alpha.7 --codex 0.1.0-alpha.8 --dry-run
 bun run release:version prepare --cli 0.1.0-alpha.7 --codex 0.1.0-alpha.8
+bun run release:version docs --cli 0.1.0-alpha.7
 bun run release:version check
 git diff
 ```
@@ -33,8 +34,8 @@ source versions. Bilingual installation and Agent pages use `<CliInstall platfor
 `windows` to generate concrete commands for pages, copy buttons, and `agents.md`; do not repeat the
 version in their prose or in README files.
 
-After a CLI Release is public and its supported installer smoke passes, explicitly update the
-recommendation if it should become the documented target:
+For a CLI release that becomes the documented install target, update the recommendation during
+version preparation and include it in the same release PR:
 
 ```sh
 bun run release:version docs --cli 0.1.0-alpha.7
@@ -42,8 +43,9 @@ git diff -- apps/site/content/public-release.json
 ```
 
 `docs` also supports `--dry-run` and only changes the recommendation, not manifests. It does not
-verify remote availability, publish, or deploy. Review and merge this one-file change, manually
-deploy the site, then confirm the installation pages and `agents.md`. The offline `check` checks
+verify remote availability, publish, or deploy. Do not wait for publication or installer smoke to
+prepare this edit, open a separate recommendation-only PR, or require a second site deployment just
+to change the version. The offline `check` checks
 registered relationships and recommendation format without network requests or a site build.
 
 For rollback, review the diff for the exact paths printed by the command, then select only its hunks:
@@ -97,28 +99,27 @@ published notes.
 
 ## Normal prerelease path
 
-1. Prepare only the CLI and/or Plugin versions that belong in this candidate. Run
+1. Prepare only the CLI and/or Plugin versions that belong in this candidate. Include the intended
+   CLI install recommendation and affected documentation in the same PR. Run
    `bun run release:version check`, review the selected changes with `git diff`, and complete the
    release-note coverage review against the full range above. Merge the version-preparation PR only
    after its checks pass. Confirm that `origin/main` contains the intended selected versions,
    release notes, every relevant public Plugin/marketplace version surface, and user documentation.
-2. In GitHub Actions, manually run **Deploy site** from the verified `main` commit. Confirm that the
-   run succeeded, its commit SHA is the intended merged commit, and the release-related documentation
-   is live on the site. This deployment still recommends the previous public CLI version until the
-   post-release recommendation is deliberately changed. Merging to `main` does not deploy the site.
-   See the [site deployment workflow](./site-deploy.md) for deployment details.
-3. In GitHub Actions, manually run **Release** from that same `main` commit. If `main` has moved since
-   the site deployment, reconcile the release-note range and repeat the deployment for the selected
-   commit before continuing. Turn on **Create the
+2. In GitHub Actions, manually run **Release** from the verified `main` commit. If the candidate has
+   moved, reconcile the release-note range before dispatch. Turn on **Create the
    annotated version tag and verified prerelease draft**, and enter the new `v<CLI version>` value
    in `tag` (for example, `v0.1.0-alpha.5`). Confirm the selected ref and SHA before dispatch: the
    workflow builds that SHA and checks the tag against `packages/cli/package.json`. Do not create or
    push a tag or create a GitHub Release yourself; the Action owns both steps.
-4. Wait for all three build jobs and the `draft · GitHub prerelease` job to complete. After the
+   Manually run **Deploy site** once for the release documentation from the intended merged commit;
+   it may run alongside the Release build, without waiting for publication or installer smoke.
+   Merging to `main` does not deploy the site. See the
+   [site deployment workflow](./site-deploy.md) for deployment details.
+3. Wait for all three build jobs and the `draft · GitHub prerelease` job to complete. After the
    archives and metadata pass SHA-256 verification, the workflow creates and pushes an annotated tag
    at the packaged commit, then creates a prerelease **draft** with seven assets. If a tag or Release
    already exists, do not rerun the normal draft path or move the tag; inspect the existing state.
-5. Read the draft back before publication. Confirm its tag and target commit, `isDraft: true`,
+4. Read the draft back before publication. Confirm its tag and target commit, `isDraft: true`,
    `isPrerelease: true`, exactly these assets, and the expected checksums:
 
    - `lore-<version>-darwin-arm64.tar.gz` and `.metadata.json`
@@ -126,16 +127,16 @@ published notes.
    - `lore-<version>-win32-x64.zip` and `.metadata.json`
    - `SHA256SUMS`
 
-   Check the release-note links as a reader would and verify the linked site sections are live.
+   Check the release-note URLs against the intended documentation. Site deployment is not a
+   prerequisite for creating or publishing the release draft.
 
-6. Change the verified draft to a published prerelease, then use the public installer in an isolated
+5. Change the verified draft to a published prerelease, then use the public installer in an isolated
    temporary directory and confirm the installed `lore --version` reports that exact version. Only
    after this smoke may a release be described as publicly available or installable.
-7. If this CLI version should become the documented install target, run the explicit `docs --cli`
-   update from the version-preparation section only after the public-release smoke succeeds. Review
-   and merge that recommendation-only change, then manually run **Deploy site** from the merged
-   commit. This second deployment updates the recommended install command; it does not rerun Release,
-   move the tag, or rebuild the published assets. Skip this step for a Plugin-only release.
+6. Confirm the site deployment succeeded for the intended commit, the release-note links work, and
+   the bilingual installation pages and `agents.md` show the prepared recommendation. This is
+   deployment verification, not another version edit, PR, or deployment. Skip site deployment when
+   a Plugin-only release has no site changes.
 
 ## Build-only candidates
 

@@ -63,3 +63,14 @@ Release workflow、安装器、资产命名实现及独立历史 fixture 均没�
 
 本次没有构建三平台发行包、执行公开安装器、发布 Release、打 tag、部署、commit 或 push。
 这些操作不是验证本地维护工具的必要条件，仍遵循既有发布授权边界。
+
+## 2026-10-27 发布流程删减
+
+维护者要求将安装推荐与产物版本放在同一个发布 PR 中，删除公开发布及安装 smoke 后才允许编辑推荐的前提，以及额外推荐 PR、二次站点部署和站点先于 Release 的顺序要求。已同步 proposal、product、design、spec、tasks、根 AGENTS、发布手册及 alpha.7 release notes；未修改版本工具或发布 workflow 的实现。
+
+- 真实执行 `bun run release:version docs --cli 0.1.0-alpha.7`，只更新公开推荐 JSON；`bun run release:version check` 通过。
+- 版本工具与安装内容转换测试：16 pass、0 fail；本 change 的 OpenSpec strict 校验通过。
+- `bun run build:site` 通过。构建产物的英中 installation HTML 和 `agents.md` 均包含 alpha.7 的 Unix、PowerShell 精确版本命令，没有未展开的 `CliInstall`。
+- 独立 Sol medium 审查无发现：文档流程一致，原有资产/校验和、draft 回读、tag 不可变、人工发布及公共安装 smoke 均保留。
+
+本次验证不要求重建未改变的 CLI/native；公开安装 smoke 仍验证实际发布资产，不作为文档准备的前提。

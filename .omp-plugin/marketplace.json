@@ -5,7 +5,7 @@
     {
       "name": "lorelum",
       "source": "./plugins/omp/lorelum",
-      "version": "0.1.0-alpha.6",
+      "version": "0.1.0-alpha.7",
       "description": "Lorelum Pack Catalog and retrieval Skill for omp"
     }
   ]
