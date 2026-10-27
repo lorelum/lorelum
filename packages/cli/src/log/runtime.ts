@@ -1,10 +1,11 @@
 import {
   defaultLogDirectory,
   loadConfig,
-  loadLoggingSettings,
+  resolveLoggingSettings,
   resolveLorelumPaths,
   type ConfigDocument,
   type ConfigReader,
+  type ConfigFailure,
 } from "@lorelum/config";
 import {
   createLogger,
@@ -22,6 +23,7 @@ import { join, resolve } from "node:path";
 
 import { CliStderrLogSink } from "../runtime/diagnostics.js";
 import { Logger } from "../runtime/logger.js";
+import { isSameDocumentFailure, loggingFallbackNotice } from "./config-fallback.js";
 
 export interface ProcessLogRuntime {
   readonly logger: Logger;
@@ -29,7 +31,7 @@ export interface ProcessLogRuntime {
   readonly diagnostics: LogEmitter;
   readonly logDirectory: string;
   readonly readConfig: ConfigReader;
-  flush(): Promise<void>;
+  flush(options?: { readonly terminalConfigFailure?: ConfigFailure | undefined }): Promise<void>;
 }
 
 function daySegment(now = new Date()): string {
@@ -40,19 +42,6 @@ function logFile(root: string, source: "cli" | "hook", traceId: TraceId, host?: 
   return source === "hook"
     ? join(root, "hooks", host ?? "unknown", daySegment(), `${traceId}.jsonl`)
     : join(root, "cli", daySegment(), `${traceId}.jsonl`);
-}
-
-async function configuredLevel(
-  debug: boolean,
-  readConfig: ConfigReader,
-): Promise<"error" | "warn" | "info" | "debug"> {
-  if (debug) return "debug";
-  try {
-    return (await loadLoggingSettings({}, readConfig)).level;
-  } catch {
-    // A malformed optional logging section must not prevent normal CLI recovery.
-    return "info";
-  }
 }
 
 /**
@@ -86,7 +75,8 @@ export async function createProcessLogRuntime(
   const source = options.source ?? "cli";
   let document: Promise<ConfigDocument> | undefined;
   const readConfig: ConfigReader = () => (document ??= loadConfig());
-  const level = await configuredLevel(options.debug, readConfig);
+  const logging = await resolveLoggingSettings({ debug: options.debug, readConfig });
+  const level = logging.effectiveLevel;
   const rootDirectory = options.rootDirectory ?? defaultLogDirectory();
   const trustedDirectory =
     options.rootDirectory === undefined ? resolveLorelumPaths().rootDirectory : rootDirectory;
@@ -114,6 +104,17 @@ export async function createProcessLogRuntime(
     context: { traceId },
     sinks: fileSink === undefined ? [] : [fileSink],
   });
+  if (logging.kind === "fallback") {
+    log.warn("logging.level-fallback", {
+      cause: logging.cause.kind,
+      ...(logging.cause.kind === "config" && logging.cause.error.failure !== undefined
+        ? { failure: logging.cause.error.failure }
+        : {}),
+      fallbackLevel: logging.fallbackLevel,
+      effectiveLevel: logging.effectiveLevel,
+    });
+  }
+  let flushed = false;
   if (fileSink !== undefined) void pruneManagedLogs({ rootDirectory }).catch(() => undefined);
   return {
     logger: stderrLogger,
@@ -121,8 +122,24 @@ export async function createProcessLogRuntime(
     diagnostics,
     logDirectory: rootDirectory,
     readConfig,
-    flush: async () => {
+    flush: async (flushOptions = {}) => {
       await fileSink?.close();
+      if (flushed) return;
+      flushed = true;
+      const fallbackFailure =
+        logging.kind === "fallback" && logging.cause.kind === "config"
+          ? logging.cause.error.failure
+          : undefined;
+      if (
+        logging.kind === "fallback" &&
+        !isSameDocumentFailure(fallbackFailure, flushOptions.terminalConfigFailure)
+      ) {
+        try {
+          stderr.write(`${loggingFallbackNotice(logging)}\n`);
+        } catch {
+          // Diagnostic presentation must not change an already-determined business result.
+        }
+      }
       const failure = fileSink?.failure;
       if (failure !== undefined) stderr.write(`${sinkFailureNotice(failure, trustedDirectory)}\n`);
     },

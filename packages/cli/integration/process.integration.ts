@@ -6,6 +6,7 @@ import { compileCli } from "../../../scripts/release/compile-cli";
 
 import { createInstalledPacksFixture } from "./fixtures/installed-packs.js";
 import { verifyGetAndQueryScenario } from "./scenarios/get-query.js";
+import { verifyConfigDiagnosticsScenario } from "./scenarios/config-diagnostics.js";
 import { verifyClaudeHookScenario } from "./scenarios/hook-claude.js";
 import { verifyCodexHookScenario } from "./scenarios/hook-codex.js";
 import { verifyOmpHookScenario } from "./scenarios/hook-omp.js";
@@ -29,9 +30,11 @@ async function main(): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "lorelum-cli-"));
   try {
     await verifySourceEntrypoint(bunExecutable, directory);
+    await verifyConfigDiagnosticsScenario([bunExecutable, entrypoint], directory);
     const executable = join(directory, process.platform === "win32" ? "lore.exe" : "lore");
     await compileCli({ outfile: executable });
     await verifyCompiledEntrypoint(executable, directory);
+    await verifyConfigDiagnosticsScenario([executable], directory);
 
     const fixture = await createInstalledPacksFixture(directory);
     await verifyListPacksScenario(executable, fixture, directory);

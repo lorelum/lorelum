@@ -134,7 +134,8 @@ export async function createProcessBackendSupervisor(
     try {
       await initializeApplicationConfig();
     } catch (error) {
-      if (error instanceof ConfigError) throw new BackendError("backend.config-invalid");
+      if (error instanceof ConfigError)
+        throw new BackendError("backend.config-invalid", { cause: error }, error.message);
       throw error;
     }
   }

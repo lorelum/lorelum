@@ -24,9 +24,15 @@ export async function runProcess(
   command: readonly string[],
   timeoutMs = 60_000,
   input?: string,
+  options: {
+    readonly environment?: Readonly<Record<string, string | undefined>>;
+    readonly cwd?: string;
+  } = {},
 ): Promise<ProcessResult> {
   const child = Bun.spawn({
     cmd: [...command],
+    ...(options.environment === undefined ? {} : { env: options.environment }),
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
     stdin: input === undefined ? "ignore" : "pipe",
     stderr: "pipe",
     stdout: "pipe",

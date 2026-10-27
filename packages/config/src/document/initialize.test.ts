@@ -116,7 +116,13 @@ test("existing valid, empty, comment-only, and corrupt files are never overwritt
     expect(
       (await initializeConfig({ homeDirectory: home }, { query: { profile: "local" } })).created,
     ).toBe(false);
-    await expect(loadConfig({ homeDirectory: home })).rejects.toEqual(new ConfigError());
+    await expect(loadConfig({ homeDirectory: home })).rejects.toMatchObject({
+      failure: {
+        kind: "document",
+        reason: "yaml-syntax",
+        source: { kind: "file", path: paths.configFile },
+      },
+    });
   }));
 
 test("rejects a target symlink without touching its external target", () =>

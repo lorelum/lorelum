@@ -13,7 +13,7 @@ Registry source catalog 是 CLI 的另一条用户级状态边界：`~/.lorelum/
 canonical local-Git worktree root，不保存 credentials。local worktree path 属于私有配置，CLI
 的公开 result 不回显它。
 
-Backend 配置优先级是：默认值 → YAML section → 允许的环境变量 → 内部测试注入。backend/embedding 的无效 section、未知字段、超出范围或违反大小限制会返回 `backend.config-invalid`，不会静默回退。Agent Hook 的无效配置则在消费它的 Hook 边界输出非阻塞 no-op 和不含配置内容的诊断，不会扩大注入范围。
+Backend 配置优先级是：默认值 → YAML section → 允许的环境变量 → 内部测试注入。backend/embedding 的无效 section、未知字段、超出范围或违反大小限制会返回 `backend.config-invalid`，不会静默回退。Agent Hook 的无效配置仍由消费它的 Hook 边界按原有 no-op/continue 语义处理；这与 logging 的解析和回退相互独立。logging section 或 level 无效时，CLI/Hook 的日志等级 resolver 明确回退到 `info`（单次 `--debug` 的 effective level 仍为 `debug`），不改变业务结果；实现和日志所有权见[本机日志与排障](../development/diagnostic-logging.md)。
 
 - [Embedding 配置实现](embedding.md)：模型路径、缓存、下载和 CPU 参数的运行时边界。
 
@@ -101,6 +101,6 @@ const document = await loadConfig();
 // 消费方用自己的 schema 校验 document.cli / document.store 等已定义的 section。
 ```
 
-上述包名导入用于已声明 workspace 依赖的模块。基础包不会新增尚未定义的 CLI/Store 设置。backend config loader 只读并解析 backend/embedding 字段，query loader 只读并解析 query 字段；即使某个 section 无效，其他消费者仍有各自的边界。YAML 文档本身损坏时，所有消费者都会收到通用 ConfigError。
+上述包名导入用于已声明 workspace 依赖的模块。基础包不会新增尚未定义的 CLI/Store 设置。backend config loader 只读并解析 backend/embedding 字段，query loader 只读并解析 query 字段；即使某个 section 无效，其他消费者仍有各自的边界。YAML loader 负责安全的文档失败事实；只有解析器提供可靠位置时才保留行列。消费方从自己的 validator 补充来源、字段和实际约束，CLI 再把已知事实放进现有错误消息。内部事实不扩展公共 envelope，也不改变既有错误码。对用户的修复说明见[配置指南](https://lorelum.com/zh/docs/configuration#配置错误与-logging-回退)。
 
 首次初始化的模块默认值在 CLI 的 `config/initialize.ts` 组装。当前只有 backend/embedding 默认字段，来自该模块导出的 defaults；默认值的所有权仍归消费方，文件初始化的所有权归全局 config。未来已实现的模块可在应用组装处加入自己的默认段，不需要修改基础包或访问 backend 服务。

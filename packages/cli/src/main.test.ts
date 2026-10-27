@@ -556,25 +556,26 @@ test("returns a configuration repair target in one message in both formats", asy
     const json = await runCliProcess(["--json", "query", "release validation"], home);
     expect(json.exitCode).toBe(2);
     const response = JSON.parse(json.stdout);
+    const message = response.error.message;
     expect(response).toMatchObject({
       protocolVersion: 2,
       command: "query",
       ok: false,
       error: {
         code: "query.config-invalid",
-        message:
-          "query.maxWaitMs must be an integer from 0 through 120000. Fix or remove it in ~/.lorelum/config.yaml.",
       },
     });
+    expect(message).toContain("integer from 0 through 120000");
+    expect(message).toContain(join(home, ".lorelum", "config.yaml"));
+    expect(message).toContain("Received string");
+    expect(message).not.toContain("nope");
     expect(validateProtocolSchema(response, protocolResponseSchema)).toEqual([]);
 
     const text = await runCliProcess(["query", "release validation"], home);
     expect(text.exitCode).toBe(2);
     expect(text.stdout).toBe("");
     expect(text.stderr).toContain("code: query.config-invalid");
-    expect(text.stderr).toContain(
-      "  message: query.maxWaitMs must be an integer from 0 through 120000. Fix or remove it in ~/.lorelum/config.yaml.\n",
-    );
+    expect(text.stderr).toContain(`  message: ${message}\n`);
   } finally {
     await rm(home, { recursive: true, force: true });
   }

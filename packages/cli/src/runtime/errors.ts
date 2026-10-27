@@ -37,8 +37,9 @@ export class CliError extends Error {
     readonly code: string,
     message: string,
     readonly resource?: ResourceFailure,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "CliError";
   }
 }

@@ -59,7 +59,15 @@ logging:
   level: debug
 ```
 
-前者只作用于这一次调用；当它进入 Backend 时，detail 也只会传给同一条 authenticated request 及其关联 request、operation、preparation 和 native lifecycle，不会改写 daemon 的全局等级或影响并发调用。后者适合由宿主自动执行的 Hook 和长期复现。既有 `--log-level` 仍然只控制 stderr 呈现，不能替代这两个收集开关。Hook 在 debug 下可以记录 payload handling、解析、Catalog 渲染和 degraded 原因，但 stdout 必须仍是原宿主 ABI；畸形的非结构化 payload 只记录大小，不原样落盘。
+前者只作用于这一次调用；当它进入 Backend 时，detail 也只会传给同一条 authenticated request 及其关联 request、operation、preparation 和 native lifecycle，不会改写 daemon 的全局等级或影响并发调用。后者适合由宿主自动执行的 Hook 和长期复现。`--debug` 不跳过持久 logging 配置的解析；它只把本次 CLI/Hook invocation 的 effective level 提升到 `debug`。既有 `--log-level` 仍然只控制普通 stderr 日志呈现，不能替代这两个收集开关。Hook 在 debug 下可以记录 payload handling、解析、Catalog 渲染和 degraded 原因，但 stdout 必须仍是原宿主 ABI；畸形的非结构化 payload 只记录大小，不原样落盘。
+
+### Logging 配置回退
+
+CLI/Hook runtime 总是解析 `logging` section。缺少该 section 或使用 `logging: {}` 都是正常默认路径；结构或 level 无效时，resolver 返回 `info` fallback 与可选的单次 `--debug` effective level。已知配置失败保留安全的 typed fact；未知读取失败只说明 logging settings 无法应用，不从异常中推断 YAML、字段或位置。runtime 写入普通 `logging.level-fallback` warning，并在 flush 时输出一条有界 stderr 提示。`--log-level error` 不会隐藏该提示，JSON stdout 和现有 error envelope 不变。
+
+CLI catch 只在终止错误携带与 logging fallback 相同的文件文档事实时抑制重复 stderr 提示；setting failure、无关业务错误或未知失败仍分别呈现。这个去重只属于本次 `run()`，不持久化；本机 warning 不会因此删除。sink 不可用仍由既有 sink-failure 提示表达，不得声称 fallback 记录已保存。站点[配置指南](../../apps/site/content/docs/configuration.mdx)描述用户可见行为。
+
+Backend daemon 使用同一 logging resolver；其 startup warning 标记 `source=backend` 并关联当前 `instanceId`，没有启动 CLI/Hook 的 trace。detached 子进程不转发 stderr，所以不承诺 daemon 的 fallback 有现场提示或能通过 `lore logs --trace-id` 找到；按 Backend source 读取实际留存记录。不要把 `logging.level-fallback` 当作 debug evidence，或改写既有 `missingEvidence`、`debug-records-not-found` 词义。
 
 ## Feedback 的日志选择
 

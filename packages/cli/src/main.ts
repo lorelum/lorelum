@@ -24,6 +24,7 @@ import {
   type KnownCommand,
 } from "./registry.js";
 import { toVisibleCliError } from "./runtime/errors.js";
+import { configurationFailureFrom } from "./runtime/config-failure.js";
 import { createProcessLogRuntime } from "./log/runtime.js";
 import { createTraceId, noopEmitter, type TraceId } from "@lorelum/log";
 import { toolVersion } from "./output/protocol.js";
@@ -224,7 +225,10 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       },
       error,
     );
-    await processRuntime?.flush();
+    await processRuntime?.flush({
+      terminalConfigFailure:
+        cliError.code === "runtime.unexpected" ? undefined : configurationFailureFrom(error),
+    });
     renderResult(outputFormat === "json" ? stdout : stderr, outputFormat, {
       kind: "failure",
       command,

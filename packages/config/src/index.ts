@@ -1,11 +1,19 @@
 export {
   loadConfig,
-  ConfigError,
   MAX_CONFIG_BYTES,
   type ConfigDocument,
   type ConfigReader,
   type LoadConfigOptions,
 } from "./document/load";
+export {
+  ConfigError,
+  configValueType,
+  formatConfigFailure,
+  type ConfigFailure,
+  type ConfigRule,
+  type ConfigSource,
+} from "./failure";
+export { resolveConfigWithFallback, type ConfigResolution } from "./fallback";
 export { initializeConfig, type InitializeConfigResult } from "./document/initialize";
 export {
   defaultFeedbackDirectory,
@@ -16,8 +24,11 @@ export {
 export {
   DEFAULT_LOGGING_SETTINGS,
   loadLoggingSettings,
+  resolveLoggingSettings,
   loggingLevels,
   type LoggingLevel,
+  type LoggingResolution,
+  type ResolveLoggingSettingsOptions,
   type LoggingSettings,
 } from "./logging";
 export {

@@ -73,7 +73,7 @@ query:
 
 The next semantic query, `index status`, `index build`, `index rebuild`, or post-install index synchronization reads the current selection. No Backend restart is needed. Each method has separate index and progress state; switching back can reuse compatible cached work. See [Index commands](./reference/indexing).
 
-Within one query or index command, including post-install index synchronization, logging and retrieval settings share the configuration document first read by that invocation. An edit made after that read applies to the next invocation, not partway through the current one. Each consumer still validates only the settings it uses.
+Within one query or index command, including post-install index synchronization, logging and retrieval settings share the configuration document first read by that invocation. Logging resolves persistent settings from that document even with `--debug`; the flag sets this invocation's effective level to `debug` rather than skipping `logging.level`. An edit made after that read applies to the next invocation, not partway through the current one. Each consumer still validates only the settings it uses.
 
 An invalid value reports `query.config-invalid` for commands that read this setting; correct or remove the field. `--mode single-vector` and `--mode multi-view-vector` override this method value for one query, but do not bypass unrelated configuration errors; with `multi-view-vector` configured, `--mode single-vector` compares against the default for one query. `lore query "<text>" --mode keyword` remains offline and does not read or validate the semantic method. No separate method flag or environment variable is needed.
 
@@ -142,3 +142,16 @@ backend:
 Each value is an integer from 1 to 120000 milliseconds. `LORELUM_BACKEND_STARTUP_TIMEOUT_MS`, `LORELUM_BACKEND_REQUEST_TIMEOUT_MS`, and `LORELUM_BACKEND_SHUTDOWN_TIMEOUT_MS` override YAML. Startup covers service and native runtime; request covers one request; shutdown covers unload and stop.
 
 Model-file download time is controlled by the embedding download settings above, not the native-runtime startup budget. Backend reads these settings once when it starts, so changing YAML or environment variables does not change an already-running instance; restart Backend to apply them. `backend status`, `backend stop`, and model commands never write your configuration file.
+
+## Configuration errors and logging fallback
+
+A command validates only the settings it uses. A terminal configuration error keeps the existing error code and exit behavior. For a setting failure, its message identifies the actual source, key, and rule; document failures report the known category and a reliable line and column when available. An invalid environment variable is named directly. Lorelum does not print YAML excerpts, and an unknown key is identified without echoing its value. Correct or remove the named setting; Lorelum does not rewrite an existing configuration file.
+
+The optional `logging.level` accepts `error`, `warn`, `info`, or `debug`:
+
+```yaml
+logging:
+  level: info
+```
+
+A missing `logging` section, `logging: {}`, or a valid level produces no fallback notice. If the logging section or level is invalid or cannot be read, its persistent level falls back to `info`; with `--debug`, the effective level for that invocation is `debug`. One non-blocking notice on stderr states both levels. It remains visible with `--json` and `--log-level error`, while JSON stdout keeps its existing envelope. CLI and Hook processes reread configuration on the next invocation; the Backend daemon reads its logging level at startup.

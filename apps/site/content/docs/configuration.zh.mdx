@@ -73,7 +73,7 @@ query:
 
 下一次 semantic query、`index status`、`index build`、`index rebuild` 或安装后的 index synchronization 都会读取当前选择，无需重启 Backend。每种方法的 index 与 progress 状态独立；切回时可以复用兼容的缓存工作。详见 [Index 命令](./reference/indexing)。
 
-同一次 query 或 index 命令（包括安装后的 index synchronization）中，logging 与检索设置共享该次调用首次读取的配置文档。读取后发生的编辑从下一次调用生效，不会在当前命令中途混用新值；各消费者仍只校验自己使用的设置。
+同一次 query 或 index 命令（包括安装后的 index synchronization）中，logging 与检索设置共享该次调用首次读取的配置文档。即使指定 `--debug`，logging 也会从这份文档解析持久设置；该 flag 只把本次调用的 effective level 设为 `debug`，不会跳过 `logging.level`。读取后发生的编辑从下一次调用生效，不会在当前命令中途混用新值；各消费者仍只校验自己使用的设置。
 
 读取该配置的命令遇到非法值会返回 `query.config-invalid`；修正或删除该字段即可。`--mode single-vector` 与 `--mode multi-view-vector` 可为一次 query 覆盖该方法值，但不会绕过其他配置错误；配置为 `multi-view-vector` 时，`--mode single-vector` 可为一次 query 与默认方法对比。`lore query "<text>" --mode keyword` 仍是离线路径，不读取或校验 semantic 方法。不需要独立的方法 flag 或环境变量。
 
@@ -159,3 +159,16 @@ backend:
 startup 控制服务与 native runtime 启动，request 控制单次请求，shutdown 控制卸载与停止。模型文件的下载时间由上面的下载设置控制。
 
 Backend 只在启动时读取一次这些设置。修改 YAML 或环境变量不会改变正在运行的实例；重启 Backend 后才会生效。`backend status`、`backend stop` 和 model 命令不会写入配置文件。
+
+## 配置错误与 logging 回退
+
+每条命令只校验自己实际使用的设置。终止配置错误保持现有错误码和退出行为。设置失败时，消息会指出实际来源、字段名和规则；文档错误则说明已知类别，并仅在位置可靠时显示行列号。环境变量错误会直接指出变量名。Lorelum 不会打印 YAML 片段；未知字段会显示字段名，不回显它的值。按消息修正或删除对应设置；Lorelum 不会改写已有配置文件。
+
+可选的 `logging.level` 接受 `error`、`warn`、`info` 或 `debug`：
+
+```yaml
+logging:
+  level: info
+```
+
+缺少 `logging` 段、配置为 `logging: {}` 或设置了合法 level 时，都不会产生回退提示。如果 logging 段或 level 无效或无法读取，持久等级会回退为 `info`；本次调用指定 `--debug` 时，effective level 为 `debug`。stderr 会显示一条非阻塞提示，说明这两个等级。即使使用 `--json` 或 `--log-level error`，这条提示仍会显示；JSON stdout 仍保持现有 envelope。CLI 和 Hook 会在下一次调用重新读取配置；Backend daemon 在启动时读取 logging level。

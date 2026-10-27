@@ -12,6 +12,7 @@ export async function backendCliError(
       error.code,
       error.message,
       error instanceof EmbeddingError ? error.resource : undefined,
+      { cause: error.cause },
     );
   const build =
     knownBuild ??
@@ -22,5 +23,7 @@ export async function backendCliError(
     build === undefined
       ? `${toolVersion}, build unknown`
       : `${build.toolVersion}, ${build.buildKind}, revision ${build.revision ?? "unknown"}${build.dirty === true ? " dirty" : ""}, build ${build.buildIdentity}`;
-  return new CliError(error.code, `${error.message} CLI build: ${identity}.`);
+  return new CliError(error.code, `${error.message} CLI build: ${identity}.`, undefined, {
+    cause: error.cause,
+  });
 }

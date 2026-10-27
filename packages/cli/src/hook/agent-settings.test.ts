@@ -61,8 +61,11 @@ test.each([
     try {
       await mkdir(join(home, ".lorelum"));
       await writeFile(join(home, ".lorelum", "config.yaml"), source);
-      await expect(loadAgentHookSettings({ homeDirectory: home })).rejects.toEqual(
-        new ConfigError(),
+      await expect(loadAgentHookSettings({ homeDirectory: home })).rejects.toBeInstanceOf(
+        ConfigError,
+      );
+      await expect(loadAgentHookSettings({ homeDirectory: home })).rejects.not.toThrow(
+        source.trim(),
       );
     } finally {
       await rm(home, { recursive: true, force: true });
@@ -104,8 +107,11 @@ test.each([
   try {
     await mkdir(join(home, ".lorelum"));
     await writeFile(join(home, ".lorelum", "config.yaml"), source);
-    await expect(loadSubagentPackCatalogSetting({ homeDirectory: home })).rejects.toEqual(
-      new ConfigError(),
+    await expect(loadSubagentPackCatalogSetting({ homeDirectory: home })).rejects.toBeInstanceOf(
+      ConfigError,
+    );
+    await expect(loadSubagentPackCatalogSetting({ homeDirectory: home })).rejects.not.toThrow(
+      source.trim(),
     );
   } finally {
     await rm(home, { recursive: true, force: true });
