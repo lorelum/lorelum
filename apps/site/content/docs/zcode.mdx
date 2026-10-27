@@ -35,6 +35,13 @@ ZCode participates in [session read hints](./agent-setup#session-read-hints): it
 
 When a Bash command is in the selected injection scope, the Hook sets `LORELUM_HOST_KEY=zcode` and `LORELUM_HOST_SESSION_ID=<current session ID>` before the command with a Unix `export` on every platform, because ZCode's Bash tool is a POSIX shell (Git Bash on Windows). The agent did not write those lines, and they are not login credentials; they only let `lore get` in the command or its local child processes associate a read with the right conversation. The rewrite never approves anything on its own: it changes the command text only and leaves ZCode's approval flow untouched. ZCode itself selects the shell its Bash tool runs commands in — normally the auto-detected Git Bash on Windows — and announces the resolved shell in the session context (for example, "The Bash tool shell is Git Bash."). The assignments use Unix `export` syntax because they target exactly that shell. If your session runs the Bash tool under a different dialect (a shell changed through ZCode's own selection, or a machine where no POSIX shell is found), the assignments do not take effect and the read is simply not recorded; the announced shell line tells you which shell is active.
 
+## Supported features and limits
+
+ZCode provides the Skill, CLI query/get, Main Pack Catalog at startup/resume, and successful-read association. It does not provide child read hints or a separate child Catalog.
+
+Main read candidates are **not refreshed after compact**. ZCode's `SessionStart` runs at startup/resume only, with a per-session execution marker; its Hook events contain no post-compact context entry. A `compact` matcher cannot create that missing event. Candidates remain recorded, but recording is not automatic delivery to Main. Query/get useful guidance normally after context loss. See the [host capability table](./agent-setup#host-capabilities).
+
+
 ## Update
 
 Open **Settings → Plugin Management**, select Lorelum, and install the offered

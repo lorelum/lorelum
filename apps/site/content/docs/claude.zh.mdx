@@ -37,7 +37,16 @@ Lorelum Plugin 为 Claude Code 带来工程指引与 `/lorelum:lorelum` 技能�
 
 或在 Claude Code 最终确定重要决策之前，让它先用 Lorelum 检索相关指引。
 
-Claude Code 接入了[会话已读候选](./agent-setup#会话中的已读候选)：`PreToolUse` Hook 为符合条件的 Bash 和 PowerShell 命令传递会话身份，`SubagentStart` 可以给新子 Agent（例如经 Agent 工具启动的）展示候选元数据。这是 Lorelum 的共用能力，不是 Claude Code 专属功能。哪些 shell 命令会得到身份，由[共享的 Agent 配置](./configuration#agent-shell-会话身份)决定。这些提示只给新子 Agent，不在主 Agent compact 后恢复。
+Claude Code 接入了[会话已读候选](./agent-setup#会话中的已读候选)：`PreToolUse` 为符合条件的 Bash/PowerShell 读取关联会话身份，`SubagentStart` 向新子 Agent 提供有界候选。哪些命令传递身份由[共享的 Agent 配置](./configuration#agent-shell-会话身份)决定。
+
+## 功能支持情况
+
+- 提供 Skill、CLI query/get 和 Main Pack Catalog；Plugin 不向子 Agent 单独提供 Pack Catalog。
+- 手动和自动 compact 复用 `SessionStart(source=compact)`，在继续任务前恢复本会话候选与 Catalog；startup/resume 不额外发送 Main 候选。
+- 提示只是历史元数据，不是完整正文或已采纳规则。有用时先重新 `lore get`，再决定是否应用。
+- 读取记录要求 Backend 已在运行。候选为空或不可用时保留 Catalog，不阻塞任务，也不为恢复提示自动启动 Backend。
+
+各 host 差异见[功能对比表](./agent-setup#宿主功能对比)。
 
 ### 为什么命令前会出现环境变量赋值
 

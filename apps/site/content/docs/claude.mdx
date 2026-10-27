@@ -37,7 +37,16 @@ Check that `/lorelum:lorelum` appears when you type `/` in the prompt. You can a
 
 Or ask Claude Code to use Lorelum before it finalizes an important decision.
 
-Claude Code implements [session read hints](./agent-setup#session-read-hints): the `PreToolUse` Hook passes session identity to eligible Bash and PowerShell commands, and `SubagentStart` can show the candidate metadata to a new subagent (for example one started with the Agent tool). This is one host adapter for a shared Lorelum capability, not a Claude Code-only feature. The shared [Agent shell setting](./configuration#agent-shell-session-identity) controls which shell commands receive identity. These hints go to new subagents, not to the main agent after compaction.
+Claude Code implements [session read hints](./agent-setup#session-read-hints): `PreToolUse` associates eligible Bash/PowerShell reads with the conversation, and `SubagentStart` supplies bounded candidates to new subagents. The shared [Agent shell setting](./configuration#agent-shell-session-identity) selects eligible commands.
+
+## Supported features
+
+- The Skill, CLI query/get, and Main Pack Catalog are available. The Plugin does not provide a separate Pack Catalog to subagents.
+- Manual and automatic compact reuse `SessionStart(source=compact)` to restore this conversation's read candidates with the Catalog before continuation. Startup/resume do not also send Main candidates.
+- Hints are historical metadata, not full bodies or adopted rules. Read a useful Practice again with `lore get` before applying it.
+- Recording requires Backend to be running. Empty or unavailable candidates leave the Catalog usable and never block the task or start Backend merely for recovery.
+
+See the [host capability table](./agent-setup#host-capabilities) for feature differences.
 
 ### Why environment assignments appear before a command
 

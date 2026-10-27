@@ -11,11 +11,16 @@ The current host integration contract is [agent-integration](../../../openspec/s
 
 The `/lore` command is the explicit entry point: it accepts an optional natural-language question and routes it through the Lorelum Skill.
 
+## Supported features
+
+WorkBuddy provides the Skill, Main Catalog, successful-read association, and Main compact recovery through the existing `SessionStart(source=compact)`. Startup/resume do not also send candidates. The shared 4000-character recovery budget includes up to 1800 characters of historical candidate metadata; unavailable candidates leave the Catalog usable. Subagent candidate hints and a separate child Catalog are absent because the host discards subagent Hook stdout. See the [capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities) and [WorkBuddy guide](https://lorelum.com/en/docs/workbuddy#supported-features).
+
+
 The bundled runtime integration calls `lore hook workbuddy`, the versioned WorkBuddy Hook ABI. It runs for supported `SessionStart` sources (`startup`, `resume`, `clear`, `compact`), so the Catalog is regenerated before WorkBuddy continues after compaction. The CLI reads the Hook payload from stdin and writes the WorkBuddy `hookSpecificOutput` envelope directly to stdout. The Hook uses the host-native `command` form — a shell command that forwards to `lore hook workbuddy` (with an `|| lore.cmd` fallback, because WorkBuddy executes Hook commands through Git Bash on Windows) and degrades to a non-blocking `{"continue":true}` response when the CLI is unavailable. WorkBuddy's hook schema has no `commandWindows` or `additionalContextLimit` key; unknown keys are stripped by the host.
 
 A `PreToolUse` Hook (matcher `^Bash$`) prepends two POSIX `export` lines with the host and session identity to Bash commands that qualify under the shared `agent.shellSessionInjection` setting, so a successful `lore get` is associated with the conversation and recorded as a read candidate by a running Backend. The rewrite carries no `permissionDecision` — WorkBuddy's `allow` would bypass its permission system — and the wrapped command fails open to `{}` when the CLI is missing or old. WorkBuddy dispatches a `SubagentStart` event but discards Hook stdout, so no subagent Hook is registered and that path stays a no-op.
 
-The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. When the Hook ABI runs but cannot process its input or read the Store, it writes a diagnostic to stderr and returns a non-blocking response without additional context.
+The integration requests Pack names, descriptions, and stack scopes, not Pack roots, Practice bodies, or resource content. It does not install or update Packs or automatically run query/get; the Skill makes task-specific decisions. Input or Store failures write stderr diagnostics and return a non-blocking response.
 
 ## Integration scope
 

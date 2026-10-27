@@ -38,7 +38,16 @@ codex plugin add lorelum@lorelum-plugins
 请在确定这个改动的计划前，用 Lorelum 查找相关指导。
 ```
 
-Codex 接入了[会话已读候选](./agent-setup#会话中的已读候选)：shell `PreToolUse` 为符合条件的命令传递会话身份，`SubagentStart` 可以给新子 Agent 展示候选元数据。这是 Lorelum 的共用能力，不是 Codex 专属功能。哪些 shell 命令会得到身份，由[共享的 Agent 配置](./configuration#agent-shell-会话身份)决定。这些提示只给新子 Agent，不在主 Agent compact 后恢复。
+Codex 接入了[会话已读候选](./agent-setup#会话中的已读候选)：shell `PreToolUse` 为符合条件的命令传递会话身份，`SubagentStart` 给新子 Agent 展示有界候选。哪些命令传递身份由[共享的 Agent 配置](./configuration#agent-shell-会话身份)决定。
+
+## 功能支持情况
+
+- 提供 Skill、CLI query/get 和 Main Pack Catalog；Plugin 不向子 Agent 单独提供 Pack Catalog。
+- 手动或自动 compact 后，已有 `SessionStart(source=compact)` 将本会话已读候选与 Catalog 一起交给继续任务的模型。startup/resume 不再额外发送 Main 候选。
+- 候选只含历史 ID、标题和适用条件。Codex 自行判断是否重新 `lore get` 当前全文；候选不是采纳证明，也不表示正文没有变化。
+- 读取记录要求 Backend 已在运行。漏记或候选不可用时保留 Catalog，不阻塞继续任务，也不为提示自动启动 Backend。
+
+完整差异见[宿主功能对比](./agent-setup#宿主功能对比)。
 
 ### 为什么命令前会出现环境变量赋值
 

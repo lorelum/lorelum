@@ -33,6 +33,13 @@ ZCode 参与[会话已读候选](./agent-setup#会话中的已读候选)：`PreT
 
 当 Bash 命令在注入范围内时，Hook 会在命令前用 Unix `export` 设置 `LORELUM_HOST_KEY=zcode` 和 `LORELUM_HOST_SESSION_ID=<当前会话 ID>`；ZCode 的 Bash 工具在所有平台上都是 POSIX shell（Windows 上为 Git Bash），所以写法一致。这些行不是 Agent 写的，也不是登录凭据，只用于让命令或其本地子进程中的 `lore get` 把读取关联到正确的会话。改写本身不会替用户批准任何操作：它只修改命令文本，ZCode 的审批流程保持原样。ZCode 自身会为 Bash 工具选定执行命令的 shell——Windows 上通常是自动检测的 Git Bash——并在会话上下文中告知解析结果（例如 "The Bash tool shell is Git Bash."）。身份赋值使用 Unix `export` 语法，针对的正是这个 shell。如果你的会话让 Bash 工具运行在其他方言下（通过 ZCode 自己的 shell 选择改过，或机器上找不到 POSIX shell），赋值不会生效，该次读取只是不被记录；会话中告知的 shell 行可以确认当前生效的 shell。
 
+## 功能支持情况与限制
+
+ZCode 提供 Skill、CLI query/get、startup/resume 时的 Main Pack Catalog 和成功读取关联，不向子 Agent 提供已读提示或独立 Catalog。
+
+**compact 后不刷新 Main 已读候选。** ZCode 的 `SessionStart` 只在 startup/resume 运行，并有会话级一次执行标记；其 Hook 事件没有压缩后上下文入口。写入 `compact` matcher 不会创造这个事件。候选会继续记录，但记录不等于自动交付 Main；上下文丢失后按任务照常 query/get。完整差异见[宿主功能对比](./agent-setup#宿主功能对比)。
+
+
 ## 更新
 
 在 **Settings → Plugin Management** 中选择 Lorelum，安装可用更新。使用本地 checkout 开发时，修改 Plugin 文件后在 Discover 中卸载并重新安装。会话已读候选还需要能识别 ZCode `PreToolUse` 事件的 `lore` CLI；旧版 CLI 会把它降级为无害的 no-op。更新后请启动新会话以加载新的 Hook。

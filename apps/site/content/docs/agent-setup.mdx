@@ -20,20 +20,26 @@ Lorelum helps your coding agent find relevant engineering guidance while it work
 
 ## Host capabilities
 
-Official Plugins provide the Lorelum Skill and a Pack Catalog. They use the same `lore query` and `lore get` CLI; the differences below concern Catalog delivery, session read association, and subagent hints.
+All official Plugins use the same Lorelum Skill, `lore query`, and `lore get`. Compare the individual features below; a Plugin installation does not imply that every host lifecycle feature is available.
 
-| Host | Pack Catalog | Associate successful `lore get` reads with a session | Show read candidates to a new subagent |
-| --- | --- | --- | --- |
-| [Codex](./codex) | Yes | Yes, through Bash `PreToolUse` | Yes, through `SubagentStart` |
-| [Claude Code](./claude) | Yes | Yes, through Bash/PowerShell `PreToolUse` | Yes, through `SubagentStart` |
-| [Cursor](./cursor) | Yes, but it may appear after the first turn | Yes, through Shell `preToolUse` | No; its subagent-start response cannot inject context |
-| [WorkBuddy](./workbuddy) | Yes | Yes, through Bash `PreToolUse` | No; the host does not deliver `SubagentStart` Hook output to the subagent |
-| [ZCode](./zcode) | Yes | Yes, through Bash `PreToolUse` | No; the host does not provide a subagent-start event |
-| [omp](./omp) | Main always; subagents opt in | Yes, through Bash `tool_call` | Yes, originating Main's successful-read metadata in all task/eval descendants |
+**Legend:** ✓ fully implemented · △ partial or opt-in support · ✗ not available · - unknown. Host links explain the limits and setup. These symbols describe functionality, not whether a particular host was included in an acceptance run.
 
-Cursor starts its Catalog Hook without waiting; if the Catalog is not yet visible, its Skill can list installed Packs once. Read association requires a successful `get`, an already-running Backend, and a usable session identity; a missed read never changes the result of `get`. The shared [shell setting](./configuration#agent-shell-session-identity) determines which eligible commands receive identity. A recorded read is only a possibly relevant candidate, not proof that the parent adopted a Practice. Codex, Claude Code, and omp pass bounded metadata, not the full Practice body. The Pack Catalog is Pack metadata, not a substitute for these read-candidate hints.
+<div className="[&_table]:min-w-3xl [&_th:first-child]:w-64 [&_td:first-child]:min-w-64">
 
-omp subagents default to no Pack Catalog (`agent.subagentPackCatalog: false`); setting it to `true` adds only Pack directory metadata, not full bodies, and does not disable or alter read hints. All nested children retain the originating Main's candidates; their own gets remain their own records, not automatic additions to Main. Missing child Catalog alone does not trigger an automatic Pack list. See [omp configuration](./configuration#omp-subagent-pack-catalog).
+| Feature | [Codex](./codex) | [Claude Code](./claude) | [Cursor](./cursor) | [WorkBuddy](./workbuddy) | [ZCode](./zcode) | [omp](./omp) |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Skill and CLI query/get | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Main Pack Catalog | ✓ | ✓ | △ | ✓ | ✓ | ✓ |
+| Associate successful reads with a session | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Read-candidate hints for new subagents | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ |
+| Plugin-provided Pack Catalog for subagents | ✗ | ✗ | ✗ | ✗ | ✗ | △ |
+| Refresh Main read candidates after compact | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ |
+
+</div>
+
+Cursor's Catalog arrives asynchronously and can miss the first turn; the Skill lists installed Packs once when it is absent. omp's child Catalog is opt-in with `agent.subagentPackCatalog: true`, independently of read hints. Its nested task/eval children retain the originating Main's candidates, while their own reads stay in their own sessions.
+
+Read association requires a successful `get`, an already-running Backend, and a usable session identity. The shared [shell setting](./configuration#agent-shell-session-identity) selects eligible commands; a missed record does not change `get`. Hints contain bounded historical metadata, never full Practice bodies or proof of adoption. Main compact recovery uses only the existing compact event, not an extra startup/resume delivery. See each host's guide for the available entry points and recovery behavior.
 
 ## Other agents
 
@@ -56,6 +62,8 @@ The agent should use the installed guidance when it can help with a design, impl
 Lorelum can keep a short list of Practices read during an agent conversation. A successful `lore get` reports a candidate only when the local Backend is already running and the host integration can associate the read with a session. A host may pass its session identity to the command or use a supported activity-window fallback. The Backend keeps the list under `~/.lorelum/sessions/<host>/<session-id>/practice-reads.jsonl`; it survives a Backend restart or deletion of the original worktree. A failed or unassociated read is simply not added, and the result of `get` does not change.
 
 An integration with a supported child-context entry can pass those candidates to a new subagent as IDs, titles, and applicability hints. omp supplies them in task/eval model requests; Codex and Claude Code use their subagent-start Hooks. The subagent decides whether to run `lore get` itself; no Practice body is injected automatically. The list may be incomplete and says only that a Practice was read, not that the parent adopted it. It is not a task log or an access-control record. Each host Plugin defines its supported integration.
+
+Claude Code, Codex, WorkBuddy, and omp also refresh Main's candidates after compaction. The agent rereads a candidate only when it is useful to the current task. Missing candidates or an unavailable Backend do not block continuation or start the Backend merely to restore hints. Cursor and ZCode have no post-compact refresh entry; normal query/get remains available.
 
 For hosts that can pass session identity to shell commands, the shared [Agent setting](./configuration#agent-shell-session-identity) controls which commands receive it. See each host's guide for its Hook behavior.
 

@@ -1,7 +1,13 @@
 import { sessionRefSchema } from "@lorelum/backend/client";
 import type { Logger } from "@lorelum/log";
-import type { AutoUpdatePoller, CatalogReader, HookEndpoint, ShellAssociator } from "../types.js";
-import { readCatalogWithUpdateNotice } from "../services/catalog.js";
+import type {
+  AutoUpdatePoller,
+  CatalogReader,
+  HookEndpoint,
+  ReadHintReader,
+  ShellAssociator,
+} from "../types.js";
+import { readCatalogWithReadHints, readCatalogWithUpdateNotice } from "../services/catalog.js";
 import { optionalEventFallback, readPayload } from "./validation.js";
 
 interface WorkbuddySessionStartInput {
@@ -32,7 +38,8 @@ type WorkbuddyResponse = {
 };
 
 export function createWorkbuddyEndpoint(
-  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator,
+  services: CatalogReader & { readonly autoUpdate: AutoUpdatePoller } & ShellAssociator &
+    ReadHintReader,
   _platform: NodeJS.Platform,
   log?: Logger,
 ): HookEndpoint {
@@ -46,10 +53,13 @@ export function createWorkbuddyEndpoint(
         return {
           hookSpecificOutput: {
             hookEventName: "SessionStart",
-            additionalContext: await readCatalogWithUpdateNotice(
-              services,
-              session.success && (input.source === "startup" || input.source === "resume"),
-            ),
+            additionalContext:
+              input.source === "compact" && session.success
+                ? await readCatalogWithReadHints(services, session.data)
+                : await readCatalogWithUpdateNotice(
+                    services,
+                    session.success && (input.source === "startup" || input.source === "resume"),
+                  ),
           },
         };
       }

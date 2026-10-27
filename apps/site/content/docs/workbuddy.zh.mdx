@@ -51,6 +51,15 @@ WorkBuddy 会话还会记录已读 Practice 候选。当 agent 在会话内成�
 WorkBuddy 的子 Agent 目前收不到已读候选提示:宿主会派发 SubagentStart 事件
 但丢弃 hook 输出,因此该宿主没有可用的提示通道。
 
+## 功能支持情况
+
+WorkBuddy 提供 Skill、CLI query/get、Main Pack Catalog 和成功读取关联。手动和自动压缩复用已有 `SessionStart(source=compact)`，在任务继续前刷新 Main 的候选；startup/resume 不额外再发候选。
+
+候选只是有界历史元数据，不是完整正文或采纳记录。有用时重新 `lore get`。候选为空或 Backend 不可用时保留 Catalog，不阻塞继续任务，也不为恢复提示自动启动 Backend。
+
+子 Agent 已读提示和 Plugin 单独提供的子 Agent Catalog 均缺失；被宿主丢弃的子 Agent Hook 输出不是交付通道。完整差异见[宿主功能对比](./agent-setup#宿主功能对比)。
+
+
 ## 更新
 
 打开插件管理界面，选择 Lorelum 并安装提供的更新。对本地检出而言，修改 Plugin 文件后请从你的市场卸载并重装。

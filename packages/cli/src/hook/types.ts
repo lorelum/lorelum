@@ -10,7 +10,7 @@ export interface TextInput {
 }
 
 export interface CatalogReader {
-  readCatalog(): Promise<string>;
+  readCatalog(options?: { readonly maxCharacters?: number }): Promise<string>;
 }
 
 export interface AutoUpdatePoller {
