@@ -1,0 +1,136 @@
+diff --git a/tools/server/main.cpp b/tools/server/main.cpp
+index 7f17c56..eb8289b 100644
+--- a/tools/server/main.cpp
++++ b/tools/server/main.cpp
+@@ -1,5 +1,43 @@
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <thread>
++
++#if defined(_WIN32)
++#include <io.h>
++#else
++#include <unistd.h>
++#endif
++
+ int llama_server(int argc, char ** argv);
+ 
++static void start_parent_liveness_watcher() {
++    // Opt-in: only the Lorelum daemon enables stdin-based parent liveness, so
++    // every other invocation keeps standard llama-server behavior.
++    const char * enabled = std::getenv("LLAMA_PARENT_LIVENESS_STDIN");
++    if (enabled == nullptr || std::strcmp(enabled, "1") != 0) {
++        return;
++    }
++    std::thread([]() {
++        char buffer[1];
++
++        while (true) {
++#if defined(_WIN32)
++            const int result = ::_read(::_fileno(stdin), buffer, sizeof(buffer));
++#else
++            const ssize_t result = ::read(STDIN_FILENO, buffer, sizeof(buffer));
++#endif
++            if (result <= 0) {
++                // stdin is a pipe owned by the Lorelum daemon. EOF or a read
++                // failure means that owner is gone, so bypass cleanup and
++                // locks that may be held by a stalled inference thread.
++                std::_Exit(EXIT_SUCCESS);
++            }
++        }
++    }).detach();
++}
++
+ int main(int argc, char ** argv) {
++    start_parent_liveness_watcher();
+     return llama_server(argc, argv);
+ }
+
+diff --git a/ggml/src/ggml-cpu/arch/x86/repack.cpp b/ggml/src/ggml-cpu/arch/x86/repack.cpp
+--- a/ggml/src/ggml-cpu/arch/x86/repack.cpp
++++ b/ggml/src/ggml-cpu/arch/x86/repack.cpp
+@@ -519,7 +519,10 @@
+ 
+ // GEMV for 8x blocks of 32 4-bit quants with a single scale factor per block
+ template<typename block_tx8>
+-static void gemv_q4_b32_8x8_q8_0_lut_avx(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc, __m256i signextendlut) {
++static void gemv_q4_b32_8x8_q8_0_lut_avx(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc, __m128i lut) {
++    // Keep the by-value LUT within Win64 stack alignment. MinGW GCC 15.2 can
++    // spill a __m256i argument with vmovdqa without realigning the caller stack.
++    const __m256i signextendlut = _mm256_broadcastsi128_si256(lut);
+     static_assert(
+             std::is_same_v<block_tx8, block_q4_0x8> ||
+             std::is_same_v<block_tx8, block_iq4_nlx8> ||
+@@ -638,7 +641,10 @@
+ 
+ // GEMM for 8x blocks of 32 4-bit quants with a single scale factor per block
+ template<typename block_tx8>
+-static void gemm_q4_b32_8x8_q8_0_lut_avx(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc, __m256i signextendlut) {
++static void gemm_q4_b32_8x8_q8_0_lut_avx(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc, __m128i lut) {
++    // Keep the by-value LUT within Win64 stack alignment. MinGW GCC 15.2 can
++    // spill a __m256i argument with vmovdqa without realigning the caller stack.
++    const __m256i signextendlut = _mm256_broadcastsi128_si256(lut);
+     static_assert(
+             std::is_same_v<block_tx8, block_q4_0x8> ||
+             std::is_same_v<block_tx8, block_iq4_nlx8> ||
+@@ -1449,8 +1455,7 @@
+ #if defined(__AVX2__) || defined(__AVX512F__)
+     {
+         // Lookup table to convert signed nibbles to signed bytes
+-        __m256i signextendlut = _mm256_castsi128_si256(_mm_set_epi8(-1, -2, -3, -4, -5, -6, -7, -8, 7, 6, 5, 4, 3, 2, 1, 0));
+-        signextendlut = _mm256_permute2f128_si256(signextendlut, signextendlut, 0);
++        const __m128i signextendlut = _mm_set_epi8(-1, -2, -3, -4, -5, -6, -7, -8, 7, 6, 5, 4, 3, 2, 1, 0);
+ 
+         gemv_q4_b32_8x8_q8_0_lut_avx<block_q4_0x8>(n, s, bs, vx, vy, nr, nc, signextendlut);
+ 
+@@ -1686,8 +1691,7 @@
+ 
+ void ggml_gemv_iq4_nl_8x8_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc) {
+ #if defined(__AVX2__)
+-    __m256i signextendlut = _mm256_castsi128_si256(_mm_loadu_si128((const __m128i*)kvalues_iq4nl));
+-    signextendlut = _mm256_permute2f128_si256(signextendlut, signextendlut, 0);
++    const __m128i signextendlut = _mm_loadu_si128((const __m128i*)kvalues_iq4nl);
+ 
+     gemv_q4_b32_8x8_q8_0_lut_avx<block_iq4_nlx8>(n, s, bs, vx, vy, nr, nc, signextendlut);
+ 
+@@ -1699,8 +1703,7 @@
+ 
+ void ggml_gemv_mxfp4_8x8_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc) {
+ #if defined(__AVX2__)
+-    __m256i signextendlut = _mm256_castsi128_si256(_mm_loadu_si128((const __m128i*)kvalues_mxfp4));
+-    signextendlut = _mm256_permute2f128_si256(signextendlut, signextendlut, 0);
++    const __m128i signextendlut = _mm_loadu_si128((const __m128i*)kvalues_mxfp4);
+ 
+     gemv_q4_b32_8x8_q8_0_lut_avx<block_mxfp4x8>(n, s, bs, vx, vy, nr, nc, signextendlut);
+ 
+@@ -2027,8 +2030,7 @@
+ #if defined(__AVX2__) || defined(__AVX512F__)
+     {
+         // Lookup table to convert signed nibbles to signed bytes
+-        __m256i signextendlut = _mm256_castsi128_si256(_mm_set_epi8(-1, -2, -3, -4, -5, -6, -7, -8, 7, 6, 5, 4, 3, 2, 1, 0));
+-        signextendlut = _mm256_permute2f128_si256(signextendlut, signextendlut, 0);
++        const __m128i signextendlut = _mm_set_epi8(-1, -2, -3, -4, -5, -6, -7, -8, 7, 6, 5, 4, 3, 2, 1, 0);
+ 
+         gemm_q4_b32_8x8_q8_0_lut_avx<block_q4_0x8>(n, s, bs, vx, vy, nr, nc, signextendlut);
+ 
+@@ -3496,8 +3498,7 @@
+ void ggml_gemm_iq4_nl_8x8_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc) {
+ #if defined(__AVX2__) || defined(__AVX512F__)
+     {
+-        __m256i signextendlut = _mm256_castsi128_si256(_mm_loadu_si128((const __m128i*)kvalues_iq4nl));
+-        signextendlut = _mm256_permute2f128_si256(signextendlut, signextendlut, 0);
++        const __m128i signextendlut = _mm_loadu_si128((const __m128i*)kvalues_iq4nl);
+ 
+         gemm_q4_b32_8x8_q8_0_lut_avx<block_iq4_nlx8>(n, s, bs, vx, vy, nr, nc, signextendlut);
+ 
+@@ -3511,8 +3512,7 @@
+ void ggml_gemm_mxfp4_8x8_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc) {
+ #if defined(__AVX2__) || defined(__AVX512F__)
+     {
+-        __m256i signextendlut = _mm256_castsi128_si256(_mm_loadu_si128((const __m128i*)kvalues_mxfp4));
+-        signextendlut = _mm256_permute2f128_si256(signextendlut, signextendlut, 0);
++        const __m128i signextendlut = _mm_loadu_si128((const __m128i*)kvalues_mxfp4);
+ 
+         gemm_q4_b32_8x8_q8_0_lut_avx<block_mxfp4x8>(n, s, bs, vx, vy, nr, nc, signextendlut);
+ 

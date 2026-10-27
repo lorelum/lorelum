@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "buildIdentity": "ec2347317040357b8c0144f83c810276cb5779f0e97440cdde43c84254f85223",
-  "recipeIdentity": "7af418e0e6c7852c26c97c8c445f42de6040a3059d3c9f2fe37841c3adff9aec",
+  "buildIdentity": "c9eb1f78a299595f284578e5fbefa53121434d38592f9f274a2b561c5c18138d",
+  "recipeIdentity": "1cc676968eabac31ecca0236e1a26762caafad3f9eb38fcb4d265a3949cae909",
   "platform": "win32",
   "arch": "x64",
   "executable": "lore-model.exe",
@@ -10,7 +10,7 @@
     "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
     "archiveSha256": "b4220cefe053c18fb2d5c27a859c0aaab3106a5644bcbbbb2bdd67699dfe4b79"
   },
-  "patchSha256": "39de01bd05911688cd59772092302cf4864e55c4d5c3ffec5a416302e7f214c5",
+  "patchSha256": "8dd0697d5eb557a510b4a7d42e2e816e79b1b2bbce66f03ac58e142ac49aa8b3",
   "toolchain": {
     "cmake": "cmake version 3.31.6",
     "compiler": "winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-14.0.0-r7 (cb2fbad61625)"
@@ -25,7 +25,7 @@
     "-DCMAKE_CXX_FLAGS=-D_WIN32_WINNT=0x0A00",
     "-DCMAKE_EXE_LINKER_FLAGS=-static",
     "-DLLAMA_BUILD_NUMBER=10901",
-    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.39de01bd",
+    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.8dd0697d",
     "-DBUILD_SHARED_LIBS=OFF",
     "-DLLAMA_BUILD_TESTS=OFF",
     "-DLLAMA_BUILD_EXAMPLES=OFF",
@@ -58,8 +58,8 @@
   "files": [
     {
       "path": "lore-model.exe",
-      "bytes": 19730871,
-      "sha256": "a223379c03a2581e2bc19e060eb31bb133958a80fde6374e2c65635cd11a500e"
+      "bytes": 19981345,
+      "sha256": "ef6475dc4dfe650d55934186a48016d6144421a0150a410da7d20f40d862876a"
     },
     {
       "path": "LICENSE.llama.cpp",
