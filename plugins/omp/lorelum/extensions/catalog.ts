@@ -44,6 +44,7 @@ export function registerLorelum(
   let diagnosed = false;
   let stopped = false;
   let lastSessionId: string | undefined;
+  let mainRecoverySessionId: string | undefined;
   let updateEligibleSessionId: string | undefined;
   let updateCheckPending = true;
   const shellControllers = new Set<AbortController>();
@@ -53,6 +54,7 @@ export function registerLorelum(
     generation++;
     needsRefresh = !stopped;
     metadata = [];
+    mainRecoverySessionId = undefined;
     pendingNotice = undefined;
     controller?.abort();
     controller = undefined;
@@ -83,7 +85,13 @@ export function registerLorelum(
   api.on("session_switch", (_event, ctx) => invalidateForSession(ctx, false));
   api.on("session_branch", (_event, ctx) => invalidateForSession(ctx, false));
   api.on("session_tree", (_event, ctx) => invalidateForSession(ctx, false));
-  api.on("session_compact", (_event, ctx) => invalidateForSession(ctx, false));
+  api.on("session_compact", (_event, ctx) => {
+    // Both foreground and background compaction emit this only after history commits.
+    invalidateForSession(ctx, false);
+    if (!stopped && ctx.agent.kind === "main") {
+      mainRecoverySessionId = ctx.sessionManager.getSessionId();
+    }
+  });
   api.on("session_shutdown", () => {
     stopped = true;
     invalidate();
@@ -154,8 +162,13 @@ export function registerLorelum(
       pendingNotice = undefined;
       const readController = new AbortController();
       controller = readController;
-      const mainSessionId = handoff.mainSessionId(ctx);
       const sessionId = ctx.sessionManager.getSessionId();
+      const hintSessionId =
+        ctx.agent.kind === "sub"
+          ? handoff.mainSessionId(ctx)
+          : mainRecoverySessionId === sessionId
+            ? mainRecoverySessionId
+            : undefined;
       const checkUpdates =
         updateCheckPending &&
         ctx.agent.kind === "main" &&
@@ -245,9 +258,9 @@ export function registerLorelum(
               },
               MAX_CATALOG_CHARS,
             ),
-            mainSessionId
+            hintSessionId
               ? readMetadata(
-                  { event: "read-hints", sessionId: mainSessionId },
+                  { event: "read-hints", sessionId: hintSessionId },
                   MAX_READ_HINTS_CHARS,
                 )
               : undefined,

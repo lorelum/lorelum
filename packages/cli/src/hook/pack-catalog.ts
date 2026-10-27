@@ -1,13 +1,17 @@
 import type { ListPackDetailsResult } from "@lorelum/engine";
 
 /** The shared metadata projection for native Hook envelopes and extension bridges. */
-export function renderInstalledPackCatalog(details: ListPackDetailsResult): string {
+export function renderInstalledPackCatalog(
+  details: ListPackDetailsResult,
+  options: RenderPackCatalogOptions = {},
+): string {
   return renderPackCatalog(
     details.packs.map((pack) => ({
       name: pack.name,
       ...(pack.description === undefined ? {} : { description: pack.description }),
       appliesTo: pack.applies_to ?? [],
     })),
+    options,
   );
 }
 

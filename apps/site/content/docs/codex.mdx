@@ -38,7 +38,16 @@ In a new task, ask Codex to use Lorelum before it settles an important plan or i
 Use Lorelum to find guidance for this change before you finalize the plan.
 ```
 
-Codex implements [session read hints](./agent-setup#session-read-hints): its shell `PreToolUse` passes session identity to eligible commands, and `SubagentStart` can show the candidate metadata to a new subagent. This is one host adapter for a shared Lorelum capability, not a Codex-only feature. The shared [Agent shell setting](./configuration#agent-shell-session-identity) controls which shell commands receive identity. These hints go to new subagents, not to the main agent after compaction.
+Codex implements [session read hints](./agent-setup#session-read-hints): its shell `PreToolUse` passes session identity to eligible commands, and `SubagentStart` shows bounded candidates to new subagents. The shared [Agent shell setting](./configuration#agent-shell-session-identity) selects eligible commands.
+
+## Supported features
+
+- The Skill, CLI query/get, and Main Pack Catalog are available. The Plugin does not provide a separate Pack Catalog to subagents.
+- After manual or automatic compact, the existing `SessionStart(source=compact)` returns the current conversation's read candidates alongside the Catalog. Startup/resume do not send those Main hints again.
+- Candidates contain only historical IDs, titles, and applicability. Codex decides whether to reread the current Practice with `lore get`; a candidate is not proof of adoption or current content.
+- Read recording requires an already-running Backend. Missing records or unavailable candidates preserve the Catalog and never block continuation or start Backend just for hints.
+
+Compare all hosts in the [capability table](./agent-setup#host-capabilities).
 
 ### Why environment assignments appear before a command
 

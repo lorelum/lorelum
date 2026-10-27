@@ -11,11 +11,16 @@ The current host integration contract is [agent-integration](../../../openspec/s
 
 The `/lore` command is the explicit entry point: it accepts an optional natural-language question and routes it through the Lorelum Skill.
 
+## Supported features and limits
+
+Cursor provides the Skill, successful-read association, and an asynchronous Main Catalog that can arrive after the first turn. The Skill lists Packs once if no Catalog is visible. Main compact recovery is absent: compaction does not rerun `sessionStart`, and `preCompact` only returns a user message, not model context. Retaining the initial injected context does not refresh later read candidates. Subagent candidates and a separate child Catalog are also absent. See the [capability comparison](https://lorelum.com/en/docs/agent-setup#host-capabilities) and [Cursor guide](https://lorelum.com/en/docs/cursor#supported-features-and-limits).
+
+
 The bundled runtime integration calls `lore hook cursor`, the versioned Cursor Hook ABI. Cursor fires the `sessionStart` Hook when a new conversation starts. The CLI reads the Hook payload from stdin and writes the Cursor envelope — a top-level `additional_context` string — directly to stdout; it does not use the `hookSpecificOutput` wrapper of the Codex and ZCode hosts.
 
 `sessionStart` is fire-and-forget in Cursor: the agent loop does not wait for the Hook, and the Hook cannot block session creation. The injected Catalog is therefore best-effort context. The Lorelum Skill treats it conditionally: when the Catalog is visible in the current task context the Skill reuses it, and when it is not visible the Skill runs `lore pack list --details` once for the task instead. Either way the Skill never reruns discovery before ordinary edits, commands, or replies.
 
-The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. When the Hook ABI runs but cannot process its input or read the Store, it writes a diagnostic to stderr and returns a non-blocking response without additional context.
+The integration requests Pack names, descriptions, and stack scopes, not Pack roots, Practice bodies, or resource content. It does not install or update Packs or automatically run query/get; the Skill makes task-specific decisions. Input or Store failures write stderr diagnostics and return a non-blocking response.
 
 ## Integration scope
 

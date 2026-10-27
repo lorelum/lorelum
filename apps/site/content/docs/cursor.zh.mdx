@@ -46,6 +46,15 @@ Cursor 会话还会记录已读 Practice 候选。当 agent 在会话内成功�
 Cursor 的子 Agent 目前收不到已读候选提示:subagentStart 的响应无法携带注入
 的上下文,因此该宿主没有可用的提示通道。
 
+## 功能支持情况与限制
+
+Cursor 提供 Skill、CLI query/get、成功读取关联和异步 Main Catalog。Catalog 属于部分交付能力：首轮可能早于 Hook 返回，缺少可见目录时 Skill 为任务列一次 Pack。
+
+**compact 后不刷新 Main 已读候选。** Cursor 不会在此时重跑 `sessionStart`；`preCompact` 的返回值只向用户显示消息，不进入模型上下文。保留会话开始时注入的内容，不等于更新后来新增的阅读候选。需要指导时照常 query/get；记录一次读取本身不会把它重新交给 Main。
+
+Plugin 也不向子 Agent 提供已读提示或独立 Catalog。各项差异见[宿主功能对比](./agent-setup#宿主功能对比)。
+
+
 ## 更新
 
 在 **Customize** 中选择 Lorelum，安装可用更新。以 Lorelum 仓库为源的 marketplace 会从其跟踪分支获取更新；本地副本则替换 `~/.cursor/plugins/local/` 下的目录并重新加载 Cursor。

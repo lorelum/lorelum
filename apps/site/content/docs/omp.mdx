@@ -39,6 +39,15 @@ Set boolean `agent.subagentPackCatalog: true` in `~/.lorelum/config.yaml` to add
 
 The Plugin changes only the current Bash command, preserving omp's normal approval flow. By default, only commands containing `lore` receive session identity; use the shared [shell setting](./configuration#agent-shell-session-identity) to include indirect script calls. It does not change omp's global environment.
 
+## Supported features
+
+omp provides the Skill, CLI query/get, Main Catalog, per-session read association, and originating-Main hints in every nested task/eval child. The child Pack Catalog is opt-in, as described above, rather than part of the default child context.
+
+After either foreground or background compaction **commits**, the next Main request also restores its own read candidates through the existing bridge. Background summary preparation does not send hints early. Startup/resume do not add another Main recovery message. Repeated requests reuse one temporary snapshot; a later compaction replaces it instead of accumulating messages.
+
+Session changes or another committed compaction cancel old reads and discard late results. Empty or unavailable hints leave the Catalog usable and never start Backend merely for recovery. Hints remain historical metadata; reread useful Practices in full before applying them.
+
+
 ## Update
 
 ```sh

@@ -70,6 +70,15 @@ setting. Subagents do not receive read-candidate hints on WorkBuddy: the host
 dispatches a SubagentStart event but discards hook output, so no hint channel
 exists there.
 
+## Supported features
+
+WorkBuddy provides the Skill, CLI query/get, Main Pack Catalog, and successful-read association. Manual and automatic compaction reuse the existing `SessionStart(source=compact)` to refresh Main's candidates before the task continues; startup/resume do not also deliver those hints.
+
+The candidates are bounded historical metadata, not complete Practice bodies or adoption records. Reread a useful candidate with `lore get`. Empty candidates or an unavailable Backend preserve the Catalog and do not block continuation or start Backend for recovery.
+
+Subagent candidate hints and a Plugin-provided subagent Catalog are absent; the discarded subagent Hook output is not a delivery path. See the [host capability table](./agent-setup#host-capabilities).
+
+
 ## Update
 
 Open the plugin management surface, select Lorelum, and install the offered

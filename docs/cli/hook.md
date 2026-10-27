@@ -11,7 +11,7 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' | lore hook zcode
 
 成功时，Codex、WorkBuddy 与 ZCode 的 stdout 是包含 `hookSpecificOutput.hookEventName` 和受限 `additionalContext` 的对象；Cursor 的 stdout 是单行 JSON 对象，顶层直接含字符串字段 `additional_context`，不使用 `hookSpecificOutput` 包装。Catalog 包含已安装 Pack 的名称、可选 description 和非空 `appliesTo`，不注入版本或 `packRoot`；它只是 Pack-level 的检索路由提示，不是完整 Practice 内容，也不包含 resource 文件清单或内容。需要按当前 Practice source 读取资源时，从 `lore get` 对应 Store source 获取可读 root；明确浏览一个 Pack 时用 `lore pack list <name>`。Store root 是可变的 `current` view，后续 mutation 后可能解析到新 bytes 或消失；ProjectContext 的 `project-layer-N` 是逻辑来源而非文件路径。不要推导 Store 内部路径。
 
-每个命令以其宿主的原生启动事件提供 Pack Catalog：Codex、WorkBuddy 与 ZCode 为 `SessionStart`，Cursor 为 `sessionStart`；Codex、WorkBuddy 与 Cursor 另外处理各自的工具/子 Agent 事件（`PreToolUse`/`preToolUse`、`SubagentStart`/`subagentStart`、`PostToolUse`/`postToolUse`）以传递会话身份或注入已读候选提示，不支持或不适用的输入一律返回空对象 no-op。生命周期来源（例如 `compact`）由各宿主 Plugin 的 `hooks.json` matcher 决定，CLI 不推断启动、恢复、清理或 compact 时机。它们不会主动 query/get Practice、启动 Backend、下载模型、构建 index 或修改 Store。
+每个命令通过宿主原生事件提供 Pack Catalog；具体触发时机由宿主决定，matcher 只过滤已经发生的事件，不会创造启动、恢复或 compact 事件。Claude Code、Codex、WorkBuddy 的 compact SessionStart 还会恢复本会话已读候选，见下节。ZCode 只在 startup/resume 执行 SessionStart；Cursor 不在 compact 后重跑 sessionStart。CLI 不自动 query/get Practice、启动 Backend、下载模型、构建 index 或修改 Store。
 
 Hook payload 无效、事件不支持或 Store 读取失败时，命令会向 stderr 写诊断（前缀统一为 `lore hook <hostKey> degraded: `），并在 stdout 输出：
 
@@ -27,6 +27,12 @@ Hook payload 无效、事件不支持或 Store 读取失败时，命令会向 st
 printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | lore hook zcode --store-root /absolute/path/to/isolated-store
 ```
+
+## Main compact 候选恢复
+
+Claude Code、Codex、WorkBuddy 的 `SessionStart` 在 `source=compact` 且会话身份有效时，复用公共候选 reader/renderer 并在原 `hookSpecificOutput.additionalContext` 返回 Catalog 与候选。恢复正文总计最多 4000 字符，候选最多 1800，先为候选预留空间再用既有 Catalog renderer 裁剪目录；不切断候选 JSON 条目。无候选或候选读取故障保留完整预算的 Catalog，不启动 Backend。startup/resume/clear/fork 不新增 Main 候选，更新通知资格与时机不变。
+
+ZCode、Cursor 没有 compact 后的上下文入口，不注册额外 Hook、不用其他事件伪装恢复；记录阅读仍可工作。各宿主功能边界见[用户功能对比](https://lorelum.com/zh/docs/agent-setup#宿主功能对比)。
 
 ## 自动版本提醒
 
@@ -54,10 +60,12 @@ Catalog 请求可带 `agentKind: "main" | "sub"`，省略保持 main 语义。�
 
 extension 在启动、重新加载、会话切换、branch/tree 导航和 compact 完成后只使快照失效，下一次 `context` callback 读取一次；每次普通模型请求临时复用快照，不重复查询。Catalog 只加入当前请求的 user 消息，不写入 transcript。子进程有十秒期限，失效与 shutdown 取消旧请求。子 Agent 无 Catalog 不触发 Skill 自动 pack list；独立材料发现需求仍可按需处理。
 
+Main 的前台或后台压缩提交后，extension 捕获当前实际 session ID，下一 context 并行读取 Catalog 与本会话 read-hints。后台摘要准备不触发恢复；普通请求复用快照，不写 transcript、不追加提示副本。再次 compact、会话切换或关闭沿用 generation/abort 隔离，丢弃旧读取的晚到结果。startup/resume 不新增 Main 候选。
+
 另有两类请求，共用上述非阻塞失败与单行 JSON 规则：
 
 - `{"event":"shell","sessionId":"<实际 omp session ID>","command":"lore get <id>"}`：按 `agent.shellSessionInjection` 返回 `{"command":"<带会话身份前缀的命令>"}`；不匹配或不适用时为 `{}`。默认只匹配外层文本中的独立 `lore`，`all-shell` 覆盖全部 Bash。保留工具其余输入与宿主审批；身份前缀仅属于该命令，不修改全局环境。
-- `{"event":"read-hints","sessionId":"<源头 Main omp session ID>"}`：协议不变，读取已有 Backend 候选，返回 `{"additionalContext":"<有界候选 metadata>"}`；没有可用候选为 `{}`。复用既有 `renderReadHints` 的 1800 字符预算与未验证采用状态警告，不启动 Backend，不自动读取 Practice 正文。
+- `{"event":"read-hints","sessionId":"<目标 omp session ID>"}`：协议不变；子 Agent 传源头 Main ID，Main compact 恢复传自己的实际 ID。读取已有 Backend 候选，返回 `{"additionalContext":"<有界候选 metadata>"}`；无候选为 `{}`。复用 renderer 的 1800 字符预算与历史候选警告，不启动 Backend 或读取正文。
 
 task/eval 的实际派发通过原生 child registry ID 交接源头 Main session；所有嵌套子 Agent 继承该 Main 身份，直接父 Agent 身份仅用于核对，不把 `parentId` 当 session ID，也不依赖共享事件总线。默认子 Agent 只有 Main 成功 get 的摘要；自身 get 仍归自身 session，不自动并入 Main。候选与 Catalog 开关独立。无可靠 Main 身份不得猜候选，但显式 true 时仍能取得 Catalog。并行、嵌套、会话切换、冲突与过期读取不得混入其他会话候选。
 

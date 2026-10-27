@@ -7,7 +7,7 @@ import type {
   ReadHintReader,
   ShellAssociator,
 } from "../types.js";
-import { readCatalogWithUpdateNotice } from "../services/catalog.js";
+import { readCatalogWithReadHints, readCatalogWithUpdateNotice } from "../services/catalog.js";
 import { optionalEventFallback, readPayload } from "./validation.js";
 
 interface ClaudeSessionStartInput {
@@ -60,10 +60,13 @@ export function createClaudeEndpoint(
         return {
           hookSpecificOutput: {
             hookEventName: "SessionStart",
-            additionalContext: await readCatalogWithUpdateNotice(
-              services,
-              session.success && (input.source === "startup" || input.source === "resume"),
-            ),
+            additionalContext:
+              input.source === "compact" && session.success
+                ? await readCatalogWithReadHints(services, session.data)
+                : await readCatalogWithUpdateNotice(
+                    services,
+                    session.success && (input.source === "startup" || input.source === "resume"),
+                  ),
           },
         };
       }

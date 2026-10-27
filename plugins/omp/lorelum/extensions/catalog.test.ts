@@ -17,7 +17,7 @@ import type {
   ToolCallEventResult,
 } from "@oh-my-pi/pi-coding-agent";
 import { registerLorelum } from "./catalog";
-import type { BridgeExecution, BridgeExecutor } from "./subprocess";
+import type { BridgeExecution, BridgeExecutor, BridgeRequest } from "./subprocess";
 
 type Messages = ContextEvent["messages"];
 const CATALOG = "Lorelum Installed Pack Catalog\n- payments: Safe payment retries";
@@ -218,7 +218,9 @@ describe("omp request-scoped Catalog", () => {
 
     host.boundary("session_branch", "session-two");
     await host.context();
-    expect(execute.mock.calls[2]![0].request).toEqual({
+    expect(
+      execute.mock.calls.filter(([call]) => call.request.event === "catalog")[2]![0].request,
+    ).toEqual({
       event: "catalog",
       agentKind: "main",
       sessionId: "session-two",
@@ -227,7 +229,9 @@ describe("omp request-scoped Catalog", () => {
 
     host.boundary("session_tree", "session-three");
     await host.context();
-    expect(execute.mock.calls[3]![0].request).toEqual({
+    expect(
+      execute.mock.calls.filter(([call]) => call.request.event === "catalog")[3]![0].request,
+    ).toEqual({
       event: "catalog",
       agentKind: "main",
       sessionId: "session-three",
@@ -236,7 +240,9 @@ describe("omp request-scoped Catalog", () => {
 
     host.switchSession("session-four");
     await host.context();
-    expect(execute.mock.calls[4]![0].request).toEqual({
+    expect(
+      execute.mock.calls.filter(([call]) => call.request.event === "catalog")[4]![0].request,
+    ).toEqual({
       event: "catalog",
       agentKind: "main",
       sessionId: "session-four",
@@ -283,7 +289,9 @@ describe("omp request-scoped Catalog", () => {
     "session_compact",
   ]) {
     test(`${boundary} clears old metadata and lazily refreshes at the current cwd`, async () => {
-      const execute = mock<BridgeExecutor>(async () => success);
+      const execute = mock<BridgeExecutor>(async ({ request }) =>
+        request.event === "read-hints" ? { stdout: "{}", code: 0 } : success,
+      );
       const host = harness(execute);
       const first = await host.context();
       host.ctx.cwd = "/workspace/two";
@@ -296,7 +304,9 @@ describe("omp request-scoped Catalog", () => {
       expect(text(next[0]!)).toBe(CATALOG);
       expect(execute.mock.calls[1]![0].cwd).toBe("/workspace/two");
       await host.context();
-      expect(execute).toHaveBeenCalledTimes(2);
+      expect(execute.mock.calls.filter(([call]) => call.request.event === "catalog")).toHaveLength(
+        2,
+      );
     });
   }
 
@@ -387,7 +397,10 @@ describe("omp request-scoped Catalog", () => {
   ] as const) {
     test(`${name} clears old values, continues the request and never retries at the same boundary`, async () => {
       let calls = 0;
-      const host = harness(async () => (calls++ === 0 ? success : result));
+      const host = harness(async ({ request }) => {
+        if (request.event === "read-hints") return { stdout: "{}", code: 0 };
+        return calls++ === 0 ? success : result;
+      });
       const old = await host.context();
       host.boundary("session_compact");
       const user: Messages[number] = { role: "user", content: "continue", timestamp: 2 };
@@ -592,6 +605,128 @@ describe("omp native Bash session association", () => {
 
 const HINTS =
   "Lorelum read Practice candidates\n- retry: Main-read candidate\nUsage is unverified. Read the full Practice before using it.";
+
+describe("omp Main compact recovery", () => {
+  test("startup/resume do not recover hints, compact replaces one temporary snapshot", async () => {
+    let hints = HINTS;
+    const execute = mock<BridgeExecutor>(async ({ request }) =>
+      request.event === "read-hints"
+        ? { stdout: JSON.stringify({ additionalContext: hints }), code: 0 }
+        : success,
+    );
+    const host = harness(execute);
+    const user: Messages[number] = {
+      role: "user",
+      content: [{ type: "text", text: "continue work" }],
+      timestamp: 1,
+    };
+    host.boundary("session_start");
+    const startup = await host.context([user]);
+    host.boundary("session_switch");
+    const resumed = await host.context(startup);
+    expect(resumed.map(text)).toEqual([CATALOG, "continue work"]);
+    expect(execute.mock.calls.filter(([call]) => call.request.event === "read-hints")).toHaveLength(
+      0,
+    );
+
+    host.boundary("session_compact");
+    host.boundary("session_compact");
+    const [first, concurrent] = await Promise.all([host.context(resumed), host.context(resumed)]);
+    expect(first.map(text)).toEqual([CATALOG, HINTS, "continue work"]);
+    expect(concurrent).toEqual(first);
+    expect(await host.context(first)).toBe(first);
+    expect(
+      execute.mock.calls
+        .filter(([call]) => call.request.event === "read-hints")
+        .map(([call]) => call.request),
+    ).toEqual([{ event: "read-hints", sessionId: "actual-main-session" }]);
+
+    hints = "A newly read Practice";
+    host.boundary("session_compact");
+    const next = await host.context([...first, first[1]!]);
+    expect(next.map(text)).toEqual([CATALOG, hints, "continue work"]);
+    expect(host.persist).not.toHaveBeenCalled();
+  });
+
+  test("background commit invalidates in-flight metadata without publishing a late old result", async () => {
+    const old = Promise.withResolvers<BridgeExecution>();
+    let oldSignal: AbortSignal | undefined;
+    let hintCalls = 0;
+    const execute = mock<BridgeExecutor>(async ({ request, signal }) => {
+      if (request.event !== "read-hints") return success;
+      if (hintCalls++ === 0) {
+        oldSignal = signal;
+        return old.promise;
+      }
+      return { stdout: JSON.stringify({ additionalContext: "After background commit" }), code: 0 };
+    });
+    const host = harness(execute);
+    const user: Messages[number] = {
+      role: "user",
+      content: [{ type: "text", text: "original task" }],
+      timestamp: 1,
+    };
+    const initial = await host.context([user]);
+    // Summarization running in the background has not committed an event yet.
+    expect(await host.context(initial)).toBe(initial);
+    expect(hintCalls).toBe(0);
+    host.boundary("session_compact");
+    const stale = host.context(initial);
+    host.boundary("session_compact");
+    expect(oldSignal?.aborted).toBe(true);
+    const fresh = await host.context(initial);
+    old.resolve({
+      stdout: JSON.stringify({ additionalContext: "Before background commit" }),
+      code: 0,
+    });
+    expect(await stale).toEqual([user]);
+    expect(fresh.map(text)).toEqual([CATALOG, "After background commit", "original task"]);
+    expect(await host.context(fresh)).toBe(fresh);
+    expect(hintCalls).toBe(2);
+    expect(host.persist).not.toHaveBeenCalled();
+  });
+
+  for (const boundary of [
+    "session_start",
+    "session_switch",
+    "session_branch",
+    "session_tree",
+    "session_shutdown",
+  ]) {
+    test(`${boundary} clears Main recovery qualification and stale messages`, async () => {
+      const execute = mock<BridgeExecutor>(async ({ request }) =>
+        request.event === "read-hints"
+          ? { stdout: JSON.stringify({ additionalContext: HINTS }), code: 0 }
+          : success,
+      );
+      const host = harness(execute);
+      host.boundary("session_compact");
+      const old = await host.context();
+      host.boundary(boundary, boundary === "session_switch" ? "other-session" : undefined);
+      const next = await host.context(old);
+      expect(next.map(text)).toEqual(boundary === "session_shutdown" ? [] : [CATALOG]);
+      expect(
+        execute.mock.calls.filter(([call]) => call.request.event === "read-hints"),
+      ).toHaveLength(1);
+    });
+  }
+
+  test("unavailable candidates preserve the Catalog and do not retry on each request", async () => {
+    const execute = mock<BridgeExecutor>(async ({ request }) => {
+      if (request.event === "read-hints") throw new Error("Backend unavailable");
+      return success;
+    });
+    const host = harness(execute);
+    host.boundary("session_compact");
+    const first = await host.context();
+    expect(first.map(text)).toEqual([CATALOG]);
+    expect(await host.context(first)).toBe(first);
+    expect(execute.mock.calls.filter(([call]) => call.request.event === "read-hints")).toHaveLength(
+      1,
+    );
+    expect(host.notify).not.toHaveBeenCalled();
+  });
+});
 
 function childHarness(
   execute: BridgeExecutor,

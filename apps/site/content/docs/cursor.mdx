@@ -58,6 +58,15 @@ setting. Subagents do not receive read-candidate hints on Cursor: the
 subagentStart response cannot carry injected context, so no hint channel
 exists there.
 
+## Supported features and limits
+
+Cursor provides the Skill, CLI query/get, successful-read association, and an asynchronous Main Catalog. Catalog delivery is partial: the first turn can precede the Hook result, so the Skill lists Packs once when no Catalog is visible.
+
+Main read candidates are **not refreshed after compact**. Cursor does not rerun `sessionStart` then, and `preCompact` returns a user-facing message rather than model context. Retaining context injected at session start does not refresh candidates read later in the conversation. Continue to query/get guidance normally when it is useful; recording a read does not by itself deliver it back to Main.
+
+The Plugin also does not deliver child read hints or a separate child Catalog. See the [host capability table](./agent-setup#host-capabilities).
+
+
 ## Update
 
 Open **Customize**, select Lorelum, and install the offered update. A

@@ -39,6 +39,15 @@ Backend 已在运行时，成功的 `lore get` 可关联到当前 omp 会话。t
 
 Plugin 只改写本次 Bash 命令，保留 omp 原有审批。默认只为含 `lore` 的命令传递会话身份；需要覆盖脚本内的间接调用时使用共用的[shell 配置](./configuration#agent-shell-会话身份)。它不改变 omp 的全局环境。
 
+## 功能支持情况
+
+omp 提供 Skill、CLI query/get、Main Catalog、实际会话读取关联，以及所有嵌套 task/eval 子 Agent 的源头 Main 候选。子 Agent Pack Catalog 是上文说明的显式开启能力，不属于默认子 Agent 上下文。
+
+前台或后台压缩**提交后**，下一次 Main 请求还会通过已有 bridge 恢复自己的已读候选；后台摘要准备阶段不提前发送。startup/resume 不另加一份 Main 恢复消息。连续请求复用一份临时快照，后续 compact 替换它，不积累提示。
+
+切换会话或再次提交压缩会取消旧读取并丢弃晚到结果。候选为空或不可用时保留 Catalog，不为恢复提示自动启动 Backend。候选仍只是历史元数据，有用时应重新读取全文再应用。
+
+
 ## 更新
 
 ```sh
