@@ -18,7 +18,7 @@
 | 根 `AGENTS.md` 的 Global commands and verification、release guardrails | 已有发布手册链接，但没有版本准备命令入口；命令实现与简短入口必须一起交付 |
 | `install.sh` 的 `resolve_latest_tag`；`install.ps1` 的 `Resolve-LatestTag` | 无参数走 GitHub `/latest` stable，不能用删除版本参数来替代 alpha 安装命令 |
 | `.github/workflows/release.yml`；`scripts/release/assets.ts`；`scripts/release/package.ts` | tag 与 CLI manifest 一致、资产由 CLI version 命名；保持不变 |
-| `docs/development/release.md` 的 Normal prerelease path | 先手动部署 site，再运行 Release，审核 draft、公开、smoke；须拆开功能文档部署与公开安装推荐的推进时机 |
+| `docs/development/release.md` 的 Normal prerelease path | 产物版本、安装推荐与发布说明同 PR 准备；Release 构建和一次站点部署不互为前置，产物校验与公开安装 smoke 保留 |
 
 现状的一条完整路径是：维护者逐处改 manifest、镜像、文档，提交准备 PR；workflow 读取 CLI manifest 校验 tag，打包函数读取同一版本命名资产；维护者公开后运行 installer smoke。问题在人工编辑没有区分候选和公开推荐，不在现有打包/发布合同。
 
@@ -52,7 +52,7 @@
 
 站点安装内容的作者用法与 README 取舍见 [product.md](./product.md#文档作者怎么写)。`remark-public-release.ts` 把 `CliInstall` 展开为标准 `code` 节点，保留 Unix `--version V` 和 PowerShell `-Version V` 的现有安装语义，不新增客户端组件或运行时请求。
 
-`docs --cli V` 显式指定已验证的公开目标，不从源码推断默认值、不按版本大小选择，也不联网判定发布状态。维护者负责遵循 runbook 的 publish + installer smoke 前提。命令只承诺本地推荐值修改；正常合并和手动部署后页面才使用新推荐。
+`docs --cli V` 显式指定推荐目标，不从源码推断默认值、不按版本大小选择，也不联网判定发布状态。CLI 发版时与 `prepare` 一起执行、同 PR 合并，不以 publish 或 installer smoke 为文档编辑前提。命令只承诺本地推荐值修改；正常合并和手动部署后页面才使用新推荐。
 
 不选择标记或上下文匹配：两者仍把多份当前版本文字当作需要维护的状态，并会让文案调整影响同步规则。不选择自动安装最新 prerelease：那需要改变 Unix/PowerShell 安装器的公开频道和 Release 选择规则，超出本工具所需边界。
 
@@ -90,8 +90,8 @@
 
 ## Risks / Trade-offs
 
-- 公开推荐需要发布后一次单字段修改和相应合并/部署；旧推荐在此期间继续可用，不需要修改多份文档。
-- `docs` 不证明输入版本已公开；责任留在可信维护者和既有 publish/smoke 流程，避免存在性检查冒充可用性验证。若发生实际误推进事故，再评估是否值得增加只读远端检查。
+- 公开推荐与产物版本在同次发布准备中修改，站点部署可能先于发行包公开完成；不为这段发布窗口增加第二个 PR 或部署。
+- `docs` 不证明输入版本已公开；真正可安装性由既有 publish/smoke 流程验证，不把该验证变成文档编辑的等待条件，也不新增远端状态检查。
 - README 不再直接提供当前版本安装命令，手动安装多一次点击；用明确的本语言安装指南入口承接，不另建生成流程。
 - MDX 转换顺序若不正确，可能导致 Markdown 导出残留 JSX；用真实编译和双语页面/Markdown 对照验证，不用纯 React 渲染测试代替。
 - 跨文件写入仅有预检和普通错误恢复，不具有崩溃事务保证；Git 提供可见 diff 和回退，不引入持久事务系统。

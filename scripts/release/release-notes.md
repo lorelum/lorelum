@@ -56,7 +56,7 @@ Other fixes:
 
 Host Skills and their semantic-recovery references are generated from one shared source with explicit host profiles. Installed artifacts remain self-contained, and end users do not need the generator or source checkout. All six host Plugins carry refreshed guidance; omp also includes its updated extension. Update the Plugin through its host-native mechanism and start a new session. CLI, Plugin, Pack and model installation remain separate. [#295](https://github.com/lorelum/lorelum/pull/295)
 
-Maintainers can prepare independent CLI/host versions, check registered manifest/marketplace/lockfile relationships offline, and explicitly change the public CLI installation recommendation after release verification. This release selects CLI and all six host Plugins as `0.1.0-alpha.7` because each artifact changed; equal versions are not a permanent coupling requirement. [#297](https://github.com/lorelum/lorelum/pull/297), addresses [#253](https://github.com/lorelum/lorelum/issues/253)
+Maintainers can prepare independent CLI/host versions, check registered manifest/marketplace/lockfile relationships offline, and prepare the public CLI installation recommendation in the same release PR. This release selects CLI and all six host Plugins as `0.1.0-alpha.7` because each artifact changed; equal versions are not a permanent coupling requirement. [#297](https://github.com/lorelum/lorelum/pull/297), addresses [#253](https://github.com/lorelum/lorelum/issues/253)
 
 ## Upgrade and compatibility
 
