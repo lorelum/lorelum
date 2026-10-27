@@ -1,7 +1,12 @@
 import { z } from "zod";
 import type { EmbeddingConfig } from "./embedding";
 
-const timeout = z.number().int().min(1).max(120_000);
+export const BACKEND_TIMEOUT_LIMITS = Object.freeze({ minimum: 1, maximum: 120_000 });
+const timeout = z
+  .number()
+  .int()
+  .min(BACKEND_TIMEOUT_LIMITS.minimum)
+  .max(BACKEND_TIMEOUT_LIMITS.maximum);
 export const backendSettingsSchema = z.strictObject({
   startupTimeoutMs: timeout,
   requestTimeoutMs: timeout,

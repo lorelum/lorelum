@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { realpathSync } from "node:fs";
 
 import { ProcessTimeoutError, runProcess } from "./process.js";
 
@@ -27,6 +29,23 @@ test("forwards optional standard input before collecting process output", async 
     stderr: "",
     stdout: "hook payload",
   });
+});
+
+test("runs with an explicitly isolated environment and working directory", async () => {
+  const cwd = realpathSync(tmpdir());
+  const result = await runProcess(
+    [
+      bunExecutable,
+      "-e",
+      "console.log(JSON.stringify([process.env.LORELUM_TEST_PROCESS, process.cwd()]))",
+    ],
+    60_000,
+    undefined,
+    { environment: { ...process.env, LORELUM_TEST_PROCESS: "isolated" }, cwd },
+  );
+  expect(result.exitCode).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual(["isolated", cwd]);
+  expect(result.stderr).toBe("");
 });
 
 test("terminates a timed-out process before rejecting", async () => {

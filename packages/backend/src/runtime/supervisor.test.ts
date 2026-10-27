@@ -64,6 +64,24 @@ async function fixture(
   }
 }
 
+test("isolated daemon logging fallback is persisted once without a CLI trace", async () => {
+  const integration = fileURLToPath(
+    new URL("../../integration/daemon-config-fallback.integration.ts", import.meta.url),
+  );
+  const child = Bun.spawn([process.execPath, integration], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain('"scenario":"daemon-config-fallback"');
+  expect(stderr).toBe("");
+}, 20_000);
+
 /** Windows releases directory handles asynchronously; bounded retries avoid EBUSY flakes. */
 async function removeTemporarily(directory: string): Promise<void> {
   for (let attempt = 0; ; attempt++) {

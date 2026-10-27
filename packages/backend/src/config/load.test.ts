@@ -60,10 +60,45 @@ test("file, environment and explicit values override defaults in order", () =>
   }));
 
 test("invalid sources are rejected even when later sources override them", () => {
-  expect(() =>
-    resolveBackendSettings({ requestTimeoutMs: -1 }, { requestTimeoutMs: 1000 }),
-  ).toThrow("backend settings source 1 requestTimeoutMs");
+  let error: unknown;
+  try {
+    resolveBackendSettings({ requestTimeoutMs: -1 }, { requestTimeoutMs: 1000 });
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toMatchObject({
+    code: "backend.config-invalid",
+    message: expect.stringContaining("backend.requestTimeoutMs"),
+    cause: {
+      failure: {
+        source: { kind: "resolved", label: "Backend settings source 1" },
+        subject: "backend.requestTimeoutMs",
+        reason: "range",
+        rule: { kind: "integer", minimum: 1, maximum: 120_000 },
+      },
+    },
+  });
 });
+
+test("unknown Backend fields identify only the key and not its value", () =>
+  fixture(async (homeDirectory, filePath) => {
+    await writeFile(filePath, "backend:\n  requestTimeotMs: do-not-echo-this-value\n");
+    const error = await loadBackendConfig({ homeDirectory, filePath, environment: {} }).catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toMatchObject({
+      code: "backend.config-invalid",
+      message: expect.stringContaining("backend.requestTimeotMs"),
+      cause: {
+        failure: {
+          source: { kind: "file", path: filePath },
+          subject: "backend.requestTimeotMs",
+          reason: "unknown-key",
+        },
+      },
+    });
+    expect(String((error as Error).message).includes("do-not-echo-this-value")).toBe(false);
+  }));
 
 test("invalid backend config identifies a safe repair target without echoing values", () =>
   fixture(async (homeDirectory, filePath) => {
@@ -72,7 +107,7 @@ test("invalid backend config identifies a safe repair target without echoing val
       loadBackendConfig({ homeDirectory, filePath, environment: {} }),
     ).rejects.toMatchObject({
       code: "backend.config-invalid",
-      message: expect.stringContaining("configuration file requestTimeoutMs"),
+      message: expect.stringContaining("backend.requestTimeoutMs"),
     });
     await expect(
       loadBackendConfig({ homeDirectory, filePath, environment: {} }),
@@ -130,6 +165,42 @@ for (const value of ["", "-1", "1.5", "Infinity", "120001", " 1000"]) {
   );
 }
 
+test("environment failures retain the variable and distinguish syntax from range", () =>
+  fixture(async (homeDirectory) => {
+    const variable = "LORELUM_BACKEND_REQUEST_TIMEOUT_MS";
+    const invalidFormat = await loadBackendConfig({
+      homeDirectory,
+      environment: { [variable]: "001" },
+    }).catch((error: unknown) => error);
+    expect(invalidFormat).toMatchObject({
+      code: "backend.config-invalid",
+      message: expect.stringContaining(variable),
+      cause: {
+        failure: {
+          source: { kind: "environment", variable },
+          subject: "backend.requestTimeoutMs",
+          reason: "format",
+          rule: { kind: "positive-decimal-integer-without-leading-zeros" },
+        },
+      },
+    });
+
+    const outOfRange = await loadBackendConfig({
+      homeDirectory,
+      environment: { [variable]: "120001" },
+    }).catch((error: unknown) => error);
+    expect(outOfRange).toMatchObject({
+      cause: {
+        failure: {
+          source: { kind: "environment", variable },
+          subject: "backend.requestTimeoutMs",
+          reason: "range",
+          rule: { kind: "integer", minimum: 1, maximum: 120_000 },
+        },
+      },
+    });
+  }));
+
 test("explicit undefined cannot erase a required resolved setting", () => {
   expect(() => resolveBackendSettings({ requestTimeoutMs: undefined })).toThrow();
 });
@@ -148,5 +219,15 @@ test("backend reads only its section from shared config", () =>
     await writeFile(filePath, "backend: null\n");
     await expect(
       loadBackendConfig({ homeDirectory, filePath, environment: {} }),
-    ).rejects.toMatchObject({ code: "backend.config-invalid" });
+    ).rejects.toMatchObject({
+      code: "backend.config-invalid",
+      cause: {
+        failure: {
+          source: { kind: "file", path: filePath },
+          subject: "backend",
+          reason: "type",
+          rule: { kind: "shape", expected: "object" },
+        },
+      },
+    });
   }));

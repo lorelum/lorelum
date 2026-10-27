@@ -16,6 +16,8 @@ icon: Wrench
 lore logs --trace-id <traceId> --limit 100
 ```
 
+遇到 `query.config-invalid` 或 `backend.config-invalid`，按现有错误消息指出的来源、设置项和规则修正或删除对应配置，再重试。环境变量错误会指出变量名；YAML 语法错误只有在行列号可靠时才显示位置。配置诊断的行为和范围见[配置指南](./configuration#配置错误与-logging-回退)。
+
 该命令只读取已经与这次调用关联的 Lorelum 管理日志；不会启动 Backend 或模型、下载内容、重新执行 query，也不会查看其他调用。`missingEvidence` 表示保留下来的证据存在限制：文件缺失、已轮转、已损坏，或此前没有记录 debug，都不能证明另一个原因。
 
 收集等级允许时，普通命令各保留一份开始与完成记录。trace 的直接记录与最近 shared lifecycle 使用独立窗口，其他调用不会挤掉仍在该 trace 自身限额内的较早证据。
@@ -29,6 +31,8 @@ lore --debug query "相同的最小任务描述"
 这次复现会产生新的 trace，不能把它的日志当作原始 failure 的现场。只有需要 protocol 字段或脚本需要 JSON envelope 时才使用 `--json`；不要为了取得原始 trace 而重跑命令。
 
 Host Hook 的 stdout 保持宿主 raw protocol，不会附带普通 CLI diagnostics。不要从它的 stdout 解析 trace。若 Hook 问题反复出现，可设置 `logging.level: debug`，或通过宿主支持的路径复现，再有意识地检查产生的本机证据。
+
+如果 logging 配置无效或无法读取，命令或 Hook 的结果不变。stderr 会提示持久等级已回退为 `info`，并说明实际生效等级；本次调用的 `--debug` 仍会让它以 `debug` 运行。使用 `--json` 或 `--log-level error` 时也会显示这条提示，JSON stdout 不变。`logging.level-fallback` 记录只能证明发生了回退，不能证明已收集 debug 记录；没有 debug record 时，feedback 仍会返回 `debug-records-not-found`。Backend daemon 的 startup warning 成功留存时会在 `source=backend` 下，不继承 CLI trace；用 `lore logs --source backend` 查看。
 
 ## Backend 版本不匹配或未运行
 

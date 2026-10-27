@@ -42,22 +42,39 @@ test("loads project-independent user query settings", async () => {
 test("rejects invalid user query settings with an actionable message", async () => {
   await fixture(async (home, file) => {
     await writeFile(file, "query:\n  maxWaitMs: nope\n");
-    await expect(loadQuerySettings({ homeDirectory: home })).rejects.toMatchObject({
-      code: "query.config-invalid",
-      message:
-        "query.maxWaitMs must be an integer from 0 through 120000. Fix or remove it in ~/.lorelum/config.yaml.",
-    });
+    try {
+      await loadQuerySettings({ homeDirectory: home });
+      throw new Error("Expected query configuration to fail.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CliError);
+      if (!(error instanceof CliError)) throw error;
+      expect(error.code).toBe("query.config-invalid");
+      expect(error.message).toContain("query.maxWaitMs");
+      expect(error.message).toContain("integer");
+      expect(error.message).toContain("0");
+      expect(error.message).toContain("120000");
+      expect(error.message).toContain(file);
+      expect(error.message).toContain("string");
+    }
   });
 });
 
 test("identifies the out-of-range setting in the same message", async () => {
   await fixture(async (home, file) => {
     await writeFile(file, "query:\n  minCoveragePercent: 200\n");
-    await expect(loadQuerySettings({ homeDirectory: home })).rejects.toMatchObject({
-      code: "query.config-invalid",
-      message:
-        "query.minCoveragePercent must be an integer from 0 through 100. Fix or remove it in ~/.lorelum/config.yaml.",
-    });
+    try {
+      await loadQuerySettings({ homeDirectory: home });
+      throw new Error("Expected query configuration to fail.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CliError);
+      if (!(error instanceof CliError)) throw error;
+      expect(error.code).toBe("query.config-invalid");
+      expect(error.message).toContain("query.minCoveragePercent");
+      expect(error.message).toContain("integer");
+      expect(error.message).toContain("100");
+      expect(error.message).toContain("200");
+      expect(error.message).toContain(file);
+    }
   });
 });
 
@@ -72,7 +89,9 @@ test("keeps YAML syntax failures safe and actionable", async () => {
     }
     expect(caught).toBeInstanceOf(CliError);
     expect((caught as CliError).code).toBe("query.config-invalid");
-    expect((caught as CliError).message).toContain("~/.lorelum/config.yaml");
+    expect((caught as CliError).message).toContain(file);
+    expect((caught as CliError).message).toContain("YAML");
+    expect((caught as CliError).message).not.toContain("broken");
   });
 });
 

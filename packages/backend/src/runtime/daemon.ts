@@ -3,7 +3,7 @@ import { createEmbeddingService } from "../modules/embedding/service";
 import { createEmbeddingProcess } from "./embedding-process";
 import { consumeDaemonLaunch, resolveBackendSettings, resolveEmbeddingConfig } from "../config";
 import { createLocalStore, createQueryService } from "@lorelum/engine";
-import { defaultLogDirectory, loadLoggingSettings } from "@lorelum/config";
+import { defaultLogDirectory, resolveLoggingSettings } from "@lorelum/config";
 import { SinkLogEmitter, TraceDetailLogEmitter } from "@lorelum/log";
 import { join } from "node:path";
 import { BACKEND_HOST, MAX_BODY_BYTES } from "../protocol/constants";
@@ -48,14 +48,32 @@ export async function runBackendDaemon(options: { readonly build: BuildInfo }): 
   // This is a startup security boundary. An unsafe target remains a backend
   // state failure; only I/O after a successful preflight degrades to a
   // disabled diagnostic sink.
-  const loggingLevel = await loadLoggingSettings()
-    .then((logging) => logging.level)
-    .catch(() => "info" as const);
+  const logging = await resolveLoggingSettings();
   const diagnosticSink = await createPrivateJsonlSink({
     directory: join(logDirectory ?? defaultLogDirectory(), "backend"),
     fileName: "current.jsonl",
   });
-  const diagnostics = new TraceDetailLogEmitter(loggingLevel, new SinkLogEmitter(diagnosticSink));
+  const diagnostics = new TraceDetailLogEmitter(
+    logging.effectiveLevel,
+    new SinkLogEmitter(diagnosticSink),
+  );
+  if (logging.kind === "fallback") {
+    diagnostics.emit({
+      time: new Date().toISOString(),
+      level: "warn",
+      component: "backend",
+      event: "logging.level-fallback",
+      context: {
+        instanceId,
+        cause: logging.cause.kind,
+        ...(logging.cause.kind === "config" && logging.cause.error.failure !== undefined
+          ? { failure: logging.cause.error.failure }
+          : {}),
+        fallbackLevel: logging.fallbackLevel,
+        effectiveLevel: logging.effectiveLevel,
+      },
+    });
+  }
   const updateActivity = async (
     kind: "daemon-startup" | "model-preparation" | "index-operation",
     active: boolean,

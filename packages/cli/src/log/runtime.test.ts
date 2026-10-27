@@ -74,6 +74,56 @@ function stderrCollector(): { lines: string[]; write(message: string): void } {
   };
 }
 
+test.each([false, true])("invalid persistent logging is visible with debug=%s", (debug) =>
+  fixture(async (home) => {
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        "--eval",
+        `
+          import { mkdir, writeFile } from "node:fs/promises";
+          import { createTraceId } from "@lorelum/log";
+          import { resolveLorelumPaths } from "@lorelum/config";
+          import { createProcessLogRuntime } from ${JSON.stringify(join(import.meta.dir, "runtime.ts"))};
+          const paths = resolveLorelumPaths();
+          await mkdir(paths.rootDirectory, { recursive: true });
+          await writeFile(paths.configFile, "logging:\\n  level: noisy\\n");
+          const notices = [];
+          const runtime = await createProcessLogRuntime({ write(line) { notices.push(line); } }, createTraceId(), {
+            debug: ${debug}, persist: false,
+          });
+          await runtime.flush();
+          await runtime.flush();
+          console.log(JSON.stringify({ notices, level: runtime.log.level }));
+        `,
+      ],
+      {
+        cwd: import.meta.dir,
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout) as { notices: string[]; level: string };
+    expect(result.level).toBe(debug ? "debug" : "info");
+    expect(result.notices).toHaveLength(1);
+    expect(result.notices[0]).toContain("logging.level");
+    expect(result.notices[0]).toContain('one of "error", "warn", "info", "debug"');
+    expect(result.notices[0]).not.toContain("noisy");
+    expect(result.notices[0]).toContain(
+      debug ? "effective level is debug" : "effective level is info",
+    );
+    expect(result.notices[0]?.trim().split("\n")).toHaveLength(1);
+  }),
+);
+
 test("flush stays quiet when the managed location is usable", async () =>
   fixture(async (directory) => {
     const stderr = stderrCollector();
@@ -107,7 +157,7 @@ test("flush reports an unusable managed location once on stderr", async () =>
     expect(notice?.endsWith("\n")).toBe(true);
   }));
 
-test("logging and settings share one invocation snapshot, while debug stays lazy", async () =>
+test("logging and settings share one invocation snapshot, including debug", async () =>
   fixture(async (home) => {
     const child = Bun.spawn(
       [
@@ -162,6 +212,6 @@ test("logging and settings share one invocation snapshot, while debug stays lazy
       firstMethod: { retrievalMethod: "single-vector" },
       secondSettings: { maxWaitMs: 200, minCoveragePercent: 0 },
       secondMethod: { retrievalMethod: "multi-view-vector" },
-      debugSettings: { maxWaitMs: 100, minCoveragePercent: 0 },
+      debugSettings: { maxWaitMs: 200, minCoveragePercent: 0 },
     });
   }));

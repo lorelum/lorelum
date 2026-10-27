@@ -16,6 +16,8 @@ A normal CLI failure prints its code, complete actionable message, applicable re
 lore logs --trace-id <traceId> --limit 100
 ```
 
+For `query.config-invalid` or `backend.config-invalid`, use the source, setting, and rule named by the existing error message, then correct or remove that setting before retrying. An environment-variable error names the variable; a YAML syntax location appears only when reliably available. See [Configuration](./configuration#configuration-errors-and-logging-fallback) for the behavior and scope of configuration diagnostics.
+
 This reads only Lorelum-managed records already associated with that call. It does not start a Backend or model, download anything, rerun the query, or inspect another invocation. Treat `missingEvidence` as a limit on what was retained: a missing, rotated, damaged, or non-debug log is not proof of a different cause.
 
 At an enabled collection level, an ordinary command has one start and one completion record. Trace collection keeps its direct records independently of the recent shared-lifecycle window, so unrelated calls do not displace older evidence that still fits the trace's own limit.
@@ -29,6 +31,8 @@ lore --debug query "the same minimal task description"
 The reproduction has a new trace. Do not present its records as if they came from the original failure. Use `--json` only when you need protocol fields or a script needs the JSON envelope; do not rerun solely to obtain the original trace.
 
 Host Hook stdout remains the host's raw protocol and does not include ordinary CLI diagnostics. Do not parse it for a trace. For a recurring Hook problem, enable `logging.level: debug` or reproduce the Hook through the host's supported path, then inspect the resulting local evidence deliberately.
+
+If logging configuration itself is invalid or unreadable, the command or Hook result is unchanged. Stderr reports that the persistent level fell back to `info` and gives the effective level; for that invocation, `--debug` still makes it `debug`. The notice also appears with `--json` and `--log-level error`, without changing JSON stdout. A `logging.level-fallback` record confirms the fallback, not that debug records were collected; feedback still reports `debug-records-not-found` when no debug record exists. When saved, Backend daemon startup warnings are under `source=backend`; they do not inherit a CLI trace, so inspect them with `lore logs --source backend`.
 
 ## Backend version mismatch or unavailable
 

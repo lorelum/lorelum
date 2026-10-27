@@ -1,19 +1,24 @@
 import {
+  ConfigError,
   loadConfig,
   resolveLorelumPaths,
-  ConfigError,
+  type ConfigFailure,
+  type ConfigRule,
+  type ConfigSource,
   type LoadConfigOptions,
 } from "@lorelum/config";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { BackendError } from "../protocol/errors";
+import { z } from "zod";
 import {
   backendSettingsSchema,
+  BACKEND_TIMEOUT_LIMITS,
   DEFAULT_BACKEND_SETTINGS,
   type BackendConfig,
   type BackendSettings,
   type Environment,
 } from "./model";
+import { backendConfigError, backendDocumentError } from "./failure";
 import { resolveEmbeddingConfig } from "./embedding";
 
 const settingsSource = backendSettingsSchema.partial();
@@ -23,42 +28,110 @@ const environmentKeys = {
   shutdownTimeoutMs: "LORELUM_BACKEND_SHUTDOWN_TIMEOUT_MS",
 } as const;
 
-function invalidSetting(source: string, key?: string): BackendError {
-  const target = key === undefined ? source : `${source} ${key}`;
-  return new BackendError(
-    "backend.config-invalid",
-    undefined,
-    `Invalid ${target}. Correct or remove that setting, then retry.`,
-  );
+type SettingFailureReason = Extract<ConfigFailure, { kind: "setting" }>["reason"];
+
+interface BackendSettingsSource {
+  readonly value: unknown;
+  readonly source: ConfigSource;
+  readonly sourceForIssue?: (issue: z.ZodIssue) => ConfigSource;
 }
 
-function invalidSettings(source: string, issues: readonly { path: PropertyKey[] }[]): BackendError {
-  const key = issues[0]?.path[0];
-  const known = typeof key === "string" && key in DEFAULT_BACKEND_SETTINGS ? key : undefined;
-  return invalidSetting(source, known);
+function sourceForEnvironmentIssue(issue: z.ZodIssue): ConfigSource {
+  const key = issue.path[0];
+  if (typeof key === "string" && Object.hasOwn(environmentKeys, key)) {
+    return { kind: "environment", variable: environmentKeys[key as keyof typeof environmentKeys] };
+  }
+  return { kind: "resolved", label: "Backend environment settings" };
+}
+
+function issueSubject(issue: z.ZodIssue, section: string): string {
+  const path = issue.path.map((part) => String(part));
+  if (issue.code === "unrecognized_keys") {
+    const [unknownKey] = issue.keys;
+    if (unknownKey !== undefined) path.push(unknownKey);
+  }
+  return path.length === 0 ? section : `${section}.${path.join(".")}`;
+}
+
+function issueReason(issue: z.ZodIssue): SettingFailureReason {
+  switch (issue.code) {
+    case "unrecognized_keys":
+      return "unknown-key";
+    case "invalid_type":
+      return "type";
+    case "too_big":
+    case "too_small":
+      return "range";
+    default:
+      return "format";
+  }
+}
+
+function issueRule(issue: z.ZodIssue): ConfigRule | undefined {
+  if (issue.code === "invalid_type" && issue.path.length === 0) {
+    return { kind: "shape", expected: "object" };
+  }
+  const [field] = issue.path;
+  if (
+    issue.path.length === 1 &&
+    typeof field === "string" &&
+    Object.hasOwn(backendSettingsSchema.shape, field)
+  ) {
+    return {
+      kind: "integer",
+      minimum: BACKEND_TIMEOUT_LIMITS.minimum,
+      maximum: BACKEND_TIMEOUT_LIMITS.maximum,
+    };
+  }
+  return undefined;
+}
+
+function invalidSettings(source: BackendSettingsSource, issues: readonly z.ZodIssue[]): never {
+  const issue = issues[0];
+  const rule = issue === undefined ? undefined : issueRule(issue);
+  const failure: ConfigFailure = {
+    kind: "setting",
+    source: issue === undefined ? source.source : (source.sourceForIssue?.(issue) ?? source.source),
+    subject: issue === undefined ? "backend settings" : issueSubject(issue, "backend"),
+    reason: issue === undefined ? "format" : issueReason(issue),
+    ...(rule === undefined ? {} : { rule }),
+  };
+  throw backendConfigError(failure);
 }
 
 export function defaultRuntimeDirectory(homeDirectory = homedir()): string {
   return join(resolveLorelumPaths(homeDirectory).rootDirectory, "run", "backend");
 }
 
-function resolveSettings(sources: readonly { value: unknown; label: string }[]): BackendSettings {
-  const values = sources.map(({ value, label }) => {
+function resolveSettings(sources: readonly BackendSettingsSource[]): BackendSettings {
+  const values = sources.map((source) => {
+    const { value } = source;
     const result = settingsSource.safeParse(value === undefined ? {} : value);
-    if (!result.success) throw invalidSettings(label, result.error.issues);
+    if (!result.success) invalidSettings(source, result.error.issues);
     return result.data;
   });
   const resolved = backendSettingsSchema.safeParse(
     Object.assign({}, DEFAULT_BACKEND_SETTINGS, ...values),
   );
-  if (!resolved.success) throw invalidSettings("backend settings", resolved.error.issues);
+  if (!resolved.success) {
+    invalidSettings(
+      {
+        value: undefined,
+        source: { kind: "resolved", label: "Backend settings after source merge" },
+      },
+      resolved.error.issues,
+    );
+  }
   return Object.freeze(resolved.data);
 }
 
 /** Pure resolver for already-read sources; each source must be valid on its own. */
 export function resolveBackendSettings(...sources: readonly unknown[]): BackendSettings {
   return resolveSettings(
-    sources.map((value, index) => ({ value, label: `backend settings source ${index + 1}` })),
+    sources.map((value, index) => ({
+      value,
+      source: { kind: "resolved", label: `Backend settings source ${index + 1}` },
+    })),
   );
 }
 
@@ -78,24 +151,40 @@ export async function loadBackendConfig(
   for (const [key, variable] of Object.entries(environmentKeys)) {
     const value = environment[variable];
     if (value === undefined) continue;
-    if (!/^[1-9][0-9]*$/.test(value)) throw invalidSetting("environment variable", variable);
+    if (!/^[1-9][0-9]*$/.test(value)) {
+      throw backendConfigError({
+        kind: "setting",
+        source: { kind: "environment", variable },
+        subject: `backend.${key}`,
+        reason: "format",
+        rule: { kind: "positive-decimal-integer-without-leading-zeros" },
+      });
+    }
     fromEnvironment[key] = Number(value);
   }
+  const configFile = options.filePath ?? resolveLorelumPaths(homeDirectory).configFile;
   let document: Readonly<Record<string, unknown>>;
   try {
-    document = await loadConfig(options);
+    document = await loadConfig({ ...options, homeDirectory, filePath: configFile });
   } catch (error) {
-    if (error instanceof ConfigError) throw invalidSetting("configuration file");
+    if (error instanceof ConfigError) throw backendDocumentError(error);
     throw error;
   }
   const fromFile = document.backend;
-  const embedding = resolveEmbeddingConfig(document.embedding, homeDirectory);
+  const embedding = resolveEmbeddingConfig(document.embedding, homeDirectory, {
+    kind: "file",
+    path: configFile,
+  });
   return Object.freeze({
     runtimeDirectory: defaultRuntimeDirectory(homeDirectory),
     settings: resolveSettings([
-      { value: fromFile, label: "backend section in configuration file" },
-      { value: fromEnvironment, label: "backend environment" },
-      { value: options.overrides, label: "backend overrides" },
+      { value: fromFile, source: { kind: "file", path: configFile } },
+      {
+        value: fromEnvironment,
+        source: { kind: "resolved", label: "Backend environment settings" },
+        sourceForIssue: sourceForEnvironmentIssue,
+      },
+      { value: options.overrides, source: { kind: "override", label: "Backend overrides" } },
     ]),
     ...(embedding === undefined ? {} : { embedding }),
   });
