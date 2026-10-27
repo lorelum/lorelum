@@ -5,6 +5,7 @@
 先按 [native 构建说明](../../native/embedding/README.md)准备匹配的 native 资源，并提供固定 Q4_0 模型的绝对路径。以下命令从仓库根目录执行，模型路径请替换为实际文件。脚本按顺序运行，避免不同验收同时占用 CPU，影响观测数据。
 
 ```sh
+bun packages/backend/integration/native-inference.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/daemon-embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/model-download.integration.ts /absolute/path/to/granite-q4_0.gguf
@@ -14,6 +15,7 @@ bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf
 
 | 入口 | Review 时关注的场景 |
 | --- | --- |
+| `native-inference.integration.ts` | 直接向原生产物发送真实 embedding 请求；显式 2/4/8 线程、中英文单条及短/长 batch、重复请求和向量质量；可用第二个路径参数指定解包后的 native executable，不读取用户的单线程配置 |
 | `embedding.integration.ts` | HTTP 认证调用；真实八输入 batch 的混合长度、置换、重复输入、独立语义及简单检索；超过 aggregate token budget 的分轮调度；占用编码槽时的控制响应与 busy 拒绝；重复加载/卸载 |
 | `daemon-embedding.integration.ts` | batch 编码的常驻进程复用、整批 native 无响应回收、native 崩溃、daemon 崩溃后的子进程回收和重启，以及 current CLI 对 protocol-mismatched daemon/native child 的 graceful 与 force 回收 |
 | `model-download.integration.ts` | 本地传输在 1 MiB 后断开，按真实落盘偏移续传，校验后编码并复用缓存 |

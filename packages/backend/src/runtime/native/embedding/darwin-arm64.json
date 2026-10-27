@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "buildIdentity": "83a0fb9b1897a512927ca1018fe76e2d436c388c2b955dd6b19cccc078602b77",
-  "recipeIdentity": "0befbf72fb22a7f89505351aaa405144e804f5535aa86fc691d7e136d7376e8b",
+  "recipeIdentity": "ecaab3e3903a76df8526c2ecc4f61ce46793e954cff64457cdfc513fcab3f5b2",
   "platform": "darwin",
   "arch": "arm64",
   "executable": "lore-model",
@@ -10,7 +10,7 @@
     "commit": "28ff0958291ce3465fabd7bd679d4b0edd742bd9",
     "archiveSha256": "b4220cefe053c18fb2d5c27a859c0aaab3106a5644bcbbbb2bdd67699dfe4b79"
   },
-  "patchSha256": "39de01bd05911688cd59772092302cf4864e55c4d5c3ffec5a416302e7f214c5",
+  "patchSha256": "8dd0697d5eb557a510b4a7d42e2e816e79b1b2bbce66f03ac58e142ac49aa8b3",
   "toolchain": {
     "cmake": "cmake version 3.31.6",
     "compiler": "Apple clang version 17.0.0 (clang-1700.4.4.1)"
@@ -20,7 +20,7 @@
     "-DCMAKE_OSX_ARCHITECTURES=arm64",
     "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.3",
     "-DLLAMA_BUILD_NUMBER=10901",
-    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.39de01bd",
+    "-DLLAMA_BUILD_COMMIT=28ff0958-lorelum.8dd0697d",
     "-DBUILD_SHARED_LIBS=OFF",
     "-DLLAMA_BUILD_TESTS=OFF",
     "-DLLAMA_BUILD_EXAMPLES=OFF",
