@@ -48,7 +48,8 @@ No public `error.details` or `diagnostics.notices` field is introduced. JSON std
 
 Other fixes:
 
-- Registry catalog initialization/mutation checks actual filesystem access instead of treating a writable catalog in a Git checkout as forbidden. Store snapshots also tolerate zero-link files caused by atomic replacement while preserving snapshot checks. [#293](https://github.com/lorelum/lorelum/pull/293)
+- Registry catalog reads and mutations rely on actual filesystem access instead of rejecting accessible files or directories merely for group/other POSIX permission bits. Existing permissions are not changed automatically; new catalog files and directories retain private creation defaults. [#293](https://github.com/lorelum/lorelum/pull/293), closes [#291](https://github.com/lorelum/lorelum/issues/291)
+- Backend private-file snapshots tolerate zero-link old inodes observed during atomic replacement, while still rejecting extra hard links, symlinks, wrong ownership and overly broad permissions. [#293](https://github.com/lorelum/lorelum/pull/293)
 - `--debug` retains Backend model/index preparation evidence, and trace log collection retains older direct records within its own budget rather than letting unrelated shared lifecycle traffic displace them. Diagnostics remain local and bounded; no credentials or automatic log upload are added. [#292](https://github.com/lorelum/lorelum/pull/292)
 
 ## Contributor and distribution changes
