@@ -95,10 +95,10 @@ test("keeps YAML syntax failures safe and actionable", async () => {
   });
 });
 
-test("defaults semantic retrieval to single-vector and reloads changes on each call", async () => {
+test("defaults semantic retrieval to multi-view-vector and reloads changes on each call", async () => {
   await fixture(async (home, file) => {
     expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
-      retrievalMethod: "single-vector",
+      retrievalMethod: "multi-view-vector",
     });
     await writeFile(file, "query:\n  retrievalMethod: multi-view-vector\n  maxWaitMs: invalid\n");
     expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
@@ -108,8 +108,24 @@ test("defaults semantic retrieval to single-vector and reloads changes on each c
     expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
       retrievalMethod: "single-vector",
     });
+    await writeFile(file, "query: {}\n");
+    expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
+      retrievalMethod: "multi-view-vector",
+    });
   });
 });
+
+test.each(["", "{}\n", "query: {}\n", "query:\n  maxWaitMs: 5000\n"])(
+  "uses multi-view when the method is omitted from configuration %j",
+  async (config) => {
+    await fixture(async (home, file) => {
+      await writeFile(file, config);
+      expect(await loadSemanticRetrievalSettings({ homeDirectory: home })).toEqual({
+        retrievalMethod: "multi-view-vector",
+      });
+    });
+  },
+);
 
 test.each(["simple", "multi-view", "multiview", "null", "42", "true", "[]", "{}"])(
   "rejects invalid semantic retrieval method %s without aliases",

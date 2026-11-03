@@ -597,7 +597,7 @@ test("query keeps its method snapshot until the next run when config changes bet
 
           const paths = resolveLorelumPaths();
           await mkdir(paths.rootDirectory, { recursive: true });
-          await writeFile(paths.configFile, "query:\\n  maxWaitMs: 100\\n  retrievalMethod: single-vector\\n");
+          await writeFile(paths.configFile, "query:\\n  maxWaitMs: 100\\n");
           const definition = createQueryCommand({
             storageRoot: { rootPath: ${JSON.stringify(join(home, "store"))} },
             queryService: { async query() { throw new Error("semantic query must use Backend"); } },
@@ -608,7 +608,7 @@ test("query keeps its method snapshot until the next run when config changes bet
             }),
             loadSettings: async (readConfig) => {
               const settings = await loadQuerySettings({}, readConfig);
-              await writeFile(paths.configFile, "query:\\n  maxWaitMs: invalid\\n  retrievalMethod: multi-view-vector\\n");
+              await writeFile(paths.configFile, "query:\\n  maxWaitMs: invalid\\n  retrievalMethod: single-vector\\n");
               return settings;
             },
           });
@@ -642,7 +642,7 @@ test("query keeps its method snapshot until the next run when config changes bet
     const [first, second] = JSON.parse(stdout);
     expect(first).toMatchObject({
       exitCode: 0,
-      response: { ok: true, data: { mode: "semantic", retrievalMethod: "single-vector" } },
+      response: { ok: true, data: { mode: "semantic", retrievalMethod: "multi-view-vector" } },
     });
     expect(second).toMatchObject({
       exitCode: 2,

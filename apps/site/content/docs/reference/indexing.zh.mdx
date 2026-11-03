@@ -16,9 +16,9 @@ lore index operation <operation-id>
 
 ## 检索方法
 
-Index status、build 和 rebuild 使用当前 [`query.retrievalMethod` 配置](../configuration#semantic-检索方法)：默认 `single-vector`，或显式选择 `multi-view-vector`（实验）。每次命令都会重新读取选择，即使 Backend 是同一个运行中的实例；修改后无需重启。非法值返回 `query.config-invalid`，修正或删除该字段即可。旧的 `simple` 和 `multi-view` ID 不是别名。
+Index status、build 和 rebuild 使用当前 [`query.retrievalMethod` 配置](../configuration#semantic-检索方法)：默认 `multi-view-vector`，或显式选择 `single-vector`。Semantic query 和安装后的 index synchronization 也使用同一选择。每次命令都会重新读取选择，即使 Backend 是同一个运行中的实例；修改后无需重启。非法值返回 `query.config-invalid`，修正或删除该字段即可使用 multi-view 默认方法。旧的 `simple` 和 `multi-view` ID 不是别名。
 
-Status 只报告当前方法的 artifact 与 progress，不显示另一种方法的工作。因此，即使之前的方法已 `ready`，切换后也可能显示 `missing` 或 `indexing`。各方法保留独立的缓存工作，切回时可复用兼容的 artifact。切换前已接受的 operation ID 仍指向原方法的工作。
+Status 只报告当前方法的 artifact 与 progress，不显示另一种方法的工作。因此，即使之前的方法已 `ready`，切换后也可能显示 `missing` 或 `indexing`。已有 single-vector artifact 会保留在缓存中，但默认方法需要独立构建 multi-view index；兼容的 multi-view artifact 不会仅因默认值切换而重建。各方法保留独立的缓存工作，切回时可复用兼容的 artifact。切换前已接受的 operation ID 仍指向原方法的工作。
 
 ## 构建与重建
 

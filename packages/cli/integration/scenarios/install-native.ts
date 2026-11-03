@@ -42,7 +42,10 @@ export async function verifyInstallNativeScenario(environment: NativeSmokeEnviro
   assert.equal(ready.state, "ready");
   const after = environment.encodingStats();
   const nativeBatchSizes = after.nativeBatchSizes.slice(before.nativeBatchSizes.length);
-  assert.equal(after.documentCount - before.documentCount, totalPractices);
+  assert(
+    after.documentCount - before.documentCount >= totalPractices * 2,
+    "Default install indexing must encode task-card and body views for every Practice",
+  );
   assert(
     nativeBatchSizes.includes(EMBEDDING_MODEL.maxInputs),
     "Install must complete a real native batch of eight sequences, not eight singleton calls",
@@ -59,10 +62,13 @@ export async function verifyInstallNativeScenario(environment: NativeSmokeEnviro
     ]),
   );
   assert.equal(query.coverage, "complete");
+  assert.equal(query.retrievalMethod, "multi-view-vector");
+  assert.equal(query.profileId, ready.profileId);
   assert.equal(environment.encodingStats().documentCount, after.documentCount);
   return {
     fixture: { installedPractices: totalPractices },
     observations: {
+      retrievalMethod: query.retrievalMethod,
       installDocumentBatches: after.batches - before.batches,
       installNativeBatchSizes: nativeBatchSizes,
       installDocumentInputs: after.documentCount - before.documentCount,

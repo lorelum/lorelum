@@ -16,7 +16,7 @@ import {
 } from "../support/native-smoke.js";
 import { isRecord } from "../support/protocol.js";
 
-/** Project inheritance and index lifecycle, independent of experimental method selection. */
+/** Project inheritance and index lifecycle using the default multi-view retrieval method. */
 export async function verifyProjectContextNativeScenario(environment: NativeSmokeEnvironment) {
   const session = await environment.createSession("project-context");
   const { invoke, cacheRoot } = session;
@@ -53,7 +53,18 @@ export async function verifyProjectContextNativeScenario(environment: NativeSmok
     await invoke([...parentArgs, "index", "status"]),
   );
   assert.equal(initialStatus.state, "missing");
-  const pause = environment.pauseAfterFirstBatch();
+  const beforeInitial = environment.encodingStats();
+  const pause = environment.pauseAfterPublishedBatch(async () => {
+    const status = expectOk(
+      "published index progress",
+      await invoke([...parentArgs, "index", "status"]),
+    );
+    return (
+      status.state === "indexing" &&
+      typeof status.indexedPracticeCount === "number" &&
+      status.indexedPracticeCount > 0
+    );
+  });
   const coldQuery = await invoke([...initialQueryArgs, "--min-coverage-percent", "1"]);
   assert.equal(coldQuery.exitCode, 1);
   assert.notEqual(coldQuery.response.error?.code, "backend.deadline-exceeded");
@@ -72,6 +83,10 @@ export async function verifyProjectContextNativeScenario(environment: NativeSmok
   pause.release();
   await environment.waitForIdle();
   const initialDocumentEmbedding = environment.encodingStats();
+  assert(
+    initialDocumentEmbedding.documentCount - beforeInitial.documentCount >= totalPractices * 2,
+    "Initial indexing must encode task-card and body views for every Practice",
+  );
   assert(
     initialDocumentEmbedding.nativeBatchSizes.includes(EMBEDDING_MODEL.maxInputs),
     "Full index build must complete a real native batch of eight independent sequences",
@@ -116,9 +131,15 @@ export async function verifyProjectContextNativeScenario(environment: NativeSmok
   assert.equal(
     afterIncremental.batches - beforeIncremental.batches,
     1,
-    "Only the changed Practice re-embeds",
+    "Only the changed Practice's views need an incremental document batch",
   );
-  assert.equal(afterIncremental.documentCount - beforeIncremental.documentCount, 1);
+  const changedViewInputs = afterIncremental.documentCount - beforeIncremental.documentCount;
+  assert(changedViewInputs > 0, "The changed body projection must be encoded");
+  assert(
+    changedViewInputs <
+      (initialDocumentEmbedding.documentCount - beforeInitial.documentCount) / totalPractices,
+    "A body-only edit must reuse the unchanged task-card view and other Practices' views",
+  );
   expectOk(
     "incremental semantic query",
     await invoke([

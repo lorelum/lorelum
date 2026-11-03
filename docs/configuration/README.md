@@ -23,16 +23,16 @@ semantic query 的方法选择、等待和 partial coverage 策略属于用户�
 
 ```yaml
 query:
-  retrievalMethod: single-vector
+  retrievalMethod: multi-view-vector
   maxWaitMs: 3000
   minCoveragePercent: 0
 ```
 
 `maxWaitMs` 是 `0` 到 `120000` 的整数毫秒；Backend 接受 query 后，它只限制当前命令观察 model preparation 和 index progress 的时间，operation 会在后台继续。它不是本地 Backend 启动、连接或 RPC 的 deadline，因此 `0` 表示不额外等待 progress，仍会安全提交或加入 operation，并返回 ready、`preparing` 或 `indexing`。`minCoveragePercent` 是 `0` 到 `100` 的整数百分比；只要已验证 current progress 达到该值，query 就可以返回带 `coverage: "partial"` 和完成/总数的成功结果。`--max-wait-ms`、`--min-coverage-percent` 覆盖一次命令，`--require-complete` 等价于 `100`，且不能与后者同时使用。
 
-`retrievalMethod` 只接受 `single-vector`（默认）和 `multi-view-vector`（实验）；`simple`、`multi-view` 等旧名称不是 alias。普通 semantic query、`index status/build/rebuild` 和 Pack 安装后的 `indexSync` 各自在调用时读取该值并随请求传递，因此同一 daemon 可处理不同方法，不必重启。query 的 `--mode single-vector` 与 `--mode multi-view-vector` 仅为本次覆盖方法选择，跳过被覆盖的方法校验，不写配置，不影响后续命令；CLI 将其组装为 Backend 的 `mode: semantic` 与对应的 `retrievalMethod`，并在 semantic 结果 data 中报告实际使用的 `retrievalMethod`。等待/coverage 仍由原 loader 校验；不增加独立方法 flag 或环境变量。`index operation <id>` 不读取当前方法配置，仍观察已接受 operation 的原目标。非法方法配置在消费边界映射为 `query.config-invalid`；Pack canonical commit 已成功时，同步失败只进入 `indexSync.failed`，不回滚安装。离线 keyword 路径不消费或校验 semantic 方法值。
+`retrievalMethod` 只接受 `multi-view-vector`（默认）和 `single-vector`（显式选择）；删除字段后回到 multi-view，不会写回配置。`simple`、`multi-view` 等旧名称不是 alias。普通 semantic query、`index status/build/rebuild` 和 Pack 安装后的 `indexSync` 各自在调用时读取该值并随请求传递，因此同一 daemon 可处理不同方法，不必重启。query 的 `--mode single-vector` 与 `--mode multi-view-vector` 仅为本次覆盖方法选择，跳过被覆盖的方法校验，不写配置，不影响后续命令；CLI 将其组装为 Backend 的 `mode: semantic` 与对应的 `retrievalMethod`，并在 semantic 结果 data 中报告实际使用的 `retrievalMethod`。等待/coverage 仍由原 loader 校验；不增加独立方法 flag 或环境变量。`index operation <id>` 不读取当前方法配置，仍观察已接受 operation 的原目标。非法方法配置在消费边界映射为 `query.config-invalid`；Pack canonical commit 已成功时，同步失败只进入 `indexSync.failed`，不回滚安装。离线 keyword 路径不消费或校验 semantic 方法值。
 
-Backend HTTP 调用方必须自行选择请求方法；省略时使用 `single-vector`，不会读取 CLI YAML。具体 wire 位置见 [Query API](../api/query.md) 和 [index adapter](../api/backend.md#semantic-index)。方法名称与默认值的纯 catalog 由 `@lorelum/engine/vector-methods` 提供；配置 loader 不应为校验字符串加载 Engine persistence 或运行时实现。
+Backend HTTP 调用方可显式选择请求方法；省略时使用 `multi-view-vector`，不会读取 CLI YAML。具体 wire 位置见 [Query API](../api/query.md) 和 [index adapter](../api/backend.md#semantic-index)。方法名称与默认值的纯 catalog 由 `@lorelum/engine/vector-methods` 提供；配置 loader 不应为校验字符串加载 Engine persistence 或运行时实现。默认值不参与方法/Profile 身份：已有 single artifact 保留但不能当作 multi ready，首次使用默认方法可能需要独立构建；已有兼容 multi artifact 不会仅因默认值切换而重建。
 
 配置文件和模型缓存独立于 LocalStore；`--store-root` 不改变它们。
 

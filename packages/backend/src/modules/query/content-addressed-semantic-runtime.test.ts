@@ -15,6 +15,10 @@ import { createIsolatedProjectSandbox } from "../../../../engine/src/project-con
 
 import { EmbeddingError } from "../embedding/errors";
 import { createEmbeddingService } from "../embedding/service";
+import type { IndexOperation } from "../index/model";
+import { createBackendApp } from "../../app";
+import { createBackendService } from "../backend/service";
+import { PROTOCOL_VERSION } from "../../protocol/constants";
 import { DEFAULT_BACKEND_SETTINGS } from "../../config/model";
 import { ContentAddressedSemanticRuntime } from "./content-addressed-semantic-runtime";
 import { SemanticOperationJournal } from "./project-operation-journal";
@@ -944,8 +948,8 @@ test("joins one content-addressed operation for equivalent ordinary directories"
       }),
     );
     const encoding = { encodingId, dimensions: 2 };
-    // The default single-vector build is shared across equivalent directories.
-    const sharedInputCount = 1;
+    // One shared build embeds the task-card and body views once each.
+    const sharedInputCount = 2;
     let release!: () => void;
     const block = new Promise<void>((resolve) => {
       release = resolve;
@@ -1216,14 +1220,55 @@ test("one runtime isolates method artifacts and preserves accepted operation tar
     journal,
   );
   const root = { rootPath: "/isolated/methods" };
-  const singleTarget = { kind: "store" as const, cacheRoot };
-  const multiTarget = { ...singleTarget, retrievalMethod: "multi-view-vector" as const };
+  const defaultTarget = { kind: "store" as const, cacheRoot };
+  const singleTarget = { ...defaultTarget, retrievalMethod: "single-vector" as const };
+  const multiTarget = { ...defaultTarget, retrievalMethod: "multi-view-vector" as const };
   const policy = { maxWaitMs: 0, minCoveragePercent: 100 };
+  const secret = "method-runtime-test-secret";
+  const instance = createBackendApp({
+    backend: createBackendService({
+      identity: {
+        instanceId: "method-runtime-test",
+        buildIdentity: "method-runtime-build",
+        protocolVersion: PROTOCOL_VERSION,
+      },
+      build: {
+        toolVersion: "test-version",
+        revision: null,
+        dirty: null,
+        buildKind: "source",
+        buildIdentity: "method-runtime-build",
+      },
+      secret,
+      onStop: () => undefined,
+    }),
+    keywordQueryService: {
+      async query() {
+        throw new Error("Semantic requests must not use keyword retrieval");
+      },
+    },
+    semanticRuntime: runtime,
+  });
+  const request = (path: string, payload?: unknown) =>
+    new Request(`http://127.0.0.1/internal/v1/${path}`, {
+      method: payload === undefined ? "GET" : "POST",
+      headers: {
+        host: "127.0.0.1:26186",
+        authorization: `Bearer ${secret}`,
+        "content-type": "application/json",
+      },
+      ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+    });
   try {
-    const original = await runtime.build(root, multiTarget);
+    const original = await runtime.build(root, defaultTarget);
     await started;
     const joined = await runtime.build(root, multiTarget);
     expect(joined.operationId).toBe(original.operationId);
+    const httpJoined = await instance.handle(
+      request("index/build", { storageRoot: root.rootPath, cacheRoot }),
+    );
+    expect(httpJoined.status).toBe(202);
+    expect(await httpJoined.json()).toMatchObject({ operationId: original.operationId });
     const next = await runtime.build(root, singleTarget);
     expect(next.operationId).not.toBe(original.operationId);
     await expect(runtime.indexStatus(root, singleTarget)).resolves.toMatchObject({
@@ -1232,6 +1277,15 @@ test("one runtime isolates method artifacts and preserves accepted operation tar
       operationId: next.operationId,
     });
     await expect(runtime.indexStatus(root, multiTarget)).resolves.toMatchObject({
+      state: "indexing",
+      profileId: multi.profile.profileId,
+      operationId: original.operationId,
+    });
+    const httpStatus = await instance.handle(
+      request(`index/status?${new URLSearchParams({ storageRoot: root.rootPath, cacheRoot })}`),
+    );
+    expect(httpStatus.status).toBe(200);
+    expect(await httpStatus.json()).toMatchObject({
       state: "indexing",
       profileId: multi.profile.profileId,
       operationId: original.operationId,
@@ -1260,7 +1314,23 @@ test("one runtime isolates method artifacts and preserves accepted operation tar
       results: [{ practiceId: "platform.method" }],
     });
     expect(queryInputs.at(-1)).toEqual([query.text]);
-    await expect(runtime.query(root, multiTarget, query, policy)).resolves.toMatchObject({
+    await expect(runtime.query(root, defaultTarget, query, policy)).resolves.toMatchObject({
+      mode: "semantic",
+      coverage: "complete",
+      profileId: multi.profile.profileId,
+      results: [{ practiceId: "platform.method" }],
+    });
+    expect(queryInputs.at(-1)).toEqual(
+      multi.method.projectQuery(query.text).map((input) => input.text),
+    );
+    const httpQuery = await instance.handle(
+      request("query", {
+        storageRoot: root.rootPath,
+        query: { ...query, cacheRoot, ...policy },
+      }),
+    );
+    expect(httpQuery.status).toBe(200);
+    expect(await httpQuery.json()).toMatchObject({
       mode: "semantic",
       coverage: "complete",
       profileId: multi.profile.profileId,
@@ -1289,6 +1359,20 @@ test("one runtime isolates method artifacts and preserves accepted operation tar
     await expect(runtime.indexOperation(original.operationId)).resolves.toMatchObject({
       state: "ready",
       index: { profileId: multi.profile.profileId },
+    });
+    const httpRebuilt = await instance.handle(
+      request("index/rebuild", { storageRoot: root.rootPath, cacheRoot }),
+    );
+    expect(httpRebuilt.status).toBe(202);
+    const defaultRebuild = (await httpRebuilt.json()) as IndexOperation;
+    await runtime.waitForIdle();
+    await expect(runtime.indexOperation(defaultRebuild.operationId)).resolves.toMatchObject({
+      state: "ready",
+      index: { profileId: multi.profile.profileId },
+    });
+    await expect(runtime.indexStatus(root, singleTarget)).resolves.toMatchObject({
+      state: "ready",
+      profileId: single.profile.profileId,
     });
   } finally {
     release();

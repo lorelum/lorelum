@@ -83,7 +83,10 @@ export interface NativeSmokeEnvironment {
   downloadRequests(): number;
   encodingStats(): NativeEncodingStats;
   waitForIdle(): Promise<void>;
-  pauseAfterFirstBatch(): { wait(): Promise<void>; release(): void };
+  pauseAfterPublishedBatch(hasPublishedProgress: () => Promise<boolean>): {
+    wait(): Promise<void>;
+    release(): void;
+  };
   createSession(name: string): Promise<NativeSmokeSession>;
   dispose(): Promise<void>;
 }
@@ -102,7 +105,6 @@ export async function createNativeSmokeEnvironment(
   let beforeDocumentBatch: (() => Promise<void>) | undefined;
   let releaseBatch: (() => void) | undefined;
   let documentBatches = 0;
-  let completedDocumentBatches = 0;
   let documentCount = 0;
   let documentEncodingMs = 0;
   const nativeBatchSizes: number[] = [];
@@ -175,7 +177,6 @@ export async function createNativeSmokeEnvironment(
           const result = await documentAdapter.embed(inputs);
           documentEncodingMs += performance.now() - started;
           documentCount += inputs.length;
-          completedDocumentBatches += 1;
           return result;
         },
       },
@@ -239,14 +240,13 @@ export async function createNativeSmokeEnvironment(
       downloadRequests: () => source.offsets.length,
       encodingStats,
       waitForIdle: () => runtime.waitForIdle(Date.now() + 180_000),
-      pauseAfterFirstBatch() {
-        const afterCompletedBatch = completedDocumentBatches + 1;
+      pauseAfterPublishedBatch(hasPublishedProgress) {
         let paused = false;
         const released = new Promise<void>((resume) => {
           releaseBatch = resume;
         });
         beforeDocumentBatch = async () => {
-          if (completedDocumentBatches < afterCompletedBatch) return;
+          if (!(await hasPublishedProgress())) return;
           beforeDocumentBatch = undefined;
           paused = true;
           await released;

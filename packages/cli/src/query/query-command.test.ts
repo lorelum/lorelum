@@ -193,7 +193,7 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
       text: "How do I verify a release?",
       limit: 7,
       mode: "semantic",
-      retrievalMethod: "single-vector",
+      retrievalMethod: "multi-view-vector",
       maxWaitMs: 3_000,
       minCoveragePercent: 0,
       projectContext: {
@@ -204,7 +204,7 @@ test("uses semantic Backend query by default and preserves semantic metadata", a
   });
   expect(result.response.data).toEqual({
     ...semantic,
-    retrievalMethod: "single-vector",
+    retrievalMethod: "multi-view-vector",
     empty: {
       reason: "empty",
       nextAction: "finish-lookup",
@@ -320,7 +320,7 @@ test("requires complete coverage without cancelling the accepted semantic operat
   expect(result.exitCode).toBe(1);
   expect(result.response.data).toMatchObject({
     state: "indexing",
-    retrievalMethod: "single-vector",
+    retrievalMethod: "multi-view-vector",
     indexedPracticeCount: 50,
     totalPracticeCount: 100,
   });

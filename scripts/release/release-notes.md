@@ -1,6 +1,6 @@
 ## Lorelum __RELEASE_TAG__
 
-This release adds background update notices for Agent sessions, explains successful empty queries, and restores read-candidate hints after compaction in supported hosts. It also fixes a Windows AVX2 embedding crash and separates Backend protocol compatibility from exact build selection. The default semantic retrieval method remains `single-vector`; experimental `multi-view-vector` remains opt-in.
+This release adds background update notices for Agent sessions, explains successful empty queries, and restores read-candidate hints after compaction in supported hosts. It also fixes a Windows AVX2 embedding crash and separates Backend protocol compatibility from exact build selection.
 
 ## New capabilities
 

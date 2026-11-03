@@ -62,20 +62,20 @@ lore --store-root /path/to/store query "认证改动应该怎样验证？"
 
 ## Semantic 检索方法
 
-Semantic query 默认使用 `single-vector`。单次查询可运行 `lore query "<text>" --mode multi-view-vector`（或 `--mode single-vector`），它覆盖方法选择，不校验被覆盖的方法项，也不写回文件；下一次普通 query 恢复配置的方法。若希望后续 query 和 index 命令默认使用实验方法，再加入：
+Semantic query 默认使用 `multi-view-vector`，无需配置。若希望为后续 query、index 命令和安装后的 index synchronization 显式写明默认方法，可使用：
 
 ```yaml
 query:
   retrievalMethod: multi-view-vector
 ```
 
-`single-vector` 将一个完整文档向量与一个查询向量比较。`multi-view-vector` 使用每条 Practice 的多个视图；它是实验方法，不保证排名更好。设为 `retrievalMethod: single-vector` 或删除该字段即可恢复默认。只接受这两个 ID；`simple` 和 `multi-view` 不是别名。
+`multi-view-vector` 沿用每条 Practice 的 task-card/body/clause 多视图 recipe，不保证每次查询的排名都更好。`single-vector` 将一个完整文档向量与一个查询向量比较，仍可通过 `retrievalMethod: single-vector` 显式选择。删除该字段或设为 `retrievalMethod: multi-view-vector` 即可恢复默认。只接受这两个 ID；`simple` 和 `multi-view` 不是别名。
 
-下一次 semantic query、`index status`、`index build`、`index rebuild` 或安装后的 index synchronization 都会读取当前选择，无需重启 Backend。每种方法的 index 与 progress 状态独立；切回时可以复用兼容的缓存工作。详见 [Index 命令](./reference/indexing)。
+下一次 semantic query、`index status`、`index build`、`index rebuild` 或安装后的 index synchronization 都会读取当前选择，无需重启 Backend。每种方法的 index 与 progress 状态独立。已有 single-vector artifact 会保留在缓存中，但默认方法需要独立的 multi-view index，初次可能返回 `preparing` 或 `indexing`。兼容的 multi-view artifact 不会仅因默认值切换而重建；切回任一方法也可复用兼容的缓存工作。详见 [Index 命令](./reference/indexing)。
 
 同一次 query 或 index 命令（包括安装后的 index synchronization）中，logging 与检索设置共享该次调用首次读取的配置文档。即使指定 `--debug`，logging 也会从这份文档解析持久设置；该 flag 只把本次调用的 effective level 设为 `debug`，不会跳过 `logging.level`。读取后发生的编辑从下一次调用生效，不会在当前命令中途混用新值；各消费者仍只校验自己使用的设置。
 
-读取该配置的命令遇到非法值会返回 `query.config-invalid`；修正或删除该字段即可。`--mode single-vector` 与 `--mode multi-view-vector` 可为一次 query 覆盖该方法值，但不会绕过其他配置错误；配置为 `multi-view-vector` 时，`--mode single-vector` 可为一次 query 与默认方法对比。`lore query "<text>" --mode keyword` 仍是离线路径，不读取或校验 semantic 方法。不需要独立的方法 flag 或环境变量。
+读取该配置的命令遇到非法值会返回 `query.config-invalid`；修正或删除该字段即可。单次查询可运行 `lore query "<text>" --mode single-vector` 与默认多视图方法对比，也可用 `--mode multi-view-vector` 覆盖 single-vector 配置。两种 mode 都会覆盖方法值，不校验被覆盖的方法项，不写回配置，但不会绕过其他配置错误。下一次普通 query 恢复配置的方法；未设置字段时回到 multi-view。`lore query "<text>" --mode keyword` 仍是离线路径，不读取或校验 semantic 方法。不需要独立的方法 flag 或环境变量。
 
 ## Query cache 与等待策略
 

@@ -358,12 +358,12 @@ test("project index routes use the supplied context without changing the Store s
     [
       "status",
       { rootPath: "/tmp/index-controller" },
-      { kind: "project", projectRoot, cacheRoot, retrievalMethod: "single-vector" },
+      { kind: "project", projectRoot, cacheRoot, retrievalMethod: "multi-view-vector" },
     ],
     [
       "build",
       { rootPath: "/tmp/index-controller" },
-      { kind: "project", projectRoot, cacheRoot, retrievalMethod: "single-vector" },
+      { kind: "project", projectRoot, cacheRoot, retrievalMethod: "multi-view-vector" },
     ],
   ]);
 });
@@ -431,17 +431,17 @@ test("Store cache routes use the common target runtime", async () => {
     [
       "status",
       { rootPath: "/tmp/index-controller" },
-      { kind: "store", cacheRoot: "/tmp/index-cache", retrievalMethod: "single-vector" },
+      { kind: "store", cacheRoot: "/tmp/index-cache", retrievalMethod: "multi-view-vector" },
     ],
     [
       "build",
       { rootPath: "/tmp/index-controller" },
-      { kind: "store", cacheRoot: "/tmp/index-cache", retrievalMethod: "single-vector" },
+      { kind: "store", cacheRoot: "/tmp/index-cache", retrievalMethod: "multi-view-vector" },
     ],
   ]);
 });
 
-test("index routes default to single-vector and validate exact method IDs before accepting operations", async () => {
+test("index routes default to multi-view-vector and validate exact method IDs before accepting operations", async () => {
   const calls: unknown[] = [];
   const instance = app(
     {
@@ -487,7 +487,7 @@ test("index routes default to single-vector and validate exact method IDs before
     }
   }
   expect(calls).toEqual(
-    ["single-vector", "single-vector", "multi-view-vector"].flatMap((method) =>
+    ["multi-view-vector", "single-vector", "multi-view-vector"].flatMap((method) =>
       ["status", "build", "rebuild"].map((route) => [route, method]),
     ),
   );
