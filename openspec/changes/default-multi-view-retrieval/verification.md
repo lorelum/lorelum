@@ -27,6 +27,8 @@ openspec validate --specs
 - 对 16 个变更 TypeScript 文件运行 `oxfmt --write`、focused oxlint。lint 无错误；Backend 两个 controller 测试中保留 9 条既有 sequential-await warnings。新增配置测试的两条 warning 通过独立 fixture 的参数化组织消除，没有增加 suppression 或修改生产路径。
 - 变更严格校验通过；current specs **24 passed、0 failed**，query/index requirements 已同步。
 - 对 13 个受影响文档检查 53 个相对链接目标，全部存在；后续补入的 empty-query 场景链接也指向实际读取过的入口。
+- 远端 `a88e826` 的 [CI](https://github.com/lorelum/lorelum/actions/runs/41586974579) 为 2034 pass、20 skip、1 fail，失败于未修改的 Claude Hook fixture 写 stdin 时 `EPIPE`。`5bc16f3` 的 [CI](https://github.com/lorelum/lorelum/actions/runs/41587118146) 同为 2034 pass、20 skip、1 fail，但失败在 Store revision-delta 测试：2/2 progress 已写入，1 秒观察预算结束时尚未完成发布。
+- revision-delta 测试改为零等待提交 query、显式等待后台 operation、再验证 complete，不延长产品 deadline；保留 changed contentDigest、每阶段新增向量数和所请求 predecessor revision 的覆盖，不钉死重复观察导致的内部读取次数。该文件补验 **20 pass、0 fail**（97 expectations），Backend 类型检查与 focused lint 通过。初次改为重复观察时，旧的精确读取次数断言失败；已用来源 revision 与实际结果/编码复用替代该实现细节断言。未为此修改 Hook、关闭检查或重跑失败任务碰运气。
 
 ## 四个真实 native 场景
 

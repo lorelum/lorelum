@@ -881,11 +881,15 @@ test("uses retained Store revision deltas and safely falls back when later histo
       cacheRoot: cache,
       retrievalMethod: "multi-view-vector" as const,
     };
-    const policy = { maxWaitMs: 1_000, minCoveragePercent: 100 };
+    const policy = { maxWaitMs: 0, minCoveragePercent: 100 };
+    // Observe accepted work explicitly; this is not a one-second latency test.
+    const queryComplete = async (text: string) => {
+      await runtime.query(root, target, { text }, policy);
+      await runtime.waitForIdle();
+      return runtime.query(root, target, { text }, policy);
+    };
 
-    await expect(
-      runtime.query(root, target, { text: "projection" }, policy),
-    ).resolves.toMatchObject({
+    await expect(queryComplete("projection")).resolves.toMatchObject({
       mode: "semantic",
       coverage: "complete",
     });
@@ -893,20 +897,21 @@ test("uses retained Store revision deltas and safely falls back when later histo
 
     revision = 2;
     practices = second;
-    const updated = await runtime.query(root, target, { text: "changed" }, policy);
+    const updated = await queryComplete("changed");
     expect(updated).toMatchObject({ mode: "semantic", coverage: "complete" });
     if (!("results" in updated)) throw new Error("Expected a semantic query result");
     expect(updated.results.map((result) => result.practiceId)).toContain("platform.changed");
-    expect(deltaReads).toEqual([1]);
+    expect(new Set(deltaReads)).toEqual(new Set([1]));
     // applies_when and body both change, so the task-card and body views are new.
     expect(documentEmbeddings).toBe(6);
 
     // Revision 3 intentionally has no retained history. The runtime must not
     // return the copied revision-2 row as the current winner; it falls back to
     // the generic current-corpus seed and embeds the new projection once.
+    const beforeFallbackReads = deltaReads.length;
     revision = 3;
     practices = third;
-    const recovered = await runtime.query(root, target, { text: "third" }, policy);
+    const recovered = await queryComplete("third");
     expect(recovered).toMatchObject({ mode: "semantic", coverage: "complete" });
     if (!("results" in recovered)) throw new Error("Expected a semantic query result");
     expect(recovered.results).toContainEqual(
@@ -915,9 +920,11 @@ test("uses retained Store revision deltas and safely falls back when later histo
         contentDigest: third[1]!.contentDigest,
       }),
     );
-    // A bounded predecessor lookup may try the immediately preceding revision
-    // and one older catalog entry before it gives up on unavailable history.
-    expect(deltaReads).toEqual([1, 2, 1]);
+    // Each lookup tries the preceding revision before an older catalog entry.
+    // Re-observing an accepted query may repeat those same source reads.
+    const fallbackReads = deltaReads.slice(beforeFallbackReads);
+    expect(fallbackReads[0]).toBe(2);
+    expect(new Set(fallbackReads)).toEqual(new Set([2, 1]));
     // The task-card and body views of the changed Practice are missing;
     // the unchanged Practice still hits the vector cache.
     expect(documentEmbeddings).toBe(8);

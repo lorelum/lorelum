@@ -7,3 +7,4 @@
 
 - [x] 2.1 在隔离 HOME/Store/cache/Backend 中运行真实 native query、install、方法切换与增量索引场景，并对真实 Pack 完成无显式方法的安装和 query；记录方法、覆盖、索引复用与未覆盖环境。
 - [x] 2.2 检查待提交文件、完整 diff 与敏感内容，提交并推送到现有分支，更新 PR 的默认行为、兼容性和验证说明并读回确认；不宣称已发布或更新全局安装。
+- [x] 2.3 修正远端 CI 暴露的 revision-delta fixture 时序假设；通过明确等待后台 operation、保留完整覆盖和派生向量复用验证，并补跑该测试文件、Backend 类型与 lint；如实记录未修改 Hook fixture 的 EPIPE。
