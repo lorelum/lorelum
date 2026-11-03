@@ -1,6 +1,6 @@
 ## Context
 
-Observed：`packages/engine/src/query/semantic/methods/catalog.ts` 的 `DEFAULT_VECTOR_RETRIEVAL_METHOD_ID` 为 single-vector。CLI `query/settings.ts`、Backend `protocol/retrieval-method.ts` 和 content-addressed runtime 的省略值路径都复用它；CLI `query/text.ts` 也据此决定默认 text 是否显示方法。两个实现及其 method/Profile/representation 身份已经独立，不需要新评分器或缓存格式。
+Observed（变更前）：`packages/engine/src/query/semantic/methods/catalog.ts` 的 `DEFAULT_VECTOR_RETRIEVAL_METHOD_ID` 为 single-vector。CLI `query/settings.ts`、Backend `protocol/retrieval-method.ts` 和 content-addressed runtime 的省略值路径都复用它；CLI `query/text.ts` 也据此决定默认 text 是否显示方法。两个实现及其 method/Profile/representation 身份已经独立，不需要新评分器或缓存格式。
 
 调用链已经核对：query command 读取单次 config 文档并处理显式 mode 覆盖，再通过 runtime client 发送 semantic + retrievalMethod；Backend controller 处理省略方法后交给 `ContentAddressedSemanticRuntime`；runtime 创建方法对应的 execution，选择已有 artifact/progress 或提交 operation。install command 在 canonical commit 后通过 `syncSemanticIndexAfterInstall()` 按设置提交同一 Store 的 build；index status/build/rebuild 也读取同一设置。
 

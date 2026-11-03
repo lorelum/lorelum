@@ -39,7 +39,7 @@ openspec validate --specs
 | 方法切换 | 无配置 multi → 临时 single → 普通 multi → 显式 single → 移除配置回 multi；两种 Profile 隔离、零等待 ready 复用、原 operation 绑定及配置不写回通过 |
 | Native 批次 | 默认 multi 文档 batch 包含 8 输入；多 clause query 实际 native batch 为 `[2]`，不靠 singleton 转发冒充 batch |
 | Install | 9 条 Practice、18 个 multi 输入，native 文档批次 `[8, 8, 2]`；首次 query 前索引已 ready，query 使用同一 Profile、complete 且不重编码文档 |
-| Empty | 空 Store 与 degraded 空项目返回 `corpus-empty` 及恢复提示，文档和 query embedding 数量为 0 |
+| Empty | 空 Store 与 degraded 空项目返回 `corpus-empty` 及成功空语料解释，文档和 query embedding 数量为 0 |
 
 第一次 native smoke 失败于旧暂停点：第一轮 native 编码只完成该批 Practice 的部分 views，尚未发布可查询的完整 Practice，query 正确仍为 preparing。集成环境改为在下一轮编码前由 index status 确认完整 Practice progress 已提交，再暂停验证 partial；不改生产实现、等待阈值或 coverage 要求。修正后完整四场景通过。
 
