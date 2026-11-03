@@ -204,7 +204,7 @@ test("index commands defer automatic ProjectContext resolution to Backend and fo
       "build",
       { rootPath: resolve("/isolated") },
       {
-        retrievalMethod: "single-vector",
+        retrievalMethod: "multi-view-vector",
         projectContext: {
           cacheRoot: resolve("/cache"),
           startDirectory: process.cwd(),

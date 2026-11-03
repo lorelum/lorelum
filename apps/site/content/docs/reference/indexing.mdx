@@ -16,9 +16,9 @@ lore index operation <operation-id>
 
 ## Retrieval method
 
-Index status, build, and rebuild use the current [`query.retrievalMethod` configuration](../configuration#semantic-retrieval-method): `single-vector` by default, or `multi-view-vector` (experimental). Each command reads the selection again, even with the same running Backend; changing it does not require a restart. Invalid values return `query.config-invalid`; correct or remove the field. The old `simple` and `multi-view` IDs are not aliases.
+Index status, build, and rebuild use the current [`query.retrievalMethod` configuration](../configuration#semantic-retrieval-method): `multi-view-vector` by default, or explicitly selected `single-vector`. Semantic query and post-install index synchronization use the same selection. Each command reads the selection again, even with the same running Backend; changing it does not require a restart. Invalid values return `query.config-invalid`; correct or remove the field to use the multi-view default. The old `simple` and `multi-view` IDs are not aliases.
 
-Status reports only the selected method's artifact and progress, not work from another method. Switching methods may therefore show `missing` or `indexing` even when the previous method was `ready`. Methods keep separate cached work; switching back can reuse a compatible artifact. An operation ID accepted before a switch still refers to its original method's work.
+Status reports only the selected method's artifact and progress, not work from another method. Switching methods may therefore show `missing` or `indexing` even when the previous method was `ready`. Existing single-vector artifacts remain cached, but the default requires a separate multi-view build. Compatible multi-view artifacts are reused without rebuilding just because the default changed. Methods keep separate cached work; switching back can reuse a compatible artifact. An operation ID accepted before a switch still refers to its original method's work.
 
 ## Build and rebuild
 

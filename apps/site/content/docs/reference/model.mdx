@@ -5,6 +5,8 @@ description: Prepare, inspect, or unload the local embedding model.
 
 Semantic query and index work prepare the model automatically. These commands help you wait for loading, inspect progress, or release resources.
 
+By default, after 60 seconds with no queued or running native work, the runtime releases the model and its computation context. The Backend and managed native service keep running. The next embedding request, whether for semantic query or index work, automatically reloads the model in the same native process; it does not download the model again or rebuild your index. Reload time counts toward the existing embedding request deadline, so the first request after idle can take longer. This reduces idle memory, not peak memory while processing long inputs. Reclamation follows the native event loop, so 60 seconds is not an exact release-time guarantee.
+
 Global options `--log-level <level>` and `--store-root <path>` are accepted; model state and cache are user-level, so `--store-root` does not select a different model.
 
 The Backend must be running for model commands. Start it explicitly when needed:
@@ -18,7 +20,7 @@ lore model load
 
 `lore model load` downloads the fixed model if it is missing, verifies it, and waits until loading completes. It also retries a previous failed preparation. Progress goes to stderr; stdout contains the complete final text result, or the JSON envelope when `--json` is selected.
 
-Repeated calls join the same preparation task.
+Repeated calls join the same preparation task. If the runtime is already `ready`, load returns ready without waking the model or pinning it in memory.
 
 Each new preparation verifies the native executable and the fixed model; a verified download loads directly without a second full scan after promotion. Readable model symlinks and hardlinks are accepted when their contents match the fixed model. Once ready, the runtime does not continuously inspect these files. After replacing local model/native files, run `lore model unload` followed by `lore model load` to prepare them again.
 
@@ -30,7 +32,7 @@ lore model status
 
 The result reports `state`: `unloaded`, `loading`, `ready`, `unloading`, or `failed`, plus `encodingId`, `device`, `dimensions`, and `threads`. Loading results include `progress`; failed results include an embedding error code, a recovery message, and a safe `resource` object when a model or native file failed verification. The object names the logical file and check, with expected/actual size or digest when available; it does not reveal absolute paths.
 
-Status does not start the Backend or download the model. If the Backend is stopped, it returns `backend.unavailable`.
+`ready` means the runtime can accept encoding requests, not that the model remains resident in memory. Status does not wake an idle model, start the Backend, or download the model. If the Backend is stopped, it returns `backend.unavailable`.
 
 ## unload
 
@@ -38,6 +40,6 @@ Status does not start the Backend or download the model. If the Backend is stopp
 lore model unload
 ```
 
-Unload cancels preparation or releases the loaded runtime. It keeps the model cache and resumable download files.
+Unload cancels preparation or stops the managed native process, even if the model has already released its memory while idle. It keeps the model cache and resumable download files; the next operation that needs the model follows the normal preparation path.
 
 Embedding and Backend errors exit `2`. `embedding.native-resource-invalid` calls for reinstalling the matching complete CLI package, not redownloading the model; `embedding.resource-invalid` identifies a model file that must be corrected. Inspect the returned `resource` and see [Troubleshooting](../troubleshooting) for recovery. See [Configuration](../configuration) for model paths and download settings.

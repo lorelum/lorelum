@@ -24,9 +24,11 @@ model: starting
 
 相同阶段、百分比和 attempt 不会重复输出。成功 data 是 `ModelStatus`，包含 `state`, `encodingId`, `device`, `dimensions` 和 `threads`，加载完成时 `state` 为 `ready`。native 以固定的 2048 context 初始化，但该参数不出现在 CLI 或 config 合同中。重复执行会加入同一个 loading task，不会创建第二个下载或 native 进程。
 
+`ready` 表示 runtime 可接受编码，不承诺模型持续驻留。ready 时重复 load 不唤醒模型，也不阻止默认的 60 秒空闲回收；下一次编码自动重载，耗时计入既有请求 deadline。完整语义见本页开头链接的 canonical spec，用户操作说明见[站点 Model 命令](../../apps/site/content/docs/reference/model.zh.mdx)。
+
 ## `lore model status`
 
-只读取当前 daemon 的模型状态，不启动 backend、不触发下载、不扫描或 hash 模型文件：
+只读取当前 daemon 的模型状态，不启动 backend、不触发下载、不扫描或 hash 模型文件，也不唤醒空闲模型；内部模型/context 已释放时仍可报告 ready：
 
 ```sh
 lore model status

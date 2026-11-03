@@ -8,6 +8,7 @@
 bun packages/backend/integration/native-inference.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/daemon-embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
+bun packages/backend/integration/idle-memory.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/model-download.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun run build:native
 bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf
@@ -18,12 +19,17 @@ bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf
 | `native-inference.integration.ts` | 直接向原生产物发送真实 embedding 请求；显式 2/4/8 线程、中英文单条及短/长 batch、重复请求和向量质量；可用第二个路径参数指定解包后的 native executable，不读取用户的单线程配置 |
 | `embedding.integration.ts` | HTTP 认证调用；真实八输入 batch 的混合长度、置换、重复输入、独立语义及简单检索；超过 aggregate token budget 的分轮调度；占用编码槽时的控制响应与 busy 拒绝；重复加载/卸载 |
 | `daemon-embedding.integration.ts` | batch 编码的常驻进程复用、整批 native 无响应回收、native 崩溃、daemon 崩溃后的子进程回收和重启，以及 current CLI 对 protocol-mismatched daemon/native child 的 graceful 与 force 回收 |
+| `idle-memory.integration.ts` | 生产默认 60 秒空闲回收；长输入后释放、同形 batch 唤醒向量、native 进程复用、status/ready load 不唤醒、显式 unload/reload，以及延迟和 macOS footprint/RSS 观测 |
 | `model-download.integration.ts` | 本地传输在 1 MiB 后断开，按真实落盘偏移续传，校验后编码并复用缓存 |
-| `project-context-native-smoke.integration.ts` | 通过 CLI command registry、真实 HTTP Backend 和 native 模型验证三个独立场景：ProjectContext 的冷启动、partial/strict/complete、目录复用、单条增量、真实 batch build/rebuild、cache prune、model unload/reload 和坏 Practice fallback；检索方法的默认/实验往返、多片段 query batch、临时 mode、配置不写回及 operation 身份；install 自身驱动索引，且在首次 query 前已 ready |
+| `project-context-native-smoke.integration.ts` | 通过 CLI command registry、真实 HTTP Backend 和 native 模型验证四个独立场景：ProjectContext 的冷启动、partial/strict/complete、目录复用、单条增量、真实 batch build/rebuild、cache prune、model unload/reload 和坏 Practice fallback；检索方法的 multi-view 默认/single-vector 显式覆盖往返、task-card/body 与多片段 query batch、临时 mode、配置不写回及 operation 身份；install 自身驱动默认 multi-view 索引，且在首次 query 前已 ready；空 Store 与 degraded 空项目的成功解释且不编码 |
 
 每个入口先组装环境，再调用命名场景，最后清理自己拥有的资源。`integration/support/` 只放重复的 native fixture、进程等待/RSS 采样、断流服务器和冻结参考比较，不包含业务实现。
 
 `test:native-smoke` 的 Store、ProjectContext、derived cache、Backend journal 和模型 cache 都在临时目录；它以调用方提供的模型文件作为只读本地下载源，不访问公网，也不启动、停止或复用用户 Backend。该 smoke 输出单机 `observations`，用于发现功能回归和保留可比较样本，不设置跨机器的性能通过阈值。
+
+`idle-memory.integration.ts` 使用真实默认 60 秒阈值，不为测试缩短时间，约需两轮 idle（仅空闲等待约两分钟，另加加载和编码）。它以隔离的 Backend/native 资源运行，模型只读，不操作用户 Backend 或 Store。验收比较长输入后的高水位与空闲后的 macOS footprint/RSS，要求闲置内存显著回落（至少 50%），并检查唤醒前后相同输入、相同 batch 形状的向量与输入关联。还需确认睡眠不退出 native 进程、状态保持 ready、status 和 ready 时重复 load 不唤醒或固定驻留，以及显式 unload 后的进程退出与 reload。冷加载、编码和唤醒延迟是单机观测；唤醒仍计入产品既有请求 deadline，不构成跨平台延迟或内存数值保证。
+
+相同 HTTP array 的 native slot 布局仍可能受先前请求影响；休眠清空 slot 历史后，底层 token 顺序可能变化。idle 验收在休眠前采集两种活跃 slot 布局的参考，唤醒后匹配同一组输入的对应布局，并保留严格向量容差与行关联断言；不通过放宽阈值掩盖变化。语义检索质量与跨 batch 形状的数值差异仍由 `embedding.integration.ts` 的独立参考、置换和检索场景覆盖。
 
 busy 场景通过编码入口的显式同步点占住请求，不依靠 sleep 猜测推理耗时；daemon 无响应场景暂停本次启动的 native 进程，让请求确定超时，再确认实际进程退出。这些是故障注入，不是性能测量。daemon 端口仍由现有 supervisor 合同决定，端口竞争会明确失败，不会改绑未知服务。
 
@@ -31,19 +37,20 @@ busy 场景通过编码入口的显式同步点占住请求，不依靠 sleep �
 
 ## CLI 原生 smoke 的场景边界
 
-- [入口](../../packages/cli/integration/project-context-native-smoke.integration.ts)只选择场景、汇总结果，并在 finally 释放环境；默认依次运行三个场景。
+- [入口](../../packages/cli/integration/project-context-native-smoke.integration.ts)只选择场景、汇总结果，并在 finally 释放环境；默认依次运行四个场景。
 - [原生环境](../../packages/cli/integration/support/native-smoke.ts)拥有临时目录、本地断流下载源、一个真实模型/runtime 和 HTTP Backend。每个场景的会话有独立的 Store、derived cache 和配置目录；只复用原生资源与调度，不共享语料或配置状态。
-- [ProjectContext 场景](../../packages/cli/integration/scenarios/project-context-native.ts)使用足够发布多个批次的语料，显式阻塞第一批成功编码后的下一批，验证 partial/strict/complete 和单条增量；初次模型准备导致的失败尝试不计作已发布批次。
-- [检索方法场景](../../packages/cli/integration/scenarios/retrieval-methods-native.ts)从自己的新语料开始，覆盖真实编码的跨批次路径，不依赖 ProjectContext 场景的下载、继承或增量编辑结果。临时方法返回后与配置切回后的查询使用零等待，避免后台重建掩盖 artifact 复用回归。
-- [Install 场景](../../packages/cli/integration/scenarios/install-native.ts)向新 Store 安装超过一个 batch 的本地 Pack；先确认 install 提交的索引已 ready，再执行 query，避免 query 自动建索引掩盖 install 路径缺失。install 的 cache root 通过测试依赖注入隔离，不给不支持该参数的 CLI 命令添加 `--cache-root`。
+- [ProjectContext 场景](../../packages/cli/integration/scenarios/project-context-native.ts)使用足够发布多个批次的语料；在下一轮 native 编码前，先通过 index status 确认完整 Practice 的 progress 已提交，再暂停构建并验证 partial/strict/complete。多视图的一次 native batch 可能只完成部分 views，不能据此判断 Practice 已可查询；初次模型准备导致的失败尝试也不计为已发布进度。增量场景继续验证变更投影编码和未变视图复用。
+- [检索方法场景](../../packages/cli/integration/scenarios/retrieval-methods-native.ts)从自己的新语料和无方法配置的 multi-view 默认开始，覆盖真实编码的跨批次路径、task-card/body 和多片段 query，不依赖 ProjectContext 场景的下载、继承或增量编辑结果。临时 single-vector mode 使用其独立 artifact，返回后恢复默认；显式 single 配置继续选择 single，移除字段后回到 multi。临时方法返回后与配置切回后的查询使用零等待，避免后台重建掩盖 artifact 复用回归；已接受 operation 始终绑定原方法。
+- [Install 场景](../../packages/cli/integration/scenarios/install-native.ts)向新 Store 安装超过一个 batch 的本地 Pack，不显式配置方法；先确认 install 提交的默认 multi-view 索引已 ready，再执行 query，避免 query 自动建索引掩盖 install 路径缺失。install 的 cache root 通过测试依赖注入隔离，不给不支持该参数的 CLI 命令添加 `--cache-root`。
+- [Empty query 场景](../../packages/cli/integration/scenarios/empty-query-native.ts)验证空 Store 与 degraded 空项目返回完整的空语料解释，且不请求文档或 query embedding。
 
-第三个参数可选 `all`、`project-context`、`retrieval-methods` 或 `install`。例如只运行检索方法场景：
+第三个参数可选 `all`、`project-context`、`retrieval-methods`、`install` 或 `empty-query`。例如只运行检索方法场景：
 
 ```sh
 bun run test:native-smoke -- /absolute/path/to/granite-q4_0.gguf retrieval-methods
 ```
 
-观测值按场景区分：`projectContextDocumentBatches` 和 `methodDocumentBatches` 分别记录各自的文档编码调用次数；`documentBatches` 是整个运行的总调用次数，包括模型尚未就绪时的失败尝试。`initialDocumentEmbedding` 与 `incrementalDocumentEmbedding` 只统计 ProjectContext 的对应阶段，不混入多视角编码。
+观测值按场景区分：`projectContextDocumentBatches` 和 `methodDocumentBatches` 分别记录各自的文档编码调用次数；`documentBatches` 是整个运行的总调用次数，包括模型尚未就绪时的失败尝试。`initialDocumentEmbedding` 与 `incrementalDocumentEmbedding` 只统计 ProjectContext 的对应阶段，不混入检索方法场景。默认 multi-view 会将一条 Practice 投影为多个编码输入，输入数或向量数不等于 Practice 数；增量检查应对应变更的文档投影，而不是沿用 single-vector 的一条 Practice 一个输入计数。历史 single-vector 验收的计数只解释当时的方法，不能作为新默认的验证结果。
 
 `nativeBatchSizes` 只记录真实 native 调用成功返回后的输入数，不把外部 HTTP 数组或失败尝试当成 native batch 证据。`rebuildNativeBatchSizes`、`multiNativeBatchSizes`、`multiQueryNativeBatchSizes` 和 `installNativeBatchSizes` 分别隔离 rebuild、多视角构建、多片段 query 和 install 阶段；多片段 query 的观测不包含文档重建。它们证明完整数组进入真实 native 路径；是否在同一次底层计算中合并序列，还需结合 native 调度日志，不能只看调用次数。
 
@@ -65,6 +72,6 @@ bun packages/backend/integration/embedding.integration.ts /absolute/path/to/gran
 
 成功行包含 `scenario` 和 `status: "passed"`。某个场景通过不代表后续场景已完成，应同时检查脚本退出码。失败由断言及其命名函数定位。
 
-耗时、吞吐和 RSS 放在 `observations` 中，代表本次机器上的采样，没有性能通过阈值。settings 各档线程数不同，不能据此宣称缩放效率；`statusWhileBusyMs` 在受控编码阻塞下观测，也不能当作真实高负载延迟指标。
+耗时、吞吐和内存采样放在 `observations` 中，代表本次机器上的观测，不设置跨机器的延迟或固定 MiB 阈值；idle 验收另有上述相对内存回落要求。settings 各档线程数不同，不能据此宣称缩放效率；`statusWhileBusyMs` 在受控编码阻塞下观测，也不能当作真实高负载延迟指标。
 
-当前这些真实模型验收依赖 macOS arm64 native，RSS 采样使用 macOS `ps`，故障注入使用 POSIX 信号；不以这组结果宣称 Windows 支持。脚本的临时运行目录和下载缓存会清理，用户模型与参考文件只读。
+当前这些真实模型验收依赖 macOS arm64 native，RSS 采样使用 macOS `ps`，idle 验收同时采样 macOS physical footprint，故障注入使用 POSIX 信号；不以这组结果宣称 Windows 支持或跨平台内存回收保证。脚本的临时运行目录和下载缓存会清理，用户模型与参考文件只读。

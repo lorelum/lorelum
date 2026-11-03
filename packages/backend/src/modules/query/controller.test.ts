@@ -84,7 +84,7 @@ test("defaults query mode to semantic and preserves semantic result metadata", a
     coverage: "partial",
     results: [],
   });
-  expect(calls).toEqual(["/tmp/query-controller:deployment:single-vector"]);
+  expect(calls).toEqual(["/tmp/query-controller:deployment:multi-view-vector"]);
 });
 
 test("records one trace's declared query evidence without serializing request credentials", async () => {
@@ -385,7 +385,7 @@ test("uses the project runtime for partial and indexing query results", async ()
         kind: "project",
         projectRoot: "/tmp/project",
         cacheRoot: "/tmp/cache",
-        retrievalMethod: "single-vector",
+        retrievalMethod: "multi-view-vector",
       },
       query: { text: "deployment" },
     },
@@ -446,7 +446,11 @@ test("uses the Store target runtime whenever semantic query supplies a cache roo
   expect(calls).toEqual([
     {
       root: { rootPath: "/tmp/query-controller" },
-      target: { kind: "store", cacheRoot: "/tmp/query-cache", retrievalMethod: "single-vector" },
+      target: {
+        kind: "store",
+        cacheRoot: "/tmp/query-cache",
+        retrievalMethod: "multi-view-vector",
+      },
       query: { text: "deployment" },
       policy: { maxWaitMs: 5000, minCoveragePercent: 80 },
     },
@@ -482,7 +486,7 @@ test("accepts only exact semantic retrieval methods and ignores them for keyword
     );
     expect(response.status).toBe(200);
   }
-  expect(methods).toEqual(["single-vector", "single-vector", "multi-view-vector"]);
+  expect(methods).toEqual(["multi-view-vector", "single-vector", "multi-view-vector"]);
   for (const retrievalMethod of ["simple", "multi-view", "multiview", null, 1, false, {}]) {
     const response = await instance.handle(
       request({

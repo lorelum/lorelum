@@ -6,7 +6,7 @@ export const VECTOR_RETRIEVAL_METHOD_IDS = Object.freeze([
   "single-vector",
   "multi-view-vector",
 ] as const);
-export const DEFAULT_VECTOR_RETRIEVAL_METHOD_ID: VectorRetrievalMethodId = "single-vector";
+export const DEFAULT_VECTOR_RETRIEVAL_METHOD_ID: VectorRetrievalMethodId = "multi-view-vector";
 
 export function isVectorRetrievalMethodId(value: unknown): value is VectorRetrievalMethodId {
   for (const id of VECTOR_RETRIEVAL_METHOD_IDS) {

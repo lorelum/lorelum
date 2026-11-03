@@ -5,6 +5,8 @@ description: 准备、查看或卸载本地 embedding 模型。
 
 semantic query 和 index 工作会自动准备模型。这组命令用于等待加载、查看进度和释放资源。
 
+默认情况下，native 连续 60 秒没有排队或执行中的工作后，runtime 会释放模型与计算 context，Backend 和受控 native 服务继续运行。下一次 embedding 请求（无论来自 semantic query 还是 index 工作）会在同一个 native 进程中自动重载模型，不会重新下载模型或重建 index。重载耗时计入既有 embedding 请求 deadline，因此空闲后的首个请求可能更慢。这只降低闲置内存，不降低处理长输入时的峰值。回收由 native 主循环调度，60 秒不是精确的释放时间保证。
+
 支持全局选项 `--log-level <level>` 与 `--store-root <path>`；模型状态和缓存属于用户级，`--store-root` 不会切换模型。
 
 Model 命令需要 Backend 已启动。必要时显式启动：
@@ -18,7 +20,7 @@ lore model load
 
 `lore model load` 在模型缺失时下载固定文件，校验并等待加载完成。它也可以重试之前失败的准备任务。进度写入 stderr，stdout 默认返回完整最终 text；选择 `--json` 时返回 envelope。
 
-重复调用会加入同一个准备任务。
+重复调用会加入同一个准备任务。runtime 已为 `ready` 时，load 直接返回 ready，不唤醒模型，也不将它固定在内存中。
 
 每次新的准备会验证 native executable 与固定模型；下载验证后直接加载，不因提升为正式文件再次完整扫描。可读模型 symlink/hardlink 的内容符合固定模型时可以使用。模型 ready 后不持续巡检这些文件；替换本机模型/native 文件后，执行 `lore model unload`，再执行 `lore model load` 重新准备。
 
@@ -30,7 +32,7 @@ lore model status
 
 结果中的 `state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`，并包含 `encodingId`、`device`、`dimensions`、`threads`。加载时包含 `progress`；模型或 native 文件校验失败时包含错误码、恢复提示和受限的 `resource` 信息：逻辑文件名、检查项，以及可取得时的预期/实际大小或 digest，不暴露绝对路径。
 
-status 不启动 Backend，也不下载模型。Backend 停止时返回 `backend.unavailable`。
+`ready` 表示 runtime 可接受编码请求，不表示模型持续驻留内存。status 不唤醒空闲模型、不启动 Backend，也不下载模型。Backend 停止时返回 `backend.unavailable`。
 
 ## unload
 
@@ -38,6 +40,6 @@ status 不启动 Backend，也不下载模型。Backend 停止时返回 `backend
 lore model unload
 ```
 
-unload 取消准备或释放已加载的运行时，保留模型缓存和可续传的下载文件。
+unload 取消准备或停止受控 native 进程，即使模型已在空闲时释放内存也一样。模型缓存和可续传的下载文件会保留；下一次需要模型的操作会沿正常准备流程执行。
 
 Embedding 与 Backend 错误退出 `2`。`embedding.native-resource-invalid` 要求重新安装匹配的完整 CLI 包，重新下载模型无效；`embedding.resource-invalid` 指向需要修正的模型文件。查看返回的 `resource` 并参考[故障排查](../troubleshooting)；模型路径与下载设置见[配置](../configuration)。

@@ -888,17 +888,25 @@ test("does not fall back when a saved local Git Registry source is unavailable",
   }
 });
 
-test.each(["single-vector", "multi-view-vector"] as const)(
-  "installation synchronizes the selected %s method after canonical commit",
-  async (retrievalMethod) => {
+test.each(["missing", "empty", "single-vector", "multi-view-vector"] as const)(
+  "installation synchronizes the %s method selection after canonical commit",
+  async (selection) => {
     const directory = await mkdtemp(join(tmpdir(), "lorelum-install-method-"));
     try {
       const storageRoot = join(directory, "store");
       const fixture = createServices(await createPack(directory), storageRoot);
+      const filePath = join(directory, "config.yaml");
+      if (selection !== "missing") {
+        await writeFile(
+          filePath,
+          selection === "empty" ? "query: {}\n" : `query:\n  retrievalMethod: ${selection}\n`,
+        );
+      }
+      const retrievalMethod = selection === "single-vector" ? "single-vector" : "multi-view-vector";
       const calls: unknown[] = [];
       const definition = createInstallCommand({
         ...fixture.services,
-        loadSemanticSettings: async () => ({ retrievalMethod }),
+        loadSemanticSettings: () => loadSemanticRetrievalSettings({ filePath }),
         createIndexRuntimeClient: async () => ({
           build: async (root, options) => {
             expect(await fixture.store.readEffectivePractices(root)).toHaveLength(1);

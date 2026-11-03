@@ -173,8 +173,8 @@ test("logging and settings share one invocation snapshot, including debug", asyn
 
           const paths = resolveLorelumPaths();
           await mkdir(paths.rootDirectory, { recursive: true });
-          const oldConfig = "logging:\\n  level: info\\nquery:\\n  maxWaitMs: 100\\n  retrievalMethod: single-vector\\n";
-          const newConfig = "logging:\\n  level: warn\\nquery:\\n  maxWaitMs: 200\\n  retrievalMethod: multi-view-vector\\n";
+          const oldConfig = "logging:\\n  level: info\\nquery:\\n  maxWaitMs: 100\\n";
+          const newConfig = "logging:\\n  level: warn\\nquery:\\n  maxWaitMs: 200\\n  retrievalMethod: single-vector\\n";
           await writeFile(paths.configFile, oldConfig);
           const stderr = { write() {} };
           const first = await createProcessLogRuntime(stderr, createTraceId(), { debug: false, persist: false });
@@ -209,9 +209,9 @@ test("logging and settings share one invocation snapshot, including debug", asyn
     expect(exitCode).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
       firstSettings: { maxWaitMs: 100, minCoveragePercent: 0 },
-      firstMethod: { retrievalMethod: "single-vector" },
+      firstMethod: { retrievalMethod: "multi-view-vector" },
       secondSettings: { maxWaitMs: 200, minCoveragePercent: 0 },
-      secondMethod: { retrievalMethod: "multi-view-vector" },
+      secondMethod: { retrievalMethod: "single-vector" },
       debugSettings: { maxWaitMs: 200, minCoveragePercent: 0 },
     });
   }));

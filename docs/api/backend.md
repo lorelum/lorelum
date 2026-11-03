@@ -71,7 +71,7 @@ v3 的旧私有 guard 没有在途请求 admission 保护；其旧过期 lease �
 
 ## Semantic index
 
-这些接口与 [Query API](query.md) 共用 canonical context、方法选择和 Profile 隔离规则，不读取 CLI YAML。`retrievalMethod` 只接受 `single-vector` 或实验性的 `multi-view-vector`，省略时默认 `single-vector`；非法方法由 controller 返回 `400` / `usage.invalid`，其他 JSON、未知字段或 wire shape 错误仍为 `backend.invalid-request`。
+这些接口与 [Query API](query.md) 共用 canonical context、方法选择和 Profile 隔离规则，不读取 CLI YAML。`retrievalMethod` 只接受 `multi-view-vector` 或 `single-vector`，省略时默认 `multi-view-vector`；显式 `single-vector` 仍可选择原方法。非法方法由 controller 返回 `400` / `usage.invalid`，其他 JSON、未知字段或 wire shape 错误仍为 `backend.invalid-request`。
 
 | 接口 | 请求位置与字段 | 成功响应 |
 | --- | --- | --- |

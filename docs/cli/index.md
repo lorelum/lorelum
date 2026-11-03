@@ -8,7 +8,7 @@
 
 模型与 Backend 是用户级资源，derived artifact 也位于用户级 cache。`--store-root` 只选择 Store 基础语料；`--cache-root` 只选择派生 cache；两者都不会切换模型、模型缓存或 Backend 地址。`--project-root` 选择包含 `.lorelum/` 的普通目录，`--no-project` 强制 Store-only。
 
-方法由 CLI 每次执行 `status/build/rebuild` 时读取的 `query.retrievalMethod` 选择：默认 `single-vector`，显式 `multi-view-vector` 为实验方法。它不是 daemon 固定 Profile，也没有新 flag/envvar；修改方法后下一次命令即可使用同一 Backend，不必重启。两种方法分别管理自己的 Profile/artifact/progress/cache，切换不替换另一方法的目标或把它报告为当前 ready。配置维护边界见 [Query 方法与前台预算](../configuration/README.md#query-方法与前台预算)。
+方法由 CLI 每次执行 `status/build/rebuild` 时读取的 `query.retrievalMethod` 选择：默认 `multi-view-vector`，仍可显式选择 `single-vector`；移除配置字段后回到 multi-view。它不是 daemon 固定 Profile，也没有新 flag/envvar；修改方法后下一次命令即可使用同一 Backend，不必重启。两种方法分别管理自己的 Profile/artifact/progress/cache，切换不替换另一方法的目标或把它报告为当前 ready。已有 single artifact 保留，但默认需要独立的 multi-view build；兼容的 multi-view artifact 不会仅因默认值切换而重建。配置维护边界见 [Query 方法与前台预算](../configuration/README.md#query-方法与前台预算)。
 
 ## 使用顺序
 
@@ -93,6 +93,6 @@ canonical Practice 仍在 LocalStore 或项目 layer source；artifact 不是正
 
 ## Pack 安装后的同步
 
-`lore pack install` 在 canonical Pack commit 成功后，会对同一个 `--store-root` 提交普通 `index build`，同步时重新读取当前 `query.retrievalMethod`。在短观察期内 ready 时，`indexSync.state` 为 `ready`；下载或索引仍在继续时，它为 `pending`，并携带 operation ID 和 phase。它会复用所选方法的 no-op 或增量规则，不会强制 rebuild。
+`lore pack install` 在 canonical Pack commit 成功后，会对同一个 `--store-root` 提交普通 `index build`，同步时重新读取当前 `query.retrievalMethod`，与普通 query 和 index 命令一致：未设置时使用 multi-view，显式 single-vector 配置则继续使用 single。在短观察期内 ready 时，`indexSync.state` 为 `ready`；下载或索引仍在继续时，它为 `pending`，并携带 operation ID 和 phase。它会复用所选方法的 no-op 或增量规则，不会强制 rebuild。
 
 若 Backend 启动失败、自动下载失败或 index 发布失败，Pack 仍已安装，`pack install` 仍返回 `ok: true`，但 `data.indexSync.state` 是 `failed` 并给出稳定错误码和恢复提示。调用方依赖 semantic query 时必须检查 `ready`/`pending`/`failed`；显式 `index build` 可以在资源恢复后重试。持久的非终态 operation 在 daemon restart 后保留已验证 progress；ProjectContext 下会等待下一次同 source query/build/rebuild 安全 reattach，不会扫描或记录项目绝对路径。

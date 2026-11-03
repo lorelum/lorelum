@@ -43,6 +43,8 @@ export function llamaArguments(
     String(CONTEXT_TOKENS_PER_SLOT),
     "-np",
     String(NATIVE_BATCH_SLOTS),
+    "--sleep-idle-seconds",
+    "60",
     "--no-warmup",
   ];
 }

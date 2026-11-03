@@ -84,11 +84,11 @@ test("preparing and indexing text cannot be mistaken for empty results", () => {
 
 test("query text names the retrieval method only when it is not the default", () => {
   const ready = { mode: "semantic", profileId: "p".repeat(64), coverage: "complete", results: [] };
-  expect(renderQueryDecisionText({ ...ready, retrievalMethod: "single-vector" })).not.toContain(
+  expect(renderQueryDecisionText({ ...ready, retrievalMethod: "multi-view-vector" })).not.toContain(
     "retrievalMethod:",
   );
-  expect(renderQueryDecisionText({ ...ready, retrievalMethod: "multi-view-vector" })).toContain(
-    "retrievalMethod: multi-view-vector",
+  expect(renderQueryDecisionText({ ...ready, retrievalMethod: "single-vector" })).toContain(
+    "retrievalMethod: single-vector",
   );
   const indexing = {
     state: "indexing",
@@ -97,10 +97,10 @@ test("query text names the retrieval method only when it is not the default", ()
     totalPracticeCount: 3,
     message: "Retry shortly.",
   };
-  expect(renderQueryDecisionText({ ...indexing, retrievalMethod: "single-vector" })).not.toContain(
-    "retrievalMethod:",
-  );
-  expect(renderQueryDecisionText({ ...indexing, retrievalMethod: "multi-view-vector" })).toContain(
-    "retrievalMethod: multi-view-vector",
+  expect(
+    renderQueryDecisionText({ ...indexing, retrievalMethod: "multi-view-vector" }),
+  ).not.toContain("retrievalMethod:");
+  expect(renderQueryDecisionText({ ...indexing, retrievalMethod: "single-vector" })).toContain(
+    "retrievalMethod: single-vector",
   );
 });
