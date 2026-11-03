@@ -45,10 +45,13 @@ Run the backend acceptance separately after the native build:
 bun packages/backend/integration/native-inference.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
 bun packages/backend/integration/daemon-embedding.integration.ts /absolute/path/to/granite-q4_0.gguf
+bun packages/backend/integration/idle-memory.integration.ts /absolute/path/to/granite-q4_0.gguf
 ```
 
 The direct native inference script bypasses Backend and local configuration, explicitly using 2, 4, and 8 threads with the production launch arguments. Each process serves 20 authenticated requests covering English/Chinese singleton and short/long batch inputs, with 384-dimensional finite, normalized vectors. It accepts an optional second argument naming an unpacked release's native executable, so archive verification can exercise the shipped bytes instead of only checking version, describe and process startup. A real model must be supplied; it performs no download.
 
 The HTTP embedding script optionally accepts a second argument pointing to the preserved validation reference directory; this also checks frozen tokenizer and Q4 vectors. It performs no model download. The daemon script uses an isolated runtime directory and verifies process reuse, timeout/crash recovery, parent death, and clean daemon restart.
+
+The idle-memory script exercises the real production default of 60 seconds without native work, taking about two idle cycles (roughly two minutes of waiting, plus loading and inference). Using isolated Backend/native resources and a read-only model, it checks long-input high-water reclamation, same-shaped batch vectors before and after wake, native process reuse, ready status and repeated ready load without waking or pinning the model, and explicit unload/reload. It samples macOS physical footprint and RSS, requires a substantial relative idle-memory reduction (at least 50%), and reports cold-load, encoding, and wake latency as local observations, not cross-platform memory or latency guarantees. Wake remains inside the existing embedding request deadline. This only reduces idle retention, not inference peak memory; the Backend and native service remain running during idle reclamation.
 
 For the integration entrypoints, scenario boundaries, optional frozen references, and the distinction between acceptance and performance observations, see the [backend integration guide](../../docs/development/backend-integration.md).

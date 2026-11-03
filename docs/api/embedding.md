@@ -26,6 +26,8 @@
 
 `state` 为 `unloaded`、`loading`、`ready`、`unloading` 或 `failed`。`device` 固定为 `cpu`，`dimensions` 固定为 `384`。`threads` 是实际 native 配置；native 使用两个独立 sequence slot，每个以 2048 context 初始化，总 context 为 4096。Lorelum 不把这些初始化参数作为用户可配置或新的输入准入上限。
 
+`ready` 表示可接受编码，不承诺模型持续驻留；默认连续 60 秒无 native 工作后释放模型/context，进程继续运行。下一次编码自动重载，耗时计入既有请求 deadline；这是闲置内存回收，不降低编码峰值。完整语义以本页开头链接的 canonical spec 为准，用户操作说明见[站点 Model 命令](../../apps/site/content/docs/reference/model.zh.mdx)。
+
 `progress` 只在加载期间出现，`phase` 为 `resolving`、`downloading`、`verifying` 或 `starting`。字节字段是数值；未知总大小时可以省略 `totalBytes`。状态响应不包含 URL、凭据、缓存路径或私有端口。`encodingId` 绑定模型身份、实现、pooling、normalization 和特殊 token 规则；threads、native 初始化参数与下载策略不改变它。
 
 文件校验失败的 status 仍以 `error` 给出稳定 code，并附可选 `resource: { kind, file, check, expected?, actual? }`。`file` 是相对于 native target 的逻辑名称、`model.gguf` 或 `embedding.modelPath`，不包含绝对路径；预期和实际值仅用于大小或 digest 检查。native 安装失败使用 `embedding.native-resource-invalid`；模型文件失败使用 `embedding.resource-invalid`。
@@ -34,7 +36,7 @@
 
 `POST /internal/v1/model/load`，body `{}`。
 
-- 已经 `ready`：返回 `200` 和 ready status。
+- 已经 `ready`：返回 `200` 和 ready status，不唤醒模型，也不阻止空闲回收。
 - 新任务被接受或已有 loading 任务被复用：立即返回 `202` 和 loading status。
 - `unloading`：返回 busy 错误。
 
@@ -44,7 +46,7 @@
 
 ## Status
 
-`GET /internal/v1/model/status` 只读取内存状态，不触发下载、验证、启动或文件 hash。加载失败时返回 `state: "failed"` 和允许的 `error` code；资源校验失败还返回 `resource`。成功的 status 不泄露本机路径。
+`GET /internal/v1/model/status` 只读取内存状态，不触发下载、验证、启动、文件 hash 或空闲模型唤醒。内部模型/context 已释放时仍可返回 `ready`。加载失败时返回 `state: "failed"` 和允许的 `error` code；资源校验失败还返回 `resource`。成功的 status 不泄露本机路径。
 
 ## Unload
 
