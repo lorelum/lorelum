@@ -126,7 +126,12 @@ export function createHookEndpoint(
       },
       storeRoot,
     ),
-    ...createShellAssociator(overrides.agentHookSettings ?? loadAgentHookSettings),
+    ...createShellAssociator(
+      overrides.agentHookSettings ?? (() => loadAgentHookSettings({}, host === "omp")),
+      host === "omp"
+        ? (settings) => (settings.ompShell === "powershell" ? "powershell" : "posix")
+        : undefined,
+    ),
     ...createReadHintReader(hints),
     autoUpdate: overrides.autoUpdate ?? createAutoUpdateService(),
     isSubagentCatalogEnabled: overrides.subagentPackCatalog ?? loadSubagentPackCatalogSetting,

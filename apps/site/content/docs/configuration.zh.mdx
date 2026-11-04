@@ -34,6 +34,15 @@ agent:
 
 这是 Agent 共用配置，不属于 Codex。只有宿主 Plugin 支持 shell 会话绑定时才生效；单靠设置该字段不会新增 Hook。会话已读候选的共用行为见[接入 Agent](./agent-setup#会话中的已读候选)，具体支持的 Hook 以各宿主指南为准。
 
+对于 omp，`agent.ompShell` 独立于操作系统选择会话身份前缀语法。默认 `bash`，适用于 omp 普通 Bash 工具。如果 omp 工具实际运行 PowerShell，可合并到 `~/.lorelum/config.yaml`：
+
+```yaml
+agent:
+  ompShell: powershell
+```
+
+设为 `bash` 或删除字段可恢复默认。该选项只影响 omp shell 调用，不改变 omp 自身的 shell、不自动识别混用的 shell，也不影响其他宿主。值无效时跳过本次身份注入，原命令不中断。下一次调用读取设置，无需重启 Backend。
+
 ## omp 子 Agent Pack 目录
 
 `agent.subagentPackCatalog` 仅由 omp 集成读取；Codex、Claude Code、Cursor、WorkBuddy 和 ZCode 不读取此配置，设置它不会改变这些宿主的行为。

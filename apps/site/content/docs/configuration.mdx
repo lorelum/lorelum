@@ -34,6 +34,15 @@ agent:
 
 This is a shared setting for agent integrations, not a Codex-specific one. It only affects a host whose Plugin supports shell session binding; setting the field alone does not add a Hook. See [Agent integration](./agent-setup#session-read-hints) for the shared read-hint behavior and each host's guide for its supported Hooks.
 
+For omp, `agent.ompShell` selects the identity prefix syntax independently of the operating system. It defaults to `bash`, which fits omp's ordinary Bash tool. If your omp tool actually runs PowerShell, merge this into `~/.lorelum/config.yaml`:
+
+```yaml
+agent:
+  ompShell: powershell
+```
+
+Set `bash` or remove the field to restore the default. The selection applies to omp shell calls; it does not change omp's shell, detect mixed shell modes, or affect other hosts. An invalid value skips identity injection without blocking the command. The next call reads the setting; no Backend restart is needed.
+
 ## omp subagent Pack Catalog
 
 Only the omp integration reads `agent.subagentPackCatalog`. Codex, Claude Code, Cursor, WorkBuddy, and ZCode do not read this setting; changing it does not affect their behavior.

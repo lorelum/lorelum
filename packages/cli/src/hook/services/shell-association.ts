@@ -4,10 +4,12 @@ import type { ShellAssociator } from "../types.js";
 
 export function createShellAssociator(
   loadSettings: () => Promise<AgentHookSettings>,
+  resolveSyntax?: (settings: AgentHookSettings) => "posix" | "powershell",
 ): ShellAssociator {
   return {
     async associateShell({ session, command, syntax }) {
-      return associateShellCommand(session, command, await loadSettings(), syntax);
+      const settings = await loadSettings();
+      return associateShellCommand(session, command, settings, resolveSyntax?.(settings) ?? syntax);
     },
   };
 }
