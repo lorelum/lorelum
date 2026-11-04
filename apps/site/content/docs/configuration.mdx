@@ -34,14 +34,17 @@ agent:
 
 This is a shared setting for agent integrations, not a Codex-specific one. It only affects a host whose Plugin supports shell session binding; setting the field alone does not add a Hook. See [Agent integration](./agent-setup#session-read-hints) for the shared read-hint behavior and each host's guide for its supported Hooks.
 
-For omp, `agent.ompShell` selects the identity prefix syntax independently of the operating system. It defaults to `bash`, which fits omp's ordinary Bash tool. If your omp tool actually runs PowerShell, merge this into `~/.lorelum/config.yaml`:
+omp's ordinary Bash tool needs no shell configuration, including on Windows. For a known external shell invocation, Lorelum reads omp's effective shell setting when available.
+
+If detection does not match your actual tool environment, you can override the syntax in `~/.lorelum/config.yaml`:
 
 ```yaml
 agent:
-  ompShell: powershell
+  omp:
+    shell: powershell # bash or powershell
 ```
 
-Set `bash` or remove the field to restore the default. The selection applies to omp shell calls; it does not change omp's shell, detect mixed shell modes, or affect other hosts. An invalid value skips identity injection without blocking the command. The next call reads the setting; no Backend restart is needed.
+The override applies to all omp shell calls; it does not change omp's own shell or detect mixed modes. Remove it to restore automatic selection. If an external shell cannot be identified, Lorelum uses Bash syntax. Invalid values skip identity injection without blocking the command. The next call reads the setting; no Backend restart is needed.
 
 ## omp subagent Pack Catalog
 

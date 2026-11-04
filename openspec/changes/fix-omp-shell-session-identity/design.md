@@ -2,18 +2,20 @@
 
 ## Context
 
-omp 的普通非 PTY Bash 工具在 Windows 使用类 POSIX shell；真实会话中 PowerShell 前缀报错，get 返回正文但未记录 session。既有 bridge 根据平台选择语法，见 `packages/cli/src/hook/hosts/omp.ts`；共享 shell 关联与失败关闭由 `services/shell-association.ts` 和 runner 负责。
+omp 普通 Bash 工具使用内置 POSIX shell，外部服务及交互终端可能使用另一个 shell；不能根据 Windows 平台或无条件根据 `shellPath` 判断。
 
 ## Goals / Non-Goals
 
-**Goals:** 默认覆盖普通 Bash 工具，也允许使用者显式选择 PowerShell。
+**Goals:** 普通常用路径无需配置；对于可判断的外部 shell 读取 omp 当前有效设置；提供可选覆盖。
 
-**Non-Goals:** 不猜测任意外部 shell、不改变其他宿主、不修改 omp 配置或全局环境，不新增自动查询。
+**Non-Goals:** 不修改宿主配置或全局环境，不按操作系统猜 shell，不新增查询行为，不改变其他宿主或审批；不声称所有外部或远程 shell 均可自动判定。
 
 ## Decisions
 
-`agent.ompShell` 只由 omp shell 请求消费，取值 `bash` 或 `powershell`，缺省为 `bash`。CLI 复用现有 YAML 读取和安全引用实现；无效配置沿既有 hook 非阻塞降级，不修改原命令。配置项用于整个 omp shell 入口，不自动逐次检测；混用不同 shell 的会话须选择与该工具调用一致的配置。变更通过独立配置消费避免无效的 omp 值影响其他宿主或 Catalog。
+`agent.omp.shell` 是可选覆盖，支持 `bash`、`powershell`，优先于自动选择；只由 omp 读取。错误值不影响其他宿主或 Catalog。普通工具使用内置 Bash；命名服务或可用本地 PTY 使用可识别的有效外部 shell 设置，不把该设置用于普通 Bash。宿主无法确定时保留 POSIX 回退。
+
+extension 只向 CLI bridge 传递已确定的语法；旧 bridge 请求缺少语法时仍使用 Bash。CLI 保持命令级环境和非阻塞降级。
 
 ## Risks / Trade-offs
 
-采用 PowerShell 作为 omp 自定义外部 shell 的用户需显式配置；原生内置 Bash 则不需操作。由于混合 shell 无可靠逐调用标识，不声称可自动判定所有 PTY/服务。配置变更下一次 bridge 调用生效，无需重启 Backend。
+客户端终端路由或外部 wrapper 的实际 shell 可能无法在 Hook 阶段确定，覆盖项用于此类情况。一个覆盖作用于全部 omp shell 调用，不能同时为不同 shell 单独设置。下一次 Hook 读取 Lorelum 设置，宿主设置生效时机由宿主决定。

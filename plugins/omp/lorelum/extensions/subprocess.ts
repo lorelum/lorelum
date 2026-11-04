@@ -20,7 +20,7 @@ export type BridgeRequest =
       sessionId?: string;
       checkUpdates?: boolean;
     }
-  | { event: "shell"; sessionId: string; command: string }
+  | { event: "shell"; sessionId: string; command: string; syntax?: "posix" | "powershell" }
   | { event: "read-hints"; sessionId: string };
 
 export type BridgeExecutor = (options: {

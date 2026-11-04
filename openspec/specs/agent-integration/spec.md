@@ -249,11 +249,11 @@ omp 集成 SHALL 通过其 marketplace 分发 `plugins/omp/lorelum/`，提供 Ca
 ### Requirement: Omp shell session association
 omp extension SHALL 在原生 Bash `tool_call` 中将实际 session ID 和 command 交给 `lore hook omp` 的 `shell` bridge，按已有 `agent.shellSessionInjection` 设置只改写本次输入。默认 SHALL 为 `lore-only`，显式 `all-shell` SHALL 覆盖全部 Bash；其他输入字段、审批和权限 MUST 保持不变。Backend SHALL 接受 `omp` hostKey，成功 get SHALL 复用既有读取报告，不得额外报告失败读取。
 
-omp 的 shell 会话身份语法 SHALL 由 `agent.ompShell` 选择，支持 `bash` 与 `powershell`，默认 `bash`；该选项只影响 omp，不改变其他宿主。无效值 MUST 使该次 shell bridge 非阻塞降级而保留原命令，且不得影响 Catalog。下一次 shell 调用 SHALL 读取配置，无需重启 Backend。
+omp 的普通 Bash SHALL 使用 POSIX 身份前缀；可确定为外部 shell 时 SHALL 根据宿主有效设置选择语法。可选的 `agent.omp.shell` 支持 `bash` 与 `powershell` 并覆盖自动选择。无效值 MUST 使该次 shell bridge 非阻塞降级而保留原命令，且不得影响其他宿主或 Catalog。
 
-#### Scenario: Omp shell syntax is chosen independently of platform
-- **WHEN** omp 使用默认 `bash`，或用户显式配置 `powershell`
-- **THEN** bridge MUST 分别使用 POSIX 或 PowerShell 的命令级环境变量语法，且保留原命令及审批
+#### Scenario: Omp selects shell independently of platform
+- **WHEN** omp 执行普通 Bash 或可确定使用外部 PowerShell
+- **THEN** bridge SHALL 分别使用 POSIX 或 PowerShell 身份前缀，除非用户显式覆盖，且保留原命令及审批
 
 #### Scenario: Successful get belongs to the current session
 - **WHEN** omp Bash 成功执行 `lore get`

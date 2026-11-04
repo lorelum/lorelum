@@ -1,20 +1,21 @@
-# 产品体验：omp shell 会话身份
+# 产品体验：omp 自动适配 shell
 
-## 默认路径
+## 普通路径
 
-用户在 Windows、macOS 或 Linux 的 omp 普通 Bash 工具中运行 `lore get <id>`。无需配置：Lorelum 只为符合 `agent.shellSessionInjection` 策略的当前命令提供 Bash 语法的会话身份。Backend 已运行时，成功读取可归属当前 session，之后压缩或子任务可按现有规则收到候选；get 本身在 Backend 未运行时仍可工作。
+用户在 omp 的普通 Bash 工具运行 `lore get <id>`，无需配置；Windows 上也使用 Bash 前缀。命名服务或可用本地 PTY 使用外部 shell 时，集成在可识别时读取 omp 的有效 shell 设置。成功读取在 Backend 已运行时关联到当前会话；不改变 get 正文。
 
-## 使用 PowerShell
+## 可选覆盖
 
-若用户明确让 omp 工具命令由 PowerShell 而非普通 Bash 执行，在已有 `~/.lorelum/config.yaml` 的 `agent` 下合并：
+识别不到实际 shell 或宿主使用特殊终端时，可在现有 `~/.lorelum/config.yaml` 中覆盖：
 
 ```yaml
 agent:
-  ompShell: powershell
+  omp:
+    shell: powershell # bash 或 powershell
 ```
 
-下一次 shell bridge 调用生效，无需重启 Backend。删除该字段或设为 `bash` 恢复默认。该选项不会修改 omp 的 shell 设置，也不会自动检测每一次调用；同一会话混用不同 shell 时应确保选择与调用一致。
+删除字段恢复自动选择。下一次 Hook 读取设置，无需重启 Backend；宿主自己的 shell 设置生效时间由宿主决定。覆盖不会修改宿主 shell。
 
 ## 失败及边界
 
-未知值或不可读取的配置使当前身份改写跳过，原始工具命令和审批继续；成功 get 仍可返回，但本次阅读可能不能关联到会话。用户应把值改为 `bash` 或 `powershell` 后重试。设置不影响其他宿主、Pack Catalog、query 排序、get 正文或用户授权。
+普通 Bash 与外部终端可能混用；一个显式覆盖作用于所有 omp shell 调用，不应误认为逐调用检测。宿主选择不可识别时使用 Bash 前缀。无效覆盖跳过该次身份改写，不阻塞原命令和审批；修正或删除字段后重试。没有 Backend 时，get 仍按现有行为返回正文。

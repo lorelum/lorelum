@@ -15,7 +15,12 @@ type OmpBridgeRequest =
       readonly sessionId?: unknown;
       readonly checkUpdates?: unknown;
     }
-  | { readonly event: "shell"; readonly sessionId: string; readonly command: string }
+  | {
+      readonly event: "shell";
+      readonly sessionId: string;
+      readonly command: string;
+      readonly syntax?: "posix" | "powershell";
+    }
   | { readonly event: "read-hints"; readonly sessionId: string };
 
 type OmpBridgeResponse = {
@@ -41,12 +46,17 @@ function isOmpBridgeRequest(value: unknown): value is OmpBridgeRequest {
   }
   if (input.event !== "shell" && input.event !== "read-hints") return false;
   if (
-    keys.length !== (input.event === "shell" ? 3 : 2) ||
     keys.some(
       (key) =>
-        key !== "event" && key !== "sessionId" && (input.event !== "shell" || key !== "command"),
+        key !== "event" &&
+        key !== "sessionId" &&
+        (input.event !== "shell" || (key !== "command" && key !== "syntax")),
     ) ||
-    (input.event === "shell" && typeof input.command !== "string")
+    (input.event === "shell" &&
+      (typeof input.command !== "string" ||
+        (Object.hasOwn(input, "syntax") &&
+          input.syntax !== "posix" &&
+          input.syntax !== "powershell")))
   )
     return false;
   return sessionRefSchema.safeParse({ hostKey: "omp", sessionId: input.sessionId }).success;
@@ -58,7 +68,7 @@ export function createOmpEndpoint(
     ReadHintReader & {
       isSubagentCatalogEnabled(): Promise<boolean>;
     },
-  platform: NodeJS.Platform,
+  _platform: NodeJS.Platform,
   log?: Logger,
 ): HookEndpoint {
   return {
@@ -93,7 +103,7 @@ export function createOmpEndpoint(
           const command = await services.associateShell({
             session: { hostKey: "omp", sessionId: payload.sessionId },
             command: payload.command,
-            syntax: platform === "win32" ? "powershell" : "posix",
+            syntax: payload.syntax ?? "posix",
           });
           if (command !== undefined) response = { command };
           break;

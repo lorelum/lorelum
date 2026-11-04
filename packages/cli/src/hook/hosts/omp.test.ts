@@ -322,6 +322,38 @@ describe("omp shell and child hint consumers", () => {
     expect(execution.stderr.toString()).toBe("");
   });
 
+  test.each([
+    ["posix", "export "],
+    ["powershell", "$env:"],
+  ] as const)("uses bridge syntax %s independently of platform", async (syntax, prefix) => {
+    const result = await invoke(
+      JSON.stringify({
+        event: "shell",
+        sessionId: "parent",
+        command: "lore get sample.read",
+        syntax,
+      }),
+      { ...services, platform: "win32" },
+    );
+    expect(JSON.parse(result.stdout).command).toStartWith(prefix);
+  });
+
+  test("explicit shell setting overrides the detected syntax", async () => {
+    const result = await invoke(
+      JSON.stringify({
+        event: "shell",
+        sessionId: "parent",
+        command: "lore get sample.read",
+        syntax: "powershell",
+      }),
+      {
+        ...services,
+        agentHookSettings: async () => ({ shellSessionInjection: "lore-only", shell: "bash" }),
+      },
+    );
+    expect(JSON.parse(result.stdout).command).toStartWith("export ");
+  });
+
   test.skipIf(process.platform !== "win32")(
     "Windows PowerShell rewrite passes session identity without changing exit status",
     async () => {
@@ -332,7 +364,7 @@ describe("omp shell and child hint consumers", () => {
         platform: "win32",
         agentHookSettings: async () => ({
           shellSessionInjection: "all-shell",
-          ompShell: "powershell",
+          shell: "powershell",
         }),
       });
       const response = JSON.parse(result.stdout);
@@ -352,6 +384,8 @@ describe("omp shell and child hint consumers", () => {
     { event: "shell", sessionId: "", command: "lore get sample.read" },
     { event: "shell", sessionId: "parent", command: 1 },
     { event: "shell", sessionId: "parent" },
+    { event: "shell", sessionId: "parent", command: "lore", syntax: "cmd" },
+    { event: "shell", sessionId: "parent", command: "lore", syntax: null },
     { event: "read-hints", sessionId: "nested/session" },
     { event: "read-hints", sessionId: "nested\\session" },
     { event: "read-hints", sessionId: "." },
@@ -452,14 +486,14 @@ describe("omp shell and child hint consumers", () => {
       const configured = {
         ...services,
         platform: "win32" as const,
-        agentHookSettings: () => loadAgentHookSettings({ homeDirectory: home }, true),
+        agentHookSettings: () => loadAgentHookSettings({ homeDirectory: home }, "omp"),
       };
       const bash = await invoke(payload, configured);
       expect(JSON.parse(bash.stdout).command).toStartWith("export ");
-      await writeFile(config, "agent:\n  ompShell: powershell\n");
+      await writeFile(config, "agent:\n  omp:\n    shell: powershell\n");
       const powershell = await invoke(payload, configured);
       expect(JSON.parse(powershell.stdout).command).toStartWith("$env:");
-      await writeFile(config, "agent:\n  ompShell: invalid\n");
+      await writeFile(config, "agent:\n  omp:\n    shell: invalid\n");
       const invalid = await invoke(payload, configured);
       expect(invalid.exitCode).toBe(0);
       expect(invalid.stdout).toBe("{}\n");

@@ -36,7 +36,12 @@ afterEach(() => {
 function harness(
   execute: BridgeExecutor,
   hasUI = true,
-  options: { sessionId?: string; agent?: ExtensionContext["agent"]; cwd?: string } = {},
+  options: {
+    sessionId?: string;
+    agent?: ExtensionContext["agent"];
+    cwd?: string;
+    getShellPath?: () => Promise<unknown>;
+  } = {},
 ) {
   const handlers = new Map<string, (event: unknown, ctx: ExtensionContext) => unknown>();
   const persist = mock(() => {
@@ -53,7 +58,7 @@ function harness(
     // Every factory owns a distinct bus; using it for parent handoff would fail.
     events: { on: persist, emit: persist },
   } as unknown as ExtensionAPI;
-  registerLorelum(api, execute);
+  registerLorelum(api, execute, options.getShellPath);
   let sessionId = options.sessionId ?? "actual-main-session";
   const ctx = {
     cwd: options.cwd ?? "/workspace/one",
@@ -496,6 +501,89 @@ describe("omp request-scoped Catalog", () => {
   }
 });
 
+describe("omp shell syntax detection", () => {
+  test("ordinary embedded Bash stays POSIX without reading the configured PowerShell", async () => {
+    const getShellPath = mock(
+      async () => "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    );
+    const execute = mock<BridgeExecutor>(async () => ({ stdout: "{}", code: 0 }));
+    const host = harness(execute, true, { getShellPath });
+    await host.tool({ command: "lore get sample", pty: false });
+    expect(getShellPath).not.toHaveBeenCalled();
+    expect(execute.mock.calls[0]![0].request).toEqual({
+      event: "shell",
+      sessionId: "actual-main-session",
+      command: "lore get sample",
+      syntax: "posix",
+    });
+  });
+
+  test("named services and available local PTYs read the effective shell on every invocation", async () => {
+    const previous = process.env.PI_NO_PTY;
+    delete process.env.PI_NO_PTY;
+    try {
+      let shellPath = "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
+      const getShellPath = mock(async () => shellPath);
+      const execute = mock<BridgeExecutor>(async () => ({ stdout: "{}", code: 0 }));
+      const host = harness(execute, true, { getShellPath });
+      await host.tool({ command: "one", name: "server" });
+      shellPath = "/bin/zsh";
+      await host.tool({ command: "two", pty: true });
+      expect(getShellPath).toHaveBeenCalledTimes(2);
+      expect(execute.mock.calls.map(([call]) => call.request)).toEqual([
+        { event: "shell", sessionId: "actual-main-session", command: "one", syntax: "powershell" },
+        { event: "shell", sessionId: "actual-main-session", command: "two", syntax: "posix" },
+      ]);
+    } finally {
+      if (previous === undefined) delete process.env.PI_NO_PTY;
+      else process.env.PI_NO_PTY = previous;
+    }
+  });
+
+  test("disabled local PTY uses embedded POSIX without consulting shellPath", async () => {
+    const previous = process.env.PI_NO_PTY;
+    process.env.PI_NO_PTY = "1";
+    try {
+      const execute = mock<BridgeExecutor>(async () => ({ stdout: "{}", code: 0 }));
+      const getShellPath = mock(async () => "pwsh");
+      const host = harness(execute, true, { getShellPath });
+      await host.tool({ command: "lore get sample", pty: true });
+      expect(getShellPath).not.toHaveBeenCalled();
+      expect(execute.mock.calls[0]![0].request).toEqual({
+        event: "shell",
+        sessionId: "actual-main-session",
+        command: "lore get sample",
+        syntax: "posix",
+      });
+    } finally {
+      if (previous === undefined) delete process.env.PI_NO_PTY;
+      else process.env.PI_NO_PTY = previous;
+    }
+  });
+
+  test("unknown external shells and unavailable registry omit syntax; unavailable PTY uses POSIX", async () => {
+    const execute = mock<BridgeExecutor>(async () => ({ stdout: "{}", code: 0 }));
+    const getShellPath = mock(async (): Promise<unknown> => "C:\\Windows\\cmd.exe");
+    const host = harness(execute, false, { getShellPath });
+    await host.tool({ command: "one", name: "server" });
+    await host.tool({ command: "two", pty: true });
+    expect(execute.mock.calls.map(([call]) => call.request)).toEqual([
+      { event: "shell", sessionId: "actual-main-session", command: "one" },
+      { event: "shell", sessionId: "actual-main-session", command: "two", syntax: "posix" },
+    ]);
+    const failed = harness(execute, true, {
+      getShellPath: async () => {
+        throw new Error("unavailable");
+      },
+    });
+    await failed.tool({ command: "three", name: "server" });
+    expect(execute.mock.calls[2]![0].request).toEqual({
+      event: "shell",
+      sessionId: "actual-main-session",
+      command: "three",
+    });
+  });
+});
 describe("omp native Bash session association", () => {
   test("rewrites only command, uses actual session identity, and leaves native approval and all input fields intact", async () => {
     const command =
@@ -504,7 +592,7 @@ describe("omp native Bash session association", () => {
       stdout: JSON.stringify({ command, allow: true, block: false, additionalContext: "ignored" }),
       code: 0,
     }));
-    const host = harness(execute);
+    const host = harness(execute, true, { getShellPath: async () => "/bin/bash" });
     const ready = { port: 4321, host: "127.0.0.1", log: "ready", timeout: 15 };
     const input = {
       command: "lore get retry",
@@ -525,6 +613,7 @@ describe("omp native Bash session association", () => {
       event: "shell",
       sessionId: "actual-main-session",
       command: "lore get retry",
+      syntax: "posix",
     });
     expect(execute.mock.calls[0]![0].cwd).toBe("/workspace/one");
     host.switchSession("another-actual-session");
@@ -533,6 +622,7 @@ describe("omp native Bash session association", () => {
       event: "shell",
       sessionId: "another-actual-session",
       command: "lore get retry",
+      syntax: "posix",
     });
     expect(host.persist).toHaveBeenCalledTimes(0);
   });

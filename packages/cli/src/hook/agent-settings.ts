@@ -4,7 +4,7 @@ export type ShellSessionInjection = "lore-only" | "all-shell";
 
 export interface AgentHookSettings {
   readonly shellSessionInjection: ShellSessionInjection;
-  readonly ompShell?: "bash" | "powershell";
+  readonly shell?: "bash" | "powershell";
 }
 
 export const DEFAULT_AGENT_HOOK_SETTINGS: AgentHookSettings = Object.freeze({
@@ -18,7 +18,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 /** Reads shared Agent Hook settings without changing user configuration. */
 export async function loadAgentHookSettings(
   options: LoadConfigOptions = {},
-  includeOmpShell = false,
+  host?: "omp",
 ): Promise<AgentHookSettings> {
   const document = await loadConfig(options);
   if (document.agent === undefined) return DEFAULT_AGENT_HOOK_SETTINGS;
@@ -26,12 +26,13 @@ export async function loadAgentHookSettings(
   const value = document.agent.shellSessionInjection;
   if (value !== undefined && value !== "lore-only" && value !== "all-shell")
     throw new ConfigError();
-  const ompShell = includeOmpShell ? document.agent.ompShell : undefined;
-  if (ompShell !== undefined && ompShell !== "bash" && ompShell !== "powershell")
-    throw new ConfigError();
+  const hostSettings = host === undefined ? undefined : document.agent[host];
+  if (hostSettings !== undefined && !isRecord(hostSettings)) throw new ConfigError();
+  const shell = hostSettings?.shell;
+  if (shell !== undefined && shell !== "bash" && shell !== "powershell") throw new ConfigError();
   return Object.freeze({
     shellSessionInjection: value ?? "lore-only",
-    ...(ompShell === undefined ? {} : { ompShell }),
+    ...(shell === undefined ? {} : { shell }),
   });
 }
 

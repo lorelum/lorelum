@@ -2,18 +2,22 @@
 
 ## ADDED Requirements
 
-### Requirement: Omp shell identity syntax is selectable
+### Requirement: Omp shell identity syntax is resolved for each invocation
 
-omp 的 shell bridge SHALL 从 `agent.ompShell` 读取身份前缀语法，支持 `bash` 和 `powershell`，默认 `bash`。选择仅影响 omp 的命令级环境变量前缀，不影响其他宿主、Catalog、原命令参数、审批或全局环境。配置无效时 MUST 保留原工具命令并非阻塞降级；下一次 shell bridge 调用 SHALL 读取新的配置，无需重启 Backend。
+omp SHALL 默认按可获得的宿主执行信息选择命令级会话身份语法，而不按操作系统假定 PowerShell。用户 MAY 设置 `agent.omp.shell` 为 `bash` 或 `powershell` 覆盖自动选择；覆盖 MUST NOT 修改宿主配置、其他宿主、Catalog、原命令参数或审批。无效配置 MUST 非阻塞降级并保留原工具命令。
 
-#### Scenario: Windows ordinary Bash command
-- **WHEN** Windows omp 使用默认配置执行成功的 `lore get`
-- **THEN** Bash 可执行身份前缀，已运行 Backend 将读取记录关联到当前 session
+#### Scenario: Ordinary omp Bash
+- **WHEN** omp 普通 Bash 工具执行命令，即使宿主外部 shell 配置为 PowerShell
+- **THEN** bridge MUST 使用 POSIX 身份前缀，除非用户显式覆盖
 
-#### Scenario: Explicit PowerShell
-- **WHEN** 用户设置 `agent.ompShell: powershell` 且 omp shell 使用 PowerShell
-- **THEN** bridge MUST 使用 PowerShell 会话环境变量语法，且不改写原命令或其他工具输入
+#### Scenario: Omp external shell
+- **WHEN** 可确定 omp 本次使用外部 shell 且宿主有效配置标识 PowerShell
+- **THEN** bridge SHALL 使用 PowerShell 身份前缀，除非用户显式覆盖
 
-#### Scenario: Invalid omp shell setting
-- **WHEN** `agent.ompShell` 不是支持的字符串
-- **THEN** omp shell 请求 MUST 非阻塞降级并保留原命令；其他宿主和 Catalog 不受影响
+#### Scenario: Explicit override
+- **WHEN** 用户设置有效的 `agent.omp.shell`
+- **THEN** 下一次 omp Hook SHALL 使用对应语法，不需要重启 Backend
+
+#### Scenario: Invalid setting
+- **WHEN** omp 的 shell 覆盖无效
+- **THEN** 当前命令 MUST 非阻塞降级且保持原样；其他宿主和 Catalog 不受影响

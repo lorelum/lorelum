@@ -31,9 +31,39 @@ function parseResponse(result: BridgeExecution): Record<string, unknown> {
   return response as Record<string, unknown>;
 }
 
+type ShellPathReader = (api: ExtensionAPI) => Promise<unknown>;
+
+async function readShellPath(api: ExtensionAPI): Promise<unknown> {
+  // Host-only module is absent when this extension is tested outside omp.
+  const registry = await import("@oh-my-pi/pi-coding-agent/config/registry");
+  return registry.lookup("shellPath")?.get(api.pi.settings);
+}
+
+function requestShellSyntax(
+  input: Record<string, unknown>,
+  ctx: ExtensionContext,
+  api: ExtensionAPI,
+  getShellPath: ShellPathReader,
+): "posix" | Promise<"posix" | "powershell" | undefined> {
+  const named = typeof input.name === "string" && input.name.trim().length > 0;
+  const localPty = input.pty === true && process.env.PI_NO_PTY !== "1" && ctx.hasUI && !!ctx.ui;
+  if (!named && !localPty) return "posix";
+  return getShellPath(api).then(
+    (path) => {
+      if (typeof path !== "string") return undefined;
+      const name = path.split(/[\\/]/).pop()?.toLowerCase();
+      if (name && /^(bash|sh|zsh)(\.exe)?$/.test(name)) return "posix";
+      if (name && /^(pwsh|powershell)(\.exe)?$/.test(name)) return "powershell";
+      return undefined;
+    },
+    () => undefined,
+  );
+}
+
 export function registerLorelum(
   api: ExtensionAPI,
   execute: BridgeExecutor = createBridgeExecutor(),
+  getShellPath: ShellPathReader = readShellPath,
 ): void {
   let generation = 0;
   let needsRefresh = true;
@@ -110,11 +140,19 @@ export function registerLorelum(
     try {
       const sessionId = ctx.sessionManager.getSessionId();
       if (!sessionId) return;
+      const requestedSyntax = requestShellSyntax(event.input, ctx, api, getShellPath);
+      const syntax = typeof requestedSyntax === "string" ? requestedSyntax : await requestedSyntax;
+      if (generation !== requestGeneration || shellController.signal.aborted) return;
       const response = parseResponse(
         await execute({
           cwd: ctx.cwd,
           signal: shellController.signal,
-          request: { event: "shell", sessionId, command: event.input.command },
+          request: {
+            event: "shell",
+            sessionId,
+            command: event.input.command,
+            ...(syntax && { syntax }),
+          },
         }),
       );
       if (

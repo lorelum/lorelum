@@ -127,9 +127,10 @@ export function createHookEndpoint(
       storeRoot,
     ),
     ...createShellAssociator(
-      overrides.agentHookSettings ?? (() => loadAgentHookSettings({}, host === "omp")),
+      overrides.agentHookSettings ??
+        (() => loadAgentHookSettings({}, host === "omp" ? host : undefined)),
       host === "omp"
-        ? (settings) => (settings.ompShell === "powershell" ? "powershell" : "posix")
+        ? (settings, syntax) => (settings.shell === "bash" ? "posix" : (settings.shell ?? syntax))
         : undefined,
     ),
     ...createReadHintReader(hints),
