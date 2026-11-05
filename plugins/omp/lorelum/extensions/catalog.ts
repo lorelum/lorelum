@@ -34,9 +34,7 @@ function parseResponse(result: BridgeExecution): Record<string, unknown> {
 type ShellPathReader = (api: ExtensionAPI) => Promise<unknown>;
 
 async function readShellPath(api: ExtensionAPI): Promise<unknown> {
-  // Host-only module is absent when this extension is tested outside omp.
-  const registry = await import("@oh-my-pi/pi-coding-agent/config/registry");
-  return registry.lookup("shellPath")?.get(api.pi.settings);
+  return api.pi.settings.getShellConfig().shell;
 }
 
 function requestShellSyntax(
@@ -44,19 +42,27 @@ function requestShellSyntax(
   ctx: ExtensionContext,
   api: ExtensionAPI,
   getShellPath: ShellPathReader,
-): "posix" | Promise<"posix" | "powershell" | undefined> {
+): "posix" | Promise<"posix" | "powershell" | "cmd" | "fish" | "unknown"> {
   const named = typeof input.name === "string" && input.name.trim().length > 0;
-  const localPty = input.pty === true && process.env.PI_NO_PTY !== "1" && ctx.hasUI && !!ctx.ui;
+  const localPty =
+    input.async !== true &&
+    input.pty === true &&
+    process.env.PI_NO_PTY !== "1" &&
+    ctx.hasUI &&
+    !!ctx.ui;
   if (!named && !localPty) return "posix";
+  // The host shell is observable here; a remote client's terminal shell is not.
   return getShellPath(api).then(
     (path) => {
-      if (typeof path !== "string") return undefined;
+      if (typeof path !== "string") return "unknown";
       const name = path.split(/[\\/]/).pop()?.toLowerCase();
-      if (name && /^(bash|sh|zsh)(\.exe)?$/.test(name)) return "posix";
+      if (name && /^(sh|bash|dash|ash|ksh|ksh93|mksh|zsh)(\.exe)?$/.test(name)) return "posix";
       if (name && /^(pwsh|powershell)(\.exe)?$/.test(name)) return "powershell";
-      return undefined;
+      if (name && /^cmd(\.exe)?$/.test(name)) return "cmd";
+      if (name && /^fish(\.exe)?$/.test(name)) return "fish";
+      return "unknown";
     },
-    () => undefined,
+    () => "unknown",
   );
 }
 
@@ -151,7 +157,7 @@ export function registerLorelum(
             event: "shell",
             sessionId,
             command: event.input.command,
-            ...(syntax && { syntax }),
+            syntax,
           },
         }),
       );

@@ -137,6 +137,8 @@ test("invalid subagent Catalog setting does not perturb a shell-only settings co
 test.each([
   { host: "omp", value: "bash" },
   { host: "omp", value: "powershell" },
+  { host: "omp", value: "cmd" },
+  { host: "omp", value: "fish" },
 ] as const)("reads $host shell $value only for that host", async ({ host, value }) => {
   const home = await mkdtemp(join(tmpdir(), "lorelum-agent-settings-"));
   try {

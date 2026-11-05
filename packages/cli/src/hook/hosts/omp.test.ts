@@ -325,6 +325,7 @@ describe("omp shell and child hint consumers", () => {
   test.each([
     ["posix", "export "],
     ["powershell", "$env:"],
+    ["fish", "set -gx "],
   ] as const)("uses bridge syntax %s independently of platform", async (syntax, prefix) => {
     const result = await invoke(
       JSON.stringify({
@@ -338,21 +339,75 @@ describe("omp shell and child hint consumers", () => {
     expect(JSON.parse(result.stdout).command).toStartWith(prefix);
   });
 
-  test("explicit shell setting overrides the detected syntax", async () => {
+  test.each([
+    ["bash", "export "],
+    ["powershell", "$env:"],
+    ["fish", "set -gx "],
+  ] as const)("explicit %s shell overrides unknown detection", async (shell, prefix) => {
     const result = await invoke(
       JSON.stringify({
         event: "shell",
         sessionId: "parent",
         command: "lore get sample.read",
-        syntax: "powershell",
+        syntax: "unknown",
       }),
       {
         ...services,
-        agentHookSettings: async () => ({ shellSessionInjection: "lore-only", shell: "bash" }),
+        agentHookSettings: async () => ({ shellSessionInjection: "lore-only", shell }),
       },
     );
-    expect(JSON.parse(result.stdout).command).toStartWith("export ");
+    expect(JSON.parse(result.stdout).command).toStartWith(prefix);
   });
+
+  test("unknown syntax leaves the original command untouched", async () => {
+    const command = "lore get sample.read";
+    const result = await invoke(
+      JSON.stringify({ event: "shell", sessionId: "parent", command, syntax: "unknown" }),
+      services,
+    );
+    expect(result.stdout).toBe("{}\n");
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).command ?? command).toBe(command);
+  });
+
+  test("cmd rejects unsafe session IDs without blocking the original command", async () => {
+    const command = "lore get sample.read";
+    const result = await invoke(
+      JSON.stringify({ event: "shell", sessionId: "parent&echo injected", command, syntax: "cmd" }),
+      services,
+    );
+    expect(result.stdout).toBe("{}\n");
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).command ?? command).toBe(command);
+  });
+
+  test.skipIf(process.platform !== "win32")(
+    "CMD detection and explicit override preserve expansion, child identity, and exit status",
+    async () => {
+      const sessionId = "01931ea4-8a9f-7b3c-9a1b-123456789abc";
+      const command = "if exist %TEMP% (set LORELUM_HOST_&exit /b 23) else exit /b 22";
+      for (const syntax of ["cmd", "unknown"] as const) {
+        const result = await invoke(
+          JSON.stringify({ event: "shell", sessionId, command, syntax }),
+          {
+            ...services,
+            agentHookSettings: async () => ({
+              shellSessionInjection: "all-shell",
+              ...(syntax === "unknown" && { shell: "cmd" as const }),
+            }),
+          },
+        );
+        const execution = spawnSync(
+          "cmd.exe",
+          ["/d", "/s", "/c", `"${JSON.parse(result.stdout).command}"`],
+          { encoding: "utf8", windowsVerbatimArguments: true },
+        );
+        expect(execution.status).toBe(23);
+        expect(execution.stdout).toContain("LORELUM_HOST_KEY=omp");
+        expect(execution.stdout).toContain(`LORELUM_HOST_SESSION_ID=${sessionId}`);
+      }
+    },
+  );
 
   test.skipIf(process.platform !== "win32")(
     "Windows PowerShell rewrite passes session identity without changing exit status",
@@ -384,7 +439,6 @@ describe("omp shell and child hint consumers", () => {
     { event: "shell", sessionId: "", command: "lore get sample.read" },
     { event: "shell", sessionId: "parent", command: 1 },
     { event: "shell", sessionId: "parent" },
-    { event: "shell", sessionId: "parent", command: "lore", syntax: "cmd" },
     { event: "shell", sessionId: "parent", command: "lore", syntax: null },
     { event: "read-hints", sessionId: "nested/session" },
     { event: "read-hints", sessionId: "nested\\session" },

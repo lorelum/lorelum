@@ -34,17 +34,17 @@ agent:
 
 This is a shared setting for agent integrations, not a Codex-specific one. It only affects a host whose Plugin supports shell session binding; setting the field alone does not add a Hook. See [Agent integration](./agent-setup#session-read-hints) for the shared read-hint behavior and each host's guide for its supported Hooks.
 
-omp's ordinary Bash tool needs no shell configuration, including on Windows. For a known external shell invocation, Lorelum reads omp's effective shell setting when available.
+omp's ordinary Bash tool needs no shell configuration, including on Windows. For named services and available local PTYs, Lorelum reads the external shell resolved by omp and recognizes POSIX shells, PowerShell, CMD, and fish.
 
 If detection does not match your actual tool environment, you can override the syntax in `~/.lorelum/config.yaml`:
 
 ```yaml
 agent:
   omp:
-    shell: powershell # bash or powershell
+    shell: powershell # bash, powershell, cmd, or fish
 ```
 
-The override applies to all omp shell calls; it does not change omp's own shell or detect mixed modes. Remove it to restore automatic selection. If an external shell cannot be identified, Lorelum uses Bash syntax. Invalid values skip identity injection without blocking the command. The next call reads the setting; no Backend restart is needed.
+The override applies to all omp shell calls; it does not change omp's own shell or detect mixed modes. Remove it to restore automatic selection. If an external shell is unknown, Lorelum leaves the command unchanged without adding an identity; set an override if you know its syntax. CMD commands with multiple lines or percent expansion of the two identity variables also remain unchanged to preserve their behavior; a shell override does not change that limitation. Such reads may not be associated. Invalid values skip identity without blocking the command. The next call reads the setting; no Backend restart is needed. Remote client terminals and custom wrappers may not expose their actual shell to the Hook.
 
 ## omp subagent Pack Catalog
 

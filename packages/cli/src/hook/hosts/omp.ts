@@ -6,6 +6,7 @@ import type {
   HookEndpoint,
   ReadHintReader,
   ShellAssociator,
+  ShellSyntax,
 } from "../types.js";
 
 type OmpBridgeRequest =
@@ -19,7 +20,7 @@ type OmpBridgeRequest =
       readonly event: "shell";
       readonly sessionId: string;
       readonly command: string;
-      readonly syntax?: "posix" | "powershell";
+      readonly syntax?: ShellSyntax;
     }
   | { readonly event: "read-hints"; readonly sessionId: string };
 
@@ -56,7 +57,10 @@ function isOmpBridgeRequest(value: unknown): value is OmpBridgeRequest {
       (typeof input.command !== "string" ||
         (Object.hasOwn(input, "syntax") &&
           input.syntax !== "posix" &&
-          input.syntax !== "powershell")))
+          input.syntax !== "powershell" &&
+          input.syntax !== "cmd" &&
+          input.syntax !== "fish" &&
+          input.syntax !== "unknown")))
   )
     return false;
   return sessionRefSchema.safeParse({ hostKey: "omp", sessionId: input.sessionId }).success;

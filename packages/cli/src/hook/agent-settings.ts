@@ -4,7 +4,7 @@ export type ShellSessionInjection = "lore-only" | "all-shell";
 
 export interface AgentHookSettings {
   readonly shellSessionInjection: ShellSessionInjection;
-  readonly shell?: "bash" | "powershell";
+  readonly shell?: "bash" | "powershell" | "cmd" | "fish";
 }
 
 export const DEFAULT_AGENT_HOOK_SETTINGS: AgentHookSettings = Object.freeze({
@@ -29,7 +29,14 @@ export async function loadAgentHookSettings(
   const hostSettings = host === undefined ? undefined : document.agent[host];
   if (hostSettings !== undefined && !isRecord(hostSettings)) throw new ConfigError();
   const shell = hostSettings?.shell;
-  if (shell !== undefined && shell !== "bash" && shell !== "powershell") throw new ConfigError();
+  if (
+    shell !== undefined &&
+    shell !== "bash" &&
+    shell !== "powershell" &&
+    shell !== "cmd" &&
+    shell !== "fish"
+  )
+    throw new ConfigError();
   return Object.freeze({
     shellSessionInjection: value ?? "lore-only",
     ...(shell === undefined ? {} : { shell }),
