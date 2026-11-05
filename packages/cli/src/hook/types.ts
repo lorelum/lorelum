@@ -4,6 +4,7 @@ import type { Logger } from "@lorelum/log";
 
 export type HookHost = "codex" | "claude" | "cursor" | "workbuddy" | "zcode" | "omp";
 export type JsonObject = Extract<JsonValue, Readonly<Record<string, unknown>>>;
+export type ShellSyntax = "posix" | "powershell" | "cmd" | "fish" | "unknown";
 
 export interface TextInput {
   text(): Promise<string>;
@@ -21,7 +22,7 @@ export interface ShellAssociator {
   associateShell(input: {
     readonly session: SessionRef;
     readonly command: string;
-    readonly syntax: "posix" | "powershell";
+    readonly syntax: ShellSyntax;
   }): Promise<string | undefined>;
 }
 

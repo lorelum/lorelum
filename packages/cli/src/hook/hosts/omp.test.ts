@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { $ } from "bun";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,7 +7,11 @@ import { join } from "node:path";
 import type { ListPackDetailsResult } from "@lorelum/engine";
 import { run } from "../../main.js";
 import type { HookServiceOverrides } from "../command.js";
-import { DEFAULT_AGENT_HOOK_SETTINGS, loadSubagentPackCatalogSetting } from "../agent-settings.js";
+import {
+  DEFAULT_AGENT_HOOK_SETTINGS,
+  loadAgentHookSettings,
+  loadSubagentPackCatalogSetting,
+} from "../agent-settings.js";
 
 class MemoryWriter {
   value = "";
@@ -302,33 +307,105 @@ describe("omp shell and child hint consumers", () => {
       expect(execution.stdout).toBe(`omp\n${sessionId}`);
     },
   );
+  test("Windows default Bash commands receive the actual session identity", async () => {
+    const sessionId = "parent'$(printf injected); child";
+    const command = 'printf "%s/%s" "$LORELUM_HOST_KEY" "$LORELUM_HOST_SESSION_ID"; false';
+    const result = await invoke(JSON.stringify({ event: "shell", sessionId, command }), {
+      ...services,
+      platform: "win32",
+      agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+    });
+    const response = JSON.parse(result.stdout);
+    const execution = await $`${{ raw: response.command }}`.nothrow().quiet();
+    expect(execution.exitCode).toBe(1);
+    expect(execution.stdout.toString()).toBe("omp/" + sessionId);
+    expect(execution.stderr.toString()).toBe("");
+  });
+
   test.each([
-    [
-      "darwin",
-      "export LORELUM_HOST_KEY=\u0027omp\u0027\nexport LORELUM_HOST_SESSION_ID=\u0027actual-session\u0027\n",
-    ],
-    [
-      "linux",
-      "export LORELUM_HOST_KEY=\u0027omp\u0027\nexport LORELUM_HOST_SESSION_ID=\u0027actual-session\u0027\n",
-    ],
-    [
-      "win32",
-      "$env:LORELUM_HOST_KEY = \u0027omp\u0027\n$env:LORELUM_HOST_SESSION_ID = \u0027actual-session\u0027\n",
-    ],
-  ] as const)(
-    "%s prefixes the shell command with the host shell syntax",
-    async (platform, prefix) => {
-      const command = "lore get sample.read";
-      const result = await invoke(
-        JSON.stringify({ event: "shell", sessionId: "actual-session", command }),
-        {
-          ...services,
-          platform,
-          agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
-        },
-      );
-      expect(result.stderr).toBe("");
-      expect(JSON.parse(result.stdout).command).toBe(prefix + command);
+    ["posix", "export "],
+    ["powershell", "$env:"],
+    ["fish", "set -gx "],
+  ] as const)("uses bridge syntax %s independently of platform", async (syntax, prefix) => {
+    const result = await invoke(
+      JSON.stringify({
+        event: "shell",
+        sessionId: "parent",
+        command: "lore get sample.read",
+        syntax,
+      }),
+      { ...services, platform: "win32" },
+    );
+    expect(JSON.parse(result.stdout).command).toStartWith(prefix);
+  });
+
+  test.each([
+    ["bash", "export "],
+    ["powershell", "$env:"],
+    ["fish", "set -gx "],
+  ] as const)("explicit %s shell overrides unknown detection", async (shell, prefix) => {
+    const result = await invoke(
+      JSON.stringify({
+        event: "shell",
+        sessionId: "parent",
+        command: "lore get sample.read",
+        syntax: "unknown",
+      }),
+      {
+        ...services,
+        agentHookSettings: async () => ({ shellSessionInjection: "lore-only", shell }),
+      },
+    );
+    expect(JSON.parse(result.stdout).command).toStartWith(prefix);
+  });
+
+  test("unknown syntax leaves the original command untouched", async () => {
+    const command = "lore get sample.read";
+    const result = await invoke(
+      JSON.stringify({ event: "shell", sessionId: "parent", command, syntax: "unknown" }),
+      services,
+    );
+    expect(result.stdout).toBe("{}\n");
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).command ?? command).toBe(command);
+  });
+
+  test("cmd rejects unsafe session IDs without blocking the original command", async () => {
+    const command = "lore get sample.read";
+    const result = await invoke(
+      JSON.stringify({ event: "shell", sessionId: "parent&echo injected", command, syntax: "cmd" }),
+      services,
+    );
+    expect(result.stdout).toBe("{}\n");
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).command ?? command).toBe(command);
+  });
+
+  test.skipIf(process.platform !== "win32")(
+    "CMD detection and explicit override preserve expansion, child identity, and exit status",
+    async () => {
+      const sessionId = "01931ea4-8a9f-7b3c-9a1b-123456789abc";
+      const command = "if exist %TEMP% (set LORELUM_HOST_&exit /b 23) else exit /b 22";
+      for (const syntax of ["cmd", "unknown"] as const) {
+        const result = await invoke(
+          JSON.stringify({ event: "shell", sessionId, command, syntax }),
+          {
+            ...services,
+            agentHookSettings: async () => ({
+              shellSessionInjection: "all-shell",
+              ...(syntax === "unknown" && { shell: "cmd" as const }),
+            }),
+          },
+        );
+        const execution = spawnSync(
+          "cmd.exe",
+          ["/d", "/s", "/c", `"${JSON.parse(result.stdout).command}"`],
+          { encoding: "utf8", windowsVerbatimArguments: true },
+        );
+        expect(execution.status).toBe(23);
+        expect(execution.stdout).toContain("LORELUM_HOST_KEY=omp");
+        expect(execution.stdout).toContain(`LORELUM_HOST_SESSION_ID=${sessionId}`);
+      }
     },
   );
 
@@ -340,7 +417,10 @@ describe("omp shell and child hint consumers", () => {
       const result = await invoke(JSON.stringify({ event: "shell", sessionId, command }), {
         ...services,
         platform: "win32",
-        agentHookSettings: async () => ({ shellSessionInjection: "all-shell" }),
+        agentHookSettings: async () => ({
+          shellSessionInjection: "all-shell",
+          shell: "powershell",
+        }),
       });
       const response = JSON.parse(result.stdout);
       expect(response.command.endsWith(command)).toBe(true);
@@ -359,6 +439,7 @@ describe("omp shell and child hint consumers", () => {
     { event: "shell", sessionId: "", command: "lore get sample.read" },
     { event: "shell", sessionId: "parent", command: 1 },
     { event: "shell", sessionId: "parent" },
+    { event: "shell", sessionId: "parent", command: "lore", syntax: null },
     { event: "read-hints", sessionId: "nested/session" },
     { event: "read-hints", sessionId: "nested\\session" },
     { event: "read-hints", sessionId: "." },
@@ -447,6 +528,32 @@ describe("omp shell and child hint consumers", () => {
     expect(result.stdout).toBe("{}\n");
     expect(JSON.parse(result.stdout).command ?? command).toBe(command);
     expect(result.stderr).toContain("invalid Agent settings");
+  });
+
+  test("omp shell configuration changes take effect on the next invocation and invalid values fail open", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lorelum-omp-shell-"));
+    try {
+      await mkdir(join(home, ".lorelum"));
+      const config = join(home, ".lorelum", "config.yaml");
+      const command = "lore get sample.read";
+      const payload = JSON.stringify({ event: "shell", sessionId: "parent", command });
+      const configured = {
+        ...services,
+        platform: "win32" as const,
+        agentHookSettings: () => loadAgentHookSettings({ homeDirectory: home }, "omp"),
+      };
+      const bash = await invoke(payload, configured);
+      expect(JSON.parse(bash.stdout).command).toStartWith("export ");
+      await writeFile(config, "agent:\n  omp:\n    shell: powershell\n");
+      const powershell = await invoke(payload, configured);
+      expect(JSON.parse(powershell.stdout).command).toStartWith("$env:");
+      await writeFile(config, "agent:\n  omp:\n    shell: invalid\n");
+      const invalid = await invoke(payload, configured);
+      expect(invalid.exitCode).toBe(0);
+      expect(invalid.stdout).toBe("{}\n");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
   });
 });
 

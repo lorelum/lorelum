@@ -133,3 +133,45 @@ test("invalid subagent Catalog setting does not perturb a shell-only settings co
     await rm(home, { recursive: true, force: true });
   }
 });
+
+test.each([
+  { host: "omp", value: "bash" },
+  { host: "omp", value: "powershell" },
+  { host: "omp", value: "cmd" },
+  { host: "omp", value: "fish" },
+] as const)("reads $host shell $value only for that host", async ({ host, value }) => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-agent-settings-"));
+  try {
+    await mkdir(join(home, ".lorelum"));
+    await writeFile(
+      join(home, ".lorelum", "config.yaml"),
+      `agent:\n  ${host}:\n    shell: ${value}\n`,
+    );
+    expect(await loadAgentHookSettings({ homeDirectory: home }, host)).toEqual({
+      shellSessionInjection: "lore-only",
+      shell: value,
+    });
+    expect(await loadAgentHookSettings({ homeDirectory: home })).toEqual(
+      DEFAULT_AGENT_HOOK_SETTINGS,
+    );
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("invalid omp shell affects only its own consumer", async () => {
+  const home = await mkdtemp(join(tmpdir(), "lorelum-agent-settings-"));
+  try {
+    await mkdir(join(home, ".lorelum"));
+    await writeFile(join(home, ".lorelum", "config.yaml"), "agent:\n  omp:\n    shell: invalid\n");
+    await expect(loadAgentHookSettings({ homeDirectory: home }, "omp")).rejects.toBeInstanceOf(
+      ConfigError,
+    );
+    expect(await loadAgentHookSettings({ homeDirectory: home })).toEqual(
+      DEFAULT_AGENT_HOOK_SETTINGS,
+    );
+    expect(await loadSubagentPackCatalogSetting({ homeDirectory: home })).toBe(false);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});

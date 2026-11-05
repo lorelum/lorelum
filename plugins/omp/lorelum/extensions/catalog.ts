@@ -31,9 +31,45 @@ function parseResponse(result: BridgeExecution): Record<string, unknown> {
   return response as Record<string, unknown>;
 }
 
+type ShellPathReader = (api: ExtensionAPI) => Promise<unknown>;
+
+async function readShellPath(api: ExtensionAPI): Promise<unknown> {
+  return api.pi.settings.getShellConfig().shell;
+}
+
+function requestShellSyntax(
+  input: Record<string, unknown>,
+  ctx: ExtensionContext,
+  api: ExtensionAPI,
+  getShellPath: ShellPathReader,
+): "posix" | Promise<"posix" | "powershell" | "cmd" | "fish" | "unknown"> {
+  const named = typeof input.name === "string" && input.name.trim().length > 0;
+  const localPty =
+    input.async !== true &&
+    input.pty === true &&
+    process.env.PI_NO_PTY !== "1" &&
+    ctx.hasUI &&
+    !!ctx.ui;
+  if (!named && !localPty) return "posix";
+  // The host shell is observable here; a remote client's terminal shell is not.
+  return getShellPath(api).then(
+    (path) => {
+      if (typeof path !== "string") return "unknown";
+      const name = path.split(/[\\/]/).pop()?.toLowerCase();
+      if (name && /^(sh|bash|dash|ash|ksh|ksh93|mksh|zsh)(\.exe)?$/.test(name)) return "posix";
+      if (name && /^(pwsh|powershell)(\.exe)?$/.test(name)) return "powershell";
+      if (name && /^cmd(\.exe)?$/.test(name)) return "cmd";
+      if (name && /^fish(\.exe)?$/.test(name)) return "fish";
+      return "unknown";
+    },
+    () => "unknown",
+  );
+}
+
 export function registerLorelum(
   api: ExtensionAPI,
   execute: BridgeExecutor = createBridgeExecutor(),
+  getShellPath: ShellPathReader = readShellPath,
 ): void {
   let generation = 0;
   let needsRefresh = true;
@@ -110,11 +146,19 @@ export function registerLorelum(
     try {
       const sessionId = ctx.sessionManager.getSessionId();
       if (!sessionId) return;
+      const requestedSyntax = requestShellSyntax(event.input, ctx, api, getShellPath);
+      const syntax = typeof requestedSyntax === "string" ? requestedSyntax : await requestedSyntax;
+      if (generation !== requestGeneration || shellController.signal.aborted) return;
       const response = parseResponse(
         await execute({
           cwd: ctx.cwd,
           signal: shellController.signal,
-          request: { event: "shell", sessionId, command: event.input.command },
+          request: {
+            event: "shell",
+            sessionId,
+            command: event.input.command,
+            syntax,
+          },
         }),
       );
       if (
