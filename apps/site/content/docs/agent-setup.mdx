@@ -22,6 +22,8 @@ Lorelum helps your coding agent find relevant engineering guidance while it work
 
 All official Plugins use the same Lorelum Skill, `lore query`, and `lore get`. Compare the individual features below; a Plugin installation does not imply that every host lifecycle feature is available.
 
+When an agent already uses a task or plan tool, the Skill asks it to carry specific guidance from a fully read Practice into the relevant later step and check the actual work against it. If the tool cannot safely annotate an existing step, it can add a concise, step-specific check without replacing existing tasks. Tool availability and plan persistence depend on the host and session. Lorelum does not create a plan just for reminders, and reminders do not replace reading a Practice or checking whether it applies.
+
 **Legend:** ✓ fully implemented · △ partial or opt-in support · ✗ not available · - unknown. Host links explain the limits and setup. These symbols describe functionality, not whether a particular host was included in an acceptance run.
 
 <div className="[&_table]:min-w-3xl [&_th:first-child]:w-64 [&_td:first-child]:min-w-64">
