@@ -1,6 +1,6 @@
 ---
 name: lorelum
-description: Retrieve relevant engineering Practices from installed Lorelum Packs when an engineering decision needs guidance.
+description: Find and apply Practices for design, code, tests and acceptance; never reset plans. Inspect existing phases, tasks, and statuses before updating them.
 ---
 <!-- Generated from scripts/skill-guidance/content/skill.md.tmpl and profiles.ts. Run bun run skills:generate to regenerate. -->
 
@@ -8,7 +8,9 @@ description: Retrieve relevant engineering Practices from installed Lorelum Pack
 
 ## Find and read guidance
 
-Use a Pack Catalog already available in the task context. Its descriptions and stack scopes help identify potentially relevant Packs, but do not rule out other Packs. If no usable Catalog is available and Pack discovery matters for this task, run `lore pack list --details` once. Do not run it just because the task started.
+Use a Pack Catalog already available in the task context. Its descriptions and stack scopes help identify potentially relevant Packs, but do not rule out other Packs. If no usable Catalog is available and the current decision needs new guidance discovery, run `lore pack list --details` once and reuse it. If you only need to read a known exact Practice ID, do not establish a Catalog solely for that read. Do not run the list just because the task started.
+
+If the user or current session has an existing task plan, inspect that plan with the host's task tool before changing it. Preserve its phases, tasks, and current statuses; advance a step only when its work is actually complete. Never initialize a replacement plan merely to continue the task or carry guidance. In omp, use `todo` with `op: "view"` to inspect the existing plan: `op: "init"` replaces every phase and resets statuses, even when given the same task text. If the plan cannot be inspected or safely updated, leave it unchanged and carry the guidance in working context.
 
 For a material engineering decision, describe the observed situation, the decision you face, and the constraints or failure consequences that matter. For example:
 
@@ -18,17 +20,32 @@ lore query "Our payment API can time out after a charge commits, and clients may
 
 Read the full body of each candidate you intend to use with `lore get <practice-id>`; do not act on a query summary alone. Read default text directly, use `--verbose` for all result fields as text, and use `--json` when a program needs to parse the result.
 
-When using a task or plan tool, carry guidance from a fully read Practice into the later work it materially affects. If you already know the guidance when creating a step, include the Practice ID and the concrete action or check in that step. If the plan already exists, annotate the relevant future step when the tool supports it; otherwise add one concise check item tied to that step, for example: "After implementing retries, check <practice-id>: an uncertain write must use idempotency or be reconciled before retrying." Add only checks needed for the actual task, not a duplicate implementation task or a generic "apply Practices" item. Preserve existing tasks and statuses; do not reinitialize the plan. At the relevant step, use the guidance and check the work when it remains applicable and authorized; do not force it when it conflicts with user authorization or higher-priority instructions. For a future decision that still needs guidance, a plan item may name the specific question to query before that decision; do not add a reminder for a query already completed. A summary or historical candidate is not the full Practice. Do not create a plan solely for Lorelum; without a plan or tool, carry applicable guidance in your working context.
+At each relevant material decision, identify the concrete guidance the current work needs before proceeding:
+
+- During design and planning, consider the design choice and its failure consequences.
+- After planning, before the first implementation change, consider the target project, language, module, and change.
+- Before designing or writing tests, consider the behavior, failure cases, and test boundaries. Before first choosing how to run them, consider the execution environment and isolation.
+- Before diagnosing a failure or reworking the change, consider the observed failure. Before acceptance, consider the evidence and remaining risks.
+
+For each decision, check whether applicable guidance is already available. A general instruction, Catalog entry, or query for a different decision does not by itself resolve the current question. If the decision needs guidance that is still unknown, run a targeted semantic query for that specific situation; if you know the exact relevant Practice ID but have not read it in full, `lore get` it directly. If other guidance still needs discovery, query that gap as well. Read each Practice you intend to use in full, then apply its relevant, authorized guidance to the current decision and work before moving on. Reuse already-read guidance while it remains applicable. This applies even without a plan or task tool; reassess at decision points rather than querying mechanically for every edit or repeated test.
+
+When using a task or plan tool, carry guidance from a fully read Practice into the current or future work it materially affects. If you already know the guidance when creating a step, include the Practice ID and the concrete action or check in that step. If a plan already exists, record the relevant guidance as soon as it is read, before doing the affected work or finishing its step, even when that step is already in progress. Annotate the step when the tool supports it; otherwise add one concise check item tied to the step, for example: "After implementing retries, check <practice-id>: an uncertain write must use idempotency or be reconciled before retrying." In omp, after `todo` `view`, append the check with `op: "append"`, the exact existing `phase` name, and an `items` array; do not use `init`. Add only checks needed for the actual task, not a duplicate implementation task or a generic "apply Practices" item. Preserve existing tasks and statuses. At the relevant step, use the guidance and check the work when it remains applicable and authorized; do not force it when it conflicts with user authorization or higher-priority instructions.
+
+If you cannot inspect existing tasks or safely preserve them and their statuses, do not replace the plan to add a reminder; carry the guidance in your working context instead. If a prerequisite check can only be appended after its target step, state its actual timing and carry it out before that step, not merely when its displayed list position is reached. A check intended to verify completed work belongs after that work.
+
+When a foreseeable material decision still needs guidance, record its specific question and timing in the relevant future step, or add a concise associated check if you cannot safely annotate it. For example, before implementing a project's change, query the applicable language and project constraints; before deciding verification, query the change's test boundaries and failure cases. At the step, reconsider the current task and guidance already obtained; if the question still needs research, run a targeted semantic query, read the full Practice before adopting it, and apply applicable guidance. If you already know a relevant Practice ID but have not read it in full, record a get at the appropriate step. Do not repeat a completed query merely because of a stale reminder or force guidance that no longer applies. Do not mechanically query before every edit or test. A summary or historical candidate is not the full Practice. Do not create a plan solely for Lorelum; without a plan or tool, carry applicable guidance in your working context.
 
 ## Recover a query or diagnose a failure
 
 Run the default semantic query before checking Backend, model, or index status. If it returns a preparation state, follow [semantic query recovery](references/semantic-query-recovery.md) and retry the same query when ready. Do not silently switch to keyword; use `--mode keyword` only for an intentional offline lookup or semantic-runtime diagnosis.
 
-If a failure blocks the task or the user asks for diagnosis, inspect that invocation's `diagnostics.traceId` first, then follow the recovery reference and retry when the cause is resolved:
+If a Lorelum invocation fails and blocks the task or the user asks to diagnose that invocation, inspect its original `diagnostics.traceId` first when available, then follow the recovery reference. If a non-query failure has no trace, state that limit and follow its visible error instead; do not manufacture a trace. Retry the same Lorelum command when its cause is resolved:
 
 ```sh
 lore logs --trace-id <traceId>
 ```
+
+For a project test or other non-Lorelum failure, diagnose that failure in its own task context and assess the relevant guidance gap; do not assume it has a Lorelum trace.
 
 ## Use linked Pack resources
 
