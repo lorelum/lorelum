@@ -22,6 +22,20 @@ Lorelum helps your coding agent find relevant engineering guidance while it work
 
 All official Plugins use the same Lorelum Skill, `lore query`, and `lore get`. Compare the individual features below; a Plugin installation does not imply that every host lifecycle feature is available.
 
+When an agent already uses a task or plan tool, the Skill asks it to carry specific guidance from a fully read Practice into the relevant later step and check the actual work against it. For a foreseeable material decision that still needs guidance, the Skill also asks the agent to record the specific question and when to query, such as project-specific implementation constraints before coding or test boundaries before deciding verification. At that step it asks the agent to reassess whether research is still needed, read any Practice it adopts in full, and apply it when appropriate, without querying mechanically before every edit or test. If the tool cannot safely annotate an existing step, it can add a concise, step-specific check without replacing existing tasks. Tool availability and plan persistence depend on the host and session. Lorelum does not require a plan solely for reminders, and reminders do not replace reading a Practice or checking whether it applies.
+
+The agent should inspect an existing plan before changing it, rather than initialize a replacement and reset its phases or statuses. In omp, `todo` with `op: "view"` reads the current plan; `init` replaces it. If the plan cannot be inspected or updated safely, the Skill instructs the agent to carry the guidance in working context instead.
+
+When a fully read Practice affects an existing step, including one already in progress, the Skill asks the agent to record the specific guidance before proceeding. In omp, the agent can append the check to the existing phase without replacing the plan.
+
+Throughout a task, the Skill instructs the agent to assess decision-specific guidance gaps during design and planning, after planning and before first coding, before designing or writing tests, before first choosing how to run them, before failure diagnosis or rework, and before an acceptance decision. It asks for this assessment even without a plan or task tool. When guidance still needs discovery, the Skill instructs the agent to run a targeted semantic `lore query`; a known exact Practice ID can be read directly with `lore get <practice-id>`, but that read does not replace a query if other relevant guidance still needs discovery. Already-read guidance can be reused while it remains applicable. A query finds candidates, not their full guidance: the agent should read each Practice it intends to use before applying it.
+
+These are instructions to the agent, not host-enforced guarantees. An agent may miss guidance, skip a check, or change an existing plan despite the Skill's instructions; review its actions and the plan where that matters.
+
+At each relevant decision, the Skill asks the agent to identify the question the work needs answered; a general instruction, Catalog entry, or query for a different decision does not by itself settle it. The agent should apply applicable guidance to the current work before moving on. A prerequisite check appended later in a plan should be performed before its target step; a check of completed work remains after that work.
+
+For example, before writing tests for a payment retry change, an agent might query for timeout and concurrent retry test boundaries, then get the full text of a relevant result before designing the tests. Before choosing how to run them, it should reassess whether it needs guidance on the available test environment; if further discovery is needed, the Skill asks it to query that decision separately. It can directly get a known exact Practice ID, but still needs to query if other guidance needs discovery; previously read guidance can be reused while applicable. A later failure or acceptance decision calls for the same assessment, not an automatic repeat of the earlier query.
+
 **Legend:** ✓ fully implemented · △ partial or opt-in support · ✗ not available · - unknown. Host links explain the limits and setup. These symbols describe functionality, not whether a particular host was included in an acceptance run.
 
 <div className="[&_table]:min-w-3xl [&_th:first-child]:w-64 [&_td:first-child]:min-w-64">
@@ -37,7 +51,7 @@ All official Plugins use the same Lorelum Skill, `lore query`, and `lore get`. C
 
 </div>
 
-Cursor's Catalog arrives asynchronously and can miss the first turn; the Skill lists installed Packs once when it is absent. omp's child Catalog is opt-in with `agent.subagentPackCatalog: true`, independently of read hints. Its nested task/eval children retain the originating Main's candidates, while their own reads stay in their own sessions.
+Cursor's Catalog arrives asynchronously and can miss the first turn; when it is absent and the current decision needs new guidance discovery, the Skill asks the agent to list installed Packs once. Reading a known exact Practice ID alone does not require a Catalog. omp's child Catalog is opt-in with `agent.subagentPackCatalog: true`, independently of read hints. Its nested task/eval children retain the originating Main's candidates, while their own reads stay in their own sessions.
 
 Read association requires a successful `get`, an already-running Backend, and a usable session identity. The shared [shell setting](./configuration#agent-shell-session-identity) selects eligible commands; a missed record does not change `get`. Hints contain bounded historical metadata, never full Practice bodies or proof of adoption. Main compact recovery uses only the existing compact event, not an extra startup/resume delivery. See each host's guide for the available entry points and recovery behavior.
 
